@@ -8,7 +8,7 @@ const Header = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   return (
-    <header className="bg-gradient-to-r from-white to-[#c7c7ff] border-b border-gray-200">
+    <header className="bg-gradient-to-r from-white to-[#c7c7ff]">
       <nav className="mx-auto max-w-[2000px] px-4 sm:px-6 lg:px-8 xl:px-12">
         <div className="flex h-16 items-center">
           {/* Logo */}
