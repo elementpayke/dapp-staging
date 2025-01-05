@@ -1,4 +1,3 @@
-// src/components/dashboard/QuickActions.tsx
 import { FC } from "react";
 
 const QuickActions: FC = () => {

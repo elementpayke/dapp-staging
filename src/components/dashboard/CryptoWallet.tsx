@@ -1,4 +1,3 @@
-// src/components/dashboard/CryptoWallet.tsx
 import { FC } from "react";
 import Link from "next/link";
 

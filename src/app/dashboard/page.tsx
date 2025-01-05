@@ -1,4 +1,3 @@
-// src/app/dashboard/page.tsx
 import Sidebar from "@/components/dashboard/Sidebar";
 import DashboardHeader from "@/components/dashboard/DashboardHeader";
 import CryptoWallet from "@/components/dashboard/CryptoWallet";
