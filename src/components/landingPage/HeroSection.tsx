@@ -35,7 +35,7 @@ const Hero = () => {
       <div className="max-w-[2000px] mx-auto h-full px-4 sm:px-6 lg:px-8 xl:px-12 py-6 md:py-8 relative">
         {/* Top Navigation Pills - Updated Design */}
         <div className="inline-flex items-center bg-white/90 backdrop-blur-md rounded-full px-3 py-2 gap-2 sm:gap-4 shadow-sm text-sm sm:text-base">
-          <div className="flex items-center gap-1 bg-gray-100/80 rounded-full px-2 sm:px-3 py-1.5">
+          <div className="flex items-center gap-1 bg-[#d1c6bc] rounded-full px-2 sm:px-3 py-1.5">
             <Sparkles className="w-3 h-3 sm:w-4 sm:h-4 text-[#0514eb]" />
             <span className="text-gray-800 font-medium">New</span>
           </div>
