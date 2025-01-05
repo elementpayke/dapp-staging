@@ -41,7 +41,7 @@ const Header = () => {
             >
               FAQs
             </Link>
-            <button className="bg-gradient-to-r from-[#0514eb] to-[#de0413] text-white px-4 py-2 rounded-lg text-sm font-medium hover:opacity-90 transition-opacity">
+            <button className="bg-gradient-to-r from-[#0514eb] via-[#9400d3] to-[#de0413] text-white px-6 py-2.5 rounded-full text-base font-medium hover:opacity-90 transition-opacity">
               Create a Wallet
             </button>
           </div>
@@ -83,7 +83,7 @@ const Header = () => {
                 FAQs
               </Link>
               <div className="pt-2 pb-1">
-                <button className="w-full bg-gradient-to-r from-[#0514eb] to-[#de0413] text-white px-4 py-2 rounded-lg text-base font-medium hover:opacity-90 transition-opacity">
+                <button className="w-full bg-gradient-to-r from-[#0514eb] via-[#9400d3] to-[#de0413] text-white px-6 py-2.5 rounded-full text-base font-medium hover:opacity-90 transition-opacity">
                   Create a Wallet
                 </button>
               </div>
