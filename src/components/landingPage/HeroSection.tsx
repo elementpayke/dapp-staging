@@ -36,10 +36,10 @@ const Hero = () => {
         {/* Top Navigation Pills - Updated Design */}
         <div className="inline-flex items-center bg-white/90 backdrop-blur-md rounded-full px-3 py-2 gap-2 sm:gap-4 shadow-sm text-sm sm:text-base">
           <div className="flex items-center gap-1 bg-gray-100/80 rounded-full px-2 sm:px-3 py-1.5">
-            <Sparkles className="w-3 h-3 sm:w-4 sm:h-4 text-blue-600" />
+            <Sparkles className="w-3 h-3 sm:w-4 sm:h-4 text-[#0514eb]" />
             <span className="text-gray-800 font-medium">New</span>
           </div>
-          <span className="bg-gradient-to-r from-blue-600 via-purple-600 to-red-600 bg-clip-text text-transparent font-semibold whitespace-nowrap">
+          <span className="bg-gradient-to-r from-[#0514eb] to-[#de0413] bg-clip-text text-transparent font-semibold whitespace-nowrap">
             Create a Virtual Card
           </span>
           <span className="text-gray-400">→</span>
@@ -60,14 +60,14 @@ const Hero = () => {
 
             {/* CTA Buttons */}
             <div className="flex flex-wrap items-center gap-3 sm:gap-4 mb-8 sm:mb-12 xl:mb-16">
-              <button className="bg-gradient-to-r from-blue-600 to-red-600 text-white px-6 sm:px-8 py-3 sm:py-4 rounded-full text-base sm:text-lg xl:text-xl font-medium hover:opacity-90 transition-all whitespace-nowrap">
+              <button className="bg-gradient-to-r from-[#0514eb] to-[#de0413] text-white px-6 sm:px-8 py-3 sm:py-4 rounded-full text-base sm:text-lg xl:text-xl font-medium hover:opacity-90 transition-all whitespace-nowrap">
                 Create a Wallet
               </button>
-              <button className="bg-white text-blue-600 px-6 sm:px-8 py-3 sm:py-4 rounded-full text-base sm:text-lg xl:text-xl font-medium border-2 border-blue-600 hover:bg-blue-50 transition-all whitespace-nowrap">
+              <button className="bg-white text-[#0514eb] px-6 sm:px-8 py-3 sm:py-4 rounded-full text-base sm:text-lg xl:text-xl font-medium border-2 border-[#0514eb] hover:bg-blue-50 transition-all whitespace-nowrap">
                 Connect a Wallet
               </button>
               <div className="flex items-center gap-2 text-gray-600 mt-2 sm:mt-0">
-                <div className="text-blue-600">
+                <div className="text-[#0514eb]">
                   <svg
                     className="w-4 h-4 sm:w-5 sm:h-5"
                     viewBox="0 0 24 24"
