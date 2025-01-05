@@ -1,11 +1,11 @@
 import Header from "@/components/Header";
-import Hero from "@/components/Hero";
+import LandingPage from "@/components/LandingPage";
 
 export default function Home() {
   return (
     <main>
       <Header />
-      <Hero />
+      <LandingPage />
     </main>
   );
 }
