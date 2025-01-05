@@ -1,4 +1,3 @@
-// This is  a placeholder for header component
 "use client";
 
 import Link from "next/link";
@@ -9,39 +8,42 @@ const Header = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   return (
-    <header className="bg-white shadow-sm">
-      <nav className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+    <header className="bg-gradient-to-r from-white to-[#c7c7ff] shadow-sm relative">
+      <nav className="mx-auto max-w-[2000px] px-4 sm:px-6 lg:px-8 xl:px-12">
         <div className="flex h-16 justify-between items-center">
           {/* Logo */}
           <div className="flex-shrink-0">
-            <Link href="/" className="text-2xl font-bold text-gray-900">
+            <Link
+              href="/"
+              className="text-xl sm:text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent"
+            >
               Logo
             </Link>
           </div>
 
           {/* Desktop Navigation */}
-          <div className="hidden md:flex md:space-x-8">
+          <div className="hidden md:flex md:items-center md:space-x-8">
             <Link
               href="/"
-              className="text-gray-700 hover:text-gray-900 px-3 py-2"
+              className="text-gray-700 hover:text-blue-600 px-3 py-2 text-sm lg:text-base transition-colors duration-200"
             >
               Home
             </Link>
             <Link
               href="/about"
-              className="text-gray-700 hover:text-gray-900 px-3 py-2"
+              className="text-gray-700 hover:text-blue-600 px-3 py-2 text-sm lg:text-base transition-colors duration-200"
             >
               About
             </Link>
             <Link
               href="/services"
-              className="text-gray-700 hover:text-gray-900 px-3 py-2"
+              className="text-gray-700 hover:text-blue-600 px-3 py-2 text-sm lg:text-base transition-colors duration-200"
             >
               Services
             </Link>
             <Link
               href="/contact"
-              className="text-gray-700 hover:text-gray-900 px-3 py-2"
+              className="text-gray-700 hover:text-blue-600 px-3 py-2 text-sm lg:text-base transition-colors duration-200"
             >
               Contact
             </Link>
@@ -52,7 +54,8 @@ const Header = () => {
             <button
               type="button"
               onClick={() => setIsMenuOpen(!isMenuOpen)}
-              className="inline-flex items-center justify-center p-2 rounded-md text-gray-700 hover:text-gray-900 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-blue-500"
+              className="inline-flex items-center justify-center p-2 rounded-md text-gray-700 hover:text-blue-600 hover:bg-blue-50 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors duration-200"
+              aria-expanded={isMenuOpen}
             >
               <span className="sr-only">Open main menu</span>
               {isMenuOpen ? <X size={24} /> : <Menu size={24} />}
@@ -62,29 +65,29 @@ const Header = () => {
 
         {/* Mobile Navigation */}
         {isMenuOpen && (
-          <div className="md:hidden">
-            <div className="space-y-1 pt-2 pb-3">
+          <div className="md:hidden absolute top-full left-0 right-0 bg-white/95 backdrop-blur-sm shadow-lg z-50">
+            <div className="space-y-1 px-4 py-3">
               <Link
                 href="/"
-                className="block px-3 py-2 text-base font-medium text-gray-700 hover:text-gray-900 hover:bg-gray-50"
+                className="block px-3 py-2 text-base font-medium text-gray-700 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors duration-200"
               >
                 Home
               </Link>
               <Link
                 href="/about"
-                className="block px-3 py-2 text-base font-medium text-gray-700 hover:text-gray-900 hover:bg-gray-50"
+                className="block px-3 py-2 text-base font-medium text-gray-700 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors duration-200"
               >
                 About
               </Link>
               <Link
                 href="/services"
-                className="block px-3 py-2 text-base font-medium text-gray-700 hover:text-gray-900 hover:bg-gray-50"
+                className="block px-3 py-2 text-base font-medium text-gray-700 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors duration-200"
               >
                 Services
               </Link>
               <Link
                 href="/contact"
-                className="block px-3 py-2 text-base font-medium text-gray-700 hover:text-gray-900 hover:bg-gray-50"
+                className="block px-3 py-2 text-base font-medium text-gray-700 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors duration-200"
               >
                 Contact
               </Link>
