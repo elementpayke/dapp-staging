@@ -10,7 +10,7 @@ const Header = () => {
   return (
     <header className="bg-gradient-to-r from-white to-[#c7c7ff] border-b border-gray-200">
       <nav className="mx-auto max-w-[2000px] px-4 sm:px-6 lg:px-8 xl:px-12">
-        <div className="flex h-16 justify-between items-center">
+        <div className="flex h-16 items-center">
           {/* Logo */}
           <Link href="/" className="flex items-center space-x-2">
             <div className="w-8 h-8 rounded-lg bg-[#4339CA] flex items-center justify-center">
@@ -21,8 +21,8 @@ const Header = () => {
             </span>
           </Link>
 
-          {/* Desktop Navigation */}
-          <div className="hidden md:flex items-center space-x-8">
+          {/* Desktop Navigation - Centered */}
+          <div className="hidden md:flex flex-1 items-center justify-center space-x-12">
             <Link
               href="/payments"
               className="text-gray-600 hover:text-gray-900 text-sm font-medium transition-colors"
@@ -41,13 +41,17 @@ const Header = () => {
             >
               FAQs
             </Link>
+          </div>
+
+          {/* CTA Button */}
+          <div className="hidden md:block">
             <button className="bg-gradient-to-r from-[#0514eb] via-[#9400d3] to-[#de0413] text-white px-6 py-2.5 rounded-full text-base font-medium hover:opacity-90 transition-opacity">
               Create a Wallet
             </button>
           </div>
 
           {/* Mobile menu button */}
-          <div className="md:hidden">
+          <div className="md:hidden ml-auto">
             <button
               type="button"
               onClick={() => setIsMenuOpen(!isMenuOpen)}
