@@ -35,12 +35,14 @@ const Sidebar = () => {
   return (
     <>
       {/* Mobile Menu Button */}
-      <button
-        onClick={toggleSidebar}
-        className="lg:hidden fixed top-4 left-4 z-50 p-2 rounded-lg"
-      >
-        <Menu size={24} className="text-black" />
-      </button>
+      {!isOpen && (
+        <button
+          onClick={toggleSidebar}
+          className="lg:hidden fixed top-4 left-4 z-50 p-2 rounded-lg"
+        >
+          <Menu size={24} className="text-black" />
+        </button>
+      )}
 
       {/* Overlay for mobile */}
       {isOpen && (
