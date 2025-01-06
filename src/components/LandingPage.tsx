@@ -1,3 +1,4 @@
+import FeaturesSection from "./landingPage/Features";
 import HeroSection from "./landingPage/HeroSection";
 import WhyWeRock from "./landingPage/WhyWeRock";
 
@@ -6,6 +7,7 @@ const LandingPage = () => {
     <div>
       <HeroSection />
       <WhyWeRock />
+      <FeaturesSection />
     </div>
   );
 };
