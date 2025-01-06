@@ -36,23 +36,39 @@ const CryptoPrice: React.FC<CryptoPriceProps> = ({
   };
 
   return (
-    <div className="flex items-center gap-3">
-      <img src={image} alt={symbol} className="w-6 h-6" />
+    <div className="flex items-center gap-2 sm:gap-3 min-w-[200px] p-2 sm:p-0">
+      {/* Note: To use Next/Image, add the following to next.config.js:
+         images: {
+           domains: ['assets.coingecko.com', 'coin-images.coingecko.com'],
+         }
+      */}
+      <div className="relative w-5 h-5 sm:w-6 sm:h-6 flex-shrink-0">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={image}
+          alt={symbol}
+          className="w-full h-full object-contain"
+        />
+      </div>
       <span
-        className={`font-medium ${
+        className={`font-medium text-sm sm:text-base ${
           symbolColors[symbol as keyof typeof symbolColors]
         }`}
       >
         {symbol}
       </span>
-      <span className="text-gray-900">
+      <span className="text-gray-900 text-sm sm:text-base">
         $
         {price.toLocaleString(undefined, {
           minimumFractionDigits: 2,
           maximumFractionDigits: 2,
         })}
       </span>
-      <span className={`${isPositive ? "text-green-500" : "text-red-500"}`}>
+      <span
+        className={`${
+          isPositive ? "text-green-500" : "text-red-500"
+        } text-sm sm:text-base ml-auto sm:ml-0`}
+      >
         {isPositive ? "↑" : "↓"} {Math.abs(change).toFixed(2)}%
       </span>
     </div>
@@ -110,29 +126,25 @@ const CryptoPrices: React.FC = () => {
 
   if (error) {
     return (
-      <div className="flex items-center gap-2 text-red-500 py-4">
+      <div className="flex items-center gap-2 text-red-500 py-2 sm:py-4 px-4 sm:px-0">
         <span>⚠️</span> {error}
       </div>
     );
   }
 
   return (
-    <div className="flex gap-8 py-4 overflow-x-auto items-center">
+    <div className="flex flex-col sm:flex-row sm:gap-8 py-2 sm:py-4 overflow-x-auto items-start sm:items-center">
       {loading ? (
-        <div className="flex items-center gap-2 text-gray-500">
+        <div className="flex items-center gap-2 text-gray-500 px-4 sm:px-0">
           <Loader2 className="w-4 h-4 animate-spin" />
           Loading prices...
         </div>
       ) : (
-        <>
+        <div className="flex flex-col sm:flex-row sm:gap-8 w-full">
           {prices.map((price) => (
             <CryptoPrice key={price.symbol} {...price} />
           ))}
-          <button className="ml-auto bg-gray-50 px-3 py-1 rounded-lg text-gray-600 flex items-center gap-2">
-            <span className="text-xl">🧮</span>
-            Calculator
-          </button>
-        </>
+        </div>
       )}
     </div>
   );
