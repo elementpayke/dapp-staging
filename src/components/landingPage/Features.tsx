@@ -103,7 +103,7 @@ const FeaturesSection = () => {
         {/* Section Title */}
         <div className="text-center mb-8 lg:mb-10">
           <div className="inline-flex flex-col items-center">
-            <h2 className="text-3xl lg:text-4xl font-semibold text-[#546894] mb-3">
+            <h2 className="text-xl md:text-2xl lg:text-3xl font-semibold text-[#546894] mb-4">
               What you can do with ElementsPay
             </h2>
             <div className="h-0.5 bg-[#a6a6a6] w-full"></div>
