@@ -31,7 +31,7 @@ const IMAGES = {
 
 const Hero = () => {
   return (
-    <div className="bg-gradient-to-r from-white to-[#c7c7ff] h-[calc(100vh-64px)] overflow-hidden">
+    <div className="bg-gradient-to-r from-white to-[#c7c7ff] min-h-[calc(100vh-64px)] overflow-x-hidden">
       <div className="max-w-[2000px] mx-auto h-full px-4 sm:px-6 lg:px-8 xl:px-12 py-6 md:py-8 relative">
         {/* Top Navigation Pills - Updated Design */}
         <div className="inline-flex items-center bg-white/90 backdrop-blur-md rounded-full px-3 py-2 gap-2 sm:gap-4 shadow-sm text-sm sm:text-base">
@@ -46,7 +46,7 @@ const Hero = () => {
         </div>
 
         {/* Main Content Grid */}
-        <div className="grid lg:grid-cols-2 gap-8 xl:gap-12 h-[calc(100%-3rem)] mt-6 sm:mt-8">
+        <div className="grid lg:grid-cols-2 gap-8 xl:gap-12 mt-6 sm:mt-8">
           {/* Left Column */}
           <div className="flex flex-col justify-center max-w-3xl">
             <h1 className="text-3xl sm:text-4xl md:text-5xl xl:text-6xl font-bold leading-tight mb-4 sm:mb-6 text-black/90">
@@ -114,8 +114,8 @@ const Hero = () => {
           </div>
 
           {/* Right Column - Image */}
-          <div className="relative h-full flex items-start justify-center lg:justify-end pt-4 sm:pt-8">
-            <div className="relative w-full max-w-2xl lg:max-w-none h-[70vh] lg:h-[85%]">
+          <div className="relative w-full min-h-[400px] lg:h-full flex items-center justify-center lg:justify-end mt-8 lg:mt-0">
+            <div className="relative w-full max-w-md lg:max-w-none h-[400px] lg:h-[600px]">
               <Image
                 src={IMAGES.heroMain.src}
                 alt={IMAGES.heroMain.alt}
