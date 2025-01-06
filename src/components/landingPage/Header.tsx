@@ -1,20 +1,47 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Menu, X } from "lucide-react";
 
 const Header = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
-  // Prevent body scroll when menu is open
-  if (typeof window !== "undefined") {
+  // Handle body scroll lock
+  useEffect(() => {
     if (isMenuOpen) {
+      // Disable scroll
       document.body.style.overflow = "hidden";
+      document.body.style.height = "100vh";
+      document.body.style.touchAction = "none";
+
+      // Get the current scroll position
+      const scrollY = window.scrollY;
+      document.body.style.position = "fixed";
+      document.body.style.top = `-${scrollY}px`;
+      document.body.style.width = "100%";
     } else {
-      document.body.style.overflow = "unset";
+      // Re-enable scroll
+      const scrollY = document.body.style.top;
+      document.body.style.position = "";
+      document.body.style.top = "";
+      document.body.style.height = "";
+      document.body.style.overflow = "";
+      document.body.style.touchAction = "";
+      document.body.style.width = "";
+      window.scrollTo(0, parseInt(scrollY || "0") * -1);
     }
-  }
+
+    // Cleanup function
+    return () => {
+      document.body.style.position = "";
+      document.body.style.top = "";
+      document.body.style.height = "";
+      document.body.style.overflow = "";
+      document.body.style.touchAction = "";
+      document.body.style.width = "";
+    };
+  }, [isMenuOpen]);
 
   return (
     <header className="bg-gradient-to-r from-white to-[#c7c7ff]">
@@ -75,10 +102,10 @@ const Header = () => {
 
         {/* Mobile Navigation */}
         {isMenuOpen && (
-          <div className="md:hidden fixed inset-0 bg-white z-50 overflow-y-auto">
-            <div className="min-h-screen flex flex-col">
+          <div className="md:hidden fixed inset-0 bg-white z-50">
+            <div className="h-full flex flex-col">
               {/* Close Button */}
-              <div className="sticky top-0 bg-white z-10 flex justify-end p-4 border-b border-gray-100">
+              <div className="flex justify-end p-4 border-b border-gray-100">
                 <button
                   onClick={() => setIsMenuOpen(false)}
                   className="p-2 text-gray-600 hover:text-gray-900"
