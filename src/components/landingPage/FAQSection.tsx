@@ -71,19 +71,72 @@ const FAQSection = () => {
         {/* FAQ Items */}
         <div className="max-w-3xl mx-auto">
           {faqs.map((faq, index) => (
-            <div key={index} className="border-b border-gray-200">
+            <div
+              key={index}
+              className={`${
+                openIndex === index
+                  ? "border-b-2 border-gradient"
+                  : "border-b border-gray-200"
+              }`}
+              style={{
+                ...(openIndex === index
+                  ? {
+                      borderImage:
+                        "linear-gradient(to right, #0514eb, #de0413) 1",
+                    }
+                  : {}),
+              }}
+            >
               <button
-                className="w-full text-left py-6 flex items-center justify-between transition-colors duration-200 hover:bg-gray-50"
+                className={`w-full text-left py-6 flex items-center justify-between transition-colors duration-200 hover:bg-gray-50`}
                 onClick={() => toggleAccordion(index)}
               >
                 <div className="flex items-center gap-4">
-                  <MessageCircle className="w-6 h-6 text-gray-400 flex-shrink-0" />
-                  <span className="text-lg text-gray-900">{faq.question}</span>
+                  <MessageCircle
+                    className={`w-6 h-6 ${
+                      openIndex === index
+                        ? "text-transparent bg-clip-text"
+                        : "text-gray-400"
+                    } flex-shrink-0`}
+                    style={{
+                      ...(openIndex === index && {
+                        background:
+                          "linear-gradient(to right, #0514eb, #de0413)",
+                        WebkitBackgroundClip: "text",
+                      }),
+                    }}
+                  />
+                  <span
+                    className={`text-lg ${
+                      openIndex === index
+                        ? "text-transparent bg-clip-text"
+                        : "text-gray-900"
+                    }`}
+                    style={{
+                      ...(openIndex === index && {
+                        background:
+                          "linear-gradient(to right, #0514eb, #de0413)",
+                        WebkitBackgroundClip: "text",
+                      }),
+                    }}
+                  >
+                    {faq.question}
+                  </span>
                 </div>
                 <ChevronDown
-                  className={`w-6 h-6 text-gray-400 transform transition-transform duration-200 ${
+                  className={`w-6 h-6 ${
+                    openIndex === index
+                      ? "text-transparent bg-clip-text"
+                      : "text-gray-400"
+                  } transform transition-transform duration-200 ${
                     openIndex === index ? "rotate-180" : ""
                   }`}
+                  style={{
+                    ...(openIndex === index && {
+                      background: "linear-gradient(to right, #0514eb, #de0413)",
+                      WebkitBackgroundClip: "text",
+                    }),
+                  }}
                 />
               </button>
               <div
