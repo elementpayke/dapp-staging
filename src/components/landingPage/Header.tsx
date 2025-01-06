@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { Menu } from "lucide-react";
+import { Menu, X } from "lucide-react";
 
 const Header = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -68,28 +68,42 @@ const Header = () => {
         {isMenuOpen && (
           <div className="md:hidden fixed inset-0 bg-white z-50">
             <div className="flex flex-col h-full">
+              {/* Close Button */}
+              <div className="flex justify-end p-4">
+                <button
+                  onClick={() => setIsMenuOpen(false)}
+                  className="p-2 text-gray-600 hover:text-gray-900"
+                >
+                  <X size={24} />
+                </button>
+              </div>
+
               {/* Navigation Links */}
-              <div className="flex-1 px-6 py-8 space-y-6">
+              <div className="flex-1 px-6 py-4 space-y-6">
                 <Link
                   href="/"
+                  onClick={() => setIsMenuOpen(false)}
                   className="block text-2xl font-medium text-gray-900"
                 >
                   Home
                 </Link>
                 <Link
                   href="/payments"
+                  onClick={() => setIsMenuOpen(false)}
                   className="block text-2xl font-medium text-gray-900"
                 >
                   Payments
                 </Link>
                 <Link
                   href="/virtual-cards"
+                  onClick={() => setIsMenuOpen(false)}
                   className="block text-2xl font-medium text-gray-900"
                 >
                   Virtual cards
                 </Link>
                 <Link
                   href="/faqs"
+                  onClick={() => setIsMenuOpen(false)}
                   className="block text-2xl font-medium text-gray-900"
                 >
                   FAQs
@@ -101,24 +115,28 @@ const Header = () => {
                 <div className="grid grid-cols-2 gap-y-6">
                   <Link
                     href="/about"
+                    onClick={() => setIsMenuOpen(false)}
                     className="text-lg font-medium text-gray-600"
                   >
                     About us
                   </Link>
                   <Link
                     href="/support"
+                    onClick={() => setIsMenuOpen(false)}
                     className="text-lg font-medium text-gray-600"
                   >
                     Support
                   </Link>
                   <Link
                     href="/legal"
+                    onClick={() => setIsMenuOpen(false)}
                     className="text-lg font-medium text-gray-600"
                   >
                     Legal
                   </Link>
                   <Link
                     href="/contact"
+                    onClick={() => setIsMenuOpen(false)}
                     className="text-lg font-medium text-gray-600"
                   >
                     Contact
@@ -126,6 +144,7 @@ const Header = () => {
                 </div>
                 <Link
                   href="/cookie-settings"
+                  onClick={() => setIsMenuOpen(false)}
                   className="block mt-6 text-lg font-medium text-gray-600"
                 >
                   Cookie settings
