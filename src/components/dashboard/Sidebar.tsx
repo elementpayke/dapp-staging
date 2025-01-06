@@ -39,7 +39,7 @@ const Sidebar = () => {
         onClick={toggleSidebar}
         className="lg:hidden fixed top-4 left-4 z-50 p-2 rounded-lg"
       >
-        <Menu size={24} />
+        <Menu size={24} className="text-black" />
       </button>
 
       {/* Overlay for mobile */}
@@ -70,7 +70,7 @@ const Sidebar = () => {
                 onClick={toggleSidebar}
                 className="lg:hidden p-1 hover:bg-gray-100 rounded-lg transition-colors"
               >
-                <X size={20} />
+                <X size={20} className="text-black" />
               </button>
             )}
           </div>
