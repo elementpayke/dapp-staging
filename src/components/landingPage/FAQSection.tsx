@@ -9,35 +9,39 @@ interface FAQItem {
 
 const faqs: FAQItem[] = [
   {
-    question: "What are the opening hours?",
+    question: "How do I deposit crypto with ElementPay?",
     answer:
-      "Our co-working space is open 24/7 for all monthly members. Day pass users can access the space from 8:00 AM to 8:00 PM.",
+      "You can easily deposit crypto using M-Pesa instantly. Simply connect or create your wallet and enjoy the seamless experience.",
   },
   {
-    question: "Is the Wi-Fi free and public?",
+    question: "How do I spend my crypto with ElementPay?",
     answer:
-      "Yes, high-speed Wi-Fi is included free with all memberships and day passes. We provide a secure, private network for our members.",
+      "Spending crypto is simple with ElementPay! Pay directly with Ethereum or stablecoins. If the merchant doesn&apos;t accept crypto, ElementPay converts it to fiat and sends it to their M-Pesa or bank account.",
   },
   {
-    question: "What is the minimum amount I have to spend while staying here?",
+    question: "What are the fees?",
     answer:
-      "There is no minimum spend requirement beyond your membership or day pass fee. All amenities are included in your basic access fee.",
+      "ElementPay covers all transaction fees, ensuring you save money while using our services. Enjoy fast, secure, and cost-free transactions.",
   },
   {
-    question:
-      "Do I get a refund if I pay for the monthly package and don't finish my time?",
+    question: "What do I need to sign up?",
     answer:
-      "While we don't offer refunds for unused time, you can pause your membership for up to 30 days or transfer it to another person.",
+      "Nothing! There&apos;s no complicated sign-up process. Just go to our website, link your wallet, and start using it immediately.",
   },
   {
-    question: "Is there a package for startups?",
+    question: "Can I withdraw my crypto back to fiat?",
     answer:
-      "Yes! We offer special startup packages that include dedicated desk space, meeting room credits, and networking events. Contact us for details.",
+      "Yes! Use our offramp service to convert crypto to fiat and withdraw directly to your M-Pesa or bank account effortlessly.",
   },
   {
-    question: "What are the payment modes if no credit card is required?",
+    question: "Do I need a specific wallet to use ElementPay?",
     answer:
-      "We accept bank transfers, mobile money payments, and cash. Contact our front desk for more payment options.",
+      "Any Ethereum-compatible wallet, like MetaMask, Trust Wallet, or Coinbase Wallet, works with ElementPay. Just connect and start transacting seamlessly.",
+  },
+  {
+    question: "I have another question.",
+    answer:
+      "We are always happy to help! Reach out to us via email or connect with us on our social media platforms for any further questions or assistance.",
   },
 ];
 
