@@ -95,12 +95,12 @@ const FeaturesSection = () => {
   ];
 
   return (
-    <div className="min-h-screen lg:h-screen bg-gradient-to-r from-[#F5F5F5] to-[#E6E6FF] py-4 lg:py-12 overflow-hidden">
+    <div className="min-h-screen lg:h-screen bg-[#e6e9ed] py-4 lg:py-12 overflow-hidden">
       <div className="max-w-[1800px] mx-auto px-4 lg:px-8 h-full flex flex-col relative">
         {/* Section Title */}
         <div className="text-center mb-8 lg:mb-10">
           <div className="inline-flex flex-col items-center">
-            <h2 className="text-3xl lg:text-4xl font-semibold text-[#546894] mb-3">
+            <h2 className="text-xl md:text-2xl lg:text-3xl font-semibold text-[#546894] mb-3">
               What you can do with ElementsPay
             </h2>
             <div className="h-0.5 bg-[#a6a6a6] w-full"></div>
