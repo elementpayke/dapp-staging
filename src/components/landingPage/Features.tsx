@@ -34,15 +34,6 @@ const IMAGES = {
 const FeaturesSection = () => {
   const [activeCard, setActiveCard] = useState(0);
 
-  // Auto-advance carousel
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setActiveCard((current) => (current + 1) % features.length);
-    }, 5000);
-
-    return () => clearInterval(timer);
-  }, []);
-
   const features = [
     {
       title: (
@@ -93,6 +84,15 @@ const FeaturesSection = () => {
       ],
     },
   ];
+
+  // Auto-advance carousel
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setActiveCard((current) => (current + 1) % features.length);
+    }, 5000);
+
+    return () => clearInterval(timer);
+  }, [features.length]);
 
   return (
     <div className="min-h-screen lg:h-screen bg-[#e6e9ed] py-4 lg:py-12 overflow-hidden">
