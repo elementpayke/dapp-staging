@@ -15,11 +15,14 @@ export default function Dashboard() {
       <Sidebar />
 
       {/* Main Content */}
-      <div className="flex-1 ml-64">
+      <div className="flex-1 w-full lg:ml-64">
         {/* Fixed Header */}
-        <div className="bg-white py-3 px-8 border-b">
+        <div className="bg-white py-3 px-4 sm:px-8 border-b">
           {/* Top Navigation */}
           <nav className="flex justify-end items-center gap-4">
+            {/* Added margin for mobile menu button */}
+            <div className="w-8 h-8 lg:hidden"></div>
+
             {/* Notification Bell */}
             <button className="p-2 hover:bg-gray-100 rounded-full">
               <Bell className="w-5 h-5 text-gray-600" />
@@ -44,7 +47,7 @@ export default function Dashboard() {
         </div>
 
         {/* Scrollable Content */}
-        <div className="p-8 space-y-6 overflow-y-auto max-h-[calc(100vh-64px)]">
+        <div className="p-4 sm:p-8 space-y-6 overflow-y-auto max-h-[calc(100vh-64px)]">
           <DashboardHeader />
           <CryptoPrices />
           <CryptoWallet />
