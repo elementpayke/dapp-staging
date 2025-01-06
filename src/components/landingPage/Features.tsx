@@ -34,6 +34,15 @@ const IMAGES = {
 const FeaturesSection = () => {
   const [activeCard, setActiveCard] = useState(0);
 
+  // Auto-advance carousel
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setActiveCard((current) => (current + 1) % features.length);
+    }, 5000);
+
+    return () => clearInterval(timer);
+  }, []);
+
   const features = [
     {
       title: (
@@ -44,6 +53,7 @@ const FeaturesSection = () => {
       description:
         "With ElementsPay, you can instantly pay or send money to a mobile number, using your crypto tokens in any wallet you own. Pay to a TILL, Pochi La Biashara or any PayBill.",
       image: IMAGES.card1,
+      backgroundColor: "#fcf7f7",
       subFeatures: [
         { text: "Pay to M-PESA, or any bank", active: true },
         { text: "Make instant payments, no delays", active: false },
@@ -59,6 +69,7 @@ const FeaturesSection = () => {
       description:
         "Funds running low on your wallet? Deposit USDC and tokens to your chosen wallet and keep them securely locked for future transactions. You watch your funds grow as the market changes.",
       image: IMAGES.card2,
+      backgroundColor: "#f0faf9",
       subFeatures: [
         {
           text: "Deposit to your wallet from MPESA, Airtel Money or Bank",
@@ -77,6 +88,7 @@ const FeaturesSection = () => {
       description:
         "You can make purchases across borders using a virtual card. ElementsPay allows you to create a virtual card, much like a Visa or Mastercard. Use your crypto to pay for Netflix or buy goods on Google Play.",
       image: IMAGES.card3,
+      backgroundColor: "#faf0fa",
       subFeatures: [
         { text: "Pay to M-PESA, Airtel Money or MTN", active: true },
         { text: "Make instant payments, no delays", active: false },
@@ -85,22 +97,13 @@ const FeaturesSection = () => {
     },
   ];
 
-  // Auto-advance carousel
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setActiveCard((current) => (current + 1) % features.length);
-    }, 5000);
-
-    return () => clearInterval(timer);
-  }, [features.length]);
-
   return (
-    <div className="min-h-screen lg:h-screen bg-[#e6e9ed] py-4 lg:py-12 overflow-hidden">
+    <div className="min-h-screen lg:h-screen bg-gradient-to-r from-[#F5F5F5] to-[#E6E6FF] py-4 lg:py-12 overflow-hidden">
       <div className="max-w-[1800px] mx-auto px-4 lg:px-8 h-full flex flex-col relative">
         {/* Section Title */}
         <div className="text-center mb-8 lg:mb-10">
           <div className="inline-flex flex-col items-center">
-            <h2 className="text-xl md:text-2xl lg:text-3xl font-semibold text-[#546894] mb-3">
+            <h2 className="text-3xl lg:text-4xl font-semibold text-[#546894] mb-3">
               What you can do with ElementsPay
             </h2>
             <div className="h-0.5 bg-[#a6a6a6] w-full"></div>
@@ -171,7 +174,10 @@ const FeaturesSection = () => {
             </div>
 
             {/* Right Column - Image */}
-            <div className="relative h-[300px] lg:h-[500px] bg-[#FFF5F5] rounded-[32px] p-4 lg:p-8 order-1 lg:order-2 mb-6 lg:mb-0">
+            <div
+              className={`relative h-[300px] lg:h-[500px] rounded-[32px] p-4 lg:p-8 order-1 lg:order-2 mb-6 lg:mb-0`}
+              style={{ backgroundColor: features[activeCard].backgroundColor }}
+            >
               {features.map((feature, index) => (
                 <div
                   key={index}
