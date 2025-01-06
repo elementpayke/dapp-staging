@@ -37,9 +37,9 @@ const Sidebar = () => {
       {/* Mobile Menu Button */}
       <button
         onClick={toggleSidebar}
-        className="lg:hidden fixed top-4 left-4 z-50 p-2 rounded-lg bg-white shadow-md"
+        className="lg:hidden fixed top-4 left-4 z-50 p-2 rounded-lg"
       >
-        {isOpen ? <X size={24} /> : <Menu size={24} />}
+        <Menu size={24} />
       </button>
 
       {/* Overlay for mobile */}
@@ -60,11 +60,19 @@ const Sidebar = () => {
       `}
       >
         <div className="flex flex-col h-full">
-          {/* Logo */}
-          <div className="p-6 border-b">
+          {/* Logo and Close Button Container */}
+          <div className="p-6 border-b flex items-center justify-between">
             <Link href="/" className="text-2xl font-bold text-black">
               ElementsPay
             </Link>
+            {isOpen && (
+              <button
+                onClick={toggleSidebar}
+                className="lg:hidden p-1 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                <X size={20} />
+              </button>
+            )}
           </div>
 
           {/* Navigation */}
@@ -122,7 +130,9 @@ const Sidebar = () => {
               <p className="text-sm text-black mt-1">
                 Share our link and earn $5 for every successful referral
               </p>
-              <button className="mt-3 text-sm text-blue-600">Referral</button>
+              <button className="mt-3 text-sm text-blue-600 hover:text-blue-700 transition-colors">
+                Referral
+              </button>
             </div>
           </div>
         </div>
@@ -131,7 +141,7 @@ const Sidebar = () => {
   );
 };
 
-// SidebarLink and SubLink components remain the same
+// SidebarLink Component
 const SidebarLink: React.FC<SidebarLinkProps> = ({
   icon,
   label,
@@ -143,7 +153,7 @@ const SidebarLink: React.FC<SidebarLinkProps> = ({
   <div className="space-y-1">
     <Link
       href="#"
-      className={`flex items-center gap-3 px-3 py-2 rounded-lg ${
+      className={`flex items-center gap-3 px-3 py-2 rounded-lg transition-colors ${
         active ? "bg-gray-100" : "hover:bg-gray-50"
       }`}
       onClick={onClick}
@@ -162,10 +172,11 @@ const SidebarLink: React.FC<SidebarLinkProps> = ({
   </div>
 );
 
+// SubLink Component
 const SubLink: React.FC<SubLinkProps> = ({ label, active, badge }) => (
   <Link
     href="#"
-    className={`block pl-12 py-2 text-sm rounded-lg ${
+    className={`block pl-12 py-2 text-sm rounded-lg transition-colors ${
       active ? "text-blue-600 bg-blue-50" : "text-black hover:bg-gray-50"
     }`}
   >
