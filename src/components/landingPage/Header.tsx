@@ -66,30 +66,100 @@ const Header = () => {
 
         {/* Mobile Navigation */}
         {isMenuOpen && (
-          <div className="md:hidden absolute left-0 right-0 bg-white/95 backdrop-blur-sm shadow-lg z-50">
-            <div className="px-4 py-3 space-y-1">
-              <Link
-                href="/payments"
-                className="block px-3 py-2 text-base font-medium text-gray-600 hover:text-gray-900 transition-colors"
-              >
-                Payments
-              </Link>
-              <Link
-                href="/virtual-cards"
-                className="block px-3 py-2 text-base font-medium text-gray-600 hover:text-gray-900 transition-colors"
-              >
-                Virtual Cards
-              </Link>
-              <Link
-                href="/faqs"
-                className="block px-3 py-2 text-base font-medium text-gray-600 hover:text-gray-900 transition-colors"
-              >
-                FAQs
-              </Link>
-              <div className="pt-2 pb-1">
-                <button className="w-full bg-gradient-to-r from-[#0514eb] via-[#9400d3] to-[#de0413] text-white px-6 py-2.5 rounded-full text-base font-medium hover:opacity-90 transition-opacity">
-                  Create a Wallet
-                </button>
+          <div className="md:hidden fixed inset-0 bg-white z-50">
+            <div className="flex flex-col h-full">
+              {/* Navigation Links */}
+              <div className="flex-1 px-6 py-8 space-y-6">
+                <Link
+                  href="/"
+                  className="block text-2xl font-medium text-gray-900"
+                >
+                  Home
+                </Link>
+                <Link
+                  href="/payments"
+                  className="block text-2xl font-medium text-gray-900"
+                >
+                  Payments
+                </Link>
+                <Link
+                  href="/virtual-cards"
+                  className="block text-2xl font-medium text-gray-900"
+                >
+                  Virtual cards
+                </Link>
+                <Link
+                  href="/faqs"
+                  className="block text-2xl font-medium text-gray-900"
+                >
+                  FAQs
+                </Link>
+              </div>
+
+              {/* Footer Links */}
+              <div className="px-6 py-8 border-t border-gray-200">
+                <div className="grid grid-cols-2 gap-y-6">
+                  <Link
+                    href="/about"
+                    className="text-lg font-medium text-gray-600"
+                  >
+                    About us
+                  </Link>
+                  <Link
+                    href="/support"
+                    className="text-lg font-medium text-gray-600"
+                  >
+                    Support
+                  </Link>
+                  <Link
+                    href="/legal"
+                    className="text-lg font-medium text-gray-600"
+                  >
+                    Legal
+                  </Link>
+                  <Link
+                    href="/contact"
+                    className="text-lg font-medium text-gray-600"
+                  >
+                    Contact
+                  </Link>
+                </div>
+                <Link
+                  href="/cookie-settings"
+                  className="block mt-6 text-lg font-medium text-gray-600"
+                >
+                  Cookie settings
+                </Link>
+
+                {/* CTA Buttons */}
+                <div className="mt-8 space-y-4">
+                  <button className="w-full bg-gradient-to-r from-[#0514eb] via-[#9400d3] to-[#de0413] text-white px-6 py-4 rounded-full text-lg font-medium">
+                    Create a Wallet
+                  </button>
+                  <button className="w-full bg-white text-[#0514eb] px-6 py-4 rounded-full text-lg font-medium border-2 border-[#0514eb]">
+                    Connect a Wallet
+                  </button>
+                </div>
+
+                {/* No KYC Required */}
+                <div className="flex items-center justify-center mt-6 space-x-2">
+                  <div className="w-6 h-6 rounded-full bg-[#0514eb] flex items-center justify-center">
+                    <svg
+                      className="w-4 h-4 text-white"
+                      fill="none"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth="2"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path d="M5 13l4 4L19 7"></path>
+                    </svg>
+                  </div>
+                  <span className="text-lg font-medium text-gray-900">
+                    No KYC required
+                  </span>
+                </div>
               </div>
             </div>
           </div>
