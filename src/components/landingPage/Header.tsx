@@ -7,6 +7,15 @@ import { Menu, X } from "lucide-react";
 const Header = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
+  // Prevent body scroll when menu is open
+  if (typeof window !== "undefined") {
+    if (isMenuOpen) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "unset";
+    }
+  }
+
   return (
     <header className="bg-gradient-to-r from-white to-[#c7c7ff]">
       <nav className="mx-auto max-w-[2000px] px-4 sm:px-6 lg:px-8 xl:px-12">
@@ -66,10 +75,10 @@ const Header = () => {
 
         {/* Mobile Navigation */}
         {isMenuOpen && (
-          <div className="md:hidden fixed inset-0 bg-white z-50">
-            <div className="flex flex-col h-full">
+          <div className="md:hidden fixed inset-0 bg-white z-50 overflow-y-auto">
+            <div className="min-h-screen flex flex-col">
               {/* Close Button */}
-              <div className="flex justify-end p-4">
+              <div className="sticky top-0 bg-white z-10 flex justify-end p-4 border-b border-gray-100">
                 <button
                   onClick={() => setIsMenuOpen(false)}
                   className="p-2 text-gray-600 hover:text-gray-900"
@@ -83,28 +92,28 @@ const Header = () => {
                 <Link
                   href="/"
                   onClick={() => setIsMenuOpen(false)}
-                  className="block text-2xl font-medium text-gray-900"
+                  className="block text-xl sm:text-2xl font-medium text-gray-900"
                 >
                   Home
                 </Link>
                 <Link
                   href="/payments"
                   onClick={() => setIsMenuOpen(false)}
-                  className="block text-2xl font-medium text-gray-900"
+                  className="block text-xl sm:text-2xl font-medium text-gray-900"
                 >
                   Payments
                 </Link>
                 <Link
                   href="/virtual-cards"
                   onClick={() => setIsMenuOpen(false)}
-                  className="block text-2xl font-medium text-gray-900"
+                  className="block text-xl sm:text-2xl font-medium text-gray-900"
                 >
                   Virtual cards
                 </Link>
                 <Link
                   href="/faqs"
                   onClick={() => setIsMenuOpen(false)}
-                  className="block text-2xl font-medium text-gray-900"
+                  className="block text-xl sm:text-2xl font-medium text-gray-900"
                 >
                   FAQs
                 </Link>
@@ -116,28 +125,28 @@ const Header = () => {
                   <Link
                     href="/about"
                     onClick={() => setIsMenuOpen(false)}
-                    className="text-lg font-medium text-gray-600"
+                    className="text-base sm:text-lg font-medium text-gray-600"
                   >
                     About us
                   </Link>
                   <Link
                     href="/support"
                     onClick={() => setIsMenuOpen(false)}
-                    className="text-lg font-medium text-gray-600"
+                    className="text-base sm:text-lg font-medium text-gray-600"
                   >
                     Support
                   </Link>
                   <Link
                     href="/legal"
                     onClick={() => setIsMenuOpen(false)}
-                    className="text-lg font-medium text-gray-600"
+                    className="text-base sm:text-lg font-medium text-gray-600"
                   >
                     Legal
                   </Link>
                   <Link
                     href="/contact"
                     onClick={() => setIsMenuOpen(false)}
-                    className="text-lg font-medium text-gray-600"
+                    className="text-base sm:text-lg font-medium text-gray-600"
                   >
                     Contact
                   </Link>
@@ -145,17 +154,17 @@ const Header = () => {
                 <Link
                   href="/cookie-settings"
                   onClick={() => setIsMenuOpen(false)}
-                  className="block mt-6 text-lg font-medium text-gray-600"
+                  className="block mt-6 text-base sm:text-lg font-medium text-gray-600"
                 >
                   Cookie settings
                 </Link>
 
                 {/* CTA Buttons */}
                 <div className="mt-8 space-y-4">
-                  <button className="w-full bg-gradient-to-r from-[#0514eb] via-[#9400d3] to-[#de0413] text-white px-6 py-4 rounded-full text-lg font-medium">
+                  <button className="w-full bg-gradient-to-r from-[#0514eb] via-[#9400d3] to-[#de0413] text-white px-6 py-3 sm:py-4 rounded-full text-base sm:text-lg font-medium">
                     Create a Wallet
                   </button>
-                  <button className="w-full bg-white text-[#0514eb] px-6 py-4 rounded-full text-lg font-medium border-2 border-[#0514eb]">
+                  <button className="w-full bg-white text-[#0514eb] px-6 py-3 sm:py-4 rounded-full text-base sm:text-lg font-medium border-2 border-[#0514eb]">
                     Connect a Wallet
                   </button>
                 </div>
@@ -175,7 +184,7 @@ const Header = () => {
                       <path d="M5 13l4 4L19 7"></path>
                     </svg>
                   </div>
-                  <span className="text-lg font-medium text-gray-900">
+                  <span className="text-base sm:text-lg font-medium text-gray-900">
                     No KYC required
                   </span>
                 </div>
