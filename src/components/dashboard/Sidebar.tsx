@@ -63,7 +63,7 @@ const Sidebar = () => {
       >
         <div className="flex flex-col h-full">
           {/* Logo and Close Button Container */}
-          <div className="p-6 border-b flex items-center justify-between">
+          <div className="h-16 px-6 border-b flex items-center justify-between">
             <Link href="/" className="text-2xl font-bold text-black">
               ElementsPay
             </Link>
