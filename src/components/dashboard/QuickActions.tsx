@@ -1,6 +1,11 @@
-import { FC } from "react";
+"use client";
+
+import { FC, useState } from "react";
+import SendCryptoModal from "./SendCryptoModal";
 
 const QuickActions: FC = () => {
+  const [isModalOpen, setIsModalOpen] = useState(false);
+
   return (
     <div className="space-y-4">
       <div className="flex justify-between items-center">
@@ -11,7 +16,10 @@ const QuickActions: FC = () => {
         {/* Button Group wrapper */}
         <div className="sm:flex sm:bg-blue-50 sm:rounded-full">
           {/* Send Crypto Button */}
-          <button className="w-full sm:w-auto bg-indigo-600 text-white px-6 py-3 rounded-full font-medium hover:bg-indigo-700 transition-colors">
+          <button
+            onClick={() => setIsModalOpen(true)}
+            className="w-full sm:w-auto bg-indigo-600 text-white px-6 py-3 rounded-full font-medium hover:bg-indigo-700 transition-colors"
+          >
             Send Crypto
           </button>
           {/* Deposit Crypto Button */}
@@ -48,6 +56,11 @@ const QuickActions: FC = () => {
           </span>
         </div>
       </div>
+
+      <SendCryptoModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+      />
     </div>
   );
 };
