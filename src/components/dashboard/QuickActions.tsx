@@ -1,7 +1,7 @@
 "use client";
 
 import { FC, useState } from "react";
-import SendCryptoModal from "./SendCryptoModal";
+import SendCryptoModal from "./sendCrypto/SendCryptoModal";
 
 const QuickActions: FC = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);

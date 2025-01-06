@@ -1,5 +1,7 @@
 import React, { useState } from "react";
 import { X } from "lucide-react";
+import PayToBank from "./PayToBank";
+import PayToMobileMoney from "./PayToMobileMoney";
 
 interface SendCryptoModalProps {
   isOpen: boolean;
@@ -21,6 +23,7 @@ const SendCryptoModal: React.FC<SendCryptoModalProps> = ({
   const [amount, setAmount] = useState("100");
   const [bank, setBank] = useState("Equity Bank");
   const [accountNumber, setAccountNumber] = useState("1170398667889");
+  const [mobileNumber, setMobileNumber] = useState("0703417782");
   const [reason, setReason] = useState("Transport");
   const [favorite, setFavorite] = useState(true);
   const [selectedWallet, setSelectedWallet] = useState<string>("metamask");
@@ -122,105 +125,56 @@ const SendCryptoModal: React.FC<SendCryptoModalProps> = ({
               </div>
 
               {/* Wallet Selection */}
-              <div>
-                <label className="block text-gray-600 mb-3">
-                  Select wallet to pay from
-                </label>
-                <div className="flex gap-3">
-                  {walletOptions.map((wallet) => (
-                    <button
-                      key={wallet.id}
-                      onClick={() => setSelectedWallet(wallet.id)}
-                      className={`w-16 h-16 rounded-lg flex items-center justify-center text-2xl border-2 transition-all ${
-                        selectedWallet === wallet.id
-                          ? "border-blue-500 bg-blue-50"
-                          : "border-gray-200"
-                      }`}
-                      type="button"
-                    >
-                      {wallet.icon}
-                    </button>
-                  ))}
+              {paymentType === "bank" && (
+                <div>
+                  <label className="block text-gray-600 mb-3">
+                    Select wallet to pay from
+                  </label>
+                  <div className="flex gap-3">
+                    {walletOptions.map((wallet) => (
+                      <button
+                        key={wallet.id}
+                        onClick={() => setSelectedWallet(wallet.id)}
+                        className={`w-16 h-16 rounded-lg flex items-center justify-center text-2xl border-2 transition-all ${
+                          selectedWallet === wallet.id
+                            ? "border-blue-500 bg-blue-50"
+                            : "border-gray-200"
+                        }`}
+                        type="button"
+                      >
+                        {wallet.icon}
+                      </button>
+                    ))}
+                  </div>
                 </div>
-              </div>
+              )}
 
-              {/* Token and Amount */}
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label htmlFor="token" className="block text-gray-600 mb-3">
-                    Token
-                  </label>
-                  <select
-                    id="token"
-                    value={selectedToken}
-                    onChange={(e) => setSelectedToken(e.target.value)}
-                    className="w-full p-4 bg-gray-50 rounded-lg border-0 text-gray-900"
-                  >
-                    <option value="USDC">USDC</option>
-                    <option value="ETH">ETH</option>
-                    <option value="BTC">BTC</option>
-                  </select>
-                </div>
-                <div>
-                  <label htmlFor="amount" className="block text-gray-600 mb-3">
-                    Amount in KE
-                  </label>
-                  <input
-                    id="amount"
-                    type="text"
-                    value={amount}
-                    onChange={(e) => setAmount(e.target.value)}
-                    className="w-full p-4 bg-gray-50 rounded-lg border-0 text-gray-900"
-                  />
-                </div>
-              </div>
-
-              {/* Bank Details */}
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label htmlFor="bank" className="block text-gray-600 mb-3">
-                    Recipient Bank
-                  </label>
-                  <select
-                    id="bank"
-                    value={bank}
-                    onChange={(e) => setBank(e.target.value)}
-                    className="w-full p-4 bg-gray-50 rounded-lg border-0 text-gray-900"
-                  >
-                    <option value="Equity Bank">Equity Bank</option>
-                  </select>
-                </div>
-                <div>
-                  <label
-                    htmlFor="accountNumber"
-                    className="block text-gray-600 mb-3"
-                  >
-                    Account Number
-                  </label>
-                  <input
-                    id="accountNumber"
-                    type="text"
-                    value={accountNumber}
-                    onChange={(e) => setAccountNumber(e.target.value)}
-                    className="w-full p-4 bg-gray-50 rounded-lg border-0 text-gray-900"
-                  />
-                </div>
-              </div>
-
-              {/* Payment Reason */}
-              <div>
-                <label htmlFor="reason" className="block text-gray-600 mb-3">
-                  Payment reason (Optional)
-                </label>
-                <input
-                  id="reason"
-                  type="text"
-                  value={reason}
-                  onChange={(e) => setReason(e.target.value)}
-                  className="w-full p-4 bg-gray-50 rounded-lg border-0 text-gray-900"
-                  placeholder="Enter payment reason"
+              {/* Payment Form */}
+              {paymentType === "bank" ? (
+                <PayToBank
+                  selectedToken={selectedToken}
+                  setSelectedToken={setSelectedToken}
+                  amount={amount}
+                  setAmount={setAmount}
+                  bank={bank}
+                  setBank={setBank}
+                  accountNumber={accountNumber}
+                  setAccountNumber={setAccountNumber}
+                  reason={reason}
+                  setReason={setReason}
                 />
-              </div>
+              ) : (
+                <PayToMobileMoney
+                  selectedToken={selectedToken}
+                  setSelectedToken={setSelectedToken}
+                  amount={amount}
+                  setAmount={setAmount}
+                  mobileNumber={mobileNumber}
+                  setMobileNumber={setMobileNumber}
+                  reason={reason}
+                  setReason={setReason}
+                />
+              )}
 
               {/* Favorite Option */}
               <div className="flex items-center gap-3">
