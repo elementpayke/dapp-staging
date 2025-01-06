@@ -98,7 +98,7 @@ const FeaturesSection = () => {
   }, [features.length]);
 
   return (
-    <div className="min-h-screen lg:h-screen bg-gradient-to-r from-[#F5F5F5] to-[#E6E6FF] py-4 lg:py-12 overflow-hidden">
+    <div className="min-h-screen lg:h-screen bg-[#e6e9ed] py-4 lg:py-12 overflow-hidden">
       <div className="max-w-[1800px] mx-auto px-4 lg:px-8 h-full flex flex-col relative">
         {/* Section Title */}
         <div className="text-center mb-8 lg:mb-10">
