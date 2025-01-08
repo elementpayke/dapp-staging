@@ -2,9 +2,11 @@
 
 import { FC, useState } from "react";
 import SendCryptoModal from "./sendCrypto/SendCryptoModal";
+import DepositCryptoModal from "./depositCrypto/DepositCryptoModal";
 
 const QuickActions: FC = () => {
-  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isSendModalOpen, setIsSendModalOpen] = useState(false);
+  const [isDepositModalOpen, setIsDepositModalOpen] = useState(false);
 
   return (
     <div className="space-y-4">
@@ -17,13 +19,16 @@ const QuickActions: FC = () => {
         <div className="sm:flex sm:bg-blue-50 sm:rounded-full">
           {/* Send Crypto Button */}
           <button
-            onClick={() => setIsModalOpen(true)}
+            onClick={() => setIsSendModalOpen(true)}
             className="w-full sm:w-auto bg-indigo-600 text-white px-6 py-3 rounded-full font-medium hover:bg-indigo-700 transition-colors"
           >
             Send Crypto
           </button>
           {/* Deposit Crypto Button */}
-          <button className="w-full sm:w-auto mt-2 sm:mt-0 bg-blue-50 sm:bg-transparent px-6 py-3 text-gray-700 font-medium hover:bg-blue-100 rounded-full transition-colors">
+          <button
+            onClick={() => setIsDepositModalOpen(true)}
+            className="w-full sm:w-auto mt-2 sm:mt-0 bg-blue-50 sm:bg-transparent px-6 py-3 text-gray-700 font-medium hover:bg-blue-100 rounded-full transition-colors"
+          >
             Deposit Crypto
           </button>
         </div>
@@ -58,8 +63,13 @@ const QuickActions: FC = () => {
       </div>
 
       <SendCryptoModal
-        isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
+        isOpen={isSendModalOpen}
+        onClose={() => setIsSendModalOpen(false)}
+      />
+
+      <DepositCryptoModal
+        isOpen={isDepositModalOpen}
+        onClose={() => setIsDepositModalOpen(false)}
       />
     </div>
   );
