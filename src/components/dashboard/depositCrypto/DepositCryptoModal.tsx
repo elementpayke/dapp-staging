@@ -1,0 +1,220 @@
+import React, { useState } from "react";
+import { X } from "lucide-react";
+
+interface DepositCryptoModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+}
+
+interface WalletOption {
+  id: string;
+  icon: string;
+  selected?: boolean;
+}
+
+const DepositCryptoModal: React.FC<DepositCryptoModalProps> = ({
+  isOpen,
+  onClose,
+}) => {
+  const [selectedWallet, setSelectedWallet] = useState<string>("metamask");
+  const [selectedToken, setSelectedToken] = useState("USDC");
+  const [amount, setAmount] = useState("10000.00");
+  const [depositFrom, setDepositFrom] = useState("MPESA");
+  const [phoneNumber, setPhoneNumber] = useState("0703417782");
+  const [reason, setReason] = useState("Transport");
+
+  const handleClose = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (e.target === e.currentTarget) {
+      onClose();
+    }
+  };
+
+  const walletOptions: WalletOption[] = [
+    {
+      id: "metamask",
+      icon: "🦊",
+      selected: selectedWallet === "metamask",
+    },
+    {
+      id: "coinbase",
+      icon: "©️",
+      selected: selectedWallet === "coinbase",
+    },
+    {
+      id: "qr",
+      icon: "🔲",
+      selected: selectedWallet === "qr",
+    },
+  ];
+
+  if (!isOpen) return null;
+
+  return (
+    <div
+      className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50"
+      onClick={handleClose}
+    >
+      <div className="bg-white rounded-3xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+        <div className="p-8 space-y-6">
+          {/* Header */}
+          <div className="flex justify-between items-center mb-6">
+            <h2 className="text-2xl font-semibold text-gray-900">
+              Deposit Crypto
+            </h2>
+            <button
+              onClick={onClose}
+              className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+              type="button"
+            >
+              <X className="w-6 h-6" />
+            </button>
+          </div>
+
+          <div className="grid grid-cols-5 gap-8">
+            {/* Left Column - Form */}
+            <div className="col-span-3 space-y-6">
+              {/* Wallet Selection */}
+              <div>
+                <label className="block text-gray-600 mb-3">
+                  Select wallet to deposit to
+                </label>
+                <div className="flex gap-3">
+                  {walletOptions.map((wallet) => (
+                    <button
+                      key={wallet.id}
+                      onClick={() => setSelectedWallet(wallet.id)}
+                      className={`w-16 h-16 rounded-lg flex items-center justify-center text-2xl border-2 transition-all ${
+                        selectedWallet === wallet.id
+                          ? "border-blue-500 bg-blue-50"
+                          : "border-gray-200"
+                      }`}
+                      type="button"
+                    >
+                      {wallet.icon}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Token and Amount */}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-gray-600 mb-3">Token</label>
+                  <select
+                    value={selectedToken}
+                    onChange={(e) => setSelectedToken(e.target.value)}
+                    className="w-full p-4 bg-gray-50 rounded-lg border-0 text-gray-900"
+                  >
+                    <option value="USDC">USDC</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-gray-600 mb-3">Amount</label>
+                  <input
+                    type="text"
+                    value={amount}
+                    onChange={(e) => setAmount(e.target.value)}
+                    className="w-full p-4 bg-gray-50 rounded-lg border-0 text-gray-900"
+                  />
+                </div>
+              </div>
+
+              {/* Deposit From and Phone Number */}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-gray-600 mb-3">
+                    Deposit from
+                  </label>
+                  <select
+                    value={depositFrom}
+                    onChange={(e) => setDepositFrom(e.target.value)}
+                    className="w-full p-4 bg-gray-50 rounded-lg border-0 text-gray-900"
+                  >
+                    <option value="MPESA">MPESA</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-gray-600 mb-3">
+                    Phone number
+                  </label>
+                  <input
+                    type="text"
+                    value={phoneNumber}
+                    onChange={(e) => setPhoneNumber(e.target.value)}
+                    className="w-full p-4 bg-gray-50 rounded-lg border-0 text-gray-900"
+                  />
+                </div>
+              </div>
+
+              {/* Payment Reason */}
+              <div>
+                <label className="block text-gray-600 mb-3">
+                  Payment reason (Optional)
+                </label>
+                <input
+                  type="text"
+                  value={reason}
+                  onChange={(e) => setReason(e.target.value)}
+                  className="w-full p-4 bg-gray-50 rounded-lg border-0 text-gray-900"
+                  placeholder="Enter payment reason"
+                />
+              </div>
+            </div>
+
+            {/* Right Column - Transaction Summary */}
+            <div className="col-span-2 bg-gray-50 p-6 rounded-2xl h-fit">
+              <h3 className="text-xl font-semibold mb-6 text-gray-900">
+                Transaction summary
+              </h3>
+              <div className="space-y-4">
+                <div className="flex justify-between items-center">
+                  <span className="text-gray-600">Wallet balance</span>
+                  <span className="text-green-600 font-medium">
+                    USDC 197.90
+                  </span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-gray-600">Amount to send</span>
+                  <span className="text-gray-900">USDC 9807.90</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-gray-600">Transaction charge</span>
+                  <span className="text-orange-600">KE 0.00</span>
+                </div>
+                <div className="border-t pt-4 flex justify-between items-center font-medium">
+                  <span className="text-gray-900">Total:</span>
+                  <span className="text-gray-900">KE 9811.40</span>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                className="w-full mt-6 py-4 px-6 bg-gradient-to-r from-blue-600 to-red-600 text-white rounded-full font-medium hover:opacity-90 transition-opacity"
+              >
+                Confirm payment
+              </button>
+
+              <div className="mt-6 bg-gray-100 p-4 rounded-lg">
+                <div className="text-gray-500 mb-2">
+                  Crypto Balance after transaction
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-600">USDC: 18908.00</span>
+                  <span className="text-gray-600">KE 10000.40</span>
+                </div>
+              </div>
+
+              <div className="mt-4 text-sm text-gray-500">
+                At the moment, ElementsPay only allow users to deposit USDC to
+                the wallet used at registration. However, we will soon allow the
+                deposit of other tokens.
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default DepositCryptoModal;
