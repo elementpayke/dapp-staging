@@ -54,10 +54,10 @@ const DepositCryptoModal: React.FC<DepositCryptoModalProps> = ({
       className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50"
       onClick={handleClose}
     >
-      <div className="bg-white rounded-3xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
-        <div className="p-8 space-y-6">
+      <div className="bg-white rounded-3xl max-w-4xl w-full">
+        <div className="p-6">
           {/* Header */}
-          <div className="flex justify-between items-center mb-6">
+          <div className="flex justify-between items-center mb-4">
             <h2 className="text-2xl font-semibold text-gray-900">
               Deposit Crypto
             </h2>
@@ -70,20 +70,20 @@ const DepositCryptoModal: React.FC<DepositCryptoModalProps> = ({
             </button>
           </div>
 
-          <div className="grid grid-cols-5 gap-8">
+          <div className="grid grid-cols-5 gap-6">
             {/* Left Column - Form */}
-            <div className="col-span-3 space-y-6">
+            <div className="col-span-3 space-y-4">
               {/* Wallet Selection */}
               <div>
-                <label className="block text-gray-600 mb-3">
+                <label className="block text-gray-600 mb-2">
                   Select wallet to deposit to
                 </label>
-                <div className="flex gap-3">
+                <div className="flex gap-2">
                   {walletOptions.map((wallet) => (
                     <button
                       key={wallet.id}
                       onClick={() => setSelectedWallet(wallet.id)}
-                      className={`w-16 h-16 rounded-lg flex items-center justify-center text-2xl border-2 transition-all ${
+                      className={`w-14 h-14 rounded-lg flex items-center justify-center text-2xl border-2 transition-all ${
                         selectedWallet === wallet.id
                           ? "border-blue-500 bg-blue-50"
                           : "border-gray-200"
@@ -99,22 +99,22 @@ const DepositCryptoModal: React.FC<DepositCryptoModalProps> = ({
               {/* Token and Amount */}
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-gray-600 mb-3">Token</label>
+                  <label className="block text-gray-600 mb-2">Token</label>
                   <select
                     value={selectedToken}
                     onChange={(e) => setSelectedToken(e.target.value)}
-                    className="w-full p-4 bg-gray-50 rounded-lg border-0 text-gray-900"
+                    className="w-full p-3 bg-gray-50 rounded-lg border-0 text-gray-900"
                   >
                     <option value="USDC">USDC</option>
                   </select>
                 </div>
                 <div>
-                  <label className="block text-gray-600 mb-3">Amount</label>
+                  <label className="block text-gray-600 mb-2">Amount</label>
                   <input
                     type="text"
                     value={amount}
                     onChange={(e) => setAmount(e.target.value)}
-                    className="w-full p-4 bg-gray-50 rounded-lg border-0 text-gray-900"
+                    className="w-full p-3 bg-gray-50 rounded-lg border-0 text-gray-900"
                   />
                 </div>
               </div>
@@ -122,51 +122,51 @@ const DepositCryptoModal: React.FC<DepositCryptoModalProps> = ({
               {/* Deposit From and Phone Number */}
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-gray-600 mb-3">
+                  <label className="block text-gray-600 mb-2">
                     Deposit from
                   </label>
                   <select
                     value={depositFrom}
                     onChange={(e) => setDepositFrom(e.target.value)}
-                    className="w-full p-4 bg-gray-50 rounded-lg border-0 text-gray-900"
+                    className="w-full p-3 bg-gray-50 rounded-lg border-0 text-gray-900"
                   >
                     <option value="MPESA">MPESA</option>
                   </select>
                 </div>
                 <div>
-                  <label className="block text-gray-600 mb-3">
+                  <label className="block text-gray-600 mb-2">
                     Phone number
                   </label>
                   <input
                     type="text"
                     value={phoneNumber}
                     onChange={(e) => setPhoneNumber(e.target.value)}
-                    className="w-full p-4 bg-gray-50 rounded-lg border-0 text-gray-900"
+                    className="w-full p-3 bg-gray-50 rounded-lg border-0 text-gray-900"
                   />
                 </div>
               </div>
 
               {/* Payment Reason */}
               <div>
-                <label className="block text-gray-600 mb-3">
+                <label className="block text-gray-600 mb-2">
                   Payment reason (Optional)
                 </label>
                 <input
                   type="text"
                   value={reason}
                   onChange={(e) => setReason(e.target.value)}
-                  className="w-full p-4 bg-gray-50 rounded-lg border-0 text-gray-900"
+                  className="w-full p-3 bg-gray-50 rounded-lg border-0 text-gray-900"
                   placeholder="Enter payment reason"
                 />
               </div>
             </div>
 
             {/* Right Column - Transaction Summary */}
-            <div className="col-span-2 bg-gray-50 p-6 rounded-2xl h-fit">
-              <h3 className="text-xl font-semibold mb-6 text-gray-900">
+            <div className="col-span-2 bg-gray-50 p-4 rounded-2xl h-fit">
+              <h3 className="text-xl font-semibold mb-4 text-gray-900">
                 Transaction summary
               </h3>
-              <div className="space-y-4">
+              <div className="space-y-3">
                 <div className="flex justify-between items-center">
                   <span className="text-gray-600">Wallet balance</span>
                   <span className="text-green-600 font-medium">
@@ -181,7 +181,7 @@ const DepositCryptoModal: React.FC<DepositCryptoModalProps> = ({
                   <span className="text-gray-600">Transaction charge</span>
                   <span className="text-orange-600">KE 0.00</span>
                 </div>
-                <div className="border-t pt-4 flex justify-between items-center font-medium">
+                <div className="border-t pt-3 flex justify-between items-center font-medium">
                   <span className="text-gray-900">Total:</span>
                   <span className="text-gray-900">KE 9811.40</span>
                 </div>
@@ -189,13 +189,13 @@ const DepositCryptoModal: React.FC<DepositCryptoModalProps> = ({
 
               <button
                 type="button"
-                className="w-full mt-6 py-4 px-6 bg-gradient-to-r from-blue-600 to-red-600 text-white rounded-full font-medium hover:opacity-90 transition-opacity"
+                className="w-full mt-4 py-3 bg-gradient-to-r from-blue-600 to-red-600 text-white rounded-full font-medium hover:opacity-90 transition-opacity"
               >
                 Confirm payment
               </button>
 
-              <div className="mt-6 bg-gray-100 p-4 rounded-lg">
-                <div className="text-gray-500 mb-2">
+              <div className="mt-4 bg-gray-100 p-3 rounded-lg">
+                <div className="text-gray-500 mb-1">
                   Crypto Balance after transaction
                 </div>
                 <div className="flex justify-between">
@@ -204,7 +204,7 @@ const DepositCryptoModal: React.FC<DepositCryptoModalProps> = ({
                 </div>
               </div>
 
-              <div className="mt-4 text-sm text-gray-500">
+              <div className="mt-3 text-sm text-gray-500">
                 At the moment, ElementsPay only allow users to deposit USDC to
                 the wallet used at registration. However, we will soon allow the
                 deposit of other tokens.
