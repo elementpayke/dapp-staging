@@ -54,25 +54,15 @@ const SendCryptoModal: React.FC<SendCryptoModalProps> = ({
 
   if (!isOpen) return null;
 
-  const walletBalance = "KE 19807.90";
-  const amountToSend = "KE 9807.90";
-  const transactionCharge = "KE 3.50";
-  const total = "KE 9811.40";
-  const cryptoBalance = {
-    amount: "0.0000246",
-    currency: "ETH",
-    value: "KE 10000.40",
-  };
-
   return (
     <div
       className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50"
       onClick={handleClose}
     >
-      <div className="bg-white rounded-3xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
-        <div className="p-8 space-y-6">
+      <div className="bg-white rounded-3xl max-w-4xl w-full">
+        <div className="p-6">
           {/* Header */}
-          <div className="flex justify-between items-center mb-6">
+          <div className="flex justify-between items-center mb-4">
             <h2 className="text-2xl font-semibold text-gray-900">
               Spend Crypto
             </h2>
@@ -85,11 +75,11 @@ const SendCryptoModal: React.FC<SendCryptoModalProps> = ({
             </button>
           </div>
 
-          <div className="grid grid-cols-5 gap-8">
+          <div className="grid grid-cols-5 gap-6">
             {/* Left Column - Form */}
-            <div className="col-span-3 space-y-6">
+            <div className="col-span-3 space-y-4">
               {/* Payment Type Selection */}
-              <div className="flex gap-4">
+              <div className="flex gap-3">
                 <button
                   className={`flex items-center gap-2 px-4 py-2 rounded-full transition-colors ${
                     paymentType === "bank"
@@ -99,9 +89,9 @@ const SendCryptoModal: React.FC<SendCryptoModalProps> = ({
                   onClick={() => setPaymentType("bank")}
                   type="button"
                 >
-                  <div className="w-5 h-5 rounded-full border-2 border-current flex items-center justify-center">
+                  <div className="w-4 h-4 rounded-full border-2 border-current flex items-center justify-center">
                     {paymentType === "bank" && (
-                      <div className="w-2.5 h-2.5 bg-current rounded-full" />
+                      <div className="w-2 h-2 bg-current rounded-full" />
                     )}
                   </div>
                   Pay to Bank
@@ -115,9 +105,9 @@ const SendCryptoModal: React.FC<SendCryptoModalProps> = ({
                   onClick={() => setPaymentType("mobile")}
                   type="button"
                 >
-                  <div className="w-5 h-5 rounded-full border-2 border-current flex items-center justify-center">
+                  <div className="w-4 h-4 rounded-full border-2 border-current flex items-center justify-center">
                     {paymentType === "mobile" && (
-                      <div className="w-2.5 h-2.5 bg-current rounded-full" />
+                      <div className="w-2 h-2 bg-current rounded-full" />
                     )}
                   </div>
                   Pay to Mobile Money
@@ -127,15 +117,15 @@ const SendCryptoModal: React.FC<SendCryptoModalProps> = ({
               {/* Wallet Selection */}
               {paymentType === "bank" && (
                 <div>
-                  <label className="block text-gray-600 mb-3">
+                  <label className="block text-gray-600 mb-2">
                     Select wallet to pay from
                   </label>
-                  <div className="flex gap-3">
+                  <div className="flex gap-2">
                     {walletOptions.map((wallet) => (
                       <button
                         key={wallet.id}
                         onClick={() => setSelectedWallet(wallet.id)}
-                        className={`w-16 h-16 rounded-lg flex items-center justify-center text-2xl border-2 transition-all ${
+                        className={`w-14 h-14 rounded-lg flex items-center justify-center text-2xl border-2 transition-all ${
                           selectedWallet === wallet.id
                             ? "border-blue-500 bg-blue-50"
                             : "border-gray-200"
@@ -177,66 +167,64 @@ const SendCryptoModal: React.FC<SendCryptoModalProps> = ({
               )}
 
               {/* Favorite Option */}
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2">
                 <input
                   id="favorite"
                   type="checkbox"
                   checked={favorite}
                   onChange={(e) => setFavorite(e.target.checked)}
-                  className="w-5 h-5 rounded border-gray-300 text-blue-600"
+                  className="w-4 h-4 rounded border-gray-300 text-blue-600"
                 />
-                <label htmlFor="favorite" className="text-gray-600">
+                <label htmlFor="favorite" className="text-gray-600 text-sm">
                   Favorite this payment details for future transactions
                 </label>
               </div>
             </div>
 
             {/* Right Column - Transaction Summary */}
-            <div className="col-span-2 bg-gray-50 p-6 rounded-2xl h-fit">
-              <h3 className="text-xl font-semibold mb-6 text-gray-900">
+            <div className="col-span-2 bg-gray-50 p-4 rounded-2xl h-fit">
+              <h3 className="text-xl font-semibold mb-4 text-gray-900">
                 Transaction summary
               </h3>
-              <div className="space-y-4">
+              <div className="space-y-3">
                 <div className="flex justify-between items-center">
                   <span className="text-gray-600">Wallet balance</span>
                   <span className="text-green-600 font-medium">
-                    {walletBalance}
+                    KE 19807.90
                   </span>
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="text-gray-600">Amount to send</span>
-                  <span className="text-gray-900">{amountToSend}</span>
+                  <span className="text-gray-900">KE 9807.90</span>
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="text-gray-600">Transaction charge</span>
-                  <span className="text-orange-600">{transactionCharge}</span>
+                  <span className="text-orange-600">KE 3.50</span>
                 </div>
-                <div className="border-t pt-4 flex justify-between items-center font-medium">
+                <div className="border-t pt-3 flex justify-between items-center font-medium">
                   <span className="text-gray-900">Total:</span>
-                  <span className="text-gray-900">{total}</span>
+                  <span className="text-gray-900">KE 9811.40</span>
                 </div>
               </div>
 
               <button
                 type="button"
-                className="w-full mt-6 py-4 px-6 bg-gradient-to-r from-blue-600 to-red-600 text-white rounded-full font-medium hover:opacity-90 transition-opacity"
+                className="w-full mt-4 py-3 bg-gradient-to-r from-blue-600 to-red-600 text-white rounded-full font-medium hover:opacity-90 transition-opacity"
               >
                 Confirm payment
               </button>
 
-              <div className="mt-6 bg-gray-100 p-4 rounded-lg">
-                <div className="text-gray-500 mb-2">
+              <div className="mt-4 bg-gray-100 p-3 rounded-lg">
+                <div className="text-gray-500 mb-1">
                   Crypto Balance after transaction
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-gray-600">
-                    {cryptoBalance.currency}: {cryptoBalance.amount}
-                  </span>
-                  <span className="text-gray-600">{cryptoBalance.value}</span>
+                  <span className="text-gray-600">ETH: 0.0000246</span>
+                  <span className="text-gray-600">KE 10000.40</span>
                 </div>
               </div>
 
-              <div className="mt-4 text-sm text-gray-500">
+              <div className="mt-3 text-sm text-gray-500">
                 We&apos;ll use your available balance when you shop online or
                 send money for goods and services. If you don&apos;t have enough
                 money in your balance, we&apos;ll ask you to pick another wallet
