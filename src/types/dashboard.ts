@@ -1,4 +1,3 @@
-// src/types/dashboard.ts
 export interface Transaction {
     name: string;
     time: string;
