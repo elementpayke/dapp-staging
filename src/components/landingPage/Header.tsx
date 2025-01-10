@@ -3,7 +3,24 @@
 import Link from "next/link";
 import { useState, useEffect } from "react";
 import { Menu, X } from "lucide-react";
-
+import { WalletDefault } from '@coinbase/onchainkit/wallet';
+import {
+  ConnectWallet,
+  Wallet,
+  WalletDropdown,
+  WalletDropdownBasename, 
+  WalletDropdownFundLink, 
+  WalletDropdownLink, 
+  WalletDropdownDisconnect,
+  ConnectWalletText,
+} from '@coinbase/onchainkit/wallet';
+import {
+  Address,
+  Avatar,
+  Name,
+  Identity,
+  EthBalance, 
+} from '@coinbase/onchainkit/identity';
 const Header = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
@@ -81,9 +98,35 @@ const Header = () => {
 
           {/* CTA Button */}
           <div className="hidden md:block">
-            <button className="bg-gradient-to-r from-[#0514eb] via-[#9400d3] to-[#de0413] text-white px-6 py-2.5 rounded-full text-base font-medium hover:opacity-90 transition-opacity">
+            {/* <button className="bg-gradient-to-r from-[#0514eb] via-[#9400d3] to-[#de0413] text-white px-6 py-2.5 rounded-full text-base font-medium hover:opacity-90 transition-opacity">
               Create a Wallet
-            </button>
+            </button> */}
+          <Wallet>
+            <ConnectWallet className='bg-blue-800'>
+              <ConnectWalletText>Sign Up</ConnectWalletText>
+              <Avatar className="h-6 w-6" />
+              <Name className='text-white' />
+            </ConnectWallet>
+            <WalletDropdown>
+              <Identity 
+                className="px-4 pt-3 pb-2 hover:bg-blue-200"
+                hasCopyAddressOnClick
+              >
+                <Avatar />
+                <Name />
+                <Address />
+                <EthBalance />
+              </Identity>
+              <WalletDropdownLink 
+                className='hover:bg-blue-200'
+                icon="wallet" 
+                href="https://keys.coinbase.com"
+              >
+                Wallet
+              </WalletDropdownLink>
+              <WalletDropdownDisconnect className='hover:bg-blue-200' />
+            </WalletDropdown>
+          </Wallet>
           </div>
 
           {/* Mobile menu button */}
