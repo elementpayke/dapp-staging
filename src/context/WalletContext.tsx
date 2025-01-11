@@ -35,6 +35,8 @@ export const WalletProvider = ({ children }: WalletProviderProps) => {
         if (walletAddress && isConnected === 'true') {
           setIsConnected(true);
           setAddress(walletAddress);
+          //redirect to dashboard
+          router.push('/dashboard');
         }
       } catch (error) {
         console.error('Error checking wallet connection:', error);
