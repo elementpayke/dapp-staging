@@ -1,16 +1,32 @@
 'use client';
- 
+
 import type { ReactNode } from 'react';
 import { OnchainKitProvider } from '@coinbase/onchainkit';
-import { base } from 'wagmi/chains'; // add baseSepolia for testing
- 
+import { base } from 'wagmi/chains';
+import { WalletProvider } from '@/context/WalletContext';
+
 export function Providers(props: { children: ReactNode }) {
   return (
     <OnchainKitProvider
-      apiKey={process.env.NEXT_PUBLIC_ONCHAINKIT_API_KEY}
-      chain={base} // add baseSepolia for testing
+      apiKey={process.env.ONCHAINKIT_API_KEY}
+      chain={base}
+      config={{
+        appearance: {
+          name: 'Your App Name',
+          logo: 'https://your-logo.com',
+          mode: 'auto',
+          theme: 'default',
+        },
+        wallet: { 
+          display: 'modal', 
+          termsUrl: 'https://...', 
+          privacyUrl: 'https://...', 
+        },
+      }}
     >
-      {props.children}
+      <WalletProvider>
+        {props.children}
+      </WalletProvider>
     </OnchainKitProvider>
   );
 }
