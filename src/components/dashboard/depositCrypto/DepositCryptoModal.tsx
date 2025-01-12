@@ -1,5 +1,11 @@
-import React, { useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { X } from "lucide-react";
+import { toast } from "react-toastify";
+import { parseUnits } from 'ethers';
+import { getUSDCAddress } from '../../../services/tokens';
+import { useContract } from "@/services/useContract";
+import { encryptMessage } from "@/services/encryption";
+
 
 interface DepositCryptoModalProps {
   isOpen: boolean;
@@ -18,10 +24,11 @@ const DepositCryptoModal: React.FC<DepositCryptoModalProps> = ({
 }) => {
   const [selectedWallet, setSelectedWallet] = useState<string>("metamask");
   const [selectedToken, setSelectedToken] = useState("USDC");
-  const [amount, setAmount] = useState("10000.00");
+  const [amount, setAmount] = useState("0.00");
   const [depositFrom, setDepositFrom] = useState("MPESA");
   const [phoneNumber, setPhoneNumber] = useState("0703417782");
   const [reason, setReason] = useState("Transport");
+  const [isLoading, setIsLoading] = useState(false);
 
   const handleClose = (e: React.MouseEvent<HTMLDivElement>) => {
     if (e.target === e.currentTarget) {
@@ -47,7 +54,71 @@ const DepositCryptoModal: React.FC<DepositCryptoModalProps> = ({
     },
   ];
 
+  const { contract, address } = useContract();
   if (!isOpen) return null;
+  
+  
+  const handleConfirmPayment = async () => {
+    if (!address) {
+      // TODO: Show a modal to connect wallet
+      toast.error("Please connect your wallet first.");
+      return;
+    }
+
+    if (parseFloat(amount) <= 0) {
+      toast.error("Amount must be greater than zero.");
+      return;
+    }
+
+    if (!/^\d{12}$/.test(phoneNumber)) {
+      console.error("Invalid phone number");
+      toast.error("Please enter a valid 12-digit phone number.");
+      return;
+    }
+
+    setIsLoading(true);
+
+    const orderType = depositFrom === "MPESA" ? 0 : 1;
+    const usdcTokenAddress = getUSDCAddress() as `0x${string}`;
+
+    let messageHash = "";
+    try {
+      // TODO: Rate should be fetched from an API
+      messageHash = encryptMessage(phoneNumber, "USD", 1, parseFloat(amount));
+    } catch (error) {
+      toast.error("Encryption failed.");
+      setIsLoading(false);
+      return;
+    }
+
+    try {
+      if (!contract) throw new Error("Contract is not initialized.");
+
+      // Call the createOrder function on your contract
+      const tx = await contract.createOrder(
+        address,
+        parseUnits(amount, 6),
+        usdcTokenAddress,
+        orderType,
+        messageHash
+      );
+      
+      // if (!tx) {
+      //   throw new Error("Transaction was not returned.");
+      // }
+      toast.info("Transaction submitted. Awaiting confirmation...");
+      // TODO: Handle transaction confirmation
+      const receipt = await tx.wait();
+      console.log("Transaction receipt:", receipt);
+      toast.success("Order created successfully!");
+      onClose();
+    } catch (error: any) {
+      console.error("Error creating order:", error);
+      toast.error(error?.message || "Transaction failed.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   return (
     <div
@@ -170,28 +241,35 @@ const DepositCryptoModal: React.FC<DepositCryptoModalProps> = ({
                 <div className="flex justify-between items-center">
                   <span className="text-gray-600">Wallet balance</span>
                   <span className="text-green-600 font-medium">
-                    USDC 197.90
+                    {/* TODO: Use onchainkit to get USDC balance */}
+                   Loading...
                   </span>
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="text-gray-600">Amount to send</span>
-                  <span className="text-gray-900">USDC 9807.90</span>
+                  <span className="text-gray-900">USDC {amount}</span>
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="text-gray-600">Transaction charge</span>
+                  {/* TODO: Decide on the charge */}
                   <span className="text-orange-600">KE 0.00</span>
                 </div>
                 <div className="border-t pt-3 flex justify-between items-center font-medium">
                   <span className="text-gray-900">Total:</span>
-                  <span className="text-gray-900">KE 9811.40</span>
+                  {/* Update Total calculation */}
+                  <span className="text-gray-900">KE {amount}</span>
                 </div>
               </div>
 
               <button
                 type="button"
-                className="w-full mt-4 py-3 bg-gradient-to-r from-blue-600 to-red-600 text-white rounded-full font-medium hover:opacity-90 transition-opacity"
+                onClick={handleConfirmPayment}
+                disabled={isLoading}
+                className={`w-full mt-4 py-3 bg-gradient-to-r from-blue-600 to-red-600 text-white rounded-full font-medium hover:opacity-90 transition-opacity ${
+                  isLoading ? "opacity-50 cursor-not-allowed" : ""
+                }`}
               >
-                Confirm payment
+                {isLoading ? "Processing..." : "Confirm payment"}
               </button>
 
               <div className="mt-4 bg-gray-100 p-3 rounded-lg">
@@ -199,8 +277,9 @@ const DepositCryptoModal: React.FC<DepositCryptoModalProps> = ({
                   Crypto Balance after transaction
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-gray-600">USDC: 18908.00</span>
-                  <span className="text-gray-600">KE 10000.40</span>
+                  {/* TODO: Calculate balance after transaction */}
+                  <span className="text-gray-600">USDC: Loading....</span>
+                  <span className="text-gray-600">KE Loading....</span>
                 </div>
               </div>
 

@@ -2,14 +2,14 @@
 
 import type { ReactNode } from 'react';
 import { OnchainKitProvider } from '@coinbase/onchainkit';
-import { base } from 'wagmi/chains';
+import { base, baseSepolia } from 'wagmi/chains';
 import { WalletProvider } from '@/context/WalletContext';
 
 export function Providers(props: { children: ReactNode }) {
   return (
     <OnchainKitProvider
       apiKey={process.env.ONCHAINKIT_API_KEY}
-      chain={base}
+      chain={baseSepolia}
       config={{
         appearance: {
           name: 'Your App Name',

@@ -646,3 +646,54 @@ export const erc20Abi = [
     },
   ] as const;
   
+
+export const CONTRACT_ADDRESS = process.env.ELEM_CONTRACT_ADDRESS as string;
+
+export const CONTRACT_ABI = [
+  {
+    "anonymous": false,
+    "inputs": [
+      { "indexed": true, "name": "orderId", "type": "bytes32" },
+      { "indexed": true, "name": "token", "type": "address" },
+      { "indexed": true, "name": "requester", "type": "address" },
+      { "indexed": false, "name": "amount", "type": "uint256" },
+      { "indexed": false, "name": "messageHash", "type": "string" },
+      { "indexed": false, "name": "rate", "type": "uint256" },
+      { "indexed": false, "name": "orderType", "type": "uint8" }
+    ],
+    "name": "OrderCreated",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      { "indexed": true, "name": "orderId", "type": "bytes32" }
+    ],
+    "name": "OrderSettled",
+    "type": "event"
+  },
+  {
+    "inputs": [
+      { "name": "_orderId", "type": "bytes32" }
+    ],
+    "name": "settleOrder",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      { "internalType": "address", "name": "_userAddress", "type": "address" },
+      { "internalType": "uint256", "name": "_amount", "type": "uint256" },
+      { "internalType": "address", "name": "_token", "type": "address" },
+      { "internalType": "enum IOrderManagement.OrderType", "name": "_orderType", "type": "uint8" },
+      { "internalType": "string", "name": "messageHash", "type": "string" }
+    ],
+    "name": "createOrder",
+    "outputs": [
+      { "internalType": "bytes32", "name": "orderId", "type": "bytes32" }
+    ],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  }
+];
