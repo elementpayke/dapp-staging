@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
+import { useAccount } from 'wagmi';
 
 interface WalletContextType {
   isConnected: boolean;
@@ -22,43 +23,32 @@ interface WalletProviderProps {
 }
 
 export const WalletProvider = ({ children }: WalletProviderProps) => {
-  const [isConnected, setIsConnected] = useState(false);
+  const { address: wagmiAddress, isConnected: wagmiConnected } = useAccount();
   const [address, setAddress] = useState<string | null>(null);
+  const [isConnected, setIsConnected] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
-    const checkConnection = async () => {
-      try {
-        const walletAddress = localStorage.getItem('walletAddress');
-        const isConnected = localStorage.getItem('isWalletConnected');
-        
-        if (walletAddress && isConnected === 'true') {
-          setIsConnected(true);
-          setAddress(walletAddress);
-        }
-      } catch (error) {
-        console.error('Error checking wallet connection:', error);
-      }
-    };
-
-    checkConnection();
-  }, []);
-
-  const connectWallet = async () => {
-    try {
-      // The actual wallet connection will be handled by OnchainKit's ConnectWallet component
-      // We just need to handle the post-connection state management
+    if (wagmiConnected && wagmiAddress) {
+      setAddress(wagmiAddress);
       setIsConnected(true);
-      const mockAddress = '0x...'; // This will be replaced by the actual address from OnchainKit
-      setAddress(mockAddress);
-      localStorage.setItem('walletAddress', mockAddress);
+      localStorage.setItem('walletAddress', wagmiAddress);
       localStorage.setItem('isWalletConnected', 'true');
-      router.push('/dashboard');
-    } catch (error) {
-      console.error('Error connecting wallet:', error);
-      setIsConnected(false);
+    } else {
       setAddress(null);
+      setIsConnected(false);
+      localStorage.removeItem('walletAddress');
+      localStorage.removeItem('isWalletConnected');
     }
+  }, [wagmiConnected, wagmiAddress]);
+
+  // The connectWallet function can now simply trigger the OnChainKit connect flow,
+  // because the useAccount hook will then update our context automatically.
+  const connectWallet = async () => {
+    // OnChainKit’s ConnectWallet component will handle prompting the user.
+    // Once connected, useAccount will update and our useEffect will handle it.
+    console.log('Connecting wallet...');
+    router.push('/dashboard');
   };
 
   const disconnectWallet = () => {
