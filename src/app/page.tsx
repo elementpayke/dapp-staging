@@ -7,11 +7,12 @@ import LoadingSpinner from "@/components/shared/LoadingSpinner";
 
 export default function Home() {
   const [isLoading, setIsLoading] = useState(true);
+  const [isAppReady, setIsAppReady] = useState(false);
 
   useEffect(() => {
     // Simulate checking if everything is loaded
     const checkLoading = () => {
-      setIsLoading(false);
+      setIsAppReady(true);
     };
 
     // Add a small delay to prevent flash of loading state
@@ -20,10 +21,17 @@ export default function Home() {
     return () => clearTimeout(timeoutId);
   }, []);
 
+  const handleLoadingComplete = () => {
+    // Only hide the loading spinner if the app is ready AND the spinner has completed one iteration
+    if (isAppReady) {
+      setIsLoading(false);
+    }
+  };
+
   return (
     <main>
       {isLoading ? (
-        <LoadingSpinner />
+        <LoadingSpinner onComplete={handleLoadingComplete} />
       ) : (
         <>
           <Header />
