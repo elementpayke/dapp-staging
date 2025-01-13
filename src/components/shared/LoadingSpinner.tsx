@@ -27,16 +27,14 @@ const LoadingSpinner: React.FC<LoadingSpinnerProps> = ({ onComplete }) => {
       } else {
         setHasCompletedOneIteration(true);
         handleComplete();
-        // Optional: restart the sequence
-        // setCurrentPhraseIndex(0);
       }
-    }, 500); // Show each phase for 0.5 seconds
+    }, 500);
 
     return () => clearTimeout(timer);
   }, [currentPhraseIndex, phrases.length, handleComplete]);
 
   return (
-    <div className="fixed inset-0 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+    <div className="fixed inset-0 flex items-center justify-center bg-gradient-to-r from-white to-[#C7C7FF] backdrop-blur-sm">
       <div className="relative flex flex-col items-center">
         {/* ElementsPay Logo */}
         <div className="mb-8">
@@ -48,9 +46,9 @@ const LoadingSpinner: React.FC<LoadingSpinnerProps> = ({ onComplete }) => {
         {/* Spinner */}
         <div className="h-16 w-16 rounded-full border-4 border-indigo-200 border-t-indigo-600 animate-spin"></div>
 
-        {/* Progressive Sentence */}
+        {/* Progressive Sentence with specified gradient colors */}
         <div className="mt-6 min-h-6 text-center">
-          <span className="text-lg font-medium bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent transition-all duration-300 ease-in-out">
+          <span className="text-lg font-medium bg-gradient-to-r from-[#0514eb] to-[#de0413] bg-clip-text text-transparent transition-all duration-300 ease-in-out">
             {phrases[currentPhraseIndex]}
           </span>
         </div>
