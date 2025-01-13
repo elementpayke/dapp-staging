@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { X } from "lucide-react";
+import { X, ArrowLeft } from "lucide-react";
 import PayToBank from "./PayToBank";
 import PayToMobileMoney from "./PayToMobileMoney";
 
@@ -35,49 +35,42 @@ const SendCryptoModal: React.FC<SendCryptoModalProps> = ({
   };
 
   const walletOptions: WalletOption[] = [
-    {
-      id: "metamask",
-      icon: "🦊",
-      selected: selectedWallet === "metamask",
-    },
-    {
-      id: "coinbase",
-      icon: "©️",
-      selected: selectedWallet === "coinbase",
-    },
-    {
-      id: "qr",
-      icon: "🔲",
-      selected: selectedWallet === "qr",
-    },
+    { id: "metamask", icon: "🦊", selected: selectedWallet === "metamask" },
+    { id: "coinbase", icon: "©️", selected: selectedWallet === "coinbase" },
+    { id: "qr", icon: "🔲", selected: selectedWallet === "qr" },
   ];
 
   if (!isOpen) return null;
 
   return (
     <div
-      className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50"
+      className="fixed inset-0 bg-black bg-opacity-50 flex items-start md:items-center justify-center z-50"
       onClick={handleClose}
     >
-      <div className="bg-white rounded-3xl max-w-4xl w-full">
-        <div className="p-6">
+      <div className="bg-white w-full h-full md:h-auto md:rounded-3xl md:max-w-4xl overflow-auto">
+        <div className="p-4 md:p-6">
           {/* Header */}
           <div className="flex justify-between items-center mb-4">
-            <h2 className="text-2xl font-semibold text-gray-900">
-              Spend Crypto
-            </h2>
+            <div className="flex items-center gap-2">
+              <button onClick={onClose} className="md:hidden p-1" type="button">
+                <ArrowLeft className="w-6 h-6" />
+              </button>
+              <h2 className="text-xl md:text-2xl font-semibold text-gray-900">
+                Spend Crypto
+              </h2>
+            </div>
             <button
               onClick={onClose}
-              className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+              className="hidden md:block p-2 hover:bg-gray-100 rounded-full transition-colors"
               type="button"
             >
               <X className="w-6 h-6" />
             </button>
           </div>
 
-          <div className="grid grid-cols-5 gap-6">
+          <div className="grid md:grid-cols-5 gap-6">
             {/* Left Column - Form */}
-            <div className="col-span-3 space-y-4">
+            <div className="md:col-span-3 space-y-4">
               {/* Payment Type Selection */}
               <div className="flex gap-3">
                 <button
@@ -125,7 +118,7 @@ const SendCryptoModal: React.FC<SendCryptoModalProps> = ({
                       <button
                         key={wallet.id}
                         onClick={() => setSelectedWallet(wallet.id)}
-                        className={`w-14 h-14 rounded-lg flex items-center justify-center text-2xl border-2 transition-all ${
+                        className={`w-12 h-12 md:w-14 md:h-14 rounded-lg flex items-center justify-center text-2xl border-2 transition-all ${
                           selectedWallet === wallet.id
                             ? "border-blue-500 bg-blue-50"
                             : "border-gray-200"
@@ -179,10 +172,18 @@ const SendCryptoModal: React.FC<SendCryptoModalProps> = ({
                   Favorite this payment details for future transactions
                 </label>
               </div>
+
+              {/* Mobile View Confirm Button */}
+              <button
+                type="button"
+                className="w-full md:hidden mt-4 py-3 bg-gradient-to-r from-blue-600 to-red-600 text-white rounded-full font-medium"
+              >
+                Confirm Payment
+              </button>
             </div>
 
-            {/* Right Column - Transaction Summary */}
-            <div className="col-span-2 bg-gray-50 p-4 rounded-2xl h-fit">
+            {/* Right Column - Transaction Summary (Hidden on Mobile) */}
+            <div className="hidden md:block md:col-span-2 bg-gray-50 p-4 rounded-2xl h-fit">
               <h3 className="text-xl font-semibold mb-4 text-gray-900">
                 Transaction summary
               </h3>
