@@ -9,15 +9,21 @@ import CryptoPrices from "@/components/dashboard/CryptoPrices";
 import { Bell } from "lucide-react";
 import Image from "next/image";
 import avatarPlaceholder from "@/assets/avatar-placeholder.svg";
-import { useAuth } from "@/hooks/useAuth";
-import { useWallet } from '@/context/WalletContext';
+import { useWallet } from "@/context/WalletContext";
 
 export default function Dashboard() {
-  const { isConnected, ensName, address } = useWallet();
+  const { isConnected, address } = useWallet();
 
   if (!isConnected) {
     return <div>You must connect your wallet to access the dashboard.</div>;
   }
+
+  const truncateAddress = (addr: string | null | undefined): string => {
+    if (!addr) return "";
+    return `${addr.slice(0, 6)}...${addr.slice(-4)}`;
+  };
+
+  const displayAddress = truncateAddress(address);
 
   return (
     <div className="flex min-h-screen bg-gray-50">
@@ -48,9 +54,14 @@ export default function Dashboard() {
                   className="rounded-full"
                 />
               </div>
-              <span className="font-medium text-sm text-gray-900">
-                {ensName || address}
-              </span>
+              <div className="flex items-center">
+                <span
+                  className="font-medium text-sm text-gray-900 truncate max-w-[120px]"
+                  title={address || undefined}
+                >
+                  {displayAddress}
+                </span>
+              </div>
             </div>
           </nav>
         </div>
