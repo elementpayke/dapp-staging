@@ -65,7 +65,7 @@ const Sidebar = () => {
           {/* Logo and Close Button Container */}
           <div className="h-16 px-6 border-b flex items-center justify-between">
             <Link href="/" className="text-2xl font-bold text-black">
-              ElementsPay
+              ElementPay
             </Link>
             {isOpen && (
               <button
