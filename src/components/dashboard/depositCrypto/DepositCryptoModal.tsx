@@ -205,7 +205,7 @@ const DepositCryptoModal: React.FC<DepositCryptoModalProps> = ({
               </div>
 
               <div className="mt-3 text-sm text-gray-500">
-                At the moment, ElementsPay only allow users to deposit USDC to
+                At the moment, ElementPay only allow users to deposit USDC to
                 the wallet used at registration. However, we will soon allow the
                 deposit of other tokens.
               </div>

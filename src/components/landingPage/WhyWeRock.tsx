@@ -7,7 +7,7 @@ const WhyWeRock = () => {
       icon: Wallet,
       title: "Connect Multiple Wallets",
       description:
-        "Connect multiple wallets to your ElementsPay account and send and deposit crypto in any of them instantly.",
+        "Connect multiple wallets to your ElementPay account and send and deposit crypto in any of them instantly.",
     },
     {
       icon: ShieldCheck,
