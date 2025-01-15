@@ -1,7 +1,14 @@
 import React, { useState } from "react";
 import { X } from "lucide-react";
+import { toast } from "react-toastify";
 import PayToBank from "./PayToBank";
 import PayToMobileMoney from "./PayToMobileMoney";
+import { parseUnits } from "viem";
+import { useAccount, useWriteContract } from "wagmi";
+import { erc20Abi } from "@/app/api/abi";
+import { getUSDCAddress } from '../../../services/tokens';
+import { useContract } from "@/services/useContract";
+import { encryptMessage } from "@/services/encryption";
 
 interface SendCryptoModalProps {
   isOpen: boolean;
@@ -27,11 +34,121 @@ const SendCryptoModal: React.FC<SendCryptoModalProps> = ({
   const [reason, setReason] = useState("Transport");
   const [favorite, setFavorite] = useState(true);
   const [selectedWallet, setSelectedWallet] = useState<string>("metamask");
+  const [isApproving, setIsApproving] = useState(false);
+
+  const account = useAccount();
+  const { writeContractAsync } = useWriteContract();
 
   const handleClose = (e: React.MouseEvent<HTMLDivElement>) => {
     if (e.target === e.currentTarget) {
       onClose();
     }
+  };
+
+  const usdcTokenAddress = getUSDCAddress() as `0x${string}`;
+  const { contract, address } = useContract();
+  const phoneNumber = "0703417782";
+
+  let messageHash = "";
+  try {
+    // TODO: Rate should be fetched from an API
+    messageHash = encryptMessage(phoneNumber, "USD", 1, parseFloat(amount));
+  } catch (error) {
+    toast.error("Encryption failed.");
+
+    console.error("Error encrypting message:", error);
+    return;
+  }
+
+  //@TODO: Joe query the contract address from the env
+  const smartcontractaddress = "0x10af11060bC238670520Af7ca15E86a34bC68fe4";
+
+  const handleApproveToken = async () => {
+    if (!account.address) {
+      toast.error("Please connect your wallet first");
+      return;
+    }
+
+    if (parseFloat(amount) <= 0) {
+      toast.error("Amount must be greater than zero");
+      return;
+    }
+
+    try {
+      setIsApproving(true);
+
+      const tokenAddress = usdcTokenAddress;
+      const spenderAddress = smartcontractaddress as `0x${string}`;
+      if (!spenderAddress) {
+        toast.error("Spender address is not defined");
+        return;
+      }
+      const orderType =1;
+
+      
+      await writeContractAsync({
+        address: tokenAddress,
+        abi: erc20Abi,
+        functionName: "approve",
+        args: [
+          spenderAddress,
+          parseUnits(amount, 6) // USDC has 6 decimals
+        ],
+      });
+
+      console.log("****************************************************")
+      toast.success("Token approval successful!");
+      // Proceed with the payment logic after approval
+
+      //now create an order for onramp
+      try {
+        if (!contract) throw new Error("Contract is not initialized.");
+  
+        // Call the createOrder function on your contract
+        const tx = await contract.createOrder(
+          address,
+          parseUnits(amount, 6),
+          usdcTokenAddress,
+          orderType,
+          messageHash
+        );
+        
+        // if (!tx) {
+        //   throw new Error("Transaction was not returned.");
+        // }
+        toast.info("Transaction submitted. Awaiting confirmation...");
+        // TODO: Handle transaction confirmation
+        const receipt = await tx.wait();
+        console.log("Transaction receipt:", receipt);
+        toast.success("Order created successfully!");
+        onClose();
+      } catch (error: any) {
+        console.error("Error creating order:", error);
+        toast.error(error?.message || "Transaction failed.");
+      } finally {
+        console.log("****************************************************")
+
+        console.log("IsAproving status is: ", isApproving);
+        setIsApproving(false);
+        console.log("IsAproving status is: ", isApproving);
+
+      }
+
+
+    } catch (error: any) {
+      console.log("************************************");
+      console.error("Approval error:", error);
+      toast.error(error?.shortMessage || "Failed to approve token");
+    } finally {
+      console.log("****************************************************")
+
+      console.log("IsAproving status is: ", isApproving);
+      setIsApproving(false);
+      console.log("IsAproving status is: ", isApproving);
+
+    }
+
+
   };
 
   const walletOptions: WalletOption[] = [
@@ -208,10 +325,12 @@ const SendCryptoModal: React.FC<SendCryptoModalProps> = ({
               </div>
 
               <button
+                onClick={handleApproveToken}
+                disabled={isApproving}
                 type="button"
-                className="w-full mt-4 py-3 bg-gradient-to-r from-blue-600 to-red-600 text-white rounded-full font-medium hover:opacity-90 transition-opacity"
+                className="w-full mt-4 py-3 bg-gradient-to-r from-blue-600 to-red-600 text-white rounded-full font-medium hover:opacity-90 transition-opacity disabled:opacity-50"
               >
-                Confirm payment
+                {isApproving ? "Approving..." : "Confirm payment"}
               </button>
 
               <div className="mt-4 bg-gray-100 p-3 rounded-lg">
