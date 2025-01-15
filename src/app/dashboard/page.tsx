@@ -10,13 +10,20 @@ import { Bell } from "lucide-react";
 import Image from "next/image";
 import avatarPlaceholder from "@/assets/avatar-placeholder.svg";
 import { useWallet } from "@/context/WalletContext";
+import { Identity, Name } from "@coinbase/onchainkit/identity";
+import { base } from "viem/chains";
 
 export default function Dashboard() {
-  const { isConnected, ensName, address } = useWallet();
+  const { isConnected, address } = useWallet();
 
   if (!isConnected) {
     return <div>You must connect your wallet to access the dashboard.</div>;
   }
+
+  const truncateAddress = (addr: string | null | undefined): string => {
+    if (!addr) return "";
+    return `${addr.slice(0, 6)}...${addr.slice(-4)}`;
+  };
 
   return (
     <div className="flex min-h-screen bg-gray-50">
@@ -47,9 +54,23 @@ export default function Dashboard() {
                   className="rounded-full"
                 />
               </div>
-              <span className="font-medium text-sm text-gray-900">
-                {ensName || address}
-              </span>
+              {address && (
+                <Identity address={address} chain={base}>
+                  <div className="flex items-center">
+                    <Name
+                      className="font-medium text-sm text-gray-900 truncate max-w-[120px]"
+                      fallback={
+                        <span
+                          className="font-medium text-sm text-gray-900 truncate max-w-[120px]"
+                          title={address}
+                        >
+                          {truncateAddress(address)}
+                        </span>
+                      }
+                    />
+                  </div>
+                </Identity>
+              )}
             </div>
           </nav>
         </div>
