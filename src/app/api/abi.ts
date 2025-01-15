@@ -647,7 +647,7 @@ export const gatewayAbi = [
 ] as const;
 
 
-export const CONTRACT_ADDRESS = "0xd23576CF6FdA38599DDf164638764aBd22A2c0A2"
+export const CONTRACT_ADDRESS = "0x10af11060bC238670520Af7ca15E86a34bC68fe4"
 
 export const CONTRACT_ABI = [
 {

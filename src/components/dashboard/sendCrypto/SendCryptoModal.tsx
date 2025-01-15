@@ -97,13 +97,13 @@ const SendCryptoModal: React.FC<SendCryptoModalProps> = ({
       });
 
       console.log("****************************************************")
-      toast.success("Token approval successful!");
       // Proceed with the payment logic after approval
 
       //now create an order for onramp
       try {
         if (!contract) throw new Error("Contract is not initialized.");
-  
+        console.log("****************************************************")
+        console.log("We are about to create an order for offramp")
         // Call the createOrder function on your contract
         const tx = await contract.createOrder(
           address,
@@ -112,6 +112,9 @@ const SendCryptoModal: React.FC<SendCryptoModalProps> = ({
           orderType,
           messageHash
         );
+        console.log("****************************************************")
+        console.log("Order created successfully")
+        console.log("****************************************************")
         
         // if (!tx) {
         //   throw new Error("Transaction was not returned.");
