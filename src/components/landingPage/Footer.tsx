@@ -14,7 +14,7 @@ const Footer = () => {
                 <div className="w-4 h-4 rounded-sm bg-white"></div>
               </div>
               <span className="text-lg font-semibold text-gray-900">
-                ElementsPay
+                ElementPay
               </span>
             </Link>
             <div className="flex gap-8 mt-6">
@@ -43,7 +43,7 @@ const Footer = () => {
                 <Facebook size={26} />
               </Link>
               <Link
-                href="https://telegram.me/elementspay"
+                href="https://telegram.me/elementpay"
                 className="text-gray-900 hover:text-gray-600"
               >
                 <Send size={26} />
@@ -147,7 +147,7 @@ const Footer = () => {
         {/* Copyright */}
         <div className="pt-8 border-t border-gray-200">
           <p className="text-center text-gray-600">
-            © 2024 Elementspay. All rights reserved.
+            © 2024 Elementpay. All rights reserved.
           </p>
         </div>
       </div>
