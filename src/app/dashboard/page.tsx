@@ -9,8 +9,7 @@ import CryptoPrices from "@/components/dashboard/CryptoPrices";
 import { Bell } from "lucide-react";
 import Image from "next/image";
 import avatarPlaceholder from "@/assets/avatar-placeholder.svg";
-import { useAuth } from "@/hooks/useAuth";
-import { useWallet } from '@/context/WalletContext';
+import { useWallet } from "@/context/WalletContext";
 
 export default function Dashboard() {
   const { isConnected, ensName, address } = useWallet();
