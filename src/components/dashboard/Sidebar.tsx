@@ -12,6 +12,19 @@ import {
 } from "lucide-react";
 import { ReactNode, useState } from "react";
 
+type PageComponent =
+  | "overview"
+  | "transactions"
+  | "wallets"
+  | "cards"
+  | "settings"
+  | "support";
+
+interface SidebarProps {
+  onPageChange: (page: PageComponent) => void;
+  currentPage: PageComponent;
+}
+
 interface SidebarLinkProps {
   icon: ReactNode;
   label: string;
@@ -19,18 +32,26 @@ interface SidebarLinkProps {
   active?: boolean;
   badge?: string;
   onClick?: () => void;
+  pageName?: PageComponent;
 }
 
 interface SubLinkProps {
   label: string;
   active?: boolean;
   badge?: string;
+  onClick?: () => void;
+  pageName?: PageComponent;
 }
 
-const Sidebar = () => {
+const Sidebar: React.FC<SidebarProps> = ({ onPageChange, currentPage }) => {
   const [isOpen, setIsOpen] = useState(false);
 
   const toggleSidebar = () => setIsOpen(!isOpen);
+
+  const handlePageChange = (page: PageComponent) => {
+    onPageChange(page);
+    setIsOpen(false);
+  };
 
   return (
     <>
@@ -55,11 +76,11 @@ const Sidebar = () => {
       {/* Sidebar */}
       <aside
         className={`
-        fixed top-0 left-0 h-screen bg-white border-r z-40
-        w-64 transform transition-transform duration-200 ease-in-out
-        lg:transform-none
-        ${isOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}
-      `}
+          fixed top-0 left-0 h-screen bg-white border-r z-40
+          w-64 transform transition-transform duration-200 ease-in-out
+          lg:transform-none
+          ${isOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}
+        `}
       >
         <div className="flex flex-col h-full">
           {/* Logo and Close Button Container */}
@@ -83,11 +104,17 @@ const Sidebar = () => {
               <SidebarLink
                 icon={<Home size={20} />}
                 label="Home"
-                active
-                onClick={() => setIsOpen(false)}
+                active={currentPage === "overview"}
+                onClick={() => handlePageChange("overview")}
+                pageName="overview"
               >
                 <div className="ml-4 space-y-1">
-                  <SubLink label="Overview" active />
+                  <SubLink
+                    label="Overview"
+                    active={currentPage === "overview"}
+                    onClick={() => handlePageChange("overview")}
+                    pageName="overview"
+                  />
                   <SubLink label="Notifications" badge="10" />
                   <SubLink label="Recent transactions" />
                 </div>
@@ -95,17 +122,23 @@ const Sidebar = () => {
               <SidebarLink
                 icon={<Wallet size={20} />}
                 label="My wallets"
-                onClick={() => setIsOpen(false)}
+                active={currentPage === "wallets"}
+                onClick={() => handlePageChange("wallets")}
+                pageName="wallets"
               />
               <SidebarLink
                 icon={<Clock size={20} />}
                 label="Transactions"
-                onClick={() => setIsOpen(false)}
+                active={currentPage === "transactions"}
+                onClick={() => handlePageChange("transactions")}
+                pageName="transactions"
               />
               <SidebarLink
                 icon={<CreditCard size={20} />}
                 label="Virtual Cards"
-                onClick={() => setIsOpen(false)}
+                active={currentPage === "cards"}
+                onClick={() => handlePageChange("cards")}
+                pageName="cards"
               />
             </div>
 
@@ -114,12 +147,16 @@ const Sidebar = () => {
               <SidebarLink
                 icon={<HelpCircle size={20} />}
                 label="Support"
-                onClick={() => setIsOpen(false)}
+                active={currentPage === "support"}
+                onClick={() => handlePageChange("support")}
+                pageName="support"
               />
               <SidebarLink
                 icon={<Settings size={20} />}
                 label="Settings"
-                onClick={() => setIsOpen(false)}
+                active={currentPage === "settings"}
+                onClick={() => handlePageChange("settings")}
+                pageName="settings"
               />
             </div>
           </nav>
@@ -153,9 +190,8 @@ const SidebarLink: React.FC<SidebarLinkProps> = ({
   onClick,
 }) => (
   <div className="space-y-1">
-    <Link
-      href="#"
-      className={`flex items-center gap-3 px-3 py-2 rounded-lg transition-colors ${
+    <button
+      className={`flex w-full items-center gap-3 px-3 py-2 rounded-lg transition-colors ${
         active ? "bg-gray-100" : "hover:bg-gray-50"
       }`}
       onClick={onClick}
@@ -169,16 +205,16 @@ const SidebarLink: React.FC<SidebarLinkProps> = ({
           {badge}
         </span>
       )}
-    </Link>
+    </button>
     {children}
   </div>
 );
 
 // SubLink Component
-const SubLink: React.FC<SubLinkProps> = ({ label, active, badge }) => (
-  <Link
-    href="#"
-    className={`block pl-12 py-2 text-sm rounded-lg transition-colors ${
+const SubLink: React.FC<SubLinkProps> = ({ label, active, badge, onClick }) => (
+  <button
+    onClick={onClick}
+    className={`block w-full text-left pl-12 py-2 text-sm rounded-lg transition-colors ${
       active ? "text-blue-600 bg-blue-50" : "text-black hover:bg-gray-50"
     }`}
   >
@@ -188,7 +224,7 @@ const SubLink: React.FC<SubLinkProps> = ({ label, active, badge }) => (
         {badge}
       </span>
     )}
-  </Link>
+  </button>
 );
 
 export default Sidebar;
