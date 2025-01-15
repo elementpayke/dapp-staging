@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { X, ArrowLeft } from "lucide-react";
 
 interface DepositCryptoModalProps {
@@ -19,21 +19,11 @@ const DepositCryptoModal: React.FC<DepositCryptoModalProps> = ({
   const [selectedWallet, setSelectedWallet] = useState<string>("metamask");
   const [selectedToken, setSelectedToken] = useState("USDC");
   const [amount, setAmount] = useState("10000.00");
-  const [usdcAmount, setUsdcAmount] = useState("0.00");
   const [depositFrom, setDepositFrom] = useState("MPESA");
   const [phoneNumber, setPhoneNumber] = useState("0703417782");
   const [reason, setReason] = useState("Crypto deposit");
   const [favorite, setFavorite] = useState(true);
-
-  // Mock exchange rate - in production this should come from an API
-  const exchangeRate = 145.5; // 1 USDC = 145.5 KES
-
-  useEffect(() => {
-    // Calculate USDC amount whenever KES amount changes
-    const kesAmount = parseFloat(amount) || 0;
-    const calculatedUsdc = (kesAmount / exchangeRate).toFixed(2);
-    setUsdcAmount(calculatedUsdc);
-  }, [amount]);
+  const [usdcAmount, setUsdcAmount] = useState("9807.90"); // New state for USDC amount
 
   const handleClose = (e: React.MouseEvent<HTMLDivElement>) => {
     if (e.target === e.currentTarget) {
@@ -127,45 +117,46 @@ const DepositCryptoModal: React.FC<DepositCryptoModalProps> = ({
                 </div>
                 <div>
                   <label className="block text-gray-600 mb-2">
-                    Amount in KES
+                    Amount in KE
                   </label>
                   <input
                     type="text"
                     value={amount}
                     onChange={(e) => setAmount(e.target.value)}
                     className="w-full p-3 bg-gray-50 rounded-lg border-0 text-gray-900"
-                    placeholder="Enter amount in KES"
+                    placeholder="Enter amount"
                   />
                 </div>
               </div>
 
-              {/* USDC Amount Display */}
-              <div>
-                <label className="block text-gray-600 mb-2">
-                  You will receive (USDC)
-                </label>
-                <input
-                  type="text"
-                  value={usdcAmount}
-                  readOnly
-                  className="w-full p-3 bg-gray-50 rounded-lg border-0 text-gray-900"
-                />
-                <p className="text-sm text-gray-500 mt-1">
-                  1 USDC = {exchangeRate} KES
-                </p>
+              {/* Deposit From and USDC Amount */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-gray-600 mb-2">From</label>
+                  <select
+                    value={depositFrom}
+                    onChange={(e) => setDepositFrom(e.target.value)}
+                    className="w-full p-3 bg-gray-50 rounded-lg border-0 text-gray-900"
+                  >
+                    <option value="MPESA">MPESA</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-gray-600 mb-2">
+                    USDC to receive
+                  </label>
+                  <input
+                    type="text"
+                    value={usdcAmount}
+                    onChange={(e) => setUsdcAmount(e.target.value)}
+                    className="w-full p-3 bg-gray-50 rounded-lg border-0 text-gray-900"
+                    placeholder="USDC amount"
+                    readOnly
+                  />
+                </div>
               </div>
 
-              {/* Deposit From and Phone Number */}
               <div>
-                <label className="block text-gray-600 mb-2">From</label>
-                <select
-                  value={depositFrom}
-                  onChange={(e) => setDepositFrom(e.target.value)}
-                  className="w-full p-3 bg-gray-50 rounded-lg border-0 text-gray-900 mb-4"
-                >
-                  <option value="MPESA">MPESA</option>
-                </select>
-
                 <label className="block text-gray-600 mb-2">Phone Number</label>
                 <input
                   type="text"
@@ -234,22 +225,16 @@ const DepositCryptoModal: React.FC<DepositCryptoModalProps> = ({
                   </span>
                 </div>
                 <div className="flex justify-between items-center">
-                  <span className="text-gray-600">Amount to send (KES)</span>
-                  <span className="text-gray-900">{amount}</span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-gray-600">
-                    Amount to receive (USDC)
-                  </span>
-                  <span className="text-gray-900">{usdcAmount}</span>
+                  <span className="text-gray-600">Amount to send</span>
+                  <span className="text-gray-900">USDC 9807.90</span>
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="text-gray-600">Transaction charge</span>
-                  <span className="text-orange-600">KES 0.00</span>
+                  <span className="text-orange-600">KE 0.00</span>
                 </div>
                 <div className="border-t pt-3 flex justify-between items-center font-medium">
                   <span className="text-gray-900">Total:</span>
-                  <span className="text-gray-900">KES {amount}</span>
+                  <span className="text-gray-900">KE 9811.40</span>
                 </div>
               </div>
 
@@ -265,10 +250,8 @@ const DepositCryptoModal: React.FC<DepositCryptoModalProps> = ({
                   Crypto Balance after transaction
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-gray-600">
-                    USDC: {(197.9 + parseFloat(usdcAmount)).toFixed(2)}
-                  </span>
-                  <span className="text-gray-600">KES {amount}</span>
+                  <span className="text-gray-600">USDC: 18908.00</span>
+                  <span className="text-gray-600">KE 10000.40</span>
                 </div>
               </div>
 
