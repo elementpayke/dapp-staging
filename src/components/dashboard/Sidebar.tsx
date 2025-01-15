@@ -9,6 +9,8 @@ import {
   HelpCircle,
   Menu,
   X,
+  Mail,
+  MessageCircle,
 } from "lucide-react";
 import { ReactNode, useState } from "react";
 
@@ -18,7 +20,8 @@ type PageComponent =
   | "wallets"
   | "cards"
   | "settings"
-  | "support";
+  | "support-whatsapp"
+  | "support-email";
 
 interface SidebarProps {
   onPageChange: (page: PageComponent) => void;
@@ -33,6 +36,7 @@ interface SidebarLinkProps {
   badge?: string;
   onClick?: () => void;
   pageName?: PageComponent;
+  subMenu?: boolean;
 }
 
 interface SubLinkProps {
@@ -41,12 +45,23 @@ interface SubLinkProps {
   badge?: string;
   onClick?: () => void;
   pageName?: PageComponent;
+  icon?: ReactNode;
+  status?: string;
 }
 
 const Sidebar: React.FC<SidebarProps> = ({ onPageChange, currentPage }) => {
   const [isOpen, setIsOpen] = useState(false);
+  const [expandedMenus, setExpandedMenus] = useState<string[]>(["support"]);
 
   const toggleSidebar = () => setIsOpen(!isOpen);
+
+  const toggleMenu = (menu: string) => {
+    setExpandedMenus((prev) =>
+      prev.includes(menu)
+        ? prev.filter((item) => item !== menu)
+        : [...prev, menu]
+    );
+  };
 
   const handlePageChange = (page: PageComponent) => {
     onPageChange(page);
@@ -142,15 +157,38 @@ const Sidebar: React.FC<SidebarProps> = ({ onPageChange, currentPage }) => {
               />
             </div>
 
-            {/* Bottom section */}
+            {/* Support and Settings Section */}
             <div className="mt-auto pt-4 border-t space-y-1">
+              {/* Support Section with Submenu */}
               <SidebarLink
                 icon={<HelpCircle size={20} />}
                 label="Support"
-                active={currentPage === "support"}
-                onClick={() => handlePageChange("support")}
-                pageName="support"
-              />
+                subMenu={true}
+                active={currentPage.startsWith("support")}
+                onClick={() => toggleMenu("support")}
+              >
+                {expandedMenus.includes("support") && (
+                  <div className="ml-4 space-y-1 mt-1">
+                    <SubLink
+                      icon={
+                        <MessageCircle size={16} className="text-green-500" />
+                      }
+                      label="WhatsApp"
+                      active={currentPage === "support-whatsapp"}
+                      onClick={() => handlePageChange("support-whatsapp")}
+                      status="Online"
+                    />
+                    <SubLink
+                      icon={<Mail size={16} className="text-gray-500" />}
+                      label="Email"
+                      active={currentPage === "support-email"}
+                      onClick={() => handlePageChange("support-email")}
+                    />
+                  </div>
+                )}
+              </SidebarLink>
+
+              {/* Settings Section */}
               <SidebarLink
                 icon={<Settings size={20} />}
                 label="Settings"
@@ -188,6 +226,7 @@ const SidebarLink: React.FC<SidebarLinkProps> = ({
   active,
   badge,
   onClick,
+  subMenu,
 }) => (
   <div className="space-y-1">
     <button
@@ -196,13 +235,20 @@ const SidebarLink: React.FC<SidebarLinkProps> = ({
       }`}
       onClick={onClick}
     >
-      <span className="text-black">{icon}</span>
-      <span className={`${active ? "font-medium text-black" : "text-black"}`}>
+      <span className="text-gray-500">{icon}</span>
+      <span
+        className={`${active ? "font-medium text-gray-900" : "text-gray-700"}`}
+      >
         {label}
       </span>
       {badge && (
         <span className="ml-auto bg-gray-100 px-2 py-1 rounded-full text-xs">
           {badge}
+        </span>
+      )}
+      {subMenu && (
+        <span className="ml-auto transform transition-transform duration-200">
+          {active ? "▼" : "▶"}
         </span>
       )}
     </button>
@@ -211,16 +257,27 @@ const SidebarLink: React.FC<SidebarLinkProps> = ({
 );
 
 // SubLink Component
-const SubLink: React.FC<SubLinkProps> = ({ label, active, badge, onClick }) => (
+const SubLink: React.FC<SubLinkProps> = ({
+  label,
+  active,
+  badge,
+  onClick,
+  icon,
+  status,
+}) => (
   <button
     onClick={onClick}
-    className={`block w-full text-left pl-12 py-2 text-sm rounded-lg transition-colors ${
-      active ? "text-blue-600 bg-blue-50" : "text-black hover:bg-gray-50"
+    className={`flex items-center w-full pl-3 py-2 text-sm rounded-lg transition-colors ${
+      active ? "text-blue-600 bg-blue-50" : "text-gray-700 hover:bg-gray-50"
     }`}
   >
-    {label}
+    {icon && <span className="mr-2">{icon}</span>}
+    <span>{label}</span>
+    {status && (
+      <span className="ml-auto text-xs text-green-600 px-2">{status}</span>
+    )}
     {badge && (
-      <span className="ml-2 bg-gray-100 px-2 py-1 rounded-full text-xs">
+      <span className="ml-auto bg-gray-100 px-2 py-1 rounded-full text-xs">
         {badge}
       </span>
     )}
