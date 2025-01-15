@@ -3,6 +3,8 @@ import { useState } from "react";
 import Sidebar from "@/components/dashboard/Sidebar";
 import OverviewPage from "@/components/dashboard/pages/OverviewPage";
 import TransactionsPage from "@/components/dashboard/pages/TransactionsPage";
+import WhatsAppPage from "@/components/dashboard/pages/WhatsAppPage";
+import EmailPage from "@/components/dashboard/pages/EmailPage";
 import { Bell } from "lucide-react";
 import Image from "next/image";
 import avatarPlaceholder from "@/assets/avatar-placeholder.svg";
@@ -14,7 +16,8 @@ type PageComponent =
   | "wallets"
   | "cards"
   | "settings"
-  | "support";
+  | "support-whatsapp"
+  | "support-email";
 
 export default function Dashboard() {
   const { isConnected, ensName, address } = useWallet();
@@ -30,8 +33,16 @@ export default function Dashboard() {
         return <OverviewPage />;
       case "transactions":
         return <TransactionsPage />;
-      default:
+      case "support-whatsapp":
+        return <WhatsAppPage />;
+      case "support-email":
+        return <EmailPage />;
+      case "wallets":
+      case "cards":
+      case "settings":
         return <div className="p-8">Page under construction</div>;
+      default:
+        return <OverviewPage />;
     }
   };
 
