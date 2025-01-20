@@ -21,6 +21,7 @@
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",
+    "@next/bundle-analyzer": "^15.1.4",
     "@types/axios": "^0.9.36",
     "@types/node": "^20",
     "@types/react": "^19",

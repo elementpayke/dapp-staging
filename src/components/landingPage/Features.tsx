@@ -42,7 +42,7 @@ const FeaturesSection = () => {
         </span>
       ),
       description:
-        "With ElementsPay, you can instantly pay or send money to a mobile number, using your crypto tokens in any wallet you own. Pay to a TILL, Pochi La Biashara or any PayBill.",
+        "With ElementPay, you can instantly pay or send money to a mobile number, using your crypto tokens in any wallet you own. Pay to a TILL, Pochi La Biashara or any PayBill.",
       image: IMAGES.card1,
       backgroundColor: "#fcf7f7",
       subFeatures: [
@@ -77,7 +77,7 @@ const FeaturesSection = () => {
         </span>
       ),
       description:
-        "You can make purchases across borders using a virtual card. ElementsPay allows you to create a virtual card, much like a Visa or Mastercard. Use your crypto to pay for Netflix or buy goods on Google Play.",
+        "You can make purchases across borders using a virtual card. ElementPay allows you to create a virtual card, much like a Visa or Mastercard. Use your crypto to pay for Netflix or buy goods on Google Play.",
       image: IMAGES.card3,
       backgroundColor: "#faf0fa",
       subFeatures: [
@@ -104,7 +104,7 @@ const FeaturesSection = () => {
         <div className="text-center mb-8 lg:mb-10">
           <div className="inline-flex flex-col items-center">
             <h2 className="text-xl md:text-2xl lg:text-3xl font-semibold text-[#546894] mb-4">
-              What you can do with ElementsPay
+              What you can do with ElementPay
             </h2>
             <div className="h-0.5 bg-[#a6a6a6] w-full"></div>
           </div>

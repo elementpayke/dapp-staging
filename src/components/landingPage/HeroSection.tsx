@@ -2,23 +2,23 @@
 import React from "react";
 import Image from "next/image";
 import { Sparkles } from "lucide-react";
-import { useWallet } from '@/context/WalletContext';
+import { useWallet } from "@/context/WalletContext";
 import {
   ConnectWallet,
   Wallet,
   WalletDropdown,
-  WalletDropdownBasename, 
-  WalletDropdownFundLink, 
-  WalletDropdownLink, 
+  WalletDropdownBasename,
+  WalletDropdownFundLink,
+  WalletDropdownLink,
   WalletDropdownDisconnect,
-} from '@coinbase/onchainkit/wallet';
+} from "@coinbase/onchainkit/wallet";
 import {
   Address,
   Avatar,
   Name,
   Identity,
-  EthBalance, 
-} from '@coinbase/onchainkit/identity';
+  EthBalance,
+} from "@coinbase/onchainkit/identity";
 
 // Import images directly
 import happyCouple from "@/assets/happy-couple.png";
@@ -29,7 +29,7 @@ import bitcoinLogo from "@/assets/bitcoin-logo.svg";
 const IMAGES = {
   heroMain: {
     src: happyCouple,
-    alt: "Happy couple using ElementsPay",
+    alt: "Happy couple using ElementPay",
     width: 600,
     height: 700,
   },
@@ -73,7 +73,7 @@ const Hero = () => {
               Pay for anything with Crypto, as simply as saying Cheese!
             </h1>
             <p className="text-base sm:text-lg xl:text-xl text-gray-600 mb-6 sm:mb-8">
-              ElementsPay is removing the mystery from crypto by making your
+              ElementPay is removing the mystery from crypto by making your
               tokens pay for your every day expenditures. Pay for anything
               instantly, easily.
             </p>
@@ -100,8 +100,8 @@ const Hero = () => {
                   </WalletDropdown>
                 </Wallet>
               ) : (
-                <ConnectWallet 
-                  className='bg-white text-[#0514eb] px-6 sm:px-8 py-3 sm:py-4 rounded-full text-base sm:text-lg xl:text-xl font-medium border-2 border-[#0514eb] hover:bg-blue-50 transition-all whitespace-nowrap'
+                <ConnectWallet
+                  className="bg-white text-[#0514eb] px-6 sm:px-8 py-3 sm:py-4 rounded-full text-base sm:text-lg xl:text-xl font-medium border-2 border-[#0514eb] hover:bg-blue-50 transition-all whitespace-nowrap"
                   onConnect={connectWallet}
                 >
                   Connect a Wallet

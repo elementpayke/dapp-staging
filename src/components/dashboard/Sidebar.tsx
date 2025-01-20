@@ -101,7 +101,7 @@ const Sidebar: React.FC<SidebarProps> = ({ onPageChange, currentPage }) => {
           {/* Logo and Close Button Container */}
           <div className="h-16 px-6 border-b flex items-center justify-between">
             <Link href="/" className="text-2xl font-bold text-black">
-              ElementsPay
+              ElementPay
             </Link>
             {isOpen && (
               <button
@@ -198,20 +198,6 @@ const Sidebar: React.FC<SidebarProps> = ({ onPageChange, currentPage }) => {
               />
             </div>
           </nav>
-
-          {/* Referral Banner */}
-          <div className="p-4 bg-gray-50">
-            <div className="p-4 bg-white rounded-lg text-center">
-              <div className="mb-2">🎁</div>
-              <h3 className="font-medium text-black">Refer and earn</h3>
-              <p className="text-sm text-black mt-1">
-                Share our link and earn $5 for every successful referral
-              </p>
-              <button className="mt-3 text-sm text-blue-600 hover:text-blue-700 transition-colors">
-                Referral
-              </button>
-            </div>
-          </div>
         </div>
       </aside>
     </>
