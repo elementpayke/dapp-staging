@@ -3,25 +3,38 @@
 import Link from "next/link";
 import { useState, useEffect } from "react";
 import { Menu, X } from "lucide-react";
+import { useWallet } from "@/context/WalletContext";
+import {
+  ConnectWallet,
+  Wallet,
+  WalletDropdown,
+  WalletDropdownBasename,
+  WalletDropdownLink,
+  WalletDropdownDisconnect,
+} from "@coinbase/onchainkit/wallet";
+import {
+  Address,
+  Avatar,
+  Name,
+  Identity,
+  EthBalance,
+} from "@coinbase/onchainkit/identity";
 
 const Header = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const { connectWallet, disconnectWallet, isConnected, address } = useWallet();
 
-  // Handle body scroll lock
   useEffect(() => {
     if (isMenuOpen) {
-      // Disable scroll
       document.body.style.overflow = "hidden";
       document.body.style.height = "100vh";
       document.body.style.touchAction = "none";
 
-      // Get the current scroll position
       const scrollY = window.scrollY;
       document.body.style.position = "fixed";
       document.body.style.top = `-${scrollY}px`;
       document.body.style.width = "100%";
     } else {
-      // Re-enable scroll
       const scrollY = document.body.style.top;
       document.body.style.position = "";
       document.body.style.top = "";
@@ -32,7 +45,6 @@ const Header = () => {
       window.scrollTo(0, parseInt(scrollY || "0") * -1);
     }
 
-    // Cleanup function
     return () => {
       document.body.style.position = "";
       document.body.style.top = "";
@@ -53,11 +65,11 @@ const Header = () => {
               <div className="w-4 h-4 rounded-sm bg-white"></div>
             </div>
             <span className="text-lg font-semibold text-gray-900">
-              ElementsPay
+              ElementPay
             </span>
           </Link>
 
-          {/* Desktop Navigation - Centered */}
+          {/* Desktop Navigation */}
           <div className="hidden md:flex flex-1 items-center justify-center space-x-12">
             <Link
               href="/payments"
@@ -79,25 +91,49 @@ const Header = () => {
             </Link>
           </div>
 
-          {/* CTA Button */}
+          {/* Wallet Connection */}
           <div className="hidden md:block">
-            <button className="bg-gradient-to-r from-[#0514eb] via-[#9400d3] to-[#de0413] text-white px-6 py-2.5 rounded-full text-base font-medium hover:opacity-90 transition-opacity">
-              Create a Wallet
-            </button>
+            {isConnected ? (
+              <Wallet>
+                <ConnectWallet>
+                  <Avatar className="h-6 w-6" />
+                  <Name />
+                </ConnectWallet>
+                <WalletDropdown>
+                  <Identity className="px-4 pt-3 pb-2" hasCopyAddressOnClick>
+                    <Avatar />
+                    <Name />
+                    <Address />
+                    <EthBalance />
+                  </Identity>
+                  <WalletDropdownBasename />
+                  <WalletDropdownLink
+                    icon="wallet"
+                    href="https://keys.coinbase.com"
+                  >
+                    Wallet
+                  </WalletDropdownLink>
+                  <WalletDropdownDisconnect />
+                </WalletDropdown>
+              </Wallet>
+            ) : (
+              <ConnectWallet
+                className="bg-blue-800 text-white px-6 py-2.5 rounded-full flex items-center space-x-2 hover:bg-blue-700 transition-colors"
+                onConnect={connectWallet}
+              >
+                Sign Up
+              </ConnectWallet>
+            )}
           </div>
 
-          {/* Mobile menu button */}
-          <div className="md:hidden ml-auto">
-            <button
-              type="button"
-              onClick={() => setIsMenuOpen(!isMenuOpen)}
-              className="inline-flex items-center justify-center p-2 rounded-md text-gray-700 hover:text-gray-900"
-              aria-expanded={isMenuOpen}
-            >
-              <span className="sr-only">Open main menu</span>
-              <Menu size={24} />
-            </button>
-          </div>
+          {/* Mobile Menu Button */}
+          <button
+            className="md:hidden ml-auto p-2"
+            onClick={() => setIsMenuOpen(!isMenuOpen)}
+            aria-label="Toggle menu"
+          >
+            {isMenuOpen ? <X size={24} /> : <Menu size={24} />}
+          </button>
         </div>
 
         {/* Mobile Navigation */}
@@ -178,6 +214,7 @@ const Header = () => {
                     Contact
                   </Link>
                 </div>
+
                 <Link
                   href="/cookie-settings"
                   onClick={() => setIsMenuOpen(false)}
@@ -186,14 +223,23 @@ const Header = () => {
                   Cookie settings
                 </Link>
 
-                {/* CTA Buttons */}
+                {/* Mobile Wallet Connection */}
                 <div className="mt-8 space-y-4">
-                  <button className="w-full bg-gradient-to-r from-[#0514eb] via-[#9400d3] to-[#de0413] text-white px-6 py-3 sm:py-4 rounded-full text-base sm:text-lg font-medium">
-                    Create a Wallet
-                  </button>
-                  <button className="w-full bg-white text-[#0514eb] px-6 py-3 sm:py-4 rounded-full text-base sm:text-lg font-medium border-2 border-[#0514eb]">
-                    Connect a Wallet
-                  </button>
+                  {isConnected ? (
+                    <Wallet>
+                      <ConnectWallet>
+                        <Avatar className="h-6 w-6" />
+                        <Name />
+                      </ConnectWallet>
+                    </Wallet>
+                  ) : (
+                    <ConnectWallet
+                      className="w-full bg-blue-800 text-white px-6 py-3 sm:py-4 rounded-full text-base sm:text-lg font-medium"
+                      onConnect={connectWallet}
+                    >
+                      Sign Up
+                    </ConnectWallet>
+                  )}
                 </div>
 
                 {/* No KYC Required */}

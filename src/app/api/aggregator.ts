@@ -18,8 +18,8 @@ export const fetchRate = async ({
   currency,
 }: RatePayload): Promise<RateResponse> => {
   try {
-    const response = await axios.get(
-      `${AGGREGATOR_URL}/rates/${token}/${amount}/${currency}?provider_id=${PROVIDER_ID}`,
+    const response = await axios.get<RateResponse>(
+      `${AGGREGATOR_URL}/rates/${token}/${amount}/${currency}?provider_id=${PROVIDER_ID}`
     );
     return response.data;
   } catch (error) {
@@ -32,8 +32,8 @@ export const fetchSupportedInstitutions = async (
   currency: string,
 ): Promise<InstitutionProps[]> => {
   try {
-    const response = await axios.get(
-      `${AGGREGATOR_URL}/institutions/${currency}`,
+    const response = await axios.get<{ data: InstitutionProps[] }>(
+      `${AGGREGATOR_URL}/institutions/${currency}`
     );
     return response.data.data;
   } catch (error) {
@@ -44,7 +44,7 @@ export const fetchSupportedInstitutions = async (
 
 export const fetchAggregatorPublicKey = async (): Promise<PubkeyResponse> => {
   try {
-    const response = await axios.get(`${AGGREGATOR_URL}/pubkey`);
+    const response = await axios.get<PubkeyResponse>(`${AGGREGATOR_URL}/pubkey`);
     return response.data;
   } catch (error) {
     console.error("Error fetching aggregator public key:", error);
@@ -56,13 +56,13 @@ export const fetchAccountName = async (
   payload: VerifyAccountPayload,
 ): Promise<string> => {
   try {
-    const response = await axios.post(
+    const response = await axios.post<{ data: string }>(
       `${AGGREGATOR_URL}/verify-account`,
-      payload,
+      payload
     );
     return response.data.data;
   } catch (error) {
-    console.error("Error fetching supported institutions:", error);
+    console.error("Error fetching account name:", error);
     throw error;
   }
 };
@@ -71,7 +71,9 @@ export const fetchOrderStatus = async (
   orderId: string,
 ): Promise<OrderStatusResponse> => {
   try {
-    const response = await axios.get(`${AGGREGATOR_URL}/orders/${orderId}`);
+    const response = await axios.get<OrderStatusResponse>(
+      `${AGGREGATOR_URL}/orders/${orderId}`
+    );
     return response.data;
   } catch (error) {
     console.error("Error fetching order status:", error);

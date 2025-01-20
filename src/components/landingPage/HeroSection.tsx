@@ -1,6 +1,24 @@
+"use client";
 import React from "react";
 import Image from "next/image";
 import { Sparkles } from "lucide-react";
+import { useWallet } from "@/context/WalletContext";
+import {
+  ConnectWallet,
+  Wallet,
+  WalletDropdown,
+  WalletDropdownBasename,
+  WalletDropdownFundLink,
+  WalletDropdownLink,
+  WalletDropdownDisconnect,
+} from "@coinbase/onchainkit/wallet";
+import {
+  Address,
+  Avatar,
+  Name,
+  Identity,
+  EthBalance,
+} from "@coinbase/onchainkit/identity";
 
 // Import images directly
 import happyCouple from "@/assets/happy-couple.png";
@@ -11,7 +29,7 @@ import bitcoinLogo from "@/assets/bitcoin-logo.svg";
 const IMAGES = {
   heroMain: {
     src: happyCouple,
-    alt: "Happy couple using ElementsPay",
+    alt: "Happy couple using ElementPay",
     width: 600,
     height: 700,
   },
@@ -30,6 +48,8 @@ const IMAGES = {
 };
 
 const Hero = () => {
+  const { connectWallet, disconnectWallet, isConnected, address } = useWallet();
+
   return (
     <div className="bg-gradient-to-r from-white to-[#c7c7ff] min-h-[calc(100vh-64px)] overflow-x-hidden">
       <div className="max-w-[2000px] mx-auto h-full px-4 sm:px-6 lg:px-8 xl:px-12 py-6 md:py-8 relative">
@@ -53,7 +73,7 @@ const Hero = () => {
               Pay for anything with Crypto, as simply as saying Cheese!
             </h1>
             <p className="text-base sm:text-lg xl:text-xl text-gray-600 mb-6 sm:mb-8">
-              ElementsPay is removing the mystery from crypto by making your
+              ElementPay is removing the mystery from crypto by making your
               tokens pay for your every day expenditures. Pay for anything
               instantly, easily.
             </p>
@@ -63,9 +83,30 @@ const Hero = () => {
               <button className="bg-gradient-to-r from-[#0514eb] to-[#de0413] text-white px-6 sm:px-8 py-3 sm:py-4 rounded-full text-base sm:text-lg xl:text-xl font-medium hover:opacity-90 transition-all whitespace-nowrap">
                 Create a Wallet
               </button>
-              <button className="bg-white text-[#0514eb] px-6 sm:px-8 py-3 sm:py-4 rounded-full text-base sm:text-lg xl:text-xl font-medium border-2 border-[#0514eb] hover:bg-blue-50 transition-all whitespace-nowrap">
-                Connect a Wallet
-              </button>
+              {isConnected ? (
+                <Wallet>
+                  <ConnectWallet>
+                    <Avatar className="h-6 w-6" />
+                    <Name />
+                  </ConnectWallet>
+                  <WalletDropdown>
+                    <Identity className="px-4 pt-3 pb-2" hasCopyAddressOnClick>
+                      <Avatar />
+                      <Name />
+                      <Address />
+                      <EthBalance />
+                    </Identity>
+                    <WalletDropdownDisconnect />
+                  </WalletDropdown>
+                </Wallet>
+              ) : (
+                <ConnectWallet
+                  className="bg-white text-[#0514eb] px-6 sm:px-8 py-3 sm:py-4 rounded-full text-base sm:text-lg xl:text-xl font-medium border-2 border-[#0514eb] hover:bg-blue-50 transition-all whitespace-nowrap"
+                  onConnect={connectWallet}
+                >
+                  Connect a Wallet
+                </ConnectWallet>
+              )}
               <div className="flex items-center gap-2 text-gray-600 mt-2 sm:mt-0">
                 <div className="text-[#0514eb]">
                   <svg
