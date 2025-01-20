@@ -9,8 +9,6 @@ import { Bell } from "lucide-react";
 import Image from "next/image";
 import avatarPlaceholder from "@/assets/avatar-placeholder.svg";
 import { useWallet } from "@/context/WalletContext";
-import { Identity, Name } from "@coinbase/onchainkit/identity";
-import { base } from "viem/chains";
 
 type PageComponent =
   | "overview"
@@ -82,30 +80,14 @@ export default function Dashboard() {
                 />
               </div>
               {address && (
-                <Identity address={address} chain={base}>
-                  <div className="flex items-center">
-                    {ensName ? (
-                      <span
-                        className="font-medium text-sm text-gray-900 truncate max-w-[120px]"
-                        title={address}
-                      >
-                        {ensName}
-                      </span>
-                    ) : (
-                      <Name
-                        className="font-medium text-sm text-gray-900 truncate max-w-[120px]"
-                        fallback={
-                          <span
-                            className="font-medium text-sm text-gray-900 truncate max-w-[120px]"
-                            title={address}
-                          >
-                            {truncateAddress(address)}
-                          </span>
-                        }
-                      />
-                    )}
-                  </div>
-                </Identity>
+                <div className="flex items-center">
+                  <span
+                    className="font-medium text-sm text-gray-900 truncate max-w-[120px]"
+                    title={address}
+                  >
+                    {ensName || truncateAddress(address)}
+                  </span>
+                </div>
               )}
             </div>
           </nav>
