@@ -3,26 +3,26 @@
 import Link from "next/link";
 import { useState, useEffect } from "react";
 import { Menu, X } from "lucide-react";
-import { useWallet } from '@/context/WalletContext';
+import { useWallet } from "@/context/WalletContext";
 import {
   ConnectWallet,
   Wallet,
   WalletDropdown,
-  WalletDropdownBasename, 
-  WalletDropdownLink, 
-  WalletDropdownDisconnect
-} from '@coinbase/onchainkit/wallet';
+  WalletDropdownBasename,
+  WalletDropdownLink,
+  WalletDropdownDisconnect,
+} from "@coinbase/onchainkit/wallet";
 import {
   Address,
   Avatar,
   Name,
   Identity,
-  EthBalance, 
-} from '@coinbase/onchainkit/identity';
+  EthBalance,
+} from "@coinbase/onchainkit/identity";
 
 const Header = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const { connectWallet, disconnectWallet, isConnected, address } = useWallet();
+  const { connectWallet, isConnected } = useWallet();
 
   useEffect(() => {
     if (isMenuOpen) {
@@ -65,7 +65,7 @@ const Header = () => {
               <div className="w-4 h-4 rounded-sm bg-white"></div>
             </div>
             <span className="text-lg font-semibold text-gray-900">
-              ElementsPay
+              ElementPay
             </span>
           </Link>
 
@@ -117,7 +117,7 @@ const Header = () => {
                 </WalletDropdown>
               </Wallet>
             ) : (
-              <ConnectWallet 
+              <ConnectWallet
                 className="bg-blue-800 text-white px-6 py-2.5 rounded-full flex items-center space-x-2 hover:bg-blue-700 transition-colors"
                 onConnect={connectWallet}
               >

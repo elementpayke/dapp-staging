@@ -7,7 +7,7 @@ const DashboardHeader = () => {
           <span className="text-xl">👋</span>
         </h1>
         <p className="text-gray-600">
-          Spend and deposit crypto into your ElementsPay wallet instantly
+          Spend and deposit crypto into your ElementPay wallet instantly
         </p>
       </div>
     </div>

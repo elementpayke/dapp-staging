@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { X } from "lucide-react";
+import { X, ArrowLeft } from "lucide-react";
 
 interface DepositCryptoModalProps {
   isOpen: boolean;
@@ -21,7 +21,9 @@ const DepositCryptoModal: React.FC<DepositCryptoModalProps> = ({
   const [amount, setAmount] = useState("10000.00");
   const [depositFrom, setDepositFrom] = useState("MPESA");
   const [phoneNumber, setPhoneNumber] = useState("0703417782");
-  const [reason, setReason] = useState("Transport");
+  const [reason, setReason] = useState("Crypto deposit");
+  const [favorite, setFavorite] = useState(true);
+  const [usdcAmount, setUsdcAmount] = useState("9807.90"); // New state for USDC amount
 
   const handleClose = (e: React.MouseEvent<HTMLDivElement>) => {
     if (e.target === e.currentTarget) {
@@ -51,39 +53,44 @@ const DepositCryptoModal: React.FC<DepositCryptoModalProps> = ({
 
   return (
     <div
-      className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50"
+      className="fixed inset-0 bg-black bg-opacity-50 flex items-start md:items-center justify-center z-50"
       onClick={handleClose}
     >
-      <div className="bg-white rounded-3xl max-w-4xl w-full">
-        <div className="p-6">
+      <div className="bg-white w-full h-full md:h-auto md:rounded-3xl md:max-w-4xl overflow-auto">
+        <div className="p-4 md:p-6">
           {/* Header */}
-          <div className="flex justify-between items-center mb-4">
-            <h2 className="text-2xl font-semibold text-gray-900">
-              Deposit Crypto
-            </h2>
+          <div className="flex justify-between items-center mb-6">
+            <div className="flex items-center gap-2">
+              <button onClick={onClose} className="md:hidden p-1" type="button">
+                <ArrowLeft className="w-6 h-6" />
+              </button>
+              <h2 className="text-xl md:text-2xl font-semibold text-gray-900">
+                Deposit Crypto
+              </h2>
+            </div>
             <button
               onClick={onClose}
-              className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+              className="hidden md:block p-2 hover:bg-gray-100 rounded-full transition-colors"
               type="button"
             >
               <X className="w-6 h-6" />
             </button>
           </div>
 
-          <div className="grid grid-cols-5 gap-6">
+          <div className="grid md:grid-cols-5 gap-6">
             {/* Left Column - Form */}
-            <div className="col-span-3 space-y-4">
+            <div className="md:col-span-3 space-y-6">
               {/* Wallet Selection */}
               <div>
                 <label className="block text-gray-600 mb-2">
-                  Select wallet to deposit to
+                  Select wallet to deposit crypto
                 </label>
                 <div className="flex gap-2">
                   {walletOptions.map((wallet) => (
                     <button
                       key={wallet.id}
                       onClick={() => setSelectedWallet(wallet.id)}
-                      className={`w-14 h-14 rounded-lg flex items-center justify-center text-2xl border-2 transition-all ${
+                      className={`w-12 h-12 md:w-14 md:h-14 rounded-lg flex items-center justify-center text-2xl border-2 transition-all ${
                         selectedWallet === wallet.id
                           ? "border-blue-500 bg-blue-50"
                           : "border-gray-200"
@@ -97,7 +104,7 @@ const DepositCryptoModal: React.FC<DepositCryptoModalProps> = ({
               </div>
 
               {/* Token and Amount */}
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-gray-600 mb-2">Token</label>
                   <select
@@ -109,22 +116,23 @@ const DepositCryptoModal: React.FC<DepositCryptoModalProps> = ({
                   </select>
                 </div>
                 <div>
-                  <label className="block text-gray-600 mb-2">Amount</label>
+                  <label className="block text-gray-600 mb-2">
+                    Amount in KE
+                  </label>
                   <input
                     type="text"
                     value={amount}
                     onChange={(e) => setAmount(e.target.value)}
                     className="w-full p-3 bg-gray-50 rounded-lg border-0 text-gray-900"
+                    placeholder="Enter amount"
                   />
                 </div>
               </div>
 
-              {/* Deposit From and Phone Number */}
-              <div className="grid grid-cols-2 gap-4">
+              {/* Deposit From and USDC Amount */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-gray-600 mb-2">
-                    Deposit from
-                  </label>
+                  <label className="block text-gray-600 mb-2">From</label>
                   <select
                     value={depositFrom}
                     onChange={(e) => setDepositFrom(e.target.value)}
@@ -135,15 +143,28 @@ const DepositCryptoModal: React.FC<DepositCryptoModalProps> = ({
                 </div>
                 <div>
                   <label className="block text-gray-600 mb-2">
-                    Phone number
+                    USDC to receive
                   </label>
                   <input
                     type="text"
-                    value={phoneNumber}
-                    onChange={(e) => setPhoneNumber(e.target.value)}
+                    value={usdcAmount}
+                    onChange={(e) => setUsdcAmount(e.target.value)}
                     className="w-full p-3 bg-gray-50 rounded-lg border-0 text-gray-900"
+                    placeholder="USDC amount"
+                    readOnly
                   />
                 </div>
+              </div>
+
+              <div>
+                <label className="block text-gray-600 mb-2">Phone Number</label>
+                <input
+                  type="text"
+                  value={phoneNumber}
+                  onChange={(e) => setPhoneNumber(e.target.value)}
+                  className="w-full p-3 bg-gray-50 rounded-lg border-0 text-gray-900"
+                  placeholder="Enter phone number"
+                />
               </div>
 
               {/* Payment Reason */}
@@ -159,10 +180,40 @@ const DepositCryptoModal: React.FC<DepositCryptoModalProps> = ({
                   placeholder="Enter payment reason"
                 />
               </div>
+
+              {/* Favorite Option */}
+              <div className="flex items-center gap-2">
+                <input
+                  id="favorite"
+                  type="checkbox"
+                  checked={favorite}
+                  onChange={(e) => setFavorite(e.target.checked)}
+                  className="w-4 h-4 rounded border-gray-300 text-blue-600"
+                />
+                <label htmlFor="favorite" className="text-gray-600 text-sm">
+                  Favorite this payment details for future transactions
+                </label>
+              </div>
+
+              {/* Mobile View Confirm Button */}
+              <div className="md:hidden space-y-4">
+                <button
+                  type="button"
+                  className="w-full py-3 bg-gradient-to-r from-blue-600 to-red-600 text-white rounded-full font-medium"
+                >
+                  Confirm Payment
+                </button>
+
+                <p className="text-sm text-gray-500 text-center px-4">
+                  At the moment, ElementsPay only allow users to deposit USDC to
+                  the wallet used at registration. However, we will soon allow
+                  the deposit of other tokens.
+                </p>
+              </div>
             </div>
 
-            {/* Right Column - Transaction Summary */}
-            <div className="col-span-2 bg-gray-50 p-4 rounded-2xl h-fit">
+            {/* Right Column - Transaction Summary (Hidden on Mobile) */}
+            <div className="hidden md:block md:col-span-2 bg-gray-50 p-4 rounded-2xl h-fit">
               <h3 className="text-xl font-semibold mb-4 text-gray-900">
                 Transaction summary
               </h3>
@@ -205,7 +256,7 @@ const DepositCryptoModal: React.FC<DepositCryptoModalProps> = ({
               </div>
 
               <div className="mt-3 text-sm text-gray-500">
-                At the moment, ElementsPay only allow users to deposit USDC to
+                At the moment, ElementPay only allow users to deposit USDC to
                 the wallet used at registration. However, we will soon allow the
                 deposit of other tokens.
               </div>

@@ -9,8 +9,24 @@ import {
   HelpCircle,
   Menu,
   X,
+  Mail,
+  MessageCircle,
 } from "lucide-react";
 import { ReactNode, useState } from "react";
+
+type PageComponent =
+  | "overview"
+  | "transactions"
+  | "wallets"
+  | "cards"
+  | "settings"
+  | "support-whatsapp"
+  | "support-email";
+
+interface SidebarProps {
+  onPageChange: (page: PageComponent) => void;
+  currentPage: PageComponent;
+}
 
 interface SidebarLinkProps {
   icon: ReactNode;
@@ -19,18 +35,38 @@ interface SidebarLinkProps {
   active?: boolean;
   badge?: string;
   onClick?: () => void;
+  pageName?: PageComponent;
+  subMenu?: boolean;
 }
 
 interface SubLinkProps {
   label: string;
   active?: boolean;
   badge?: string;
+  onClick?: () => void;
+  pageName?: PageComponent;
+  icon?: ReactNode;
+  status?: string;
 }
 
-const Sidebar = () => {
+const Sidebar: React.FC<SidebarProps> = ({ onPageChange, currentPage }) => {
   const [isOpen, setIsOpen] = useState(false);
+  const [expandedMenus, setExpandedMenus] = useState<string[]>(["support"]);
 
   const toggleSidebar = () => setIsOpen(!isOpen);
+
+  const toggleMenu = (menu: string) => {
+    setExpandedMenus((prev) =>
+      prev.includes(menu)
+        ? prev.filter((item) => item !== menu)
+        : [...prev, menu]
+    );
+  };
+
+  const handlePageChange = (page: PageComponent) => {
+    onPageChange(page);
+    setIsOpen(false);
+  };
 
   return (
     <>
@@ -55,17 +91,17 @@ const Sidebar = () => {
       {/* Sidebar */}
       <aside
         className={`
-        fixed top-0 left-0 h-screen bg-white border-r z-40
-        w-64 transform transition-transform duration-200 ease-in-out
-        lg:transform-none
-        ${isOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}
-      `}
+          fixed top-0 left-0 h-screen bg-white border-r z-40
+          w-64 transform transition-transform duration-200 ease-in-out
+          lg:transform-none
+          ${isOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}
+        `}
       >
         <div className="flex flex-col h-full">
           {/* Logo and Close Button Container */}
           <div className="h-16 px-6 border-b flex items-center justify-between">
             <Link href="/" className="text-2xl font-bold text-black">
-              ElementsPay
+              ElementPay
             </Link>
             {isOpen && (
               <button
@@ -83,11 +119,17 @@ const Sidebar = () => {
               <SidebarLink
                 icon={<Home size={20} />}
                 label="Home"
-                active
-                onClick={() => setIsOpen(false)}
+                active={currentPage === "overview"}
+                onClick={() => handlePageChange("overview")}
+                pageName="overview"
               >
                 <div className="ml-4 space-y-1">
-                  <SubLink label="Overview" active />
+                  <SubLink
+                    label="Overview"
+                    active={currentPage === "overview"}
+                    onClick={() => handlePageChange("overview")}
+                    pageName="overview"
+                  />
                   <SubLink label="Notifications" badge="10" />
                   <SubLink label="Recent transactions" />
                 </div>
@@ -95,48 +137,67 @@ const Sidebar = () => {
               <SidebarLink
                 icon={<Wallet size={20} />}
                 label="My wallets"
-                onClick={() => setIsOpen(false)}
+                active={currentPage === "wallets"}
+                onClick={() => handlePageChange("wallets")}
+                pageName="wallets"
               />
               <SidebarLink
                 icon={<Clock size={20} />}
                 label="Transactions"
-                onClick={() => setIsOpen(false)}
+                active={currentPage === "transactions"}
+                onClick={() => handlePageChange("transactions")}
+                pageName="transactions"
               />
               <SidebarLink
                 icon={<CreditCard size={20} />}
                 label="Virtual Cards"
-                onClick={() => setIsOpen(false)}
+                active={currentPage === "cards"}
+                onClick={() => handlePageChange("cards")}
+                pageName="cards"
               />
             </div>
 
-            {/* Bottom section */}
+            {/* Support and Settings Section */}
             <div className="mt-auto pt-4 border-t space-y-1">
+              {/* Support Section with Submenu */}
               <SidebarLink
                 icon={<HelpCircle size={20} />}
                 label="Support"
-                onClick={() => setIsOpen(false)}
-              />
+                subMenu={true}
+                active={currentPage.startsWith("support")}
+                onClick={() => toggleMenu("support")}
+              >
+                {expandedMenus.includes("support") && (
+                  <div className="ml-4 space-y-1 mt-1">
+                    <SubLink
+                      icon={
+                        <MessageCircle size={16} className="text-green-500" />
+                      }
+                      label="WhatsApp"
+                      active={currentPage === "support-whatsapp"}
+                      onClick={() => handlePageChange("support-whatsapp")}
+                      status="Online"
+                    />
+                    <SubLink
+                      icon={<Mail size={16} className="text-gray-500" />}
+                      label="Email"
+                      active={currentPage === "support-email"}
+                      onClick={() => handlePageChange("support-email")}
+                    />
+                  </div>
+                )}
+              </SidebarLink>
+
+              {/* Settings Section */}
               <SidebarLink
                 icon={<Settings size={20} />}
                 label="Settings"
-                onClick={() => setIsOpen(false)}
+                active={currentPage === "settings"}
+                onClick={() => handlePageChange("settings")}
+                pageName="settings"
               />
             </div>
           </nav>
-
-          {/* Referral Banner */}
-          <div className="p-4 bg-gray-50">
-            <div className="p-4 bg-white rounded-lg text-center">
-              <div className="mb-2">🎁</div>
-              <h3 className="font-medium text-black">Refer and earn</h3>
-              <p className="text-sm text-black mt-1">
-                Share our link and earn $5 for every successful referral
-              </p>
-              <button className="mt-3 text-sm text-blue-600 hover:text-blue-700 transition-colors">
-                Referral
-              </button>
-            </div>
-          </div>
         </div>
       </aside>
     </>
@@ -151,17 +212,19 @@ const SidebarLink: React.FC<SidebarLinkProps> = ({
   active,
   badge,
   onClick,
+  subMenu,
 }) => (
   <div className="space-y-1">
-    <Link
-      href="#"
-      className={`flex items-center gap-3 px-3 py-2 rounded-lg transition-colors ${
+    <button
+      className={`flex w-full items-center gap-3 px-3 py-2 rounded-lg transition-colors ${
         active ? "bg-gray-100" : "hover:bg-gray-50"
       }`}
       onClick={onClick}
     >
-      <span className="text-black">{icon}</span>
-      <span className={`${active ? "font-medium text-black" : "text-black"}`}>
+      <span className="text-gray-500">{icon}</span>
+      <span
+        className={`${active ? "font-medium text-gray-900" : "text-gray-700"}`}
+      >
         {label}
       </span>
       {badge && (
@@ -169,26 +232,42 @@ const SidebarLink: React.FC<SidebarLinkProps> = ({
           {badge}
         </span>
       )}
-    </Link>
+      {subMenu && (
+        <span className="ml-auto transform transition-transform duration-200">
+          {active ? "▼" : "▶"}
+        </span>
+      )}
+    </button>
     {children}
   </div>
 );
 
 // SubLink Component
-const SubLink: React.FC<SubLinkProps> = ({ label, active, badge }) => (
-  <Link
-    href="#"
-    className={`block pl-12 py-2 text-sm rounded-lg transition-colors ${
-      active ? "text-blue-600 bg-blue-50" : "text-black hover:bg-gray-50"
+const SubLink: React.FC<SubLinkProps> = ({
+  label,
+  active,
+  badge,
+  onClick,
+  icon,
+  status,
+}) => (
+  <button
+    onClick={onClick}
+    className={`flex items-center w-full pl-3 py-2 text-sm rounded-lg transition-colors ${
+      active ? "text-blue-600 bg-blue-50" : "text-gray-700 hover:bg-gray-50"
     }`}
   >
-    {label}
+    {icon && <span className="mr-2">{icon}</span>}
+    <span>{label}</span>
+    {status && (
+      <span className="ml-auto text-xs text-green-600 px-2">{status}</span>
+    )}
     {badge && (
-      <span className="ml-2 bg-gray-100 px-2 py-1 rounded-full text-xs">
+      <span className="ml-auto bg-gray-100 px-2 py-1 rounded-full text-xs">
         {badge}
       </span>
     )}
-  </Link>
+  </button>
 );
 
 export default Sidebar;
