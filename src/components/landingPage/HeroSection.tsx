@@ -8,8 +8,6 @@ import {
   Wallet,
   WalletDropdown,
   WalletDropdownBasename,
-  WalletDropdownFundLink,
-  WalletDropdownLink,
   WalletDropdownDisconnect,
 } from "@coinbase/onchainkit/wallet";
 import {
@@ -48,7 +46,7 @@ const IMAGES = {
 };
 
 const Hero = () => {
-  const { connectWallet, disconnectWallet, isConnected, address } = useWallet();
+  const { connectWallet,isConnected } = useWallet();
 
   return (
     <div className="bg-gradient-to-r from-white to-[#c7c7ff] min-h-[calc(100vh-64px)] overflow-x-hidden">
@@ -96,6 +94,8 @@ const Hero = () => {
                       <Address />
                       <EthBalance />
                     </Identity>
+                    <WalletDropdownBasename />
+                    
                     <WalletDropdownDisconnect />
                   </WalletDropdown>
                 </Wallet>
