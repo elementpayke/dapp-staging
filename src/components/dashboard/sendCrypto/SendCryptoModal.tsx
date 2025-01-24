@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import { X, ArrowLeft } from "lucide-react";
 import { toast } from "react-toastify";
 import PayToBank from "./PayToBank";
@@ -27,7 +27,7 @@ const SendCryptoModal: React.FC<SendCryptoModalProps> = ({
 }) => {
   const [paymentType, setPaymentType] = useState<"bank" | "mobile">("bank");
   const [selectedToken, setSelectedToken] = useState("USDC");
-  const [amount, setAmount] = useState("100");
+  const [amount, setAmount] = useState("");
   const [bank, setBank] = useState("Equity Bank");
   const [accountNumber, setAccountNumber] = useState("1170398667889");
   const [mobileNumber, setMobileNumber] = useState("0703417782");
@@ -35,6 +35,29 @@ const SendCryptoModal: React.FC<SendCryptoModalProps> = ({
   const [favorite, setFavorite] = useState(true);
   const [selectedWallet, setSelectedWallet] = useState<string>("metamask");
   const [isApproving, setIsApproving] = useState(false);
+
+  // Wallet and balance constants (these would typically come from your wallet integration)
+  const WALLET_BALANCE = 19807.90;
+  const USDC_BALANCE = 0.0000246;
+  const TRANSACTION_FEE_RATE = 0.005; // 0.5%
+
+  
+  // Memoized transaction summary calculation
+  const transactionSummary = useMemo(() => {
+    const amountValue = parseFloat(amount) || 0;
+    const transactionCharge = amountValue * TRANSACTION_FEE_RATE;
+    const total = amountValue + transactionCharge;
+    const remainingBalance = WALLET_BALANCE - total;
+
+    return {
+      walletBalance: WALLET_BALANCE,
+      amountToSend: amountValue,
+      transactionCharge: transactionCharge,
+      total: total,
+      remainingBalance: remainingBalance,
+      usdcBalance: USDC_BALANCE,
+    };
+  }, [amount]);
 
   const account = useAccount();
   const { writeContractAsync } = useWriteContract();
@@ -47,15 +70,19 @@ const SendCryptoModal: React.FC<SendCryptoModalProps> = ({
 
   const usdcTokenAddress = getUSDCAddress() as `0x${string}`;
   const { contract, address } = useContract();
-  const phoneNumber = "0703417782";
+  const phoneNumber = mobileNumber;
+  const account_number = accountNumber;
 
+  const amountToPay = parseFloat(amount);
+  const reasonForPayment = reason;
+  const bankName = bank;
   let messageHash = "";
+
   try {
     // TODO: Rate should be fetched from an API
-    messageHash = encryptMessage(phoneNumber, "USD", 1, parseFloat(amount));
+    messageHash = encryptMessage(phoneNumber, "KES", 100, amountToPay);
   } catch (error) {
     toast.error("Encryption failed.");
-
     console.error("Error encrypting message:", error);
     return;
   }
@@ -83,9 +110,8 @@ const SendCryptoModal: React.FC<SendCryptoModalProps> = ({
         toast.error("Spender address is not defined");
         return;
       }
-      const orderType =1;
+      const orderType = 1;
 
-      
       await writeContractAsync({
         address: tokenAddress,
         abi: erc20Abi,
@@ -96,14 +122,8 @@ const SendCryptoModal: React.FC<SendCryptoModalProps> = ({
         ],
       });
 
-      console.log("****************************************************")
-      // Proceed with the payment logic after approval
-
-      //now create an order for onramp
       try {
         if (!contract) throw new Error("Contract is not initialized.");
-        console.log("****************************************************")
-        console.log("We are about to create an order for offramp")
         // Call the createOrder function on your contract
         const tx = await contract.createOrder(
           address,
@@ -112,15 +132,8 @@ const SendCryptoModal: React.FC<SendCryptoModalProps> = ({
           orderType,
           messageHash
         );
-        console.log("****************************************************")
-        console.log("Order created successfully")
-        console.log("****************************************************")
         
-        // if (!tx) {
-        //   throw new Error("Transaction was not returned.");
-        // }
         toast.info("Transaction submitted. Awaiting confirmation...");
-        // TODO: Handle transaction confirmation
         const receipt = await tx.wait();
         console.log("Transaction receipt:", receipt);
         toast.success("Order created successfully!");
@@ -129,29 +142,15 @@ const SendCryptoModal: React.FC<SendCryptoModalProps> = ({
         console.error("Error creating order:", error);
         toast.error(error?.message || "Transaction failed.");
       } finally {
-        console.log("****************************************************")
-
-        console.log("IsAproving status is: ", isApproving);
         setIsApproving(false);
-        console.log("IsAproving status is: ", isApproving);
-
       }
 
-
     } catch (error: any) {
-      console.log("************************************");
       console.error("Approval error:", error);
       toast.error(error?.shortMessage || "Failed to approve token");
     } finally {
-      console.log("****************************************************")
-
-      console.log("IsAproving status is: ", isApproving);
       setIsApproving(false);
-      console.log("IsAproving status is: ", isApproving);
-
     }
-
-
   };
 
   const walletOptions: WalletOption[] = [
@@ -311,26 +310,26 @@ const SendCryptoModal: React.FC<SendCryptoModalProps> = ({
                 <div className="flex justify-between items-center">
                   <span className="text-gray-600">Wallet balance</span>
                   <span className="text-green-600 font-medium">
-                    KE 19807.90
+                    KE {transactionSummary.walletBalance.toFixed(2)}
                   </span>
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="text-gray-600">Amount to send</span>
-                  <span className="text-gray-900">KE 9807.90</span>
+                  <span className="text-gray-900">KE {transactionSummary.amountToSend.toFixed(2)}</span>
                 </div>
                 <div className="flex justify-between items-center">
-                  <span className="text-gray-600">Transaction charge</span>
-                  <span className="text-orange-600">KE 3.50</span>
+                  <span className="text-gray-600">Transaction charge (0.5%)</span>
+                  <span className="text-orange-600">KE {transactionSummary.transactionCharge.toFixed(2)}</span>
                 </div>
                 <div className="border-t pt-3 flex justify-between items-center font-medium">
                   <span className="text-gray-900">Total:</span>
-                  <span className="text-gray-900">KE 9811.40</span>
+                  <span className="text-gray-900">KE {transactionSummary.total.toFixed(2)}</span>
                 </div>
               </div>
 
               <button
                 onClick={handleApproveToken}
-                disabled={isApproving}
+                disabled={isApproving || transactionSummary.amountToSend <= 0}
                 type="button"
                 className="w-full mt-4 py-3 bg-gradient-to-r from-blue-600 to-red-600 text-white rounded-full font-medium hover:opacity-90 transition-opacity disabled:opacity-50"
               >
@@ -339,11 +338,15 @@ const SendCryptoModal: React.FC<SendCryptoModalProps> = ({
 
               <div className="mt-4 bg-gray-100 p-3 rounded-lg">
                 <div className="text-gray-500 mb-1">
-                  Crypto Balance after transaction
+                  Balance after transaction
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-gray-600">ETH: 0.0000246</span>
-                  <span className="text-gray-600">KE 10000.40</span>
+                  <span className="text-gray-600">Remaining Balance</span>
+                  <span className="text-gray-600">KE {transactionSummary.remainingBalance.toFixed(2)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-600">USDC Balance</span>
+                  <span className="text-gray-600">USDC {transactionSummary.usdcBalance.toFixed(6)}</span>
                 </div>
               </div>
 
