@@ -3,6 +3,8 @@ import { X, ArrowLeft } from "lucide-react";
 import { toast } from "react-toastify";
 import PayToBank from "./PayToBank";
 import PayToMobileMoney from "./PayToMobileMoney";
+import PaymentProcessing from "./PaymentProcessingPopup"; // Import the component
+
 import { parseUnits } from "viem";
 import { useAccount, useWriteContract } from "wagmi";
 import { erc20Abi } from "@/app/api/abi";
@@ -35,6 +37,7 @@ const SendCryptoModal: React.FC<SendCryptoModalProps> = ({
   const [favorite, setFavorite] = useState(true);
   const [selectedWallet, setSelectedWallet] = useState<string>("metamask");
   const [isApproving, setIsApproving] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
 
   // Wallet and balance constants (these would typically come from your wallet integration)
   const WALLET_BALANCE = 19807.90;
@@ -143,6 +146,9 @@ const SendCryptoModal: React.FC<SendCryptoModalProps> = ({
         toast.error(error?.message || "Transaction failed.");
       } finally {
         setIsApproving(false);
+
+        //set is processing to true
+        setIsProcessing(true);
       }
 
     } catch (error: any) {
@@ -150,6 +156,8 @@ const SendCryptoModal: React.FC<SendCryptoModalProps> = ({
       toast.error(error?.shortMessage || "Failed to approve token");
     } finally {
       setIsApproving(false);
+      setIsProcessing(true);
+
     }
   };
 
@@ -158,7 +166,20 @@ const SendCryptoModal: React.FC<SendCryptoModalProps> = ({
     { id: "coinbase", icon: "©️", selected: selectedWallet === "coinbase" },
     { id: "qr", icon: "🔲", selected: selectedWallet === "qr" },
   ];
+  const handlePayment = async () => {
+    setIsProcessing(true);
+    try {
+      // Simulate payment process (replace with actual logic)
+      await new Promise((resolve) => setTimeout(resolve, 3000));
+      toast.success("Payment processed successfully!");
+    } catch (error) {
+      toast.error("Payment failed. Please try again.");
+    } finally {
+      setIsProcessing(false);
+    }
+  };
 
+  // if (!isOpen) return null;
   if (!isOpen) return null;
 
   return (
@@ -301,6 +322,12 @@ const SendCryptoModal: React.FC<SendCryptoModalProps> = ({
               </button>
             </div>
 
+
+          {/* Payment Processing Popup */}
+          {/* <PaymentProcessing
+            isVisible={isProcessing}
+            onClose={() => setIsProcessing(false)}
+          /> */}
             {/* Right Column - Transaction Summary (Hidden on Mobile) */}
             <div className="hidden md:block md:col-span-2 bg-gray-50 p-4 rounded-2xl h-fit">
               <h3 className="text-xl font-semibold mb-4 text-gray-900">
