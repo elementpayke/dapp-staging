@@ -22,6 +22,7 @@ const DepositCryptoModal: React.FC<DepositCryptoModalProps> = ({
   isOpen,
   onClose,
 }) => {
+  if (!isOpen) return null;
   const [selectedWallet, setSelectedWallet] = useState<string>("metamask");
   const [selectedToken, setSelectedToken] = useState("USDC");
   const [amount, setAmount] = useState("0.00");
@@ -29,6 +30,8 @@ const DepositCryptoModal: React.FC<DepositCryptoModalProps> = ({
   const [phoneNumber, setPhoneNumber] = useState("0703417782");
   const [reason, setReason] = useState("Transport");
   const [isLoading, setIsLoading] = useState(false);
+  const [exchangeRate, setExchangeRate] = useState<number | null>(null);
+
 
   const handleClose = (e: React.MouseEvent<HTMLDivElement>) => {
     if (e.target === e.currentTarget) {
@@ -55,7 +58,37 @@ const DepositCryptoModal: React.FC<DepositCryptoModalProps> = ({
   ];
 
   const { contract, address } = useContract();
-  if (!isOpen) return null;
+  
+  
+  const MARKUP_PERCENTAGE = 1.5;
+
+  const fetchExchangeRate = async () => {
+    try {
+      const response = await fetch(
+        "https://api.coinbase.com/v2/exchange-rates?currency=USDC"
+      );
+      const data = await response.json();
+
+      if (data?.data?.rates?.KES) {
+        const baseRate = parseFloat(data.data.rates.KES);
+        const markupRate = baseRate * (1 - MARKUP_PERCENTAGE / 100);
+        console.log("Exchange rate:", markupRate);
+        console.log("Base rate:", baseRate);
+        setExchangeRate(markupRate);
+      } else {
+        console.error("KES rate not found");
+        setExchangeRate(null);
+      }
+    } catch (error) {
+      console.error("Error fetching exchange rate:", error);
+      setExchangeRate(null);
+    }
+  };
+
+  useEffect(() => {
+    fetchExchangeRate();
+  }, [isOpen]);
+
   
   
   const handleConfirmPayment = async () => {
@@ -70,26 +103,28 @@ const DepositCryptoModal: React.FC<DepositCryptoModalProps> = ({
       return;
     }
 
-    if (!/^\d{12}$/.test(phoneNumber)) {
-      console.error("Invalid phone number");
-      toast.error("Please enter a valid 12-digit phone number.");
-      return;
-    }
+    // if (!/^\d{12}$/.test(phoneNumber)) {
+    //   console.error("Invalid phone number");
+    //   toast.error("Please enter a valid 12-digit phone number.");
+    //   return;
+    // }
 
     setIsLoading(true);
 
     const orderType = depositFrom === "MPESA" ? 0 : 1;
     const usdcTokenAddress = getUSDCAddress() as `0x${string}`;
 
+    const mpesaAmount = parseFloat(amount) * (exchangeRate ?? 1);
+
     let messageHash = "";
     try {
-      // TODO: Rate should be fetched from an API
-      messageHash = encryptMessage(phoneNumber, "USD", 1, parseFloat(amount));
+      messageHash = encryptMessage(phoneNumber, "USD", exchangeRate ?? 0, mpesaAmount);
     } catch (error) {
       toast.error("Encryption failed.");
       setIsLoading(false);
       return;
     }
+
 
     try {
       if (!contract) throw new Error("Contract is not initialized.");
@@ -238,6 +273,13 @@ const DepositCryptoModal: React.FC<DepositCryptoModalProps> = ({
                 Transaction summary
               </h3>
               <div className="space-y-3">
+                <div className="flex justify-between items-center">
+                  <span className="text-gray-600">KES Equivalent</span>
+                  <span className="text-gray-900">
+                    {exchangeRate ? (parseFloat(amount) * exchangeRate).toFixed(2) + " KES" : "Fetching..."}
+                  </span>
+                </div>
+
                 <div className="flex justify-between items-center">
                   <span className="text-gray-600">Wallet balance</span>
                   <span className="text-green-600 font-medium">

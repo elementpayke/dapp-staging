@@ -647,7 +647,8 @@ export const erc20Abi = [
   ] as const;
   
 
-export const CONTRACT_ADDRESS = process.env.ELEM_CONTRACT_ADDRESS as string;
+export const CONTRACT_ADDRESS = "0x10af11060bC238670520Af7ca15E86a34bC68fe4";
+// process.env.ELEM_CONTRACT_ADDRESS as string;
 
 export const CONTRACT_ABI = [
   {
