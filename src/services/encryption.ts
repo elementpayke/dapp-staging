@@ -3,8 +3,7 @@ import Fernet from 'fernet';
 // Ensure you set the secret key in your environment variables with a NEXT_PUBLIC prefix.
 // Use the hard-coded value for now.
 // TODI: Replace this with a dynamic secret key from the env.
-const SECRET_KEY = "Nt-H5Ofmhk1JonVFjrRJr_pV6p-oADX_FdrQyFAqx5Y="
-// process.env.SECRET_KEY_DECRYPT;
+const SECRET_KEY = "Nt-H5Ofmhk1JonVFjrRJr_pV6p-oADX_FdrQyFAqx5Y=";
 
 if (!SECRET_KEY) {
   throw new Error('SECRET_KEY_DECRYPT is not defined');

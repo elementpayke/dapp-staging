@@ -1,27 +1,59 @@
 "use client";
+import { useState } from "react";
 import Sidebar from "@/components/dashboard/Sidebar";
-import DashboardHeader from "@/components/dashboard/DashboardHeader";
-import CryptoWallet from "@/components/dashboard/CryptoWallet";
-import QuickActions from "@/components/dashboard/QuickActions";
-import RecentContacts from "@/components/dashboard/RecentContacts";
-import TransactionList from "@/components/dashboard/TransactionList";
-import CryptoPrices from "@/components/dashboard/CryptoPrices";
+import OverviewPage from "@/components/dashboard/pages/OverviewPage";
+import TransactionsPage from "@/components/dashboard/pages/TransactionsPage";
+import WhatsAppPage from "@/components/dashboard/pages/WhatsAppPage";
+import EmailPage from "@/components/dashboard/pages/EmailPage";
 import { Bell } from "lucide-react";
 import Image from "next/image";
 import avatarPlaceholder from "@/assets/avatar-placeholder.svg";
-import { useAuth } from "@/hooks/useAuth";
-import { useWallet } from '@/context/WalletContext';
+import { useWallet } from "@/context/WalletContext";
+
+type PageComponent =
+  | "overview"
+  | "transactions"
+  | "wallets"
+  | "cards"
+  | "settings"
+  | "support-whatsapp"
+  | "support-email";
 
 export default function Dashboard() {
   const { isConnected, ensName, address } = useWallet();
+  const [currentPage, setCurrentPage] = useState<PageComponent>("overview");
 
   if (!isConnected) {
     return <div>You must connect your wallet to access the dashboard.</div>;
   }
 
+  const renderPage = () => {
+    switch (currentPage) {
+      case "overview":
+        return <OverviewPage />;
+      case "transactions":
+        return <TransactionsPage />;
+      case "support-whatsapp":
+        return <WhatsAppPage />;
+      case "support-email":
+        return <EmailPage />;
+      case "wallets":
+      case "cards":
+      case "settings":
+        return <div className="p-8">Page under construction</div>;
+      default:
+        return <OverviewPage />;
+    }
+  }; // Added missing closing brace
+
+  const truncateAddress = (addr: string | null | undefined): string => {
+    if (!addr) return "";
+    return `${addr.slice(0, 6)}...${addr.slice(-4)}`;
+  };
+
   return (
     <div className="flex min-h-screen bg-gray-50">
-      <Sidebar />
+      <Sidebar onPageChange={setCurrentPage} currentPage={currentPage} />
 
       {/* Main Content */}
       <div className="flex-1 w-full lg:ml-64">
@@ -29,7 +61,6 @@ export default function Dashboard() {
         <div className="bg-white py-3 px-4 sm:px-8 border-b">
           {/* Top Navigation */}
           <nav className="flex justify-end items-center gap-4">
-            {/* Added margin for mobile menu button */}
             <div className="w-8 h-8 lg:hidden"></div>
 
             {/* Notification Bell */}
@@ -48,22 +79,22 @@ export default function Dashboard() {
                   className="rounded-full"
                 />
               </div>
-              <span className="font-medium text-sm text-gray-900">
-                {ensName || address}
-              </span>
+              {address && (
+                <div className="flex items-center">
+                  <span
+                    className="font-medium text-sm text-gray-900 truncate max-w-[120px]"
+                    title={address}
+                  >
+                    {ensName || truncateAddress(address)}
+                  </span>
+                </div>
+              )}
             </div>
           </nav>
         </div>
 
-        {/* Scrollable Content */}
-        <div className="p-4 sm:p-8 space-y-6 overflow-y-auto max-h-[calc(100vh-64px)]">
-          <DashboardHeader />
-          <CryptoPrices />
-          <CryptoWallet />
-          <QuickActions />
-          <RecentContacts />
-          <TransactionList />
-        </div>
+        {/* Render current page */}
+        {renderPage()}
       </div>
     </div>
   );
