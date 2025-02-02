@@ -1,3 +1,5 @@
+import { useRouter } from 'next/navigation';
+import { ethers } from 'ethers';
 import {
   createContext,
   useContext,
@@ -5,12 +7,12 @@ import {
   useEffect,
   ReactNode,
 } from "react";
-import { useRouter } from "next/navigation";
-import { useAccount, useEnsName, useBalance } from "wagmi";
+import { useAccount, useEnsName, useBalance, useWalletClient } from "wagmi";
 
 interface WalletContextType {
   isConnected: boolean;
   address: string | null;
+  signer: ethers.Signer | null;
   ensName: string | null;
   usdcBalance: number;
   fetchUSDCBalance: () => void;
@@ -21,6 +23,7 @@ interface WalletContextType {
 const WalletContext = createContext<WalletContextType>({
   isConnected: false,
   address: null,
+  signer: null,
   ensName: null,
   usdcBalance: 0,
   fetchUSDCBalance: () => {},
@@ -36,10 +39,15 @@ interface WalletProviderProps {
 }
 
 export const WalletProvider = ({ children }: WalletProviderProps) => {
+  // Use wagmi's useAccount to get the connected address
   const { address: wagmiAddress, isConnected: wagmiConnected } = useAccount();
+  // Use wagmi's useWalletClient to get the wallet client (which will serve as our signer)
+  const { data: walletClient } = useWalletClient();
+
   const { data: ensName } = useEnsName({ address: wagmiAddress });
   const [address, setAddress] = useState<string | null>(null);
   const [isConnected, setIsConnected] = useState(false);
+  const [signer, setSigner] = useState<ethers.Signer | null>(null);
   const router = useRouter();
   const { data: usdcBalanceData, refetch: fetchUSDCBalance } = useBalance({
     address: wagmiAddress, 
@@ -59,9 +67,22 @@ export const WalletProvider = ({ children }: WalletProviderProps) => {
   }, [usdcBalanceData]);
 
   useEffect(() => {
-    if (wagmiConnected && wagmiAddress) {
+    if (wagmiConnected && wagmiAddress && walletClient) {
       setAddress(wagmiAddress);
       setIsConnected(true);
+      // Assume walletClient has a property "provider" which is an ethers Provider
+      // and get the signer from it. If not, if walletClient itself is a signer, cast it.
+      const s = walletClient as unknown as ethers.Signer;
+      setSigner(s);
+      console.log("The signer is: ", s);
+      localStorage.setItem('walletAddress', wagmiAddress);
+      localStorage.setItem('isWalletConnected', 'true');
+    } else {
+      setAddress(null);
+      setIsConnected(false);
+      setSigner(null);
+      localStorage.removeItem('walletAddress');
+      localStorage.removeItem('isWalletConnected');
       localStorage.setItem("walletAddress", wagmiAddress);
       localStorage.setItem("isWalletConnected", "true");
     } else {
@@ -70,8 +91,10 @@ export const WalletProvider = ({ children }: WalletProviderProps) => {
       localStorage.removeItem("walletAddress");
       localStorage.removeItem("isWalletConnected");
     }
-  }, [wagmiConnected, wagmiAddress]);
+  }, [wagmiConnected, wagmiAddress, walletClient]);
 
+  // The connectWallet function simply triggers the OnChainKit connect flow,
+  // because OnChainKit’s ConnectWallet component will update the state.
   const connectWallet = async () => {
     console.log("Connecting wallet...");
     router.push("/dashboard");
@@ -80,9 +103,10 @@ export const WalletProvider = ({ children }: WalletProviderProps) => {
   const disconnectWallet = () => {
     setIsConnected(false);
     setAddress(null);
-    localStorage.removeItem("walletAddress");
-    localStorage.removeItem("isWalletConnected");
-    router.push("/");
+    setSigner(null);
+    localStorage.removeItem('walletAddress');
+    localStorage.removeItem('isWalletConnected');
+    router.push('/');
   };
 
   return (
