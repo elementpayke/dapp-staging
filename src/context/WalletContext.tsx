@@ -6,12 +6,14 @@ import {
   ReactNode,
 } from "react";
 import { useRouter } from "next/navigation";
-import { useAccount, useEnsName } from "wagmi";
+import { useAccount, useEnsName, useBalance } from "wagmi";
 
 interface WalletContextType {
   isConnected: boolean;
   address: string | null;
   ensName: string | null;
+  usdcBalance: number;
+  fetchUSDCBalance: () => void;
   connectWallet: () => Promise<void>;
   disconnectWallet: () => void;
 }
@@ -20,9 +22,12 @@ const WalletContext = createContext<WalletContextType>({
   isConnected: false,
   address: null,
   ensName: null,
+  usdcBalance: 0,
+  fetchUSDCBalance: () => {},
   connectWallet: async () => {},
   disconnectWallet: () => {},
 });
+
 
 export const useWallet = () => useContext(WalletContext);
 
@@ -36,6 +41,22 @@ export const WalletProvider = ({ children }: WalletProviderProps) => {
   const [address, setAddress] = useState<string | null>(null);
   const [isConnected, setIsConnected] = useState(false);
   const router = useRouter();
+  const { data: usdcBalanceData, refetch: fetchUSDCBalance } = useBalance({
+    address: wagmiAddress, 
+    token: "0x036CbD53842c5426634e7929541eC2318f3dCF7e",
+    query: {
+      staleTime: 10_000,
+      refetchInterval: 15_000,
+    },
+  });
+  const [usdcBalance, setUsdcBalance] = useState(0);
+
+  useEffect(() => {
+    if (usdcBalanceData?.formatted) {
+      setUsdcBalance(parseFloat(usdcBalanceData.formatted));
+      console.log("Fetched USDC Balance:", usdcBalanceData.formatted);
+    }
+  }, [usdcBalanceData]);
 
   useEffect(() => {
     if (wagmiConnected && wagmiAddress) {
@@ -70,6 +91,8 @@ export const WalletProvider = ({ children }: WalletProviderProps) => {
         isConnected,
         address,
         ensName: ensName || null,
+        usdcBalance,
+        fetchUSDCBalance,
         connectWallet,
         disconnectWallet,
       }}
