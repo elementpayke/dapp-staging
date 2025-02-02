@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { X, ArrowLeft } from "lucide-react";
 import { toast } from "react-toastify";
 import PayToBank from "./PayToBank";
@@ -10,7 +10,9 @@ import { useAccount, useWriteContract } from "wagmi";
 import { erc20Abi } from "@/app/api/abi";
 import { getUSDCAddress } from '../../../services/tokens';
 import { useContract } from "@/services/useContract";
+import { useWallet } from "@/context/WalletContext";
 import { encryptMessage } from "@/services/encryption";
+
 
 interface SendCryptoModalProps {
   isOpen: boolean;
@@ -38,29 +40,81 @@ const SendCryptoModal: React.FC<SendCryptoModalProps> = ({
   const [selectedWallet, setSelectedWallet] = useState<string>("metamask");
   const [isApproving, setIsApproving] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
+  const { usdcBalance } = useWallet(); 
+
+  const [exchangeRate, setExchangeRate] = useState<number | null>(null);
+  const MARKUP_PERCENTAGE = 1.5; // 1.5% markup
+
+  // Fetch exchange rate from Coinbase API
+  useEffect(() => {
+    const fetchExchangeRate = async () => {
+      try {
+        const response = await fetch(
+          "https://api.coinbase.com/v2/exchange-rates?currency=USDC"
+        );
+        const data = await response.json();
+        if (data?.data?.rates?.KES) {
+          const baseRate = parseFloat(data.data.rates.KES);
+          const markupRate = baseRate * (1 - MARKUP_PERCENTAGE / 100);
+          setExchangeRate(markupRate);
+        } else {
+          console.error("KES rate not found");
+          setExchangeRate(null);
+        }
+      } catch (error) {
+        console.error("Error fetching exchange rate:", error);
+        setExchangeRate(null);
+      }
+    };
+
+    fetchExchangeRate();
+  }, []);
+  const calculateUSDCAmount = () => {
+    if (!exchangeRate) return 0; // Prevent errors if exchange rate is unavailable
+    const kesAmount = parseFloat(amount) || 0;
+    return (kesAmount / exchangeRate).toFixed(6); // Convert KES to USDC
+  };
+  
+  // Get the USDC amount needed
+  const usdcAmount = calculateUSDCAmount();
+  
 
   // Wallet and balance constants (these would typically come from your wallet integration)
   const WALLET_BALANCE = 19807.90;
   const USDC_BALANCE = 0.0000246;
-  const TRANSACTION_FEE_RATE = 0.005; // 0.5%
 
   
-  // Memoized transaction summary calculation
-  const transactionSummary = useMemo(() => {
-    const amountValue = parseFloat(amount) || 0;
-    const transactionCharge = amountValue * TRANSACTION_FEE_RATE;
-    const total = amountValue + transactionCharge;
-    const remainingBalance = WALLET_BALANCE - total;
+  const TRANSACTION_FEE_RATE = 0.005; // 0.5%
 
+  const transactionSummary = useMemo(() => {
+    if (!exchangeRate) {
+      return {
+        kesAmount: 0,
+        usdcAmount: 0,
+        transactionCharge: 0,
+        totalUSDC: 0,
+        walletBalance: 0,
+        remainingBalance: 0,
+        usdcBalance: 0,
+      };
+    }
+  
+    const kesAmount = parseFloat(amount) || 0;
+    const usdcAmount = kesAmount / exchangeRate;
+    const transactionCharge = usdcAmount * TRANSACTION_FEE_RATE;
+    const totalUSDC = usdcAmount + transactionCharge;
+    const remainingBalance = usdcBalance - totalUSDC;
+  
     return {
-      walletBalance: WALLET_BALANCE,
-      amountToSend: amountValue,
-      transactionCharge: transactionCharge,
-      total: total,
-      remainingBalance: remainingBalance,
-      usdcBalance: USDC_BALANCE,
+      kesAmount,
+      usdcAmount,
+      transactionCharge,
+      totalUSDC,
+      walletBalance: parseFloat(amount) || 0, // Assuming the amount is in KES
+      remainingBalance: Math.max(remainingBalance, 0), // Remaining balance after spending
+      usdcBalance: usdcBalance, // ✅ Use fetched USDC balance
     };
-  }, [amount]);
+  }, [amount, exchangeRate, usdcBalance]);
 
   const account = useAccount();
   const { writeContractAsync } = useWriteContract();
@@ -79,11 +133,10 @@ const SendCryptoModal: React.FC<SendCryptoModalProps> = ({
   const amountToPay = parseFloat(amount);
   const reasonForPayment = reason;
   const bankName = bank;
-  let messageHash = "";
 
+  let messageHash = "";
   try {
-    // TODO: Rate should be fetched from an API
-    messageHash = encryptMessage(phoneNumber, "KES", 100, amountToPay);
+    messageHash = encryptMessage(mobileNumber, "KES", exchangeRate ?? 0, transactionSummary.totalUSDC);
   } catch (error) {
     toast.error("Encryption failed.");
     console.error("Error encrypting message:", error);
@@ -121,7 +174,7 @@ const SendCryptoModal: React.FC<SendCryptoModalProps> = ({
         functionName: "approve",
         args: [
           spenderAddress,
-          parseUnits(amount, 6) // USDC has 6 decimals
+          parseUnits(transactionSummary.totalUSDC.toString(), 6),
         ],
       });
 
@@ -130,7 +183,7 @@ const SendCryptoModal: React.FC<SendCryptoModalProps> = ({
         // Call the createOrder function on your contract
         const tx = await contract.createOrder(
           address,
-          parseUnits(amount, 6),
+          parseUnits(transactionSummary.totalUSDC.toString(), 6),
           usdcTokenAddress,
           orderType,
           messageHash
@@ -337,12 +390,12 @@ const SendCryptoModal: React.FC<SendCryptoModalProps> = ({
                 <div className="flex justify-between items-center">
                   <span className="text-gray-600">Wallet balance</span>
                   <span className="text-green-600 font-medium">
-                    KE {transactionSummary.walletBalance.toFixed(2)}
+                  USDC {transactionSummary.usdcBalance.toFixed(6)}
                   </span>
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="text-gray-600">Amount to send</span>
-                  <span className="text-gray-900">KE {transactionSummary.amountToSend.toFixed(2)}</span>
+                  <span className="text-gray-900">KE {transactionSummary.kesAmount.toFixed(2)}</span>
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="text-gray-600">Transaction charge (0.5%)</span>
@@ -350,13 +403,13 @@ const SendCryptoModal: React.FC<SendCryptoModalProps> = ({
                 </div>
                 <div className="border-t pt-3 flex justify-between items-center font-medium">
                   <span className="text-gray-900">Total:</span>
-                  <span className="text-gray-900">KE {transactionSummary.total.toFixed(2)}</span>
+                  <span className="text-gray-900">KE {transactionSummary.kesAmount.toFixed(2)}</span>
                 </div>
               </div>
 
               <button
                 onClick={handleApproveToken}
-                disabled={isApproving || transactionSummary.amountToSend <= 0}
+                disabled={isApproving || transactionSummary.totalUSDC <= 0}
                 type="button"
                 className="w-full mt-4 py-3 bg-gradient-to-r from-blue-600 to-red-600 text-white rounded-full font-medium hover:opacity-90 transition-opacity disabled:opacity-50"
               >
