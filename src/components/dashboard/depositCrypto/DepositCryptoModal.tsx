@@ -5,7 +5,9 @@ import { parseUnits } from 'ethers';
 import { getUSDCAddress } from '../../../services/tokens';
 import { useContract } from "@/services/useContract";
 import { encryptMessage } from "@/services/encryption";
-
+import { useWallet } from "@/context/WalletContext";
+import { parse } from "path";
+import TransactionInProgressModal from "./TranactionInProgress";
 
 interface DepositCryptoModalProps {
   isOpen: boolean;
@@ -23,14 +25,54 @@ const DepositCryptoModal: React.FC<DepositCryptoModalProps> = ({
   onClose,
 }) => {
   if (!isOpen) return null;
+
+  const { usdcBalance } = useWallet(); 
+  const [isTransactionModalOpen, setIsTransactionModalOpen] = useState(true);
   const [selectedWallet, setSelectedWallet] = useState<string>("metamask");
   const [selectedToken, setSelectedToken] = useState("USDC");
   const [amount, setAmount] = useState("0.00");
   const [depositFrom, setDepositFrom] = useState("MPESA");
-  const [phoneNumber, setPhoneNumber] = useState("0703417782");
+  const [phoneNumber, setPhoneNumber] = useState("0113159363");
   const [reason, setReason] = useState("Transport");
   const [isLoading, setIsLoading] = useState(false);
   const [exchangeRate, setExchangeRate] = useState<number | null>(null);
+  const TRANSACTION_FEE_RATE = 0.005; 
+
+  const transactionSummary = useMemo(() => {
+    if (!exchangeRate) {
+      return {
+        kesAmount: 0,
+        usdcAmount: 0,
+        transactionCharge: 0,
+        totalUSDC: 0,
+        totalKES: 0,
+        totalKESBalance: 0,
+        walletBalance: 0,
+        remainingBalance: 0,
+        usdcBalance: 0,
+      };
+    }
+
+    const kesAmount = parseFloat(amount) * exchangeRate || 0;
+    const usdcAmount = parseFloat(amount) || 0;
+    const transactionCharge = usdcAmount * TRANSACTION_FEE_RATE;
+    const totalUSDC = usdcAmount + transactionCharge;
+    const remainingBalance = usdcBalance +totalUSDC;
+    const totalKES = usdcBalance * exchangeRate;
+    const totalKESBalance = totalKES + kesAmount;
+  
+    return {
+      kesAmount,
+      usdcAmount,
+      transactionCharge,
+      totalUSDC,
+      totalKES,
+      totalKESBalance: totalKESBalance,
+      walletBalance: parseFloat(amount) || 0, // Assuming the amount is in KES
+      remainingBalance: Math.max(remainingBalance, 0), // Remaining balance after spending
+      usdcBalance: usdcBalance, // ✅ Use fetched USDC balance
+    };
+  }, [amount, exchangeRate, usdcBalance]);
 
 
   const handleClose = (e: React.MouseEvent<HTMLDivElement>) => {
@@ -137,18 +179,18 @@ const DepositCryptoModal: React.FC<DepositCryptoModalProps> = ({
         orderType,
         messageHash
       );
-      
-      // if (!tx) {
-      //   throw new Error("Transaction was not returned.");
-      // }
+
+      console.log("Transaction:", tx);
       toast.info("Transaction submitted. Awaiting confirmation...");
-      // TODO: Handle transaction confirmation
-      const receipt = await tx.wait();
+      setIsTransactionModalOpen(true);
+
+      // contract.once
+      const receipt = await tx;
       console.log("Transaction receipt:", receipt);
       toast.success("Order created successfully!");
-      onClose();
+      // onClose();
     } catch (error: any) {
-      console.error("Error creating order:", error);
+      console.error("Error creating order:", error.tx);
       toast.error(error?.message || "Transaction failed.");
     } finally {
       setIsLoading(false);
@@ -160,6 +202,9 @@ const DepositCryptoModal: React.FC<DepositCryptoModalProps> = ({
       className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50"
       onClick={handleClose}
     >
+
+      <TransactionInProgressModal isOpen={isTransactionModalOpen} onClose={() => setIsTransactionModalOpen(false)} phone_number={phoneNumber} />
+
       <div className="bg-white rounded-3xl max-w-4xl w-full">
         <div className="p-6">
           {/* Header */}
@@ -215,11 +260,18 @@ const DepositCryptoModal: React.FC<DepositCryptoModalProps> = ({
                   </select>
                 </div>
                 <div>
-                  <label className="block text-gray-600 mb-2">Amount</label>
+                  <label className="block text-gray-600 mb-2">Amount in USDC</label>
                   <input
                     type="text"
                     value={amount}
-                    onChange={(e) => setAmount(e.target.value)}
+                    onChange={(e) => {
+                      if (parseFloat(e.target.value) <= 100) {
+                        setAmount(e.target.value);
+                      } else {
+                        console.log(`amount: ${amount}`);
+                        setAmount(amount);
+                      }
+                    }}
                     className="w-full p-3 bg-gray-50 rounded-lg border-0 text-gray-900"
                   />
                 </div>
@@ -276,7 +328,7 @@ const DepositCryptoModal: React.FC<DepositCryptoModalProps> = ({
                 <div className="flex justify-between items-center">
                   <span className="text-gray-600">KES Equivalent</span>
                   <span className="text-gray-900">
-                    {exchangeRate ? (parseFloat(amount) * exchangeRate).toFixed(2) + " KES" : "Fetching..."}
+                     KES {transactionSummary.kesAmount.toFixed(1)}0
                   </span>
                 </div>
 
@@ -284,11 +336,11 @@ const DepositCryptoModal: React.FC<DepositCryptoModalProps> = ({
                   <span className="text-gray-600">Wallet balance</span>
                   <span className="text-green-600 font-medium">
                     {/* TODO: Get USDC balance (reference offramp modal)*/}
-                   Loading...
+                    USDC {transactionSummary.usdcBalance.toFixed(2)} 
                   </span>
                 </div>
                 <div className="flex justify-between items-center">
-                  <span className="text-gray-600">Amount to send</span>
+                  <span className="text-gray-600">Amount to recieve</span>
                   <span className="text-gray-900">USDC {amount}</span>
                 </div>
                 <div className="flex justify-between items-center">
@@ -299,7 +351,7 @@ const DepositCryptoModal: React.FC<DepositCryptoModalProps> = ({
                 <div className="border-t pt-3 flex justify-between items-center font-medium">
                   <span className="text-gray-900">Total:</span>
                   {/* Update Total calculation */}
-                  <span className="text-gray-900">KE {amount}</span>
+                  <span className="text-gray-900">KE {transactionSummary.kesAmount.toFixed(1)}0</span>
                 </div>
               </div>
 
@@ -320,8 +372,8 @@ const DepositCryptoModal: React.FC<DepositCryptoModalProps> = ({
                 </div>
                 <div className="flex justify-between">
                   {/* TODO: Calculate balance after transaction for both USDC and KSH equivalent*/}
-                  <span className="text-gray-600">USDC: Loading....</span>
-                  <span className="text-gray-600">KE Loading....</span>
+                  <span className="text-gray-600">USDC: {transactionSummary.remainingBalance.toFixed(2)}</span>
+                  <span className="text-gray-600">KE {transactionSummary.totalKESBalance.toFixed(2)}</span>
                 </div>
               </div>
 

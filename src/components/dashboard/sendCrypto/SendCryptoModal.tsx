@@ -93,6 +93,8 @@ const SendCryptoModal: React.FC<SendCryptoModalProps> = ({
         usdcAmount: 0,
         transactionCharge: 0,
         totalUSDC: 0,
+        totalKES: 0,
+        totalKESBalance: 0,
         walletBalance: 0,
         remainingBalance: 0,
         usdcBalance: 0,
@@ -104,17 +106,24 @@ const SendCryptoModal: React.FC<SendCryptoModalProps> = ({
     const transactionCharge = usdcAmount * TRANSACTION_FEE_RATE;
     const totalUSDC = usdcAmount + transactionCharge;
     const remainingBalance = usdcBalance - totalUSDC;
+    const totalKES = usdcBalance * exchangeRate;
+    const totalKESBalance = totalKES - kesAmount;
   
     return {
       kesAmount,
       usdcAmount,
       transactionCharge,
       totalUSDC,
+      totalKES,
+      totalKESBalance: totalKESBalance,
       walletBalance: parseFloat(amount) || 0, // Assuming the amount is in KES
       remainingBalance: Math.max(remainingBalance, 0), // Remaining balance after spending
       usdcBalance: usdcBalance, // ✅ Use fetched USDC balance
     };
   }, [amount, exchangeRate, usdcBalance]);
+
+  console.log(`TransactionSummary: ${JSON.stringify(transactionSummary, null, 2)}`);
+
 
   const account = useAccount();
   const { writeContractAsync } = useWriteContract();
@@ -188,14 +197,14 @@ const SendCryptoModal: React.FC<SendCryptoModalProps> = ({
           orderType,
           messageHash
         );
-        
+        console.log(`Transaction hash: ${tx.hash}`);
         toast.info("Transaction submitted. Awaiting confirmation...");
         const receipt = await tx.wait();
         console.log("Transaction receipt:", receipt);
         toast.success("Order created successfully!");
         onClose();
       } catch (error: any) {
-        console.error("Error creating order:", error);
+        console.error("Error creating order:", error.tx);
         toast.error(error?.message || "Transaction failed.");
       } finally {
         setIsApproving(false);
@@ -349,6 +358,7 @@ const SendCryptoModal: React.FC<SendCryptoModalProps> = ({
                   setMobileNumber={setMobileNumber}
                   reason={reason}
                   setReason={setReason}
+                  totalKES={transactionSummary.totalKES}
                 />
               )}
 
@@ -397,6 +407,13 @@ const SendCryptoModal: React.FC<SendCryptoModalProps> = ({
                   <span className="text-gray-600">Amount to send</span>
                   <span className="text-gray-900">KE {transactionSummary.kesAmount.toFixed(2)}</span>
                 </div>
+                {amount && Math.abs(parseFloat(amount) - transactionSummary.totalKES) <= 0.9 && (
+                  <div className="text-red-500 text-sm">
+                    <p className="text-red-500 mt-2 text-sm">
+                      Opt-In to Hakiba to gain credit
+                    </p>
+                  </div>
+                )}
                 <div className="flex justify-between items-center">
                   <span className="text-gray-600">Transaction charge (0.5%)</span>
                   <span className="text-orange-600">KE {transactionSummary.transactionCharge.toFixed(2)}</span>
@@ -408,7 +425,7 @@ const SendCryptoModal: React.FC<SendCryptoModalProps> = ({
               </div>
 
               <button
-                onClick={handleApproveToken}
+                onClick={parseFloat(amount) >= 20 ? handleApproveToken : undefined}
                 disabled={isApproving || transactionSummary.totalUSDC <= 0}
                 type="button"
                 className="w-full mt-4 py-3 bg-gradient-to-r from-blue-600 to-red-600 text-white rounded-full font-medium hover:opacity-90 transition-opacity disabled:opacity-50"
@@ -422,11 +439,11 @@ const SendCryptoModal: React.FC<SendCryptoModalProps> = ({
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-600">Remaining Balance</span>
-                  <span className="text-gray-600">KE {transactionSummary.remainingBalance.toFixed(2)}</span>
+                  <span className="text-gray-600">KE {transactionSummary.totalKESBalance.toFixed(2)}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-600">USDC Balance</span>
-                  <span className="text-gray-600">USDC {transactionSummary.usdcBalance.toFixed(6)}</span>
+                  <span className="text-gray-600">USDC {transactionSummary.remainingBalance.toFixed(6) }</span>
                 </div>
               </div>
 
