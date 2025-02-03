@@ -122,9 +122,6 @@ const SendCryptoModal: React.FC<SendCryptoModalProps> = ({
     };
   }, [amount, exchangeRate, usdcBalance]);
 
-  console.log(`TransactionSummary: ${JSON.stringify(transactionSummary, null, 2)}`);
-
-
   const account = useAccount();
   const { writeContractAsync } = useWriteContract();
 
