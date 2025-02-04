@@ -12,6 +12,9 @@ import { set } from "react-hook-form";
 import { usePublicClient, useAccount } from "wagmi";
 import { CONTRACT_ABI, erc20Abi, gatewayAbi } from "@/app/api/abi";
 import { CONTRACT_ADDRESS } from "@/app/api/abi";
+import useContractEvents from "@/context/useContractEvents";
+
+
 interface DepositCryptoModalProps {
     isOpen: boolean;
     onClose: () => void;
@@ -40,6 +43,9 @@ const DepositCryptoModal: React.FC<DepositCryptoModalProps> = ({
     const [isLoading, setIsLoading] = useState(false);
     const [exchangeRate, setExchangeRate] = useState<number | null>(null);
     const TRANSACTION_FEE_RATE = 0.005;
+    const [orderCreatedEvents, setOrderCreatedEvents] = useState<any[]>([]);
+    const [orderSettledEvents, setOrderSettledEvents] = useState<any[]>([]);
+
 
     const transactionSummary = useMemo(() => {
         if (!exchangeRate) {
@@ -130,6 +136,18 @@ const DepositCryptoModal: React.FC<DepositCryptoModalProps> = ({
             setExchangeRate(null);
         }
     };
+
+    useContractEvents(
+        (order: any) => {
+          console.log("Order Created:", order);
+          setOrderCreatedEvents((prev) => [...prev, order]);
+        },
+        (order: any) => {
+          console.log("Order Settled:", order);
+          setOrderSettledEvents((prev) => [...prev, order]);
+        }
+      );
+    
 
     useEffect(() => {
         fetchExchangeRate();
