@@ -1,5 +1,6 @@
 import React from "react";
 
+
 interface PayToMobileMoneyProps {
   selectedToken: string;
   setSelectedToken: (value: string) => void;
@@ -9,6 +10,7 @@ interface PayToMobileMoneyProps {
   setMobileNumber: (value: string) => void;
   reason: string;
   setReason: (value: string) => void;
+  totalKES: number;
 }
 
 const PayToMobileMoney: React.FC<PayToMobileMoneyProps> = ({
@@ -20,6 +22,7 @@ const PayToMobileMoney: React.FC<PayToMobileMoneyProps> = ({
   setMobileNumber,
   reason,
   setReason,
+  totalKES
 }) => {
   return (
     <div className="space-y-4">
@@ -64,9 +67,21 @@ const PayToMobileMoney: React.FC<PayToMobileMoneyProps> = ({
           <input
             type="text"
             value={amount}
-            onChange={(e) => setAmount(e.target.value)}
+            onChange={(e) => {
+              if (parseFloat(e.target.value) > totalKES) {
+                console.log(`totalKES: ${totalKES}`);
+                setAmount(totalKES.toFixed(0).toString());
+              } else {
+                setAmount(e.target.value);
+              }
+            }}
             className="w-full p-3 bg-gray-50 rounded-lg border-0 text-gray-900"
           />
+          {amount && parseFloat(amount) < 20 && (
+          <p className="text-red-500 mt-2 text-sm">
+              Minimum amount is 20 KE
+            </p>
+          )}
         </div>
       </div>
 
