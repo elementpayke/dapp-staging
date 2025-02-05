@@ -1,6 +1,12 @@
 import React, { useState, useEffect } from 'react';
 
-const PaymentProcessing = ({ amount, recipient }) => {
+interface PaymentProcessingProps {
+  amount: number;
+  recipient: string;
+}
+
+const PaymentProcessing: React.FC<PaymentProcessingProps> = ({ amount, recipient }) => {
+
   const [timeRemaining, setTimeRemaining] = useState(30);
 
   useEffect(() => {
