@@ -3,13 +3,12 @@ import { ethers } from 'ethers';
 import { useAccount, useWalletClient } from 'wagmi';
 import { CONTRACT_ABI, CONTRACT_ADDRESS } from '../app/api/abi';
 
-/**
- * Custom hook to instantiate and return an ethers.js Contract instance
+/* Custom hook to instantiate and return an ethers.js Contract instance
  * using the connected wallet's signer obtained via wagmi/OnChainKit.
  *
  * @returns An object containing:
  *   - `contract`: The instantiated ethers.js Contract (or null if not connected).
- *   - `address`: The connected wallet address (or null if not connected).
+ *   - `address`: The connected wacontrllet address (or null if not connected).
  *
  * This hook does the following:
  * 1. Uses the `useAccount` hook from wagmi to obtain the connected wallet address and connection status.
@@ -37,6 +36,14 @@ export const useContract = () => {
     return walletClient ? (walletClient as unknown as ethers.Signer) : null;
   }, [walletClient]);
 
+  // provider based contract for event subscription
+  const provider = useMemo(() => {
+    if ( typeof window !== "undefined" && (window as any).ethereum ) {
+      return new ethers.BrowserProvider((window as any).ethereum);
+    }
+    return null;
+  }, []);
+
   // Create an ethers.js Contract instance.
   // This contract instance can be used to call smart contract methods.
   const contract = useMemo(() => {
@@ -48,7 +55,19 @@ export const useContract = () => {
       signer            // The signer for sending transactions
     );
   }, [isConnected, address, signer]);
+  
+
+  const contractWithProvider = useMemo(() => {
+    if (!provider) return null;
+    // Instantiating the contract with the testnet contract address, ABI, and signer.
+    return new ethers.Contract(
+      contractAddress,  // The deployed contract address (testnet for now)
+      CONTRACT_ABI,     // The contract's ABI
+      provider          // The signer for sending transactions
+    );
+  }, [provider]);
+
 
   // Return the contract instance and the connected wallet address.
-  return { contract, address };
+  return { contract, contractWithProvider, address, CONTRACT_ABI, CONTRACT_ADDRESS }; 
 };

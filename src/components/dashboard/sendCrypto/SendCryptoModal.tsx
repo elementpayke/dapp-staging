@@ -12,7 +12,8 @@ import { getUSDCAddress } from '../../../services/tokens';
 import { useContract } from "@/services/useContract";
 import { useWallet } from "@/context/WalletContext";
 import { encryptMessage } from "@/services/encryption";
-
+import SendCryptoReceipt from "./SendCryptoReciept";
+import { useContractEvents } from "@/context/useContractEvents";
 
 interface SendCryptoModalProps {
   isOpen: boolean;
@@ -29,6 +30,7 @@ const SendCryptoModal: React.FC<SendCryptoModalProps> = ({
   isOpen,
   onClose,
 }) => {
+  const [isSendCryptoReciept, setSendCryptoReciept] = useState(false);
   const [paymentType, setPaymentType] = useState<"bank" | "mobile">("bank");
   const [selectedToken, setSelectedToken] = useState("USDC");
   const [amount, setAmount] = useState("");
@@ -41,7 +43,6 @@ const SendCryptoModal: React.FC<SendCryptoModalProps> = ({
   const [isApproving, setIsApproving] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const { usdcBalance } = useWallet(); 
-
   const [exchangeRate, setExchangeRate] = useState<number | null>(null);
   const MARKUP_PERCENTAGE = 1.5; // 1.5% markup
 
@@ -69,6 +70,7 @@ const SendCryptoModal: React.FC<SendCryptoModalProps> = ({
 
     fetchExchangeRate();
   }, []);
+
   const calculateUSDCAmount = () => {
     if (!exchangeRate) return 0; // Prevent errors if exchange rate is unavailable
     const kesAmount = parseFloat(amount) || 0;
@@ -77,7 +79,6 @@ const SendCryptoModal: React.FC<SendCryptoModalProps> = ({
   
   // Get the USDC amount needed
   const usdcAmount = calculateUSDCAmount();
-  
 
   // Wallet and balance constants (these would typically come from your wallet integration)
   const WALLET_BALANCE = 19807.90;
@@ -93,6 +94,8 @@ const SendCryptoModal: React.FC<SendCryptoModalProps> = ({
         usdcAmount: 0,
         transactionCharge: 0,
         totalUSDC: 0,
+        totalKES: 0,
+        totalKESBalance: 0,
         walletBalance: 0,
         remainingBalance: 0,
         usdcBalance: 0,
@@ -104,17 +107,32 @@ const SendCryptoModal: React.FC<SendCryptoModalProps> = ({
     const transactionCharge = usdcAmount * TRANSACTION_FEE_RATE;
     const totalUSDC = usdcAmount + transactionCharge;
     const remainingBalance = usdcBalance - totalUSDC;
+    const totalKES = usdcBalance * exchangeRate;
+    const totalKESBalance = totalKES - kesAmount;
   
     return {
       kesAmount,
       usdcAmount,
       transactionCharge,
       totalUSDC,
+      totalKES,
+      totalKESBalance: totalKESBalance,
       walletBalance: parseFloat(amount) || 0, // Assuming the amount is in KES
       remainingBalance: Math.max(remainingBalance, 0), // Remaining balance after spending
       usdcBalance: usdcBalance, // ✅ Use fetched USDC balance
     };
   }, [amount, exchangeRate, usdcBalance]);
+
+  const [transactionReciept, setTransactionReciept] = useState<any | null>({
+    amount: amount || "0.00",
+    amountUSDC: Number(amount) * (exchangeRate ?? 1) || 0,
+    phoneNumber: mobileNumber || "",
+    address: useAccount().address || "",
+    status: 0,
+    transactionHash: "",
+});
+
+
 
   const account = useAccount();
   const { writeContractAsync } = useWriteContract();
@@ -188,20 +206,17 @@ const SendCryptoModal: React.FC<SendCryptoModalProps> = ({
           orderType,
           messageHash
         );
-        
+        transactionReciept.status = 1;
+        console.log("Transaction hash:", tx);
         toast.info("Transaction submitted. Awaiting confirmation...");
-        const receipt = await tx.wait();
-        console.log("Transaction receipt:", receipt);
-        toast.success("Order created successfully!");
-        onClose();
       } catch (error: any) {
-        console.error("Error creating order:", error);
+        console.error("Error creating order:", error.tx);
+        transactionReciept.status = 0;
         toast.error(error?.message || "Transaction failed.");
       } finally {
         setIsApproving(false);
-
-        //set is processing to true
         setIsProcessing(true);
+        setSendCryptoReciept(true);
       }
 
     } catch (error: any) {
@@ -232,6 +247,15 @@ const SendCryptoModal: React.FC<SendCryptoModalProps> = ({
     }
   };
 
+  useContractEvents(
+    (order: any) => {
+        console.log("New Order Created:", order);
+        // transactionReciept.transactionHash = order.messageHash;
+    },
+    (order: any) => {
+        console.log("Order Settled:", order);
+    }
+  );
   // if (!isOpen) return null;
   if (!isOpen) return null;
 
@@ -240,6 +264,7 @@ const SendCryptoModal: React.FC<SendCryptoModalProps> = ({
       className="fixed inset-0 bg-black bg-opacity-50 flex items-start md:items-center justify-center z-50"
       onClick={handleClose}
     >
+      <SendCryptoReceipt isOpen={isSendCryptoReciept} onClose={() => setSendCryptoReciept(false)} transactionReciept={transactionReciept} />
       <div className="bg-white w-full h-full md:h-auto md:rounded-3xl md:max-w-4xl overflow-auto">
         <div className="p-4 md:p-6">
           {/* Header */}
@@ -349,6 +374,7 @@ const SendCryptoModal: React.FC<SendCryptoModalProps> = ({
                   setMobileNumber={setMobileNumber}
                   reason={reason}
                   setReason={setReason}
+                  totalKES={transactionSummary.totalKES}
                 />
               )}
 
@@ -397,6 +423,13 @@ const SendCryptoModal: React.FC<SendCryptoModalProps> = ({
                   <span className="text-gray-600">Amount to send</span>
                   <span className="text-gray-900">KE {transactionSummary.kesAmount.toFixed(2)}</span>
                 </div>
+                {amount && Math.abs(parseFloat(amount) - transactionSummary.totalKES) <= 0.9 && (
+                  <div className="text-red-500 text-sm">
+                    <p className="text-red-500 mt-2 text-sm">
+                      Opt-In to Hakiba to gain credit
+                    </p>
+                  </div>
+                )}
                 <div className="flex justify-between items-center">
                   <span className="text-gray-600">Transaction charge (0.5%)</span>
                   <span className="text-orange-600">KE {transactionSummary.transactionCharge.toFixed(2)}</span>
@@ -408,7 +441,7 @@ const SendCryptoModal: React.FC<SendCryptoModalProps> = ({
               </div>
 
               <button
-                onClick={handleApproveToken}
+                onClick={parseFloat(amount) >= 20 ? handleApproveToken : undefined}
                 disabled={isApproving || transactionSummary.totalUSDC <= 0}
                 type="button"
                 className="w-full mt-4 py-3 bg-gradient-to-r from-blue-600 to-red-600 text-white rounded-full font-medium hover:opacity-90 transition-opacity disabled:opacity-50"
@@ -422,11 +455,11 @@ const SendCryptoModal: React.FC<SendCryptoModalProps> = ({
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-600">Remaining Balance</span>
-                  <span className="text-gray-600">KE {transactionSummary.remainingBalance.toFixed(2)}</span>
+                  <span className="text-gray-600">KE {transactionSummary.totalKESBalance.toFixed(2)}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-600">USDC Balance</span>
-                  <span className="text-gray-600">USDC {transactionSummary.usdcBalance.toFixed(6)}</span>
+                  <span className="text-gray-600">USDC {transactionSummary.remainingBalance.toFixed(6) }</span>
                 </div>
               </div>
 
