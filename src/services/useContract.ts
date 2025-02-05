@@ -55,6 +55,7 @@ export const useContract = () => {
       signer            // The signer for sending transactions
     );
   }, [isConnected, address, signer]);
+  
 
   const contractWithProvider = useMemo(() => {
     if (!provider) return null;
@@ -68,5 +69,5 @@ export const useContract = () => {
 
 
   // Return the contract instance and the connected wallet address.
-  return { contract, contractWithProvider, address };
+  return { contract, contractWithProvider, address, CONTRACT_ABI, CONTRACT_ADDRESS }; 
 };

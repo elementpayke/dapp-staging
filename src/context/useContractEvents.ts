@@ -1,105 +1,107 @@
-import { useEffect } from "react";
-import { ethers, BigNumberish } from 'ethers';
-
-const CONTRACT_ADDRESS = "0x10af11060bC238670520Af7ca15E86a34bC68fe4"
-
-const CONTRACT_ABI = [
-{
-  "anonymous": false,
-  "inputs": [
-    { "indexed": true, "name": "orderId", "type": "bytes32" },
-    { "indexed": true, "name": "token", "type": "address" },
-    { "indexed": true, "name": "requester", "type": "address" },
-    { "indexed": false, "name": "amount", "type": "uint256" },
-    { "indexed": false, "name": "messageHash", "type": "string" },
-    { "indexed": false, "name": "rate", "type": "uint256" },
-    { "indexed": false, "name": "orderType", "type": "uint8" }
-  ],
-  "name": "OrderCreated",
-  "type": "event"
-},
-{
-  "anonymous": false,
-  "inputs": [
-    { "indexed": true, "name": "orderId", "type": "bytes32" }
-  ],
-  "name": "OrderSettled",
-  "type": "event"
-},
-{
-  "inputs": [
-    { "name": "_orderId", "type": "bytes32" }
-  ],
-  "name": "settleOrder",
-  "outputs": [],
-  "stateMutability": "nonpayable",
-  "type": "function"
-},
-{
-  "inputs": [
-    { "internalType": "address", "name": "_userAddress", "type": "address" },
-    { "internalType": "uint256", "name": "_amount", "type": "uint256" },
-    { "internalType": "address", "name": "_token", "type": "address" },
-    { "internalType": "enum IOrderManagement.OrderType", "name": "_orderType", "type": "uint8" },
-    { "internalType": "string", "name": "messageHash", "type": "string" }
-  ],
-  "name": "createOrder",
-  "outputs": [
-    { "internalType": "bytes32", "name": "orderId", "type": "bytes32" }
-  ],
-  "stateMutability": "nonpayable",
-  "type": "function"
-}
-];
+import { useEffect, useState, useCallback } from "react";
+import { ethers, BigNumberish } from "ethers";
+import { CONTRACT_ABI, CONTRACT_ADDRESS } from "@/app/api/abi";
+import { set } from "react-hook-form";
 
 const NODE_URL = "wss://base-sepolia.infura.io/ws/v3/ea4427e7b72e4fc3b6ac7b3ca31353c2";
+const provider = new ethers.WebSocketProvider(NODE_URL);
+const contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, provider);
 
-const useContractEvents = (
-    onOrderCreated: (order: any) => void,
-    onOrderSettled: (order: any) => void
-  ) => {
-    useEffect(() => {
-      const provider = new ethers.WebSocketProvider(NODE_URL);
-      const contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, provider);
-  
-      const orderCreatedListener = (
-        orderId: string,
-        token: string,
-        requester: string,
-        amount: BigNumberish,
-        messageHash: string,
-        rate: BigNumberish,
-        orderType: number
-      ) => {
-        const event = {
-          orderId,
-          token,
-          requester,
-          amount: ethers.formatUnits(amount, 6),
-          messageHash,
-          rate,
-          orderType,
-        };
-        console.log('OrderCreated Event:', event);
-        onOrderCreated(event);
+// Hook for Listening to Contract Events
+export const useContractEvents = (
+  onOrderCreated: (order: any) => void,
+  onOrderSettled: (order: any) => void
+) => {
+  useEffect(() => {
+    const orderCreatedListener = (
+      orderId: string,
+      token: string,
+      requester: string,
+      amount: BigNumberish,
+      messageHash: string,
+      rate: BigNumberish,
+      orderType: number
+    ) => {
+      const event = {
+        orderId,
+        token,
+        requester,
+        amount: ethers.formatUnits(amount, 6),
+        messageHash,
+        rate,
+        orderType,
       };
-  
-      const orderSettledListener = (orderId: string) => {
-        const event = { orderId };
-        console.log('OrderSettled Event:', event);
-        onOrderSettled(event);
-      };
-  
-      contract.on('OrderCreated', orderCreatedListener);
-      contract.on('OrderSettled', orderSettledListener);
-  
-      return () => {
-        contract.off('OrderCreated', orderCreatedListener);
-        contract.off('OrderSettled', orderSettledListener);
-        provider.destroy(); // Close the WebSocket connection
-      };
-    }, [onOrderCreated, onOrderSettled]);
-  };
-  
-  export default useContractEvents;
-  
+      onOrderCreated(event);
+    };
+
+    const orderSettledListener = (orderId: string) => {
+      const event = { orderId };
+      onOrderSettled(event);
+    };
+
+    contract.on("OrderCreated", orderCreatedListener);
+    contract.on("OrderSettled", orderSettledListener);
+
+    return () => {
+      contract.off("OrderCreated", orderCreatedListener);
+      contract.off("OrderSettled", orderSettledListener);
+    };
+  }, [onOrderCreated, onOrderSettled]);
+};
+
+// Hook for Handling Order Status
+export const useContractHandleOrderStatus = () => {
+  const [isProcessing, setIsProcessing] = useState(false);
+
+  const handleOrderStatus = useCallback(async (orderId: string, setIsTransactionModalOpen: any, setDepositCryptoReciept: any, transactionReciept: any) => {
+    if (!orderId) return;
+
+    setIsProcessing(true);
+
+    try {
+      let orderStatus = await contract.getOrder(orderId);
+      console.log("Initial order status:", orderStatus);
+      let attempts = 0;
+      const maxAttempts = 12; // Stop checking after 12 attempts (1 min)
+      let intervalResolved = false; // To track interval resolution
+
+      const interval = setInterval(async () => {
+        if (attempts >= maxAttempts || intervalResolved) {
+          clearInterval(interval);
+          setIsProcessing(false);
+          setIsTransactionModalOpen(false);
+          setDepositCryptoReciept(true);
+          transactionReciept.status = 0;
+          transactionReciept.transactionHash = orderStatus[7];
+          return;
+        }
+
+        attempts++;
+        orderStatus = await contract.getOrder(orderId);
+        console.log(`Attempt ${attempts} Order status: ${orderStatus}` );
+        if (orderStatus && Number(orderStatus[5]) === 1) {
+          clearInterval(interval);
+          console.log("Order settled successfully");
+          setIsProcessing(false);
+          setIsTransactionModalOpen(false);
+          setDepositCryptoReciept(true);
+          intervalResolved = true; // Mark as resolved
+          transactionReciept.status = 1;
+          transactionReciept.transactionHash = orderStatus[7];
+          return ; // Return success status
+        }
+      }, 5000); // Poll every 5 seconds
+
+      // Just in case, handle when the interval is cleared early
+      await new Promise(resolve => setTimeout(resolve, maxAttempts * 5000));
+
+      return { orderId, status: 0 }; // Fallback return in case polling ends without resolution
+    } catch (error) {
+      console.error("Error fetching order:", error);
+      setIsProcessing(false);
+      return { orderId, status: 0 };
+    }
+  }, []);
+
+  return { handleOrderStatus, isProcessing };
+};

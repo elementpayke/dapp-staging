@@ -7,13 +7,15 @@ import { useContract } from "@/services/useContract";
 import { encryptMessage } from "@/services/encryption";
 import { useWallet } from "@/context/WalletContext";
 import { parse } from "path";
-import TransactionInProgressModal from "./TranactionInProgress";
 import { set } from "react-hook-form";
 import { usePublicClient, useAccount } from "wagmi";
 import { CONTRACT_ABI, erc20Abi, gatewayAbi } from "@/app/api/abi";
 import { CONTRACT_ADDRESS } from "@/app/api/abi";
-import useContractEvents from "@/context/useContractEvents";
+import { useContractEvents, useContractHandleOrderStatus } from "@/context/useContractEvents";
 
+import TransactionInProgressModal from "./TranactionInProgress";
+import DepositCryptoReciept from "./DepositCryptoReciept";
+import { stat } from "fs";
 
 interface DepositCryptoModalProps {
     isOpen: boolean;
@@ -34,6 +36,7 @@ const DepositCryptoModal: React.FC<DepositCryptoModalProps> = ({
 
     const { usdcBalance } = useWallet();
     const [isTransactionModalOpen, setIsTransactionModalOpen] = useState(false);
+    const [isDepositCryptoReciept, setDepositCryptoReciept] = useState(false);
     const [selectedWallet, setSelectedWallet] = useState<string>("metamask");
     const [selectedToken, setSelectedToken] = useState("USDC");
     const [amount, setAmount] = useState("0.00");
@@ -45,31 +48,22 @@ const DepositCryptoModal: React.FC<DepositCryptoModalProps> = ({
     const TRANSACTION_FEE_RATE = 0.005;
     const [orderCreatedEvents, setOrderCreatedEvents] = useState<any[]>([]);
     const [orderSettledEvents, setOrderSettledEvents] = useState<any[]>([]);
+    const { handleOrderStatus, isProcessing } = useContractHandleOrderStatus();
+    const { contract, contractWithProvider, address } = useContract();
 
+    const MARKUP_PERCENTAGE = 1.5;
 
     const transactionSummary = useMemo(() => {
-        if (!exchangeRate) {
-            return {
-                kesAmount: 0,
-                usdcAmount: 0,
-                transactionCharge: 0,
-                totalUSDC: 0,
-                totalKES: 0,
-                totalKESBalance: 0,
-                walletBalance: 0,
-                remainingBalance: 0,
-                usdcBalance: 0,
-            };
-        }
+        if (!exchangeRate) return { kesAmount: 0, usdcAmount: 0, transactionCharge: 0, totalUSDC: 0, totalKES: 0, totalKESBalance: 0, walletBalance: 0, remainingBalance: 0, usdcBalance: 0 };
 
         const kesAmount = parseFloat(amount) * exchangeRate || 0;
         const usdcAmount = parseFloat(amount) || 0;
         const transactionCharge = usdcAmount * TRANSACTION_FEE_RATE;
         const totalUSDC = usdcAmount + transactionCharge;
-        const remainingBalance = usdcBalance + totalUSDC;
+        const remainingBalance = Math.max(usdcBalance + totalUSDC, 0);
         const totalKES = usdcBalance * exchangeRate;
         const totalKESBalance = totalKES + kesAmount;
-        let intervalId: NodeJS.Timeout;   
+        let intervalId: NodeJS.Timeout;
 
         return {
             kesAmount,
@@ -84,6 +78,14 @@ const DepositCryptoModal: React.FC<DepositCryptoModalProps> = ({
         };
     }, [amount, exchangeRate, usdcBalance]);
 
+    const [transactionReciept, setTransactionReciept] = useState<any | null>({
+        amount: amount || "0.00",
+        amountUSDC: Number(amount) * (exchangeRate ?? 1) || 0,
+        phoneNumber: phoneNumber || "",
+        address: useAccount().address || "",
+        status: 0,
+        transactionHash: "",
+    });
 
     const handleClose = (e: React.MouseEvent<HTMLDivElement>) => {
         if (e.target === e.currentTarget) {
@@ -92,196 +94,85 @@ const DepositCryptoModal: React.FC<DepositCryptoModalProps> = ({
     };
 
     const walletOptions: WalletOption[] = [
-        {
-            id: "metamask",
-            icon: "🦊",
-            selected: selectedWallet === "metamask",
-        },
-        {
-            id: "coinbase",
-            icon: "©️",
-            selected: selectedWallet === "coinbase",
-        },
-        {
-            id: "qr",
-            icon: "🔲",
-            selected: selectedWallet === "qr",
-        },
+        { id: "metamask", icon: "🦊", selected: selectedWallet === "metamask" },
+        { id: "coinbase", icon: "©️", selected: selectedWallet === "coinbase" },
+        { id: "qr", icon: "🔲", selected: selectedWallet === "qr" },
     ];
-
-    const { contract, contractWithProvider, address } = useContract();
-
-
-    const MARKUP_PERCENTAGE = 1.5;
 
     const fetchExchangeRate = async () => {
         try {
-            const response = await fetch(
-                "https://api.coinbase.com/v2/exchange-rates?currency=USDC"
-            );
+            const response = await fetch("https://api.coinbase.com/v2/exchange-rates?currency=USDC");
             const data = await response.json();
 
             if (data?.data?.rates?.KES) {
                 const baseRate = parseFloat(data.data.rates.KES);
                 const markupRate = baseRate * (1 - MARKUP_PERCENTAGE / 100);
-                console.log("Exchange rate:", markupRate);
-                console.log("Base rate:", baseRate);
                 setExchangeRate(markupRate);
             } else {
-                console.error("KES rate not found");
                 setExchangeRate(null);
             }
         } catch (error) {
-            console.error("Error fetching exchange rate:", error);
             setExchangeRate(null);
         }
     };
 
     useContractEvents(
-        (order: any) => {
-          console.log("Order Created:", order);
-          setOrderCreatedEvents((prev) => [...prev, order]);
-        },
-        (order: any) => {
-          console.log("Order Settled:", order);
-          setOrderSettledEvents((prev) => [...prev, order]);
-        }
-      );
-    
+        (order: any) => setOrderCreatedEvents((prev) => [...prev, order]),
+        (order: any) => setOrderSettledEvents((prev) => [...prev, order])
+    );
 
     useEffect(() => {
         fetchExchangeRate();
     }, [isOpen]);
 
-
-
     const handleConfirmPayment = async () => {
-        if (!address) {
-            // TODO: Show a modal to connect wallet
-            toast.error("Please connect your wallet first.");
-            return;
-        }
-
-        if (parseFloat(amount) <= 0) {
-            toast.error("Amount must be greater than zero.");
-            return;
-        }
+        if (!address) return toast.error("Please connect your wallet first.");
+        if (parseFloat(amount) <= 0) return toast.error("Amount must be greater than zero.");
 
         setIsLoading(true);
-
         const orderType = depositFrom === "MPESA" ? 0 : 1;
         const usdcTokenAddress = getUSDCAddress() as `0x${string}`;
-
         const mpesaAmount = parseFloat(amount) * (exchangeRate ?? 1);
 
-        let messageHash = "";
         try {
-            messageHash = encryptMessage(phoneNumber, "USD", exchangeRate ?? 0, mpesaAmount);
-        } catch (error) {
-            toast.error("Encryption failed.");
-            setIsLoading(false);
-            return;
-        }
-
-
-        try {
+            const messageHash = encryptMessage(phoneNumber, "USD", exchangeRate ?? 0, mpesaAmount);
             if (!contract) throw new Error("Contract is not initialized.");
-
-            // Call the createOrder function on your contract
-            const tx = await contract.createOrder(
-                address,
-                parseUnits(amount, 6),
-                usdcTokenAddress,
-                orderType,
-                messageHash
-            )
-
-            console.log("Transaction submitted. Awaiting confirmation...", tx.hash);
+            const tx = await contract.createOrder(address, parseUnits(amount, 6), usdcTokenAddress, orderType, messageHash);
             setIsTransactionModalOpen(true);
-
-            // check if there is a provider 
-            
-            if ( typeof window !== "undefined" && (window as any).ethereum) {
-                const provider = new ethers.BrowserProvider((window as any).ethereum);
-                console.log("Provider found", provider);
-            } else {
-                console.log("Ethereum provider not found");
-            }
-
-            if (tx){
-                const receipt = await tx;
-                console.log("Transaction receipt:", receipt);
-                toast.success("Order created successfully!");
-            }
-            // onClose();
         } catch (error: any) {
-            console.error("Error creating order:", error.tx);
             toast.error(error?.message || "Transaction failed.");
+        } 
+    };
+
+    const handleConfirmOrderStatus = async () => {
+        if (orderCreatedEvents.length === 0 || isProcessing) return;
+        try {
+            await handleOrderStatus(orderCreatedEvents[0].orderId, setIsTransactionModalOpen, setDepositCryptoReciept, transactionReciept);
+            setTransactionReciept((prev: any) => ({ ...prev, amount, amountUSDC: parseFloat(amount) * (exchangeRate ?? 1), phoneNumber }));
+        } catch (error) {
+            console.error("Error handling order status:", error);
         } finally {
             setIsLoading(false);
         }
     };
 
-    const client = usePublicClient();
-    const [loading, setLoading] = useState(false);
-    const account = useAccount();   
+    useEffect(() => {
+        handleConfirmOrderStatus();
+    }, [orderCreatedEvents]);
 
-    const handleFetchCreatedOrders = async () => {
-        if (!contractWithProvider) {
-            console.error("Contract not initialized.");
-            return;
-        }
 
-        if (!client) {
-            console.error("Client not initialized.");
-            return;
-        }
-
-        try {
-            console.log("Fetching all created orders...");
-            const currentBlock = await client.getBlockNumber();
-            const fromBlock = currentBlock > BigInt(10) ? currentBlock - BigInt(100) : BigInt(0); // Avoid negative block numbers
-
-            console.log(CONTRACT_ADDRESS);
-            const logs = await client.getContractEvents({
-                // address: '0x036CbD53842c5426634e7929541eC2318f3dCF7e' as `0x${string}`,
-                abi: erc20Abi,
-                eventName: "Approval",
-                // args: {
-                //     owner: account?.address as `0x${string}`,
-                //     spender: '0x036CbD53842c5426634e7929541eC2318f3dCF7e' as `0x${string}`,
-                // },
-                // fromBlock: currentBlock - BigInt(10),
-                // toBlock: currentBlock,
-            });
-
-            console.log("logs:", logs);
-            
-            if (logs.length > 0) {
-                console.log("Fetched created orders:", logs);
-            } else if (!logs) {
-                console.error("Failed to fetch events. Logs is undefined.");
-            } else {
-                console.warn("No created orders found.");
-            }
-            
-        } catch (error) {
-            console.error("Error fetching created orders:", error);
-        }
-    };
-
-    useEffect(() => { 
-        handleFetchCreatedOrders();
-    }, []);
-
-    
     return (
-        <div    
+        <div
             className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50"
             onClick={handleClose}
         >
 
             <TransactionInProgressModal isOpen={isTransactionModalOpen} onClose={() => setIsTransactionModalOpen(false)} phone_number={phoneNumber} />
+            <DepositCryptoReciept 
+                isOpen={isDepositCryptoReciept} 
+                onClose={() => setDepositCryptoReciept(false)} 
+                transactionReciept={transactionReciept}
+            />
 
             <div className="bg-white rounded-3xl max-w-4xl w-full">
                 <div className="p-6">
@@ -313,8 +204,8 @@ const DepositCryptoModal: React.FC<DepositCryptoModalProps> = ({
                                             key={wallet.id}
                                             onClick={() => setSelectedWallet(wallet.id)}
                                             className={`w-14 h-14 rounded-lg flex items-center justify-center text-2xl border-2 transition-all ${selectedWallet === wallet.id
-                                                    ? "border-blue-500 bg-blue-50"
-                                                    : "border-gray-200"
+                                                ? "border-blue-500 bg-blue-50"
+                                                : "border-gray-200"
                                                 }`}
                                             type="button"
                                         >
