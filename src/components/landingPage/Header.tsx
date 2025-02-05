@@ -22,7 +22,7 @@ import {
 
 const Header = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const { connectWallet, disconnectWallet, isConnected, address } = useWallet();
+  const { connectWallet, isConnected } = useWallet();
 
   useEffect(() => {
     if (isMenuOpen) {
