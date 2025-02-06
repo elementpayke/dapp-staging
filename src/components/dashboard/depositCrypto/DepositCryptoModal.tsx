@@ -1,21 +1,15 @@
 import React, { use, useEffect, useMemo, useState } from "react";
 import { X } from "lucide-react";
 import { toast } from "react-toastify";
-import { ethers, parseUnits } from 'ethers';
+import { parseUnits } from 'ethers';
 import { getUSDCAddress } from '../../../services/tokens';
 import { useContract } from "@/services/useContract";
 import { encryptMessage } from "@/services/encryption";
 import { useWallet } from "@/context/WalletContext";
-import { parse } from "path";
-import { set } from "react-hook-form";
-import { usePublicClient, useAccount } from "wagmi";
-import { CONTRACT_ABI, erc20Abi, gatewayAbi } from "@/app/api/abi";
-import { CONTRACT_ADDRESS } from "@/app/api/abi";
+import { useAccount } from "wagmi";
 import { useContractEvents, useContractHandleOrderStatus } from "@/context/useContractEvents";
-
 import TransactionInProgressModal from "./TranactionInProgress";
 import DepositCryptoReciept from "./DepositCryptoReciept";
-import { stat } from "fs";
 
 interface DepositCryptoModalProps {
     isOpen: boolean;
@@ -49,7 +43,8 @@ const DepositCryptoModal: React.FC<DepositCryptoModalProps> = ({
     const [orderCreatedEvents, setOrderCreatedEvents] = useState<any[]>([]);
     const [orderSettledEvents, setOrderSettledEvents] = useState<any[]>([]);
     const { handleOrderStatus, isProcessing } = useContractHandleOrderStatus();
-    const { contract, contractWithProvider, address } = useContract();
+    const { contract, address } = useContract();
+    const addressOwner = useAccount();
 
     const MARKUP_PERCENTAGE = 1.5;
 
@@ -63,7 +58,6 @@ const DepositCryptoModal: React.FC<DepositCryptoModalProps> = ({
         const remainingBalance = Math.max(usdcBalance + totalUSDC, 0);
         const totalKES = usdcBalance * exchangeRate;
         const totalKESBalance = totalKES + kesAmount;
-        let intervalId: NodeJS.Timeout;
 
         return {
             kesAmount,
@@ -82,7 +76,7 @@ const DepositCryptoModal: React.FC<DepositCryptoModalProps> = ({
         amount: amount || "0.00",
         amountUSDC: Number(amount) * (exchangeRate ?? 1) || 0,
         phoneNumber: phoneNumber || "",
-        address: useAccount().address || "",
+        address:  addressOwner || "",
         status: 0,
         transactionHash: "",
     });
@@ -104,7 +98,7 @@ const DepositCryptoModal: React.FC<DepositCryptoModalProps> = ({
             const response = await fetch("https://api.coinbase.com/v2/exchange-rates?currency=USDC");
             const data = await response.json();
 
-            if (data?.data?.rates?.KES) {
+            if (data?.data?.rates?.KES && !isNaN(parseFloat(data.data.rates.KES))) {
                 const baseRate = parseFloat(data.data.rates.KES);
                 const markupRate = baseRate * (1 - MARKUP_PERCENTAGE / 100);
                 setExchangeRate(markupRate);
@@ -120,6 +114,8 @@ const DepositCryptoModal: React.FC<DepositCryptoModalProps> = ({
         (order: any) => setOrderCreatedEvents((prev) => [...prev, order]),
         (order: any) => setOrderSettledEvents((prev) => [...prev, order])
     );
+
+    toast(orderSettledEvents)
 
     useEffect(() => {
         fetchExchangeRate();
@@ -157,8 +153,10 @@ const DepositCryptoModal: React.FC<DepositCryptoModalProps> = ({
     };
 
     useEffect(() => {
-        handleConfirmOrderStatus();
-    }, [orderCreatedEvents]);
+        if (orderCreatedEvents.length > 0 && !isProcessing) {
+            handleConfirmOrderStatus();
+        }
+    }, [orderCreatedEvents, isProcessing]);
 
 
     return (
