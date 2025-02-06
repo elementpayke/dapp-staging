@@ -3,7 +3,6 @@ import { X, ArrowLeft } from "lucide-react";
 import { toast } from "react-toastify";
 import PayToBank from "./PayToBank";
 import PayToMobileMoney from "./PayToMobileMoney";
-import PaymentProcessing from "./PaymentProcessingPopup"; // Import the component
 
 import { parseUnits } from "viem";
 import { useAccount, useWriteContract } from "wagmi";
@@ -45,6 +44,7 @@ const SendCryptoModal: React.FC<SendCryptoModalProps> = ({
   const { usdcBalance } = useWallet(); 
   const [exchangeRate, setExchangeRate] = useState<number | null>(null);
   const MARKUP_PERCENTAGE = 1.5; // 1.5% markup
+  toast(isProcessing)
 
   // Fetch exchange rate from Coinbase API
   useEffect(() => {
@@ -78,11 +78,11 @@ const SendCryptoModal: React.FC<SendCryptoModalProps> = ({
   };
   
   // Get the USDC amount needed
-  const usdcAmount = calculateUSDCAmount();
+  calculateUSDCAmount();
 
   // Wallet and balance constants (these would typically come from your wallet integration)
-  const WALLET_BALANCE = 19807.90;
-  const USDC_BALANCE = 0.0000246;
+  // const WALLET_BALANCE = 19807.90;
+  // const USDC_BALANCE = 0.0000246;
 
   
   const TRANSACTION_FEE_RATE = 0.005; // 0.5%
@@ -145,12 +145,12 @@ const SendCryptoModal: React.FC<SendCryptoModalProps> = ({
 
   const usdcTokenAddress = getUSDCAddress() as `0x${string}`;
   const { contract, address } = useContract();
-  const phoneNumber = mobileNumber;
-  const account_number = accountNumber;
+  // const phoneNumber = mobileNumber;
+  // const account_number = accountNumber;
 
-  const amountToPay = parseFloat(amount);
-  const reasonForPayment = reason;
-  const bankName = bank;
+  // const amountToPay = parseFloat(amount);
+  // const reasonForPayment = reason;
+  // const bankName = bank;
 
   let messageHash = "";
   try {
@@ -234,18 +234,18 @@ const SendCryptoModal: React.FC<SendCryptoModalProps> = ({
     { id: "coinbase", icon: "©️", selected: selectedWallet === "coinbase" },
     { id: "qr", icon: "🔲", selected: selectedWallet === "qr" },
   ];
-  const handlePayment = async () => {
-    setIsProcessing(true);
-    try {
-      // Simulate payment process (replace with actual logic)
-      await new Promise((resolve) => setTimeout(resolve, 3000));
-      toast.success("Payment processed successfully!");
-    } catch (error) {
-      toast.error("Payment failed. Please try again.");
-    } finally {
-      setIsProcessing(false);
-    }
-  };
+  // const handlePayment = async () => {
+  //   setIsProcessing(true);
+  //   try {
+  //     // Simulate payment process (replace with actual logic)
+  //     await new Promise((resolve) => setTimeout(resolve, 3000));
+  //     toast.success("Payment processed successfully!");
+  //   } catch (error) {
+  //     toast.error("Payment failed. Please try again.");
+  //   } finally {
+  //     setIsProcessing(false);
+  //   }
+  // };
 
   useContractEvents(
     (order: any) => {

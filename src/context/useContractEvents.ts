@@ -1,7 +1,6 @@
 import { useEffect, useState, useCallback } from "react";
 import { ethers, BigNumberish } from "ethers";
 import { CONTRACT_ABI, CONTRACT_ADDRESS } from "@/app/api/abi";
-import { set } from "react-hook-form";
 
 const NODE_URL = "wss://base-sepolia.infura.io/ws/v3/ea4427e7b72e4fc3b6ac7b3ca31353c2";
 const provider = new ethers.WebSocketProvider(NODE_URL);
