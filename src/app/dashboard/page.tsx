@@ -8,6 +8,7 @@ import EmailPage from "@/components/dashboard/pages/EmailPage";
 import HakibaPage from "@/components/dashboard/pages/HakibaPage";
 import HakibaLoanPage from "@/components/dashboard/pages/HakibaLoansPage";
 import CreditScorePage from "@/components/dashboard/pages/CreditScorePage";
+import ReferralPage from "@/components/dashboard/pages/ReferalPage";
 import { Bell } from "lucide-react";
 import Image from "next/image";
 import avatarPlaceholder from "@/assets/avatar-placeholder.svg";
@@ -23,7 +24,8 @@ type PageComponent =
   | "cards"
   | "settings"
   | "support-whatsapp"
-  | "support-email";
+  | "support-email"
+  | "referral";
 
 export default function Dashboard() {
   const { isConnected, ensName, address } = useWallet();
@@ -53,6 +55,8 @@ export default function Dashboard() {
       case "cards":
       case "settings":
         return <div className="p-8">Page under construction</div>;
+      case "referral":
+        return <ReferralPage />;
       default:
         return <OverviewPage />;
     }

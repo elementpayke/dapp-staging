@@ -35,26 +35,19 @@ export default function LoanRequestModal({ show, onClose }: LoanRequestModalProp
         }, 2000);
     };
 
-    const handleLoanAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const value = parseFloat(e.target.value);
-        if (!isNaN(value) && value >= 0) {
-            setLoanAmount(value);
-        }
-    };
-
     return (
         <div 
-            className="fixed left-0 top-0 inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50"
+            className="fixed left-0 top-0 inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50 p-4"
             onClick={onClose}
         >
             <div 
-                className="bg-white rounded-3xl w-full max-w-3xl"
+                className="bg-white rounded-3xl w-full max-w-3xl p-6 md:p-4 sm:p-3"
                 style={{ border: "4px solid #E5E7EB" }}
                 onClick={(e) => e.stopPropagation()}
             >
-                <div className="gap-6 mt-4 w-full flex justify-between">
+                <div className="flex flex-col md:flex-row gap-6 w-full">
                     {/* Left - Loan Input Form */}
-                    <div className="p-4 w-2/3 space-y-5">
+                    <div className="w-full md:w-2/3 space-y-5">
                         <div className="flex justify-between items-center border-b pb-3 mb-3">
                             <h2 className="text-lg font-semibold text-gray-600">Request Loan</h2>
                         </div>
@@ -70,37 +63,33 @@ export default function LoanRequestModal({ show, onClose }: LoanRequestModalProp
                         </div>
                         <p className="text-orange-500 text-sm mt-2">Your loan limit is USDC 100.00</p>
 
-                        <div>
-                            <label className="text-gray-600 text-sm mt-4 block">Loan term</label>
-                            <select 
-                                className="w-full border rounded-full px-4 py-2 text-gray-800 text-sm mt-2"
-                                value={loanTerm}
-                                onChange={(e) => setLoanTerm(Number(e.target.value))}
-                            >
-                                <option value={30}>30 days</option>
-                                <option value={60}>60 days</option>
-                                <option value={90}>90 days</option>
-                            </select>
-                        </div>
+                        <label className="text-gray-600 text-sm mt-4 block">Loan term</label>
+                        <select 
+                            className="w-full border rounded-full px-4 py-2 text-gray-800 text-sm mt-2"
+                            value={loanTerm}
+                            onChange={(e) => setLoanTerm(Number(e.target.value))}
+                        >
+                            <option value={30}>30 days</option>
+                            <option value={60}>60 days</option>
+                            <option value={90}>90 days</option>
+                        </select>
 
-                        <div>
-                            <label className="text-gray-600 text-sm mt-4 block">Interest rate</label>
-                            <div className="w-full border rounded-ful px-4 py-2 text-gray-800 text-sm mt-2">
-                                3.4% APR
-                            </div>
+                        <label className="text-gray-600 text-sm mt-4 block">Interest rate</label>
+                        <div className="w-full border rounded-full px-4 py-2 text-gray-800 text-sm mt-2">
+                            3.4% APR
                         </div>
 
                         <p className="text-gray-400 py-3">Find out how your interest rates are generated</p>
                     </div>
 
                     {/* Right - Loan Summary */}
-                    <div className="bg-gray-50 p-4 rounded-lg w-[40%]">
+                    <div className="bg-gray-50 p-4 rounded-lg w-full md:w-[40%]">
                         <h3 className="text-gray-800 font-semibold mb-2">Loan summary</h3>
                         <div className="text-sm text-gray-600 space-y-3">
                             <p className="flex justify-between"><span>Loan amount</span> <span className="text-green-500">{loanAmount.toFixed(2)} USDC</span></p>
                             <p className="flex justify-between"><span>Interest rate</span> <span className="text-orange-500">3.4% APR</span></p>
                             <p className="flex justify-between"><span>Collateral fee</span> <span className="text-blue-500">1.5%</span></p>
-                            <p className="flex justify-between"><span>Loan duration</span> <span>{loanTerm}  days</span></p>
+                            <p className="flex justify-between"><span>Loan duration</span> <span>{loanTerm} days</span></p>
                             <hr className="my-2" />
                             <p className="flex justify-between font-semibold"><span>You will get</span> <span>{(loanAmount * 0.985).toFixed(2)} USDC</span></p>
                         </div>
@@ -112,17 +101,7 @@ export default function LoanRequestModal({ show, onClose }: LoanRequestModalProp
                             onClick={handleLoanRequest}
                             disabled={loading || loanAmount <= 0 || loanAmount > loanLimit}
                         >
-                            {loading ? (
-                                <div className="flex items-center gap-2">
-                                    <svg className="animate-spin h-5 w-5 text-white" viewBox="0 0 24 24">
-                                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
-                                    </svg>
-                                    Processing...
-                                </div>
-                            ) : (
-                                "Request Loan"
-                            )}
+                            {loading ? "Processing..." : "Request Loan"}
                         </button>
 
                         <div className="bg-gray-200 p-3 mt-4 rounded-lg text-sm">
@@ -131,7 +110,7 @@ export default function LoanRequestModal({ show, onClose }: LoanRequestModalProp
                         </div>
 
                         <p className="text-xs text-gray-500 mt-3">
-                            Your credit score is based on your savings balance and your recent loan repayment history and is not subject to manipulation.
+                            Your credit score is based on your savings balance and recent loan repayment history.
                         </p>
                     </div>
                 </div>
