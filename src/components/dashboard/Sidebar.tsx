@@ -63,13 +63,11 @@ const Sidebar: React.FC<SidebarProps> = ({ onPageChange, currentPage }) => {
   const toggleSidebar = () => setIsOpen(!isOpen);
 
   const toggleMenu = (menu: string) => {
-    setExpandedMenus([]);
     setExpandedMenus((prev) =>
-      prev.includes(menu)
-        ? prev.filter((item) => item !== menu)
-        : [...prev, menu]
+      prev.includes(menu) ? [] : [menu]
     );
   };
+
 
   const handlePageChange = (page: PageComponent) => {
     onPageChange(page);

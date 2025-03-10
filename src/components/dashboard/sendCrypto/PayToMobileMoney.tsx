@@ -27,7 +27,7 @@ const PayToMobileMoney: React.FC<PayToMobileMoneyProps> = ({
   return (
     <div className="space-y-4">
       {/* Network and Wallet Selection */}
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
           <label className="block text-gray-600 mb-2">
             Select your network
@@ -51,7 +51,7 @@ const PayToMobileMoney: React.FC<PayToMobileMoneyProps> = ({
       </div>
 
       {/* Token and Amount */}
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
           <label className="block text-gray-600 mb-2">Token</label>
           <select
@@ -68,17 +68,32 @@ const PayToMobileMoney: React.FC<PayToMobileMoneyProps> = ({
             type="text"
             value={amount}
             onChange={(e) => {
-              if (parseFloat(e.target.value) > totalKES) {
+              const inputValue = e.target.value;
+
+              // Ensure inputValue is a valid number or an empty string
+              if (inputValue === "") {
+                setAmount(""); // Allow empty input
+                return;
+              }
+
+              const numericValue = parseFloat(inputValue);
+
+              if (isNaN(numericValue)) {
+                return; // Prevent setting NaN values
+              }
+
+              if (numericValue > totalKES) {
                 console.log(`totalKES: ${totalKES}`);
                 setAmount(totalKES.toFixed(0).toString());
               } else {
-                setAmount(e.target.value);
+                setAmount(inputValue);
               }
             }}
+
             className="w-full p-3 bg-gray-50 rounded-lg border-0 text-gray-900"
           />
           {amount && parseFloat(amount) < 20 && (
-          <p className="text-red-500 mt-2 text-sm">
+            <p className="text-red-500 mt-2 text-sm">
               Minimum amount is 20 KE
             </p>
           )}
@@ -86,7 +101,7 @@ const PayToMobileMoney: React.FC<PayToMobileMoneyProps> = ({
       </div>
 
       {/* Mobile Money and Recipient */}
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
           <label className="block text-gray-600 mb-2">Mobile money</label>
           <select

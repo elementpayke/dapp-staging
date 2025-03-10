@@ -19,10 +19,12 @@ import {
   Identity,
   EthBalance,
 } from "@coinbase/onchainkit/identity";
+import { useRouter } from "next/navigation";
 
 const Header = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const { connectWallet, isConnected } = useWallet();
+  const router = useRouter();
 
   useEffect(() => {
     if (isMenuOpen) {
@@ -83,8 +85,9 @@ const Header = () => {
             >
               Virtual Cards
             </Link>
+
             <Link
-              href="/faqs"
+              href="/dashboard"
               className="text-gray-600 hover:text-gray-900 text-sm font-medium transition-colors"
             >
               FAQs
@@ -106,7 +109,8 @@ const Header = () => {
                   <Name />
                 </ConnectWallet>
                 <WalletDropdown>
-                  <Identity className="px-4 pt-3 pb-2" hasCopyAddressOnClick>
+                  <Identity className="px-4 pt-3 pb-2" hasCopyAddressOnClick
+                  >
                     <Avatar />
                     <Name />
                     <Address />
@@ -125,10 +129,8 @@ const Header = () => {
             ) : (
               <ConnectWallet
                 className="bg-blue-800 text-white px-6 py-2.5 rounded-full flex items-center space-x-2 hover:bg-blue-700 transition-colors"
-                onConnect={connectWallet}
-              >
-                Sign Up
-              </ConnectWallet>
+                onConnect={connectWallet} text="Connect Wallet"
+              />
             )}
           </div>
 
@@ -284,3 +286,4 @@ const Header = () => {
 };
 
 export default Header;
+  

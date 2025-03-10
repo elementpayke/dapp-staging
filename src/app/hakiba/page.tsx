@@ -29,7 +29,7 @@ export default function Hakiba() {
         return () => clearInterval(timer);
     }, []);
 
-    const formatTime = (seconds) => {
+    const formatTime = (seconds: any) => {
         const days = Math.floor(seconds / (24 * 60 * 60));
         const hours = Math.floor((seconds % (24 * 60 * 60)) / (60 * 60));
         const minutes = Math.floor((seconds % (60 * 60)) / 60);
