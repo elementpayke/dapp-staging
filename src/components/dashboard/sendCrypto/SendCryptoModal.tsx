@@ -3,10 +3,9 @@ import { X, ArrowLeft } from "lucide-react";
 import { toast } from "react-toastify";
 import PayToBank from "./PayToBank";
 import PayToMobileMoney from "./PayToMobileMoney";
-
 import { parseUnits } from "viem";
 import { useAccount, useWriteContract } from "wagmi";
-import { erc20Abi } from "@/app/api/abi";
+import { CONTRACT_ABI, erc20Abi } from "@/app/api/abi";
 import { getUSDCAddress } from '../../../services/tokens';
 import { useContract } from "@/services/useContract";
 import { useWallet } from "@/context/WalletContext";
@@ -52,7 +51,6 @@ const SendCryptoModal: React.FC<SendCryptoModalProps> = ({
         status: 0,
         transactionHash: "",
     });
-    toast(isProcessing)
 
     // Fetch exchange rate from Coinbase API
     useEffect(() => {
@@ -87,11 +85,6 @@ const SendCryptoModal: React.FC<SendCryptoModalProps> = ({
 
     // Get the USDC amount needed
     calculateUSDCAmount();
-
-    // Wallet and balance constants (these would typically come from your wallet integration)
-    // const WALLET_BALANCE = 19807.90;
-    // const USDC_BALANCE = 0.0000246;
-
 
     const TRANSACTION_FEE_RATE = 0.005; // 0.5%
 
@@ -133,7 +126,6 @@ const SendCryptoModal: React.FC<SendCryptoModalProps> = ({
         };
     }, [amount, exchangeRate, usdcBalance]);
 
-
     const account = useAccount();
     const { writeContractAsync } = useWriteContract();
 
@@ -145,12 +137,6 @@ const SendCryptoModal: React.FC<SendCryptoModalProps> = ({
 
     const usdcTokenAddress = getUSDCAddress() as `0x${string}`;
     const { contract, address } = useContract();
-    // const phoneNumber = mobileNumber;
-    // const account_number = accountNumber;
-
-    // const amountToPay = parseFloat(amount);
-    // const reasonForPayment = reason;
-    // const bankName = bank;
 
     let messageHash = "";
     try {
@@ -161,8 +147,7 @@ const SendCryptoModal: React.FC<SendCryptoModalProps> = ({
         return;
     }
 
-    //@TODO: Joe query the contract address from the env
-    const smartcontractaddress = "0x10af11060bC238670520Af7ca15E86a34bC68fe4";
+    const smartcontractaddress = "0x7db5E675f62956E725685C22D240C8f28855114A";
 
     const handleApproveToken = async () => {
         if (!account.address) {
@@ -186,6 +171,7 @@ const SendCryptoModal: React.FC<SendCryptoModalProps> = ({
             }
             const orderType = 1;
 
+            // Approve USDC spending
             await writeContractAsync({
                 address: tokenAddress,
                 abi: erc20Abi,
@@ -196,36 +182,39 @@ const SendCryptoModal: React.FC<SendCryptoModalProps> = ({
                 ],
             });
 
-            try {
-                if (!contract) throw new Error("Contract is not initialized.");
-                // Call the createOrder function on your contract
-                const tx = await contract.createOrder(
+            // Create order
+            const txHash = await writeContractAsync({
+                address: smartcontractaddress as `0x${string}`,
+                abi: CONTRACT_ABI,
+                functionName: "createOrder",
+                args: [
                     address,
                     parseUnits(transactionSummary.totalUSDC.toString(), 6),
                     usdcTokenAddress,
                     orderType,
                     messageHash
-                );
-                transactionReciept.status = 1;
-                console.log("Transaction hash:", tx);
-                toast.info("Transaction submitted. Awaiting confirmation...");
-            } catch (error: any) {
-                console.error("Error creating order:", error.tx);
-                transactionReciept.status = 0;
-                toast.error(error?.message || "Transaction failed.");
-            } finally {
-                setIsApproving(false);
-                setIsProcessing(true);
-                setSendCryptoReciept(true);
-            }
+                ],
+            });
 
+            console.log("Transaction hash:", txHash);
+            setTransactionReciept((prev: any) => ({
+                ...prev,
+                transactionHash: txHash,
+                status: 1
+            }));
+            // toast.info("Transaction submitted. Awaiting confirmation...");
+            
         } catch (error: any) {
-            console.error("Approval error:", error);
-            toast.error(error?.shortMessage || "Failed to approve token");
+            console.error("Error creating order:", error);
+            setTransactionReciept((prev: any) => ({
+                ...prev,
+                status: 0
+            }));
+            toast.error(error?.message || "Transaction failed.");
         } finally {
             setIsApproving(false);
             setIsProcessing(true);
-
+            setSendCryptoReciept(true);
         }
     };
 
@@ -235,16 +224,15 @@ const SendCryptoModal: React.FC<SendCryptoModalProps> = ({
         { id: "qr", icon: "🔲", selected: selectedWallet === "qr" },
     ];
 
-    useContractEvents(
-        (order: any) => {
-            console.log("New Order Created:", order);
-            // transactionReciept.transactionHash = order.messageHash;
-        },
-        (order: any) => {
-            console.log("Order Settled:", order);
-        }
-    );
-    // if (!isOpen) return null;
+    // useContractEvents(
+    //     (order: any) => {
+    //         console.log("New Order Created:", order);
+    //     },
+    //     (order: any) => {
+    //         console.log("Order Settled:", order);
+    //     }
+    // );
+
     if (!isOpen) return null;
 
     return (

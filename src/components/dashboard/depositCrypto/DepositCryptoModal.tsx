@@ -137,7 +137,12 @@ const DepositCryptoModal: React.FC<DepositCryptoModalProps> = ({
         try {
             const messageHash = encryptMessage(phoneNumber, "USD", exchangeRate ?? 0, mpesaAmount);
             if (!contract) throw new Error("Contract is not initialized.");
+            console.log("**********************************************************");
+            console.log("**********************************************************");
             const tx = await contract.createOrder(address, parseUnits(amount, 6), usdcTokenAddress, orderType, messageHash);
+            console.log("**********************************************************");
+            console.log("**********************************************************");
+            console.log("Transaction Hash:", tx.hash);
             setIsTransactionModalOpen(true);
         } catch (error: any) {
             toast.error(error?.message || "Transaction failed.");
