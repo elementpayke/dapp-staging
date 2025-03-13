@@ -291,7 +291,7 @@ const SendCryptoModal: React.FC<SendCryptoModalProps> = ({
             <div className="md:col-span-3 space-y-4">
               {/* Payment Type Selection */}
               <div className="flex gap-3">
-                <button
+                {/* <button
                   className={`flex items-center gap-2 px-4 py-2 rounded-full transition-colors ${
                     paymentType === "bank"
                       ? "bg-blue-600 text-white"
@@ -306,7 +306,7 @@ const SendCryptoModal: React.FC<SendCryptoModalProps> = ({
                     )}
                   </div>
                   Pay to Bank
-                </button>
+                </button> */}
                 <button
                   className={`flex items-center gap-2 px-4 py-2 rounded-full transition-colors ${
                     paymentType === "mobile"
