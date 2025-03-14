@@ -68,36 +68,39 @@ const PayToMobileMoney: React.FC<PayToMobileMoneyProps> = ({
             type="text"
             value={amount}
             onChange={(e) => {
-              const inputValue = e.target.value;
+              let inputValue = e.target.value;
 
-              // Ensure inputValue is a valid number or an empty string
+              // Allow empty input
               if (inputValue === "") {
-                setAmount(""); // Allow empty input
+                setAmount("");
                 return;
               }
 
-              const numericValue = parseFloat(inputValue);
+              // Allow only numeric values and prevent multiple leading zeros
+              if (!/^\d*$/.test(inputValue)) {
+                return;
+              }
+
+              let numericValue = parseInt(inputValue, 10); // Convert to integer
 
               if (isNaN(numericValue)) {
-                return; // Prevent setting NaN values
+                setAmount(""); // Prevent setting NaN
+                return;
               }
 
               if (numericValue > totalKES) {
-                console.log(`totalKES: ${totalKES}`);
-                setAmount(totalKES.toFixed(0).toString());
+                setAmount(totalKES.toString()); // Restrict to max limit
               } else {
-                setAmount(inputValue);
+                setAmount(inputValue); // Allow valid input
               }
             }}
-
             className="w-full p-3 bg-gray-50 rounded-lg border-0 text-gray-900"
           />
-          {amount && parseFloat(amount) < 20 && (
-            <p className="text-red-500 mt-2 text-sm">
-              Minimum amount is 20 KE
-            </p>
+          {amount && parseInt(amount, 10) < 20 && (
+            <p className="text-red-500 mt-2 text-sm">Minimum amount is 20 KE</p>
           )}
         </div>
+
       </div>
 
       {/* Mobile Money and Recipient */}

@@ -6,7 +6,7 @@ import { getUSDCAddress } from '../../../services/tokens';
 import { useContract } from "@/services/useContract";
 import { encryptMessage } from "@/services/encryption";
 import { useWallet } from "@/context/WalletContext";
-import { useAccount } from "wagmi";
+import { useAccount, useWriteContract } from "wagmi";
 import { useContractEvents, useContractHandleOrderStatus } from "@/context/useContractEvents";
 import TransactionInProgressModal from "./TranactionInProgress";
 import DepositCryptoReciept from "./DepositCryptoReciept";

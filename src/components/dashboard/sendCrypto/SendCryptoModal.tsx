@@ -4,7 +4,7 @@ import { toast } from "react-toastify";
 import PayToBank from "./PayToBank";
 import PayToMobileMoney from "./PayToMobileMoney";
 import { parseUnits } from "viem";
-import { useAccount, useWriteContract } from "wagmi";
+import { useAccount, useWriteContract, useWatchContractEvent } from "wagmi";
 import { CONTRACT_ABI, erc20Abi } from "@/app/api/abi";
 import { getUSDCAddress } from '../../../services/tokens';
 import { useContract } from "@/services/useContract";
@@ -12,6 +12,8 @@ import { useWallet } from "@/context/WalletContext";
 import { encryptMessage } from "@/services/encryption";
 import SendCryptoReceipt from "./SendCryptoReciept";
 import { useContractEvents } from "@/context/useContractEvents";
+import { waitForTransaction, decodeEventLog } from "wagmi/actions"; // Added missing imports
+import { keccak256 } from "viem";
 
 interface SendCryptoModalProps {
     isOpen: boolean;
@@ -28,7 +30,7 @@ const SendCryptoModal: React.FC<SendCryptoModalProps> = ({
     isOpen,
     onClose,
 }) => {
-    const [isSendCryptoReciept, setSendCryptoReciept] = useState(false);
+    const [isSendCryptoReceipt, setSendCryptoReceipt] = useState(false); // Fixed spelling
     const [paymentType, setPaymentType] = useState<"bank" | "mobile">("bank");
     const [selectedToken, setSelectedToken] = useState("USDC");
     const [amount, setAmount] = useState("");
@@ -43,7 +45,7 @@ const SendCryptoModal: React.FC<SendCryptoModalProps> = ({
     const { usdcBalance } = useWallet();
     const [exchangeRate, setExchangeRate] = useState<number | null>(null);
     const MARKUP_PERCENTAGE = 1.5; // 1.5% markup
-    const [transactionReciept, setTransactionReciept] = useState<any | null>({
+    const [transactionReceipt, setTransactionReceipt] = useState<any | null>({ // Fixed spelling
         amount: amount || "0.00",
         amountUSDC: Number(amount) * (exchangeRate ?? 1) || 0,
         phoneNumber: mobileNumber || "",
@@ -110,8 +112,13 @@ const SendCryptoModal: React.FC<SendCryptoModalProps> = ({
         const remainingBalance = usdcBalance - totalUSDC;
         const totalKES = usdcBalance * exchangeRate;
         const totalKESBalance = totalKES - kesAmount;
-        transactionReciept.amount = usdcAmount.toFixed(6);
-        transactionReciept.amountUSDC = kesAmount;
+        
+        // Update transaction receipt state within useMemo
+        setTransactionReceipt((prev: any) => ({
+            ...prev,
+            amount: usdcAmount.toFixed(6),
+            amountUSDC: kesAmount
+        }));
 
         return {
             kesAmount,
@@ -138,31 +145,105 @@ const SendCryptoModal: React.FC<SendCryptoModalProps> = ({
     const usdcTokenAddress = getUSDCAddress() as `0x${string}`;
     const { contract, address } = useContract();
 
-    let messageHash = "";
-    try {
-        messageHash = encryptMessage(mobileNumber, "KES", exchangeRate ?? 0, transactionSummary.totalUSDC);
-    } catch (error) {
-        toast.error("Encryption failed.");
-        console.error("Error encrypting message:", error);
-        return;
-    }
+   
+    useContractEvents(
+        (order: any) => console.log("OrderCreated", order),
+        (order: any) => {
+            setTransactionReceipt((prev: any) => ({ ...prev, status: 1 }));
+            setIsApproving(false);
+            console.log("OrderSettled", order);
+        },
+        (orderId: any) => { 
+            setTransactionReceipt((prev: any) => ({ ...prev, status: 2 }));
+            setIsApproving(false);
+            console.log("OrderRefunded", orderId);
+        }
+    );
+
+    // Moved encryption outside of render to prevent re-computation on each render
+    const [messageHash, setMessageHash] = useState("");
+    
+    useEffect(() => {
+        try {
+            const hash = encryptMessage(mobileNumber, "KES", exchangeRate ?? 0, transactionSummary.totalUSDC);
+            setMessageHash(hash);
+        } catch (error) {
+            console.error("Error encrypting message:", error);
+        }
+    }, [mobileNumber, exchangeRate, transactionSummary.totalUSDC]);
 
     const smartcontractaddress = "0x7db5E675f62956E725685C22D240C8f28855114A";
+
+    // Contract event listeners should be moved to a useEffect or custom hook
+    const [orderId, setOrderId] = useState<string | null>(null);
+    
+    // Fix: Use useContractEvent hook properly inside a useEffect
+    useEffect(() => {
+        if (!orderId) return;
+        
+        // For OrderSettled event
+        const { unsubscribe: unsubscribeSettled } = useWatchContractEvent({
+            address: smartcontractaddress as `0x${string}`,
+            abi: CONTRACT_ABI,
+            eventName: "OrderSettled",
+            onLogs: (logs: any) => {
+                const log = logs[0];
+                if (log.args.orderId === orderId) {
+                    console.log("Order Settled:", log);
+                    setTransactionReceipt((prev: any) => ({
+                        ...prev,
+                        status: 1, // 1 for settled
+                        transactionHash: log.transactionHash,
+                    }));
+                    setIsProcessing(true);
+                    setSendCryptoReceipt(true);
+                    toast.success("Order has been settled successfully!");
+                }
+            },
+        });
+    
+        // For OrderRefunded event
+        const { unsubscribe: unsubscribeRefunded } = useWatchContractEvent({
+            address: smartcontractaddress as `0x${string}`,
+            abi: CONTRACT_ABI,
+            eventName: "OrderRefunded",
+            onLogs: (logs: any) => {
+                const log = logs[0];
+                if (log.args.orderId === orderId) {
+                    console.log("Order Refunded:", log);
+                    setTransactionReceipt((prev: any) => ({
+                        ...prev,
+                        status: 2, // 2 for refunded
+                        transactionHash: log.transactionHash,
+                    }));
+                    setSendCryptoReceipt(true);
+                    setIsProcessing(true);
+                    toast.info("Order has been refunded.");
+                }
+            },
+        });
+        
+        // Clean up subscriptions
+        return () => {
+            unsubscribeSettled();
+            unsubscribeRefunded();
+        };
+    }, [orderId]);
 
     const handleApproveToken = async () => {
         if (!account.address) {
             toast.error("Please connect your wallet first");
             return;
         }
-
+    
         if (parseFloat(amount) <= 0) {
             toast.error("Amount must be greater than zero");
             return;
         }
-
+    
         try {
             setIsApproving(true);
-
+    
             const tokenAddress = usdcTokenAddress;
             const spenderAddress = smartcontractaddress as `0x${string}`;
             if (!spenderAddress) {
@@ -170,7 +251,7 @@ const SendCryptoModal: React.FC<SendCryptoModalProps> = ({
                 return;
             }
             const orderType = 1;
-
+    
             // Approve USDC spending
             await writeContractAsync({
                 address: tokenAddress,
@@ -181,9 +262,9 @@ const SendCryptoModal: React.FC<SendCryptoModalProps> = ({
                     parseUnits(transactionSummary.totalUSDC.toString(), 6),
                 ],
             });
-
+    
             // Create order
-            const txHash = await writeContractAsync({
+            const tx = await writeContractAsync({
                 address: smartcontractaddress as `0x${string}`,
                 abi: CONTRACT_ABI,
                 functionName: "createOrder",
@@ -195,26 +276,55 @@ const SendCryptoModal: React.FC<SendCryptoModalProps> = ({
                     messageHash
                 ],
             });
+    
+            console.log("Transaction hash:", tx);
+            // Wait for the transaction to be mined
+            const receipt = await waitForTransaction(tx, {confirmationCount: 1});
+            console.log("Transaction receipt:", receipt);
 
-            console.log("Transaction hash:", txHash);
-            setTransactionReciept((prev: any) => ({
-                ...prev,
-                transactionHash: txHash,
-                status: 1
-            }));
-            // toast.info("Transaction submitted. Awaiting confirmation...");
-            
+            if (receipt.status === "success") {
+                // Extract the OrderCreated event from the transaction receipt
+                const orderCreatedEvent = receipt.logs.find(
+                    (log: any) => log.topics[0] === keccak256("OrderCreated(bytes32,address,address,uint256,string,uint256,uint8)")
+                );
+    
+                if (orderCreatedEvent) {
+                    const decodedEvent = decodeEventLog({
+                        abi: CONTRACT_ABI,
+                        data: orderCreatedEvent.data,
+                        topics: orderCreatedEvent.topics,
+                    });
+    
+                    const newOrderId = decodedEvent.args.orderId;
+                    console.log("Order Created with ID:", newOrderId);
+    
+                    // Set the orderId state
+                    setOrderId(newOrderId);
+                    
+                    // Set the orderId in the transaction receipt
+                    setTransactionReceipt((prev: any) => ({
+                        ...prev,
+                        orderId: newOrderId,
+                        status: 0, // 0 for pending
+                        transactionHash: tx,
+                    }));
+
+                } else {
+                    toast.error("OrderCreated event not found in transaction receipt");
+                }
+            } else {
+                toast.error("Transaction failed");
+            }
         } catch (error: any) {
             console.error("Error creating order:", error);
-            setTransactionReciept((prev: any) => ({
+            setTransactionReceipt((prev: any) => ({
                 ...prev,
                 status: 0
             }));
             toast.error(error?.message || "Transaction failed.");
+            setIsApproving(false);
         } finally {
             setIsApproving(false);
-            setIsProcessing(true);
-            setSendCryptoReciept(true);
         }
     };
 
@@ -223,16 +333,6 @@ const SendCryptoModal: React.FC<SendCryptoModalProps> = ({
         { id: "coinbase", icon: "©️", selected: selectedWallet === "coinbase" },
         { id: "qr", icon: "🔲", selected: selectedWallet === "qr" },
     ];
-
-    // useContractEvents(
-    //     (order: any) => {
-    //         console.log("New Order Created:", order);
-    //     },
-    //     (order: any) => {
-    //         console.log("Order Settled:", order);
-    //     }
-    // );
-
     if (!isOpen) return null;
 
     return (
@@ -240,7 +340,11 @@ const SendCryptoModal: React.FC<SendCryptoModalProps> = ({
             className="fixed inset-0 bg-black bg-opacity-50 flex items-start md:items-center justify-center z-50"
             onClick={handleClose}
         >
-            <SendCryptoReceipt isOpen={isSendCryptoReciept} onClose={() => setSendCryptoReciept(false)} transactionReciept={transactionReciept} />
+            <SendCryptoReceipt 
+                isOpen={isSendCryptoReceipt} 
+                onClose={() => setSendCryptoReceipt(false)} 
+                transactionReciept={transactionReceipt} 
+            />
             <div className="bg-white w-full h-full md:h-auto md:rounded-3xl md:max-w-4xl overflow-auto">
                 <div className="p-4 md:p-6">
                     {/* Header */}
@@ -367,19 +471,15 @@ const SendCryptoModal: React.FC<SendCryptoModalProps> = ({
 
                             {/* Mobile View Confirm Button */}
                             <button
+                                onClick={parseFloat(amount) >= 20 ? handleApproveToken : undefined}
+                                disabled={isApproving || transactionSummary.totalUSDC <= 0}
                                 type="button"
-                                className="w-full md:hidden mt-4 py-3 bg-gradient-to-r from-blue-600 to-red-600 text-white rounded-full font-medium"
+                                className="w-full md:hidden mt-4 py-3 bg-gradient-to-r from-blue-600 to-red-600 text-white rounded-full font-medium disabled:opacity-50"
                             >
-                                Confirm Payment
+                                {isApproving ? "Approving..." : "Confirm Payment"}
                             </button>
                         </div>
 
-
-                        {/* Payment Processing Popup */}
-                        {/* <PaymentProcessing
-            isVisible={isProcessing}
-            onClose={() => setIsProcessing(false)}
-          /> */}
                         {/* Right Column - Transaction Summary (Hidden on Mobile) */}
                         <div className="hidden md:block md:col-span-2 bg-gray-50 p-4 rounded-2xl h-fit">
                             <h3 className="text-xl font-semibold mb-4 text-gray-900">
