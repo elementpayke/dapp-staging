@@ -117,8 +117,18 @@ const DepositCryptoModal: React.FC<DepositCryptoModalProps> = ({
 
     useContractEvents(
         (order: any) => setOrderCreatedEvents((prev) => [...prev, order]),
-        (order: any) => setOrderSettledEvents((prev) => [...prev, order]),
-        (orderId: any) => { setOrderRefundedEvents((prev) => [...prev, orderId]) }
+        (order: any) => {console.log("Order settled:", order);
+            setTransactionReciept((prev: any) => ({ ...prev, status: 1 }));
+            setDepositCryptoReciept(true);
+            setIsLoading(false);
+            setIsTransactionModalOpen(false);
+        },
+        (orderId: any) => { console.log("Order refunded:", orderId);
+            // setTransactionReciept((prev: any) => ({ ...prev, status: 2 }));
+            setIsTransactionModalOpen(false);
+            setIsLoading(false);
+            // setDepositCryptoReciept(true);
+        }
     );
 
     useEffect(() => {
@@ -146,7 +156,9 @@ const DepositCryptoModal: React.FC<DepositCryptoModalProps> = ({
             setIsTransactionModalOpen(true);
         } catch (error: any) {
             toast.error(error?.message || "Transaction failed.");
-        } 
+        }  finally {
+            setIsLoading(false);
+        }
     };
 
     const handleConfirmOrderStatus = async () => {

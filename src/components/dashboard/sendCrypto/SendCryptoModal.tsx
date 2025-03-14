@@ -150,12 +150,18 @@ const SendCryptoModal: React.FC<SendCryptoModalProps> = ({
         (order: any) => console.log("OrderCreated", order),
         (order: any) => {
             setTransactionReceipt((prev: any) => ({ ...prev, status: 1 }));
+            setSendCryptoReceipt(true);
             setIsApproving(false);
+            setIsApproving(false);
+
             console.log("OrderSettled", order);
         },
         (orderId: any) => { 
             setTransactionReceipt((prev: any) => ({ ...prev, status: 2 }));
             setIsApproving(false);
+            setSendCryptoReceipt(true);
+            setIsApproving(false);
+
             console.log("OrderRefunded", orderId);
         }
     );
@@ -279,7 +285,7 @@ const SendCryptoModal: React.FC<SendCryptoModalProps> = ({
     
             console.log("Transaction hash:", tx);
             // Wait for the transaction to be mined
-            const receipt = await waitForTransaction(tx, {confirmationCount: 1});
+            const receipt = await waitForTransaction({ hash: tx });
             console.log("Transaction receipt:", receipt);
 
             if (receipt.status === "success") {
@@ -322,9 +328,7 @@ const SendCryptoModal: React.FC<SendCryptoModalProps> = ({
                 status: 0
             }));
             toast.error(error?.message || "Transaction failed.");
-            setIsApproving(false);
         } finally {
-            setIsApproving(false);
         }
     };
 
