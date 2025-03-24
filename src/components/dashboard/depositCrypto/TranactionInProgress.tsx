@@ -18,15 +18,18 @@ export default function TransactionInProgressModal({ isOpen, onClose, phone_numb
     return (
         <div 
             className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50"
-            onClick={onClose} // Clicking the overlay closes the modal
         >
             <div 
                 className="flex flex-col items-center justify-center p-8 bg-white rounded-lg shadow-lg border border-[#A3A5C2] max-w-sm"
                 onClick={(e) => e.stopPropagation()} // Prevent closing when clicking inside the modal
             >
-                <p className="mt-2 text-md text-center text-gray-600">
-                    We have sent an STK push to your phone number {getPhoneNumberLastAndFirstFourDigits(phone_number)}. Enter your M-PESA PIN to finish the process.
-                </p>
+                <div className="flex flex-col items-center space-y-4">
+                    {/* Preloader */}
+                    <div className="w-8 h-8 border-4 border-blue-500 border-dashed rounded-full animate-spin"></div>
+                    <p className="mt-2 text-md text-center text-gray-600">
+                        We have sent an STK push to your phone number {getPhoneNumberLastAndFirstFourDigits(phone_number)}. Enter your M-PESA PIN to finish the process.
+                    </p>
+                </div>
             </div>
         </div>
     );
