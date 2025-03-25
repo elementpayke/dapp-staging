@@ -30,7 +30,7 @@ const PayToMobileMoney: React.FC<PayToMobileMoneyProps> = ({
   const [accountNumber, setAccountNumber] = useState("");
   const [showRecipientName, setShowRecipientName] = useState(false);
   const [recipientName, setRecipientName] = useState("");
-  const [recentRecipients, setRecentRecipients] = useState([
+  const [recentRecipients] = useState([
     { name: "John Doe", number: "0712345678", type: "Send Money" },
     { name: "Supermarket", number: "567890", type: "Buy Goods" },
     { name: "KPLC", number: "888888", type: "Pay Bill", account: "12345" }
@@ -57,7 +57,7 @@ const PayToMobileMoney: React.FC<PayToMobileMoneyProps> = ({
     } else {
       setShowRecipientName(false);
     }
-  }, [mobileNumber, paymentMethod]);
+  }, [mobileNumber, paymentMethod, recentRecipients]); // Added 'recentRecipients' to the dependency array
 
   // Validate input based on payment method
   const validateInput = () => {

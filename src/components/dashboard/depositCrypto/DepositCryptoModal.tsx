@@ -1,4 +1,4 @@
-import React, { use, useEffect, useMemo, useState } from "react";
+import React, {useEffect, useMemo, useState, useCallback } from "react";
 import { CheckCircle, X, ArrowLeft } from "lucide-react";
 import { toast } from "react-toastify";
 import { parseUnits } from 'ethers';
@@ -6,10 +6,10 @@ import { getUSDCAddress } from '../../../services/tokens';
 import { useContract } from "@/services/useContract";
 import { encryptMessage } from "@/services/encryption";
 import { useWallet } from "@/context/WalletContext";
-import { useAccount, useWriteContract } from "wagmi";
+import { useAccount } from "wagmi";
 import { useContractEvents, useContractHandleOrderStatus } from "@/context/useContractEvents";
 import TransactionInProgressModal from "./TranactionInProgress";
-import DepositCryptoReciept from "./DepositCryptoReciept";
+import DepositCryptoReceipt from "./DepositCryptoReciept";
 
 interface DepositCryptoModalProps {
     isOpen: boolean;
@@ -30,7 +30,7 @@ const DepositCryptoModal: React.FC<DepositCryptoModalProps> = ({
 
     const { usdcBalance } = useWallet();
     const [isTransactionModalOpen, setIsTransactionModalOpen] = useState(false);
-    const [isDepositCryptoReciept, setDepositCryptoReciept] = useState(false);
+    const [isDepositCryptoReceipt, setDepositCryptoReceipt] = useState(false);
     const [selectedWallet, setSelectedWallet] = useState<string>("metamask");
     const [selectedToken, setSelectedToken] = useState("USDC");
     const [amount, setAmount] = useState("0.00");
@@ -41,8 +41,6 @@ const DepositCryptoModal: React.FC<DepositCryptoModalProps> = ({
     const [exchangeRate, setExchangeRate] = useState<number | null>(null);
     const TRANSACTION_FEE_RATE = 0.005;
     const [orderCreatedEvents, setOrderCreatedEvents] = useState<any[]>([]);
-    const [orderSettledEvents, setOrderSettledEvents] = useState<any[]>([]);
-    const [orderRefundedEvents, setOrderRefundedEvents] = useState<any[]>([]);
     const { handleOrderStatus, isProcessing } = useContractHandleOrderStatus();
     const { contract, address } = useContract();
     const addressOwner = useAccount();
@@ -70,18 +68,18 @@ const DepositCryptoModal: React.FC<DepositCryptoModalProps> = ({
             transactionCharge,
             totalUSDC,
             totalKES,
-            totalKESBalance: totalKESBalance,
-            walletBalance: parseFloat(amount) || 0, // Assuming the amount is in KES
-            remainingBalance: Math.max(remainingBalance, 0), // Remaining balance after spending
-            usdcBalance: usdcBalance, // ✅ Use fetched USDC balance
+            totalKESBalance,
+            walletBalance: parseFloat(amount) || 0,
+            remainingBalance: Math.max(remainingBalance, 0),
+            usdcBalance,
         };
     }, [amount, exchangeRate, usdcBalance]);
 
-    const [transactionReciept, setTransactionReciept] = useState<any | null>({
+    const [transactionReceipt, setTransactionReceipt] = useState<any | null>({
         amount: amount || "0.00",
         amountUSDC: Number(amount) * (exchangeRate ?? 1) || 0,
         phoneNumber: phoneNumber || "",
-        address:  addressOwner || "",
+        address: addressOwner || "",
         status: 0,
         transactionHash: "",
     });
@@ -103,31 +101,29 @@ const DepositCryptoModal: React.FC<DepositCryptoModalProps> = ({
             const response = await fetch("https://api.coinbase.com/v2/exchange-rates?currency=USDC");
             const data = await response.json();
 
-            if (data?.data?.rates?.KES && !isNaN(parseFloat(data.data.rates.KES))) {
+            if (data?.data?.rates?.KES) {
                 const baseRate = parseFloat(data.data.rates.KES);
                 const markupRate = baseRate * (1 - MARKUP_PERCENTAGE / 100);
                 setExchangeRate(markupRate);
             } else {
                 setExchangeRate(null);
             }
-        } catch (error) {
+        } catch {
             setExchangeRate(null);
         }
     };
 
     useContractEvents(
         (order: any) => setOrderCreatedEvents((prev) => [...prev, order]),
-        (order: any) => {console.log("Order settled:", order);
-            setTransactionReciept((prev: any) => ({ ...prev, status: 1 }));
-            setDepositCryptoReciept(true);
+        () => {
+            setTransactionReceipt((prev: any) => ({ ...prev, status: 1 }));
+            setDepositCryptoReceipt(true);
             setIsLoading(false);
             setIsTransactionModalOpen(false);
         },
-        (orderId: any) => { console.log("Order refunded:", orderId);
-            // setTransactionReciept((prev: any) => ({ ...prev, status: 2 }));
+        () => {
             setIsTransactionModalOpen(false);
             setIsLoading(false);
-            // setDepositCryptoReciept(true);
         }
     );
 
@@ -147,53 +143,63 @@ const DepositCryptoModal: React.FC<DepositCryptoModalProps> = ({
         try {
             const messageHash = encryptMessage(phoneNumber, "USD", exchangeRate ?? 0, mpesaAmount);
             if (!contract) throw new Error("Contract is not initialized.");
-            console.log("**********************************************************");
-            console.log("**********************************************************");
-            const tx = await contract.createOrder(address, parseUnits(amount, 6), usdcTokenAddress, orderType, messageHash);
-            console.log("**********************************************************");
-            console.log("**********************************************************");
-            console.log("Transaction Hash:", tx.hash);
-            setIsTransactionModalOpen(true);
-        } catch (error: any) {
-            toast.error(error?.message || "Transaction failed.");
-        }  finally {
-            setIsLoading(false);
-        }
-    };
-
-    const handleConfirmOrderStatus = async () => {
-        if (orderCreatedEvents.length === 0 || isProcessing) return;
-        try {
-            await handleOrderStatus(orderCreatedEvents[0].orderId, setIsTransactionModalOpen, setDepositCryptoReciept, transactionReciept);
             
-            setTransactionReciept((prev: any) => ({ ...prev, amount, amountUSDC: parseFloat(amount) * (exchangeRate ?? 1), phoneNumber }));
-        } catch (error) {
-            console.error("Error handling order status:", error);
+            await contract.createOrder(
+                address, 
+                parseUnits(amount, 6), 
+                usdcTokenAddress, 
+                orderType, 
+                messageHash
+            );
+            setIsTransactionModalOpen(true);
+        } catch {
+            toast.error("Transaction failed.");
         } finally {
             setIsLoading(false);
         }
     };
 
+    const handleConfirmOrderStatus = useCallback(async () => {
+        if (orderCreatedEvents.length === 0 || isProcessing) return;
+        try {
+            await handleOrderStatus(
+                orderCreatedEvents[0].orderId, 
+                setIsTransactionModalOpen, 
+                setDepositCryptoReceipt, 
+                transactionReceipt
+            );
+            setTransactionReceipt((prev: any) => ({ 
+                ...prev, 
+                amount, 
+                amountUSDC: parseFloat(amount) * (exchangeRate ?? 1), 
+                phoneNumber 
+            }));
+        } catch {
+            toast.error("Error processing order status");
+        }
+    }, [orderCreatedEvents, isProcessing, handleOrderStatus, transactionReceipt, amount, exchangeRate, phoneNumber]);
+
     useEffect(() => {
         if (orderCreatedEvents.length > 0 && !isProcessing) {
             handleConfirmOrderStatus();
         }
-    }, [orderCreatedEvents, isProcessing]);
-
+    }, [orderCreatedEvents, isProcessing, handleConfirmOrderStatus]);
 
     return (
         <div
             className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center py-4 md:px-4 z-50"
             onClick={handleClose}
         >
-
-            <TransactionInProgressModal isOpen={isTransactionModalOpen} onClose={() => setIsTransactionModalOpen(false)} phone_number={phoneNumber} />
-            <DepositCryptoReciept 
-                isOpen={isDepositCryptoReciept} 
-                onClose={() => setDepositCryptoReciept(false)} 
-                transactionReciept={transactionReciept}
+            <TransactionInProgressModal 
+                isOpen={isTransactionModalOpen} 
+                onClose={() => setIsTransactionModalOpen(false)} 
+                phone_number={phoneNumber} 
             />
-
+            <DepositCryptoReceipt
+                isOpen={isDepositCryptoReceipt}
+                onClose={() => setDepositCryptoReceipt(false)}
+                transactionReciept={transactionReceipt} // Corrected the prop name
+            />
             <div className="bg-white md:rounded-3xl max-w-4xl md:h-auto h-screen overflow-y-auto">
                 <div className="p-6">
                     {/* Header */}

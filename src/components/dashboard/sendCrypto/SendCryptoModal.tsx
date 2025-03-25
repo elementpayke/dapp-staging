@@ -123,7 +123,7 @@ const SendCryptoModal: React.FC<SendCryptoModalProps> = ({
     };
   }, [amount, exchangeRate, usdcBalance]);
 
-  const [transactionReciept, setTransactionReciept] = useState<any | null>({
+  const [transactionReciept] = useState<any | null>({
     amount: amount || "0.00",
     amountUSDC: Number(amount) * (exchangeRate ?? 1) || 0,
     phoneNumber: mobileNumber || "",
@@ -254,6 +254,9 @@ const SendCryptoModal: React.FC<SendCryptoModalProps> = ({
     },
     (order: any) => {
         console.log("Order Settled:", order);
+    },
+    (order: any) => {
+        console.log("Order Refunded:", order);
     }
   );
   // if (!isOpen) return null;

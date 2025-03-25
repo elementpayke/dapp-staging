@@ -1,9 +1,7 @@
 import React from "react";
 import DashboardHeader from "../DashboardHeader";
 import CryptoPrices from "../CryptoPrices";
-import CryptoWallet from "../CryptoWallet";
 import QuickActions from "../QuickActions";
-import RecentContacts from "../RecentContacts";
 import TransactionList from "../TransactionList";
 
 const OverviewPage = () => {

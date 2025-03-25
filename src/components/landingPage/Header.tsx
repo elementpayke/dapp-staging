@@ -19,12 +19,12 @@ import {
   Identity,
   EthBalance,
 } from "@coinbase/onchainkit/identity";
-import { useRouter } from "next/navigation";
+// import { useRouter } from "next/navigation";
 
 const Header = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const { connectWallet, isConnected } = useWallet();
-  const router = useRouter();
+  // const router = useRouter();
 
   useEffect(() => {
     if (isMenuOpen) {

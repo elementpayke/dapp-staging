@@ -11,24 +11,17 @@ import {
   X,
   Mail,
   MessageCircle,
-  HandCoinsIcon,
 } from "lucide-react";
 import { ReactNode, useState } from "react";
-import { set } from "react-hook-form";
-import Image from "next/image";
 
 type PageComponent =
   | "overview"
   | "transactions"
-  | "hakiba"
-  | "loans"
-  | "credit-score"
   | "wallets"
   | "cards"
   | "settings"
   | "support-whatsapp"
-  | "support-email"
-  | "referral";
+  | "support-email";
 
 interface SidebarProps {
   onPageChange: (page: PageComponent) => void;
@@ -158,33 +151,6 @@ const Sidebar: React.FC<SidebarProps> = ({ onPageChange, currentPage }) => {
                 pageName="transactions"
               />
               <SidebarLink
-                icon={<HandCoinsIcon size={20} />}
-                label="Hakiba"
-                subMenu={true}
-                active={currentPage.startsWith("hakiba")}
-                onClick={() => toggleMenu("hakiba")}
-              >
-                {expandedMenus.includes("hakiba") && (
-                  <div className="ml-8 space-y-1 mt-1">
-                    <SubLink
-                      label="Overview"
-                      active={currentPage === "hakiba"}
-                      onClick={() => handlePageChange("hakiba")}
-                    />
-                    <SubLink
-                      label="Loans"
-                      active={currentPage === "loans"}
-                      onClick={() => handlePageChange("loans")}
-                    />
-                    <SubLink
-                      label="Credit Score"
-                      active={currentPage === "credit-score"}
-                      onClick={() => handlePageChange("credit-score")}
-                    />
-                  </div>
-                )}
-              </SidebarLink>
-              <SidebarLink
                 icon={<CreditCard size={20} />}
                 label="Virtual Cards"
                 active={currentPage === "cards"}
@@ -235,7 +201,7 @@ const Sidebar: React.FC<SidebarProps> = ({ onPageChange, currentPage }) => {
             </div>
 
             {/* Share link and earn */}
-            <div className="mt-4 bg-gray-200 rounded-xl p-4 text-center shadow-md">
+            {/* <div className="mt-4 bg-gray-200 rounded-xl p-4 text-center shadow-md">
               <img
                 src="https://cdn-icons-png.freepik.com/256/13515/13515379.png"
                 alt="Referral Icon"
@@ -243,7 +209,7 @@ const Sidebar: React.FC<SidebarProps> = ({ onPageChange, currentPage }) => {
               />
               <h1 className="text-gray-800 font-semibold mt-2 text-sm">Refer to Hakiba</h1>
               <p className="text-gray-600 text-xs mt-1">
-                Share our link and earn $5 for every successful referral
+                Share our link and earn for every successful referral
               </p>
               <div className="flex justify-around items-center mt-3 text-sm">
                 <button className="text-gray-600">Dismiss</button>
@@ -254,7 +220,7 @@ const Sidebar: React.FC<SidebarProps> = ({ onPageChange, currentPage }) => {
                   Referral
                 </button>
               </div>
-            </div>
+            </div> */}
 
           </nav>
         </div>
