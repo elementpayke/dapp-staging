@@ -6,7 +6,6 @@ import TransactionsPage from "@/components/dashboard/pages/TransactionsPage";
 import WhatsAppPage from "@/components/dashboard/pages/WhatsAppPage";
 import EmailPage from "@/components/dashboard/pages/EmailPage";
 
-import ReferralPage from "@/components/dashboard/pages/ReferalPage";
 import { Bell, ChevronDown, LogOut, ShieldAlert, Loader2 } from "lucide-react";
 import Image from "next/image";
 import avatarPlaceholder from "@/assets/avatar-placeholder.svg";

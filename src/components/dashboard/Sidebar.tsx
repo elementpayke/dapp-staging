@@ -11,11 +11,8 @@ import {
   X,
   Mail,
   MessageCircle,
-  HandCoinsIcon,
 } from "lucide-react";
 import { ReactNode, useState } from "react";
-import { set } from "react-hook-form";
-import Image from "next/image";
 
 type PageComponent =
   | "overview"

@@ -6,7 +6,7 @@ interface TransactionInProgressModalProps {
     phone_number: string;   
 }
 
-export default function TransactionInProgressModal({ isOpen, onClose, phone_number }: TransactionInProgressModalProps) {
+export default function TransactionInProgressModal({ isOpen, phone_number }: TransactionInProgressModalProps) {
     if (!isOpen) return null; // Ensure modal is only rendered when open
 
     const getPhoneNumberLastAndFirstFourDigits = (phone_number: string) => {

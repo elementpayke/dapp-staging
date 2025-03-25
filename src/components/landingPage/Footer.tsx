@@ -1,6 +1,6 @@
 import React from "react";
 import Link from "next/link";
-import { X, Linkedin, Instagram, Facebook, Send } from "lucide-react";
+import { X, Linkedin, Instagram,Send } from "lucide-react";
 
 const Footer = () => {
   return (
@@ -36,12 +36,6 @@ const Footer = () => {
               >
                 <Instagram size={26} />
               </Link>
-              {/* <Link
-                href="https://facebook.com"
-                className="text-gray-900 hover:text-gray-600"
-              >
-                <Facebook size={26} />
-              </Link> */}
               <Link
                 href=""
                 className="text-gray-900 hover:text-gray-600"
