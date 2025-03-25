@@ -5,9 +5,7 @@ import OverviewPage from "@/components/dashboard/pages/OverviewPage";
 import TransactionsPage from "@/components/dashboard/pages/TransactionsPage";
 import WhatsAppPage from "@/components/dashboard/pages/WhatsAppPage";
 import EmailPage from "@/components/dashboard/pages/EmailPage";
-import HakibaPage from "@/components/dashboard/pages/HakibaPage";
-import HakibaLoanPage from "@/components/dashboard/pages/HakibaLoansPage";
-import CreditScorePage from "@/components/dashboard/pages/CreditScorePage";
+
 import ReferralPage from "@/components/dashboard/pages/ReferalPage";
 import { Bell, ChevronDown, LogOut, ShieldAlert, Loader2 } from "lucide-react";
 import Image from "next/image";
@@ -18,15 +16,11 @@ import { useRouter } from "next/navigation";
 type PageComponent =
   | "overview"
   | "transactions"
-  | "hakiba"
-  | "loans"
-  | "credit-score"
   | "wallets"
   | "cards"
   | "settings"
   | "support-whatsapp"
-  | "support-email"
-  | "referral";
+  | "support-email";
 
 export default function Dashboard() {
   const { isConnected, ensName, address, disconnectWallet } = useWallet();
@@ -86,12 +80,6 @@ export default function Dashboard() {
         return <OverviewPage />;
       case "transactions":
         return <TransactionsPage />;
-      case "hakiba":
-        return <HakibaPage />;
-      case "loans":
-        return <HakibaLoanPage />;
-      case "credit-score":
-        return <CreditScorePage />;
       case "support-whatsapp":
         return <WhatsAppPage />;
       case "support-email":
@@ -100,8 +88,6 @@ export default function Dashboard() {
       case "cards":
       case "settings":
         return <div className="p-8">Page under construction</div>;
-      case "referral":
-        return <ReferralPage />;
       default:
         return <OverviewPage />;
     }
