@@ -28,7 +28,7 @@ const PayToBank: React.FC<PayToBankProps> = ({
   return (
     <div className="space-y-6">
       {/* Token and Amount */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="grid grid-cols-2 gap-4">
         <div>
           <label htmlFor="token" className="block text-gray-600 mb-3">
             Token
@@ -52,7 +52,6 @@ const PayToBank: React.FC<PayToBankProps> = ({
             id="amount"
             type="text"
             value={amount}
-            placeholder="0.00"
             onChange={(e) => setAmount(e.target.value)}
             className="w-full p-4 bg-gray-50 rounded-lg border-0 text-gray-900"
           />
@@ -60,7 +59,7 @@ const PayToBank: React.FC<PayToBankProps> = ({
       </div>
 
       {/* Bank Details */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="grid grid-cols-2 gap-4">
         <div>
           <label htmlFor="bank" className="block text-gray-600 mb-3">
             Recipient Bank
