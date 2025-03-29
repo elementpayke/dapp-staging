@@ -26,7 +26,6 @@ const DepositCryptoModal: React.FC<DepositCryptoModalProps> = ({
     isOpen,
     onClose,
 }) => {
-    if (!isOpen) return null;
 
     const { usdcBalance } = useWallet();
     const [isTransactionModalOpen, setIsTransactionModalOpen] = useState(false);
@@ -95,6 +94,8 @@ const DepositCryptoModal: React.FC<DepositCryptoModalProps> = ({
         { id: "coinbase", icon: "©️", selected: selectedWallet === "coinbase" },
         { id: "qr", icon: "🔲", selected: selectedWallet === "qr" },
     ];
+
+    
 
     const fetchExchangeRate = async () => {
         try {
@@ -184,6 +185,7 @@ const DepositCryptoModal: React.FC<DepositCryptoModalProps> = ({
             handleConfirmOrderStatus();
         }
     }, [orderCreatedEvents, isProcessing, handleConfirmOrderStatus]);
+    if (!isOpen) return null;
 
     return (
         <div
