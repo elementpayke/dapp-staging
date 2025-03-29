@@ -1,5 +1,5 @@
-import React, { use, useEffect, useMemo, useState } from "react";
-import { X } from "lucide-react";
+import React, {useEffect, useMemo, useState, useCallback } from "react";
+import { CheckCircle, X, ArrowLeft } from "lucide-react";
 import { toast } from "react-toastify";
 import { parseUnits } from 'ethers';
 import { getUSDCAddress } from '../../../services/tokens';
@@ -9,7 +9,7 @@ import { useWallet } from "@/context/WalletContext";
 import { useAccount } from "wagmi";
 import { useContractEvents, useContractHandleOrderStatus } from "@/context/useContractEvents";
 import TransactionInProgressModal from "./TranactionInProgress";
-import DepositCryptoReciept from "./DepositCryptoReciept";
+import DepositCryptoReceipt from "./DepositCryptoReciept";
 
 interface DepositCryptoModalProps {
     isOpen: boolean;
@@ -30,7 +30,7 @@ const DepositCryptoModal: React.FC<DepositCryptoModalProps> = ({
 
     const { usdcBalance } = useWallet();
     const [isTransactionModalOpen, setIsTransactionModalOpen] = useState(false);
-    const [isDepositCryptoReciept, setDepositCryptoReciept] = useState(false);
+    const [isDepositCryptoReceipt, setDepositCryptoReceipt] = useState(false);
     const [selectedWallet, setSelectedWallet] = useState<string>("metamask");
     const [selectedToken, setSelectedToken] = useState("USDC");
     const [amount, setAmount] = useState("0.00");
@@ -41,10 +41,13 @@ const DepositCryptoModal: React.FC<DepositCryptoModalProps> = ({
     const [exchangeRate, setExchangeRate] = useState<number | null>(null);
     const TRANSACTION_FEE_RATE = 0.005;
     const [orderCreatedEvents, setOrderCreatedEvents] = useState<any[]>([]);
-    const [orderSettledEvents, setOrderSettledEvents] = useState<any[]>([]);
     const { handleOrderStatus, isProcessing } = useContractHandleOrderStatus();
     const { contract, address } = useContract();
     const addressOwner = useAccount();
+    const [formValidation, setFormValidation] = useState({
+        amount: false,
+        phoneNumber: false,
+    });
 
     const MARKUP_PERCENTAGE = 1.5;
 
@@ -54,8 +57,8 @@ const DepositCryptoModal: React.FC<DepositCryptoModalProps> = ({
         const kesAmount = parseFloat(amount) * exchangeRate || 0;
         const usdcAmount = parseFloat(amount) || 0;
         const transactionCharge = usdcAmount * TRANSACTION_FEE_RATE;
-        const totalUSDC = usdcAmount + transactionCharge;
-        const remainingBalance = Math.max(usdcBalance + totalUSDC, 0);
+        const totalUSDC = usdcAmount;
+        const remainingBalance = usdcBalance + totalUSDC;
         const totalKES = usdcBalance * exchangeRate;
         const totalKESBalance = totalKES + kesAmount;
 
@@ -65,18 +68,18 @@ const DepositCryptoModal: React.FC<DepositCryptoModalProps> = ({
             transactionCharge,
             totalUSDC,
             totalKES,
-            totalKESBalance: totalKESBalance,
-            walletBalance: parseFloat(amount) || 0, // Assuming the amount is in KES
-            remainingBalance: Math.max(remainingBalance, 0), // Remaining balance after spending
-            usdcBalance: usdcBalance, // ✅ Use fetched USDC balance
+            totalKESBalance,
+            walletBalance: parseFloat(amount) || 0,
+            remainingBalance: Math.max(remainingBalance, 0),
+            usdcBalance,
         };
     }, [amount, exchangeRate, usdcBalance]);
 
-    const [transactionReciept, setTransactionReciept] = useState<any | null>({
+    const [transactionReceipt, setTransactionReceipt] = useState<any | null>({
         amount: amount || "0.00",
         amountUSDC: Number(amount) * (exchangeRate ?? 1) || 0,
         phoneNumber: phoneNumber || "",
-        address:  addressOwner || "",
+        address: addressOwner || "",
         status: 0,
         transactionHash: "",
     });
@@ -98,24 +101,31 @@ const DepositCryptoModal: React.FC<DepositCryptoModalProps> = ({
             const response = await fetch("https://api.coinbase.com/v2/exchange-rates?currency=USDC");
             const data = await response.json();
 
-            if (data?.data?.rates?.KES && !isNaN(parseFloat(data.data.rates.KES))) {
+            if (data?.data?.rates?.KES) {
                 const baseRate = parseFloat(data.data.rates.KES);
                 const markupRate = baseRate * (1 - MARKUP_PERCENTAGE / 100);
                 setExchangeRate(markupRate);
             } else {
                 setExchangeRate(null);
             }
-        } catch (error) {
+        } catch {
             setExchangeRate(null);
         }
     };
 
     useContractEvents(
         (order: any) => setOrderCreatedEvents((prev) => [...prev, order]),
-        (order: any) => setOrderSettledEvents((prev) => [...prev, order])
+        () => {
+            setTransactionReceipt((prev: any) => ({ ...prev, status: 1 }));
+            setDepositCryptoReceipt(true);
+            setIsLoading(false);
+            setIsTransactionModalOpen(false);
+        },
+        () => {
+            setIsTransactionModalOpen(false);
+            setIsLoading(false);
+        }
     );
-
-    toast(orderSettledEvents)
 
     useEffect(() => {
         fetchExchangeRate();
@@ -133,62 +143,89 @@ const DepositCryptoModal: React.FC<DepositCryptoModalProps> = ({
         try {
             const messageHash = encryptMessage(phoneNumber, "USD", exchangeRate ?? 0, mpesaAmount);
             if (!contract) throw new Error("Contract is not initialized.");
-            const tx = await contract.createOrder(address, parseUnits(amount, 6), usdcTokenAddress, orderType, messageHash);
+            
+            await contract.createOrder(
+                address, 
+                parseUnits(amount, 6), 
+                usdcTokenAddress, 
+                orderType, 
+                messageHash
+            );
             setIsTransactionModalOpen(true);
-        } catch (error: any) {
-            toast.error(error?.message || "Transaction failed.");
-        } 
-    };
-
-    const handleConfirmOrderStatus = async () => {
-        if (orderCreatedEvents.length === 0 || isProcessing) return;
-        try {
-            await handleOrderStatus(orderCreatedEvents[0].orderId, setIsTransactionModalOpen, setDepositCryptoReciept, transactionReciept);
-            setTransactionReciept((prev: any) => ({ ...prev, amount, amountUSDC: parseFloat(amount) * (exchangeRate ?? 1), phoneNumber }));
-        } catch (error) {
-            console.error("Error handling order status:", error);
+        } catch {
+            toast.error("Transaction failed.");
         } finally {
             setIsLoading(false);
         }
     };
 
+    const handleConfirmOrderStatus = useCallback(async () => {
+        if (orderCreatedEvents.length === 0 || isProcessing) return;
+        try {
+            await handleOrderStatus(
+                orderCreatedEvents[0].orderId, 
+                setIsTransactionModalOpen, 
+                setDepositCryptoReceipt, 
+                transactionReceipt
+            );
+            setTransactionReceipt((prev: any) => ({ 
+                ...prev, 
+                amount, 
+                amountUSDC: parseFloat(amount) * (exchangeRate ?? 1), 
+                phoneNumber 
+            }));
+        } catch {
+            toast.error("Error processing order status");
+        }
+    }, [orderCreatedEvents, isProcessing, handleOrderStatus, transactionReceipt, amount, exchangeRate, phoneNumber]);
+
     useEffect(() => {
         if (orderCreatedEvents.length > 0 && !isProcessing) {
             handleConfirmOrderStatus();
         }
-    }, [orderCreatedEvents, isProcessing]);
-
+    }, [orderCreatedEvents, isProcessing, handleConfirmOrderStatus]);
 
     return (
         <div
-            className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50"
+            className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center py-4 md:px-4 z-50"
             onClick={handleClose}
         >
-
-            <TransactionInProgressModal isOpen={isTransactionModalOpen} onClose={() => setIsTransactionModalOpen(false)} phone_number={phoneNumber} />
-            <DepositCryptoReciept 
-                isOpen={isDepositCryptoReciept} 
-                onClose={() => setDepositCryptoReciept(false)} 
-                transactionReciept={transactionReciept}
+            <TransactionInProgressModal 
+                isOpen={isTransactionModalOpen} 
+                onClose={() => setIsTransactionModalOpen(false)} 
+                phone_number={phoneNumber} 
             />
-
-            <div className="bg-white rounded-3xl max-w-4xl w-full">
+            <DepositCryptoReceipt
+                isOpen={isDepositCryptoReceipt}
+                onClose={() => setDepositCryptoReceipt(false)}
+                transactionReciept={transactionReceipt} // Corrected the prop name
+            />
+            <div className="bg-white md:rounded-3xl max-w-4xl md:h-auto h-screen overflow-y-auto">
                 <div className="p-6">
                     {/* Header */}
                     <div className="flex justify-between items-center mb-4">
-                        <h2 className="text-2xl font-semibold text-gray-900">
-                            Deposit Crypto
-                        </h2>
+                       <div className="flex items-center gap-4">
+                        <button
+                                onClick={onClose}
+                                className="p-2 hover:bg-gray-100 rounded-full transition-colors block md-hidden"
+                                type="button"
+                            >
+                                <ArrowLeft className="w-6 h-6 text-[#444]" />
+                            </button>
+                            <h2 className="text-2xl font-semibold text-gray-900">
+                                Deposit Crypto
+                            </h2>
+                        </div>
                         <button
                             onClick={onClose}
-                            className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+                            className="p-2 hover:bg-gray-100 rounded-full transition-colors hidden md:block "
                             type="button"
                         >
-                            <X className="w-6 h-6" />
+                            <X className="w-6 h-6 text-[#444]" />
                         </button>
                     </div>
 
-                    <div className="grid grid-cols-5 gap-6">
+                    <div className="grid md:grid-cols-5 gap-6">
                         {/* Left Column - Form */}
                         <div className="col-span-3 space-y-4">
                             {/* Wallet Selection */}
@@ -214,7 +251,7 @@ const DepositCryptoModal: React.FC<DepositCryptoModalProps> = ({
                             </div>
 
                             {/* Token and Amount */}
-                            <div className="grid grid-cols-2 gap-4">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div>
                                     <label className="block text-gray-600 mb-2">Token</label>
                                     <select
@@ -230,21 +267,22 @@ const DepositCryptoModal: React.FC<DepositCryptoModalProps> = ({
                                     <input
                                         type="text"
                                         value={amount}
+                                        placeholder="0.00"
                                         onChange={(e) => {
-                                            if (parseFloat(e.target.value) <= 100) {
+                                            const newAmount = parseFloat(e.target.value);
+                                            if (!isNaN(newAmount) && newAmount >= 0 && newAmount <= 1000) {
                                                 setAmount(e.target.value);
-                                            } else {
-                                                console.log(`amount: ${amount}`);
-                                                setAmount(amount);
+                                            } else if (e.target.value === "") {
+                                                setAmount("");
                                             }
                                         }}
-                                        className="w-full p-3 bg-gray-50 rounded-lg border-0 text-gray-900"
+                                        className={`w-full p-3 bg-gray-50 rounded-lg border-0 text-gray-900 ${formValidation.amount ? "border-red-500" : "" }`}
                                     />
                                 </div>
                             </div>
 
                             {/* Deposit From and Phone Number */}
-                            <div className="grid grid-cols-2 gap-4">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div>
                                     <label className="block text-gray-600 mb-2">
                                         Deposit from
@@ -283,14 +321,19 @@ const DepositCryptoModal: React.FC<DepositCryptoModalProps> = ({
                                     placeholder="Enter payment reason"
                                 />
                             </div>
+
+                            <p className="text-gray-500 flex gap-2 item-center text-sm md:text-md">
+                                <CheckCircle className="w-6 h-6 text-blue-600 inline-block" />
+                                <span>Favorite this payment details for future transactions</span>
+                            </p>
                         </div>
 
                         {/* Right Column - Transaction Summary */}
-                        <div className="col-span-2 bg-gray-50 p-4 rounded-2xl h-fit">
-                            <h3 className="text-xl font-semibold mb-4 text-gray-900">
+                        <div className="col-span-3 md:col-span-2 bg-gray-50 p-4 rounded-2xl h-fit">
+                            <h3 className="text-xl font-semibold mb-4 text-gray-900 hidden md:block hidden md:block">
                                 Transaction summary
                             </h3>
-                            <div className="space-y-3">
+                            <div className="space-y-3 hidden md:block">
                                 <div className="flex justify-between items-center">
                                     <span className="text-gray-600">KES Equivalent</span>
                                     <span className="text-gray-900">
@@ -298,13 +341,6 @@ const DepositCryptoModal: React.FC<DepositCryptoModalProps> = ({
                                     </span>
                                 </div>
 
-                                <div className="flex justify-between items-center">
-                                    <span className="text-gray-600">Wallet balance</span>
-                                    <span className="text-green-600 font-medium">
-                                        {/* TODO: Get USDC balance (reference offramp modal)*/}
-                                        USDC {transactionSummary.usdcBalance.toFixed(2)}
-                                    </span>
-                                </div>
                                 <div className="flex justify-between items-center">
                                     <span className="text-gray-600">Amount to recieve</span>
                                     <span className="text-gray-900">USDC {amount}</span>
@@ -314,7 +350,14 @@ const DepositCryptoModal: React.FC<DepositCryptoModalProps> = ({
                                     {/* TODO: Decide on the charge */}
                                     <span className="text-orange-600">KE 0.00</span>
                                 </div>
-                                <div className="border-t pt-3 flex justify-between items-center font-medium">
+                                <div className="flex justify-between items-center border-t pt-3">
+                                    <span className="text-gray-600">Wallet balance</span>
+                                    <span className="text-green-600 font-medium">
+                                        {/* TODO: Get USDC balance (reference offramp modal)*/}
+                                        USDC {transactionSummary.usdcBalance.toFixed(2)}
+                                    </span>
+                                </div>
+                                <div className="flex justify-between items-center font-medium">
                                     <span className="text-gray-900">Total:</span>
                                     {/* Update Total calculation */}
                                     <span className="text-gray-900">KE {transactionSummary.kesAmount.toFixed(1)}0</span>
@@ -323,7 +366,13 @@ const DepositCryptoModal: React.FC<DepositCryptoModalProps> = ({
 
                             <button
                                 type="button"
-                                onClick={handleConfirmPayment}
+                                onClick={() => {
+                                    if (Number(amount) > 0) {
+                                        handleConfirmPayment();
+                                    } else {
+                                        setFormValidation({ ...formValidation, amount: true });
+                                    }
+                                }}
                                 disabled={isLoading}
                                 className={`w-full mt-4 py-3 bg-gradient-to-r from-blue-600 to-red-600 text-white rounded-full font-medium hover:opacity-90 transition-opacity ${isLoading ? "opacity-50 cursor-not-allowed" : ""
                                     }`}
@@ -331,12 +380,11 @@ const DepositCryptoModal: React.FC<DepositCryptoModalProps> = ({
                                 {isLoading ? "Processing..." : "Confirm payment"}
                             </button>
 
-                            <div className="mt-4 bg-gray-100 p-3 rounded-lg">
+                            <div className="mt-4 bg-gray-100 p-3 rounded-lg hidden md:block">
                                 <div className="text-gray-500 mb-1">
                                     Crypto Balance after transaction
                                 </div>
                                 <div className="flex justify-between">
-                                    {/* TODO: Calculate balance after transaction for both USDC and KSH equivalent*/}
                                     <span className="text-gray-600">USDC: {transactionSummary.remainingBalance.toFixed(2)}</span>
                                     <span className="text-gray-600">KE {transactionSummary.totalKESBalance.toFixed(2)}</span>
                                 </div>

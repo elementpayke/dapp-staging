@@ -78,8 +78,10 @@ const Hero = () => {
 
             {/* CTA Buttons */}
             <div className="flex flex-wrap items-center gap-3 sm:gap-4 mb-8 sm:mb-12 xl:mb-16">
-              <button className="bg-gradient-to-r from-[#0514eb] to-[#de0413] text-white px-6 sm:px-8 py-3 sm:py-4 rounded-full text-base sm:text-lg xl:text-xl font-medium hover:opacity-90 transition-all whitespace-nowrap">
-                Create a Wallet
+              <button className="bg-gradient-to-r from-[#0514eb] to-[#de0413] text-white px-6 sm:px-8 py-3 sm:py-4 rounded-full text-base sm:text-lg xl:text-xl font-medium hover:opacity-90 transition-all whitespace-nowrap"
+                onClick={() => window.location.href = '/dashboard'}
+              >
+                {isConnected ? "Dashboard" : "Connect a Wallet"}
               </button>
               {isConnected ? (
                 <Wallet>

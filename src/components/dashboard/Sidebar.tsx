@@ -51,17 +51,16 @@ interface SubLinkProps {
 
 const Sidebar: React.FC<SidebarProps> = ({ onPageChange, currentPage }) => {
   const [isOpen, setIsOpen] = useState(false);
-  const [expandedMenus, setExpandedMenus] = useState<string[]>(["support"]);
+  const [expandedMenus, setExpandedMenus] = useState<string[]>([]);
 
   const toggleSidebar = () => setIsOpen(!isOpen);
 
   const toggleMenu = (menu: string) => {
     setExpandedMenus((prev) =>
-      prev.includes(menu)
-        ? prev.filter((item) => item !== menu)
-        : [...prev, menu]
+      prev.includes(menu) ? [] : [menu]
     );
   };
+
 
   const handlePageChange = (page: PageComponent) => {
     onPageChange(page);
@@ -119,20 +118,23 @@ const Sidebar: React.FC<SidebarProps> = ({ onPageChange, currentPage }) => {
               <SidebarLink
                 icon={<Home size={20} />}
                 label="Home"
+                subMenu={true}
                 active={currentPage === "overview"}
-                onClick={() => handlePageChange("overview")}
+                onClick={() => toggleMenu("home")}
                 pageName="overview"
               >
-                <div className="ml-4 space-y-1">
-                  <SubLink
-                    label="Overview"
-                    active={currentPage === "overview"}
-                    onClick={() => handlePageChange("overview")}
-                    pageName="overview"
-                  />
-                  <SubLink label="Notifications" badge="10" />
-                  <SubLink label="Recent transactions" />
-                </div>
+                {expandedMenus.includes("home") && (
+                  <div className="ml-4 space-y-1">
+                    <SubLink
+                      label="Overview"
+                      active={currentPage === "overview"}
+                      onClick={() => handlePageChange("overview")}
+                      pageName="overview"
+                    />
+                    <SubLink label="Notifications" badge="10" />
+                    <SubLink label="Recent transactions" />
+                  </div>
+                )}
               </SidebarLink>
               <SidebarLink
                 icon={<Wallet size={20} />}
@@ -197,6 +199,29 @@ const Sidebar: React.FC<SidebarProps> = ({ onPageChange, currentPage }) => {
                 pageName="settings"
               />
             </div>
+
+            {/* Share link and earn */}
+            {/* <div className="mt-4 bg-gray-200 rounded-xl p-4 text-center shadow-md">
+              <img
+                src="https://cdn-icons-png.freepik.com/256/13515/13515379.png"
+                alt="Referral Icon"
+                className="w-12 h-12 mx-auto"
+              />
+              <h1 className="text-gray-800 font-semibold mt-2 text-sm">Refer to Hakiba</h1>
+              <p className="text-gray-600 text-xs mt-1">
+                Share our link and earn for every successful referral
+              </p>
+              <div className="flex justify-around items-center mt-3 text-sm">
+                <button className="text-gray-600">Dismiss</button>
+                <button
+                  className="text-blue-600"
+                  onClick={() => handlePageChange("referral")}
+                >
+                  Referral
+                </button>
+              </div>
+            </div> */}
+
           </nav>
         </div>
       </aside>
@@ -216,9 +241,8 @@ const SidebarLink: React.FC<SidebarLinkProps> = ({
 }) => (
   <div className="space-y-1">
     <button
-      className={`flex w-full items-center gap-3 px-3 py-2 rounded-lg transition-colors ${
-        active ? "bg-gray-100" : "hover:bg-gray-50"
-      }`}
+      className={`flex w-full items-center gap-3 px-3 py-2 rounded-lg transition-colors ${active ? "bg-gray-100" : "hover:bg-gray-50"
+        }`}
       onClick={onClick}
     >
       <span className="text-gray-500">{icon}</span>
@@ -253,9 +277,8 @@ const SubLink: React.FC<SubLinkProps> = ({
 }) => (
   <button
     onClick={onClick}
-    className={`flex items-center w-full pl-3 py-2 text-sm rounded-lg transition-colors ${
-      active ? "text-blue-600 bg-blue-50" : "text-gray-700 hover:bg-gray-50"
-    }`}
+    className={`flex items-center w-full pl-3 py-2 text-sm rounded-lg transition-colors ${active ? "text-blue-600 bg-blue-50" : "text-gray-700 hover:bg-gray-50"
+      }`}
   >
     {icon && <span className="mr-2">{icon}</span>}
     <span>{label}</span>

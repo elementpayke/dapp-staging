@@ -82,7 +82,7 @@ export default function SendCryptoReceipt({ isOpen, onClose, transactionReciept 
                     </div>
                 </div>
 
-                <div className='text-[#F8F2EE]'>
+                <div className='text-gray-500'>
                     <p>
                         Seems like you don’t have enough tokens in your selected wallet to complete this transaction. You can go back to your home page and select another wallet to complete your payment.
                     </p>
