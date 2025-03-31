@@ -234,18 +234,6 @@ const SendCryptoModal: React.FC<SendCryptoModalProps> = ({
     { id: "coinbase", icon: "©️", selected: selectedWallet === "coinbase" },
     { id: "qr", icon: "🔲", selected: selectedWallet === "qr" },
   ];
-  // const handlePayment = async () => {
-  //   setIsProcessing(true);
-  //   try {
-  //     // Simulate payment process (replace with actual logic)
-  //     await new Promise((resolve) => setTimeout(resolve, 3000));
-  //     toast.success("Payment processed successfully!");
-  //   } catch (error) {
-  //     toast.error("Payment failed. Please try again.");
-  //   } finally {
-  //     setIsProcessing(false);
-  //   }
-  // };
 
   useContractEvents(
     (order: any) => {
@@ -294,22 +282,6 @@ const SendCryptoModal: React.FC<SendCryptoModalProps> = ({
             <div className="md:col-span-3 space-y-4">
               {/* Payment Type Selection */}
               <div className="flex gap-3">
-                {/* <button
-                  className={`flex items-center gap-2 px-4 py-2 rounded-full transition-colors ${
-                    paymentType === "bank"
-                      ? "bg-blue-600 text-white"
-                      : "bg-gray-100 text-gray-600"
-                  }`}
-                  onClick={() => setPaymentType("bank")}
-                  type="button"
-                >
-                  <div className="w-4 h-4 rounded-full border-2 border-current flex items-center justify-center">
-                    {paymentType === "bank" && (
-                      <div className="w-2 h-2 bg-current rounded-full" />
-                    )}
-                  </div>
-                  Pay to Bank
-                </button> */}
                 <button
                   className={`flex items-center gap-2 px-4 py-2 rounded-full transition-colors ${
                     paymentType === "mobile"
