@@ -327,34 +327,7 @@ const SendCryptoModal: React.FC<SendCryptoModalProps> = ({
                   Pay to Mobile Money
                 </button>
               </div>
-
-              {/* Wallet Selection */}
-              {paymentType === "bank" && (
-                <div>
-                  <label className="block text-gray-600 mb-2">
-                    Select wallet to pay from
-                  </label>
-                  <div className="flex gap-2">
-                    {walletOptions.map((wallet) => (
-                      <button
-                        key={wallet.id}
-                        onClick={() => setSelectedWallet(wallet.id)}
-                        className={`w-12 h-12 md:w-14 md:h-14 rounded-lg flex items-center justify-center text-2xl border-2 transition-all ${
-                          selectedWallet === wallet.id
-                            ? "border-blue-500 bg-blue-50"
-                            : "border-gray-200"
-                        }`}
-                        type="button"
-                      >
-                        {wallet.icon}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Payment Form */}
-              {paymentType === "bank" ? (
+              {paymentType === "mobile" ? (
                 <PayToBank
                   selectedToken={selectedToken}
                   setSelectedToken={setSelectedToken}

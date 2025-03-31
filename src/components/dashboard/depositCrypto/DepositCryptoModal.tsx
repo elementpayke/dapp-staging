@@ -228,27 +228,6 @@ const DepositCryptoModal: React.FC<DepositCryptoModalProps> = ({
                     <div className="grid md:grid-cols-5 gap-6">
                         {/* Left Column - Form */}
                         <div className="col-span-3 space-y-4">
-                            {/* Wallet Selection */}
-                            <div>
-                                <label className="block text-gray-600 mb-2">
-                                    Select wallet to deposit to
-                                </label>
-                                <div className="flex gap-2">
-                                    {walletOptions.map((wallet) => (
-                                        <button
-                                            key={wallet.id}
-                                            onClick={() => setSelectedWallet(wallet.id)}
-                                            className={`w-14 h-14 rounded-lg flex items-center justify-center text-2xl border-2 transition-all ${selectedWallet === wallet.id
-                                                ? "border-blue-500 bg-blue-50"
-                                                : "border-gray-200"
-                                                }`}
-                                            type="button"
-                                        >
-                                            {wallet.icon}
-                                        </button>
-                                    ))}
-                                </div>
-                            </div>
 
                             {/* Token and Amount */}
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
