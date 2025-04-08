@@ -176,28 +176,6 @@ const PayToMobileMoney: React.FC<PayToMobileMoneyProps> = ({
   return (
     <div className="space-y-4">
       {/* Network and Wallet Selection */}
-      {/* <div className="grid grid-cols-2 gap-4">
-        <div>
-          <label className="block text-gray-600 mb-2">
-            Select your network
-          </label>
-          <select
-            className="w-full p-3 bg-gray-50 rounded-lg border-0 text-gray-900"
-            defaultValue="Base"
-          >
-            <option value="Base">Base</option>
-          </select>
-        </div>
-        <div>
-          <label className="block text-gray-600 mb-2">Select your wallet</label>
-          <select
-            className="w-full p-3 bg-gray-50 rounded-lg border-0 text-gray-900"
-            defaultValue="Binance"
-          >
-            <option value="Binance">Binance</option>
-          </select>
-        </div>
-      </div> */}
 
       {/* M-PESA Payment Method Selector */}
       <div>
@@ -281,14 +259,26 @@ const PayToMobileMoney: React.FC<PayToMobileMoneyProps> = ({
           <input
             type="text"
             value={amount}
+          
             onChange={(e) => {
               const newValue = e.target.value.replace(/[^\d.]/g, '');
-              if (newValue === '' || parseFloat(newValue) <= totalKES) {
+            
+              if (newValue === '') {
+                setAmount('');
+                return;
+              }
+            
+              const parsedValue = parseFloat(newValue);
+            
+              if (!isNaN(parsedValue)) {
+                if (!totalKES || parsedValue <= totalKES) {
                 setAmount(newValue);
               } else {
-                setAmount(totalKES.toFixed(0).toString());
+                  setAmount(totalKES.toFixed(0).toString());
+                }
               }
             }}
+            
             className="w-full p-3 bg-gray-50 rounded-lg border-0 text-gray-900"
             placeholder="Enter amount"
           />
