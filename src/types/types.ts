@@ -199,3 +199,34 @@ export type Token = {
   decimals: number;
   address: string;
 };
+
+export type Order = {
+  order_id: string;
+  status: "pending" | "processing" | "complete" | "failed" | "settled" | "refunded";
+  amount_crypto: number;
+  amount_fiat: number;
+  currency: string;
+  exchange_rate?: number;
+  token: string;
+  invoice_id?: string;
+  file_id?: string;
+  phone_number?: string;
+  creation_transaction_hash?: string;
+  settlement_transaction_hash?: string;
+  refund_transaction_hash?: string;
+  order_type: 0 | 1; // 0 = OnRamp, 1 = OffRamp
+  wallet_address?: string;
+  created_at: string;
+  updated_at?: string;
+};
+
+export type Tx = {
+  id: string;
+  name: string;
+  time: string;
+  hash: string;
+  fullHash: string;
+  status: string;
+  description: string;
+  amount: string;
+};
