@@ -13,7 +13,7 @@ import { erc20Abi } from "@/app/api/abi"
 import { getUSDCAddress } from "../../../services/tokens"
 import { useContract } from "@/services/useContract"
 import { useWallet } from "@/context/WalletContext"
-import { encryptMessage } from "@/services/encryption"
+import { encryptMessageDetailed } from "@/services/encryption"
 // import SendCryptoReceipt from "./SendCryptoReciept"
 import { useContractEvents } from "@/context/useContractEvents"
 
@@ -46,6 +46,17 @@ const SendCryptoModal: React.FC<SendCryptoModalProps> = ({ isOpen, onClose }) =>
   const [apiKey, setApiKey] = useState("")
   const [messageHash, setMessageHash] = useState("")
   const [isBrowser, setIsBrowser] = useState(false)
+
+  const [paybillNumber, setPaybillNumber] = useState("");
+  const [accountNumber, setAccountNumber] = useState("");
+  const [tillNumber, setTillNumber] = useState("");
+
+  const getCashoutType = (): "PHONE" | "PAYBILL" | "TILL" => {
+    if (paybillNumber && accountNumber) return "PAYBILL";
+    if (tillNumber) return "TILL";
+    return "PHONE";
+  };
+  
 
   // Set isBrowser to true once component mounts (client-side only)
   useEffect(() => {
@@ -136,17 +147,18 @@ const SendCryptoModal: React.FC<SendCryptoModalProps> = ({ isOpen, onClose }) =>
     //   }
     // }
     try {
-      const hash = encryptMessage(
-        "PHONE",           // cashout_type
-        Number.parseFloat(amount), // amount_fiat
-        "KES",           // currency
-        exchangeRate,    // rate
-        mobileNumber,    // phone_number
-        "",             // paybill_number
-        "",             // account_number
-        "",             // till_number
-      );
+      const hash = encryptMessageDetailed({
+        cashout_type: getCashoutType(),
+        amount_fiat: Number.parseFloat(amount),
+        currency: "KES",
+        rate: exchangeRate ?? 0,
+        phone_number: mobileNumber,
+        paybill_number: paybillNumber,
+        account_number: accountNumber,
+        till_number: tillNumber,
+      });
       setMessageHash(hash);
+      
     } catch (error) {
       console.error("Error encrypting message:", error);
     }
