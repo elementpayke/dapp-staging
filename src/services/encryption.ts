@@ -14,20 +14,28 @@ const secret = new Fernet.Secret(SECRET_KEY);
 
 /**
  * Encrypts the message using Fernet.
- * @param phoneNumber The phone number.
- * @param currency The currency.
+ * @param cashout_type The type of cashout.
+ * @param amount_fiat The amount in fiat.
+ * @param currency The currency of the amount.
  * @param rate The exchange rate.
- * @param totalAmount The total amount.
- * @returns The encrypted message.
+ * @param phone_number The phone number.
+ * @param paybill_number The paybill number.
+ * @param account_number The account number.
+ * @param till_number The till number.
+ * @returns The encrypted message as a string.
  */
+
 export const encryptMessage = (
-  phoneNumber: string,
+  cashout_type: string,
+  amount_fiat: number,
   currency: string,
   rate: number,
-  totalAmount: number
+  phone_number: string,
+  paybill_number: string,
+  account_number: string,
+  till_number: string,
 ): string => {
-  const message = `${phoneNumber}:${currency}:${rate}:${totalAmount}`;
-
+  const message = `${cashout_type},${amount_fiat},${currency},${rate},${phone_number},${paybill_number},${account_number},${till_number}`;
   // Create a Fernet token with the secret and current time.
   const token = new Fernet.Token({
     secret: secret,
