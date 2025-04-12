@@ -135,7 +135,7 @@ const ProcessingPopup: React.FC<ProcessingPopupProps> = ({
 
     // Update the checkOrderStatus function to use the custom function if provided
     const checkOrderStatus = async () => {
-      try {
+      try { 
         let orderStatus: string = ""; // Initialize with a default value
 
         if (checkOrderStatusFn) {
