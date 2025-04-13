@@ -22,8 +22,9 @@ export const useContractEvents = (
             rate: BigNumberish,
             orderType: number
         ) => {
+            const hexOrderId = ethers.hexlify(orderId);
             const event = {
-                orderId,
+                orderId: hexOrderId,
                 token,
                 requester,
                 amount: ethers.formatUnits(amount, 6),
@@ -31,6 +32,7 @@ export const useContractEvents = (
                 rate,
                 orderType,
             };
+            console.log("Order created:", event);
             onOrderCreated(event);
         };
 

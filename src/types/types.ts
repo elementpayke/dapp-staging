@@ -128,11 +128,25 @@ type TxReceipt = {
   timestamp: string;
 };
 
-export type OrderStatusResponse = {
+export interface OrderStatusAPIData {
+  order_id: string;
+  status: OrderStatus;
+}
+
+export interface OrderStatusResponse {
   status: string;
   message: string;
-  data: OrderStatusData;
-};
+  data: OrderStatusAPIData;
+}
+export type OrderStatus =
+  | "pending"
+  | "processing"
+  | "complete"
+  | "failed"
+  | "settled"
+  | "refunded";
+
+
 
 export type StateProps = {
   formValues: FormData;
