@@ -51,7 +51,7 @@ const QuickActions: FC = () => {
           className="flex items-center justify-center gap-2 bg-gradient-to-r from-indigo-600 to-purple-500 text-white text-lg font-semibold py-4 rounded-xl shadow-lg hover:opacity-90 transition-all"
         >
           <ArrowUpRight size={24} />
-          Send Crypto
+          Spend Crypto
         </button>
 
         {/* Deposit Crypto Button */}

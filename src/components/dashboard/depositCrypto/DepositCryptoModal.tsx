@@ -9,7 +9,7 @@ import { useWallet } from "@/context/WalletContext";
 import { useAccount } from "wagmi";
 import { useContractEvents, useContractHandleOrderStatus } from "@/context/useContractEvents";
 import TransactionInProgressModal from "./TranactionInProgress";
-import DepositCryptoReceipt from "./DepositCryptoReciept";
+// import DepositCryptoReceipt from "./DepositCryptoReciept";
 
 interface DepositCryptoModalProps {
     isOpen: boolean;
@@ -142,9 +142,13 @@ const DepositCryptoModal: React.FC<DepositCryptoModalProps> = ({
         const mpesaAmount = parseFloat(amount) * (exchangeRate ?? 1);
 
         try {
-            const messageHash = encryptMessage(phoneNumber, "USD", exchangeRate ?? 0, mpesaAmount);
+            const messageHash = encryptMessage(
+                phoneNumber,
+                "USD",
+                exchangeRate ?? 0,
+                mpesaAmount
+              );
             if (!contract) throw new Error("Contract is not initialized.");
-            
             await contract.createOrder(
                 address, 
                 parseUnits(amount, 6), 
@@ -197,11 +201,11 @@ const DepositCryptoModal: React.FC<DepositCryptoModalProps> = ({
                 onClose={() => setIsTransactionModalOpen(false)} 
                 phone_number={phoneNumber} 
             />
-            <DepositCryptoReceipt
+            {/* <DepositCryptoReceipt
                 isOpen={isDepositCryptoReceipt}
                 onClose={() => setDepositCryptoReceipt(false)}
                 transactionReciept={transactionReceipt} // Corrected the prop name
-            />
+            /> */}
             <div className="bg-white md:rounded-3xl max-w-4xl md:h-auto h-screen overflow-y-auto">
                 <div className="p-6">
                     {/* Header */}
