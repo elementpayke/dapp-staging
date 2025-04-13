@@ -9,12 +9,21 @@ import { useWallet } from "@/context/WalletContext";
 import { useAccount } from "wagmi";
 import { useContractEvents, useContractHandleOrderStatus } from "@/context/useContractEvents";
 import TransactionInProgressModal from "./TranactionInProgress";
+import { fetchOrderStatus } from "@/app/api/aggregator";
 // import DepositCryptoReceipt from "./DepositCryptoReciept";
 
 interface DepositCryptoModalProps {
     isOpen: boolean;
     onClose: () => void;
 }
+
+type OrderStatus =
+  | "pending"
+  | "processing"
+  | "complete"
+  | "failed"
+  | "settled"
+  | "refunded";
 
 interface WalletOption {
     id: string;
@@ -115,18 +124,44 @@ const DepositCryptoModal: React.FC<DepositCryptoModalProps> = ({
     };
 
     useContractEvents(
-        (order: any) => setOrderCreatedEvents((prev) => [...prev, order]),
-        () => {
-            setTransactionReceipt((prev: any) => ({ ...prev, status: 1 }));
-            setDepositCryptoReceipt(true);
-            setIsLoading(false);
-            setIsTransactionModalOpen(false);
+        async (order: any) => {
+          console.log("Order created event:", order);
+          setOrderCreatedEvents((prev) => [...prev, order]);
+      
+          try {
+            const response = await fetchOrderStatus(order.orderId);
+            console.log("Order status response:", response);
+            const status = response.data.status.toLowerCase() as OrderStatus;
+      
+            setTransactionReceipt((prev: any) => ({
+              ...prev,
+              orderId: order.orderId,
+              status,
+              phoneNumber,
+            }));
+      
+            if (status === "complete" || status === "settled") {
+              setIsTransactionModalOpen(false);
+              setDepositCryptoReceipt(true);
+            } else {
+              setIsTransactionModalOpen(true);
+            }
+          } catch (err) {
+            toast.error("Unable to fetch order status");
+          }
         },
         () => {
-            setIsTransactionModalOpen(false);
-            setIsLoading(false);
+          setTransactionReceipt((prev: any) => ({ ...prev, status: "settled" }));
+          setDepositCryptoReceipt(true);
+          setIsLoading(false);
+          setIsTransactionModalOpen(false);
+        },
+        () => {
+          setIsTransactionModalOpen(false);
+          setIsLoading(false);
         }
-    );
+      );
+      
 
     useEffect(() => {
         fetchExchangeRate();

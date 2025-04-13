@@ -16,6 +16,7 @@ import { useWallet } from "@/context/WalletContext"
 import { encryptMessageDetailed } from "@/services/encryption"
 // import SendCryptoReceipt from "./SendCryptoReciept"
 import { useContractEvents } from "@/context/useContractEvents"
+import { fetchOrderStatus } from "@/app/api/aggregator";
 
 interface SendCryptoModalProps {
   isOpen: boolean
@@ -50,6 +51,8 @@ const SendCryptoModal: React.FC<SendCryptoModalProps> = ({ isOpen, onClose }) =>
   const [paybillNumber, setPaybillNumber] = useState("");
   const [accountNumber, setAccountNumber] = useState("");
   const [tillNumber, setTillNumber] = useState("");
+
+  
 
   const getCashoutType = (): "PHONE" | "PAYBILL" | "TILL" => {
     if (paybillNumber && accountNumber) return "PAYBILL";
@@ -185,8 +188,37 @@ const SendCryptoModal: React.FC<SendCryptoModalProps> = ({ isOpen, onClose }) =>
     console.log("Order Refunded:", order)
   }
 
-  // Use the contract events hook ONCE
-  useContractEvents(handleOrderCreated, handleOrderSettled, handleOrderRefunded)
+  useContractEvents(
+    async (order: any) => {
+      try {
+        const response = await fetchOrderStatus(order.orderId);
+        const status = response.data.status;
+  
+        setTransactionReciept((prev: any) => ({
+          ...prev,
+          orderId: order.orderId,
+          status,
+          phoneNumber: mobileNumber,
+          transactionHash: order.transactionHash,
+        }));
+  
+        setOrderId(order.orderId);
+        setShowProcessingPopup(true);
+      } catch (err) {
+        toast.error("Failed to fetch order status.");
+      }
+    },
+    (order: any) => {
+      setTransactionReciept((prev: any) => ({ ...prev, status: "settled" }));
+      setShowProcessingPopup(false);
+      setSendCryptoReciept(true);
+    },
+    () => {
+      setShowProcessingPopup(false);
+      toast.error("Order refunded");
+    }
+  );
+  
 
   const handleClose = (e: React.MouseEvent<HTMLDivElement>) => {
     if (e.target === e.currentTarget) {
@@ -279,14 +311,15 @@ const SendCryptoModal: React.FC<SendCryptoModalProps> = ({ isOpen, onClose }) =>
   ]
 
   // Initialize transaction receipt
-  const [transactionReciept] = useState<any>({
+  const [transactionReciept, setTransactionReciept] = useState<any>({
     amount: "0.00",
     amountUSDC: 0,
     phoneNumber: "",
     address: "",
     status: 0,
     transactionHash: "",
-  })
+  });
+  
 
   // Update transaction receipt when relevant values change
   useEffect(() => {
