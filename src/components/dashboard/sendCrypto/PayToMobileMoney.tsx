@@ -10,7 +10,15 @@ interface PayToMobileMoneyProps {
   reason: string;
   setReason: (value: string) => void;
   totalKES: number;
+  tillNumber: string;
+  setTillNumber: (value: string) => void;
+  paybillNumber: string;
+  setPaybillNumber: (value: string) => void;
+  accountNumber: string;
+  setAccountNumber: (value: string) => void;
+  setCashoutType: (type: "PHONE" | "TILL" | "PAYBILL") => void;
 }
+
 
 type PaymentMethod = "Send Money" | "Pay Bill" | "Buy Goods" | "Pochi La Biashara";
 
@@ -23,11 +31,17 @@ const PayToMobileMoney: React.FC<PayToMobileMoneyProps> = ({
   setMobileNumber,
   reason,
   setReason,
-  totalKES
+  totalKES,
+  tillNumber,
+  setTillNumber,
+  paybillNumber,
+  setPaybillNumber,
+  accountNumber,   
+  setAccountNumber,
+  setCashoutType,
 }) => {
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("Send Money");
   const [businessNumber, setBusinessNumber] = useState("");
-  const [accountNumber, setAccountNumber] = useState("");
   const [showRecipientName, setShowRecipientName] = useState(false);
   const [recipientName, setRecipientName] = useState("");
   const [recentRecipients] = useState([
@@ -36,11 +50,27 @@ const PayToMobileMoney: React.FC<PayToMobileMoneyProps> = ({
     { name: "KPLC", number: "888888", type: "Pay Bill", account: "12345" }
   ]);
 
-  // Simulate fetching recent recipients
   useEffect(() => {
-    // In a real app, this would fetch from an API or local storage
-  }, []);
-
+    switch (paymentMethod) {
+      case "Pay Bill":
+        setTillNumber("");
+        setCashoutType("PAYBILL");
+        break;
+      case "Buy Goods":
+        setPaybillNumber("");
+        setAccountNumber("");
+        setCashoutType("TILL");
+        break;
+      case "Send Money":
+      case "Pochi La Biashara":
+        setPaybillNumber("");
+        setAccountNumber("");
+        setTillNumber("");
+        setCashoutType("PHONE");
+        break;
+    }
+  }, [paymentMethod]);
+  
   // Simulate recipient name lookup after entering mobile number
   useEffect(() => {
     if (paymentMethod === "Send Money" && mobileNumber.length >= 10) {
@@ -69,7 +99,7 @@ const PayToMobileMoney: React.FC<PayToMobileMoneyProps> = ({
       return "Please enter a valid 10-digit mobile number";
     }
     
-    if (paymentMethod === "Pay Bill" && !businessNumber) {
+    if (paymentMethod === "Pay Bill" && !paybillNumber) {
       return "Business number is required";
     }
     
@@ -110,8 +140,8 @@ const PayToMobileMoney: React.FC<PayToMobileMoneyProps> = ({
               <label className="block text-gray-600 mb-2">Business Number</label>
               <input
                 type="text"
-                value={businessNumber}
-                onChange={(e) => setBusinessNumber(e.target.value.replace(/[^\d]/g, ''))}
+                value={paybillNumber}
+                onChange={(e) => setPaybillNumber(e.target.value.replace(/[^\d]/g, ''))}
                 className="w-full p-3 bg-gray-50 rounded-lg border-0 text-gray-900"
                 placeholder="e.g., 888888"
               />
@@ -136,8 +166,8 @@ const PayToMobileMoney: React.FC<PayToMobileMoneyProps> = ({
               <label className="block text-gray-600 mb-2">Till Number</label>
               <input
                 type="text"
-                value={businessNumber}
-                onChange={(e) => setBusinessNumber(e.target.value.replace(/[^\d]/g, ''))}
+                value={tillNumber}
+                onChange={(e) => setTillNumber(e.target.value.replace(/[^\d]/g, ''))}
                 className="w-full p-3 bg-gray-50 rounded-lg border-0 text-gray-900"
                 placeholder="e.g., 567890"
               />
@@ -216,7 +246,7 @@ const PayToMobileMoney: React.FC<PayToMobileMoneyProps> = ({
                 onClick={() => {
                   setMobileNumber(recipient.number);
                   if (recipient.type === "Pay Bill") {
-                    setBusinessNumber(recipient.number);
+                    setPaybillNumber(recipient.number);
                     setAccountNumber(recipient.account || "");
                   } else if (recipient.type === "Buy Goods") {
                     setBusinessNumber(recipient.number);
