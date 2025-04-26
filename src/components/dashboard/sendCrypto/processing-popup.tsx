@@ -64,12 +64,12 @@ const ProcessingPopup: React.FC<ProcessingPopupProps> = ({
   apiKey,
   checkOrderStatusFn,
   transactionDetails = {
-    amount: "$250.00",
-    currency: "USD",
-    recipient: "Acme Corporation",
-    paymentMethod: "Credit Card •••• 4242",
+    amount: "ksh 100",
+    currency: "KES",
+    recipient: "James Mwangi",
+    paymentMethod: "M-Pesa",
     transactionHash: "0x3a8d7f6e5b4c2d1e0f9a8b7c6d5e4f3a2b1c0d9e8",
-    date: new Date().toLocaleString(),
+    date: new Date().toISOString(),
     receiptNumber: `RCP-${Math.floor(Math.random() * 1000000)
       .toString()
       .padStart(6, "0")}`,
@@ -78,7 +78,7 @@ const ProcessingPopup: React.FC<ProcessingPopupProps> = ({
   branding = {
     primaryColor: "#4f46e5",
     companyName: "Your Company",
-    footerMessage: "Thank you for your business!",
+    footerMessage: "Thank you for using elementpay for your transactions.",
     receiptTitle: "Payment Receipt",
   },
   sendReceiptEmail,
@@ -115,7 +115,7 @@ const ProcessingPopup: React.FC<ProcessingPopupProps> = ({
 
     // Reset states when popup becomes visible
     setStatus("processing")
-    setStatusMessage("Processing your payment...")
+    setStatusMessage("taradhali subiri")
     setProgress(0)
     setShowConfetti(false)
     setCopied(false)
@@ -135,62 +135,35 @@ const ProcessingPopup: React.FC<ProcessingPopupProps> = ({
 
     // Update the checkOrderStatus function to use the custom function if provided
     const checkOrderStatus = async () => {
-      try { 
-        let orderStatus: string = ""; // Initialize with a default value
+      try {
+        // Simulate a delay for checking order status
+        await new Promise((resolve) => setTimeout(resolve, 2000));
 
-        if (checkOrderStatusFn) {
-          // Use the provided function
-        //   orderStatus = await checkOrderStatusFn(orderId)
-        // } else {
-          // Use the default fetch implementation
-          console.log("***********************************************************************")
-          console.log("orderId:", orderId)
-          console.log("***********************************************************************")
-          const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/orders/${orderId}`, {
-            method: "GET",
-            headers: {
-              'x-api-key': process.env.NEXT_PUBLIC_AGGR_API_KEY || '',
-              "Content-Type": "application/json",
-            },
-          })
+        // Randomly select an order status for testing
+        const statuses = ["processing", "success", "failed"];
+        const orderStatus = statuses[Math.floor(Math.random() * statuses.length)];
 
-          console.log("Response status:", response.status)
-          orderStatus = response.statusText;
-
-          //if (response.status === 404) we keep checking as the order is not yet created
-          if (response.status === 404) {
-            setTimeout(checkOrderStatus, 2000)
-            return
-          }
-          if (!response.ok) {
-            throw new Error(`Failed to fetch order status: ${response.status}`)
-          }
-
-          orderStatus = await response.text()
-        }
-
-        // Update UI based on order status
-        if (orderStatus === "completed" || orderStatus === "success") {
-          setStatus("success")
-          setStatusMessage("Payment successful!")
-          setProgress(100)
-          setShowConfetti(true)
-          // Don't auto close when showing transaction details
-        } else if (orderStatus === "failed" || orderStatus === "rejected") {
-          setStatus("failed")
-          setStatusMessage("Payment failed. Please try again.")
-          setProgress(100)
+        // Update UI based on simulated order status
+        if (orderStatus === "success") {
+          setStatus("success");
+          setStatusMessage("Payment successful!");
+          setProgress(100);
+          setShowConfetti(true);
+        } else if (orderStatus === "failed") {
+          setStatus("failed");
+          setStatusMessage("Payment failed. Please try again.");
+          setProgress(100);
         } else {
-          // If still processing, check again after a delay
-          setTimeout(checkOrderStatus, 2000)
+          // If still processing, simulate another check
+          setTimeout(checkOrderStatus, 2000);
         }
       } catch (error) {
-        console.error("Error checking order status:", error)
-        setStatus("failed")
-        setStatusMessage("Error checking payment status. Please check your wallet.")
-        setProgress(100)
+        console.error("Error checking order status:", error);
+        setStatus("failed");
+        setStatusMessage("Error checking payment status. Please check your wallet.");
+        setProgress(100);
       }
-    }
+    };
 
     // Start checking status after a short delay
     const statusCheckTimeout = setTimeout(checkOrderStatus, 1000)
@@ -1268,10 +1241,10 @@ const ProcessingPopup: React.FC<ProcessingPopupProps> = ({
                         </div>
 
                         {/* QR Code */}
-                        <div className="p-4 border-t border-gray-100 flex flex-col items-center">
+                        {/* <div className="p-4 border-t border-gray-100 flex flex-col items-center">
                           <QRCode value={transactionDetails.transactionHash} size={100} renderAs="svg" />
                           <div className="text-xs text-gray-500 mt-2">Scan to verify transaction</div>
-                        </div>
+                        </div> */}
 
                         {/* Receipt Footer */}
                         <div className="p-4 border-t border-gray-100 text-center">
