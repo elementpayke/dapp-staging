@@ -17,6 +17,9 @@ import { encryptMessageDetailed } from "@/services/encryption"
 // import SendCryptoReceipt from "./SendCryptoReciept"
 import { useContractEvents } from "@/context/useContractEvents"
 import { fetchOrderStatus } from "@/app/api/aggregator";
+import ConfirmationModal from "./ConfirmationModal"
+import { get } from "axios"
+
 
 interface SendCryptoModalProps {
   isOpen: boolean
@@ -52,13 +55,58 @@ const SendCryptoModal: React.FC<SendCryptoModalProps> = ({ isOpen, onClose }) =>
   const [accountNumber, setAccountNumber] = useState("");
   const [tillNumber, setTillNumber] = useState("");
 
-  
+  const [showValidationModal, setShowValidationModal] = useState(false)
+  const [validatedAccountInfo, setValidatedAccountInfo] = useState("")
+  const [proceedAfterValidation, setProceedAfterValidation] = useState<() => void>(() => () => {})
+  const [modalMode, setModalMode] = useState<"confirm" | "error">("confirm");
+
+  const [cashoutType, setCashoutType] = useState<"PHONE" | "PAYBILL" | "TILL">("PHONE");
+
 
   const getCashoutType = (): "PHONE" | "PAYBILL" | "TILL" => {
     if (paybillNumber && accountNumber) return "PAYBILL";
     if (tillNumber) return "TILL";
     return "PHONE";
   };
+
+  const getAccountTypeForIntaSend = (): "TillNumber" | "PayBill" => {
+    const type = getCashoutType();
+    if (type === "TILL") return "TillNumber";
+    if (type === "PAYBILL") return "PayBill";
+    return "TillNumber";
+  };
+  
+
+  const validateAccount = async () => {
+    try {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/orders/validate-account`, {
+        method: "POST",
+        headers: {
+          "x-api-key": process.env.NEXT_PUBLIC_AGGR_API_KEY!,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          account: tillNumber || paybillNumber,
+          provider: "MPESA-B2B",
+          account_type: getAccountTypeForIntaSend(),
+        }),
+      });
+  
+      const result = await response.json();
+
+      if (!response.ok) {
+        const message = result?.errors?.[0]?.detail || "Account validation failed";
+        throw new Error(message);
+      }
+
+      setValidatedAccountInfo(result.name || "Unknown Payee");
+      return true;
+    } catch (err: any) {
+      toast.error(err.message || "Failed to validate account.");
+      return false;
+    }
+  }; 
+  
   
 
   // Set isBrowser to true once component mounts (client-side only)
@@ -151,15 +199,16 @@ const SendCryptoModal: React.FC<SendCryptoModalProps> = ({ isOpen, onClose }) =>
     // }
     try {
       const hash = encryptMessageDetailed({
-        cashout_type: getCashoutType(),
-        amount_fiat: Number.parseFloat(amount),
-        currency: "KES",
-        rate: exchangeRate ?? 0,
-        phone_number: mobileNumber,
-        paybill_number: paybillNumber,
-        account_number: accountNumber,
-        till_number: tillNumber,
-      });
+      cashout_type: getCashoutType(),
+      amount_fiat: Number.parseFloat(amount),
+      currency: "KES",
+      rate: exchangeRate ?? 0,
+      phone_number: getCashoutType() === "PHONE" ? mobileNumber : "",
+      paybill_number: getCashoutType() === "PAYBILL" ? paybillNumber : "",
+      account_number: getCashoutType() === "PAYBILL" ? accountNumber : "",
+      till_number: getCashoutType() === "TILL" ? tillNumber : "",
+    });
+
       setMessageHash(hash);
       
     } catch (error) {
@@ -226,6 +275,50 @@ const SendCryptoModal: React.FC<SendCryptoModalProps> = ({ isOpen, onClose }) =>
     }
   }
 
+  const executeTokenApproval = async () => {
+    try {
+      setIsApproving(true)
+      const tokenAddress = usdcTokenAddress
+      const spenderAddress = smartcontractaddress as `0x${string}`
+      const orderType = 1
+  
+      await writeContractAsync({
+        address: tokenAddress,
+        abi: erc20Abi,
+        functionName: "approve",
+        args: [spenderAddress, parseUnits(transactionSummary.totalUSDC.toString(), 6)],
+      })
+  
+      const tx = await contract!.createOrder(
+        address,
+        parseUnits(transactionSummary.totalUSDC.toString(), 6),
+        usdcTokenAddress,
+        orderType,
+        messageHash
+      )
+  
+      const transactionReceipt = {
+        amount,
+        amountUSDC: Number(amount) * (exchangeRate ?? 1),
+        phoneNumber: mobileNumber,
+        address: account.address || "",
+        status: 1,
+        transactionHash: tx.hash || "",
+      }
+  
+      setTransactionReciept(transactionReceipt)
+      setOrderId(tx.hash || "pending")
+      setShowProcessingPopup(true)
+    } catch (error: any) {
+      toast.error(error?.message || "Transaction failed.")
+    } finally {
+      setIsApproving(false)
+      setIsProcessing(true)
+      setSendCryptoReciept(true)
+    }
+  }
+
+  
   const handleApproveToken = async () => {
     if (!account.address) {
       toast.error("Please connect your wallet first")
@@ -241,67 +334,23 @@ const SendCryptoModal: React.FC<SendCryptoModalProps> = ({ isOpen, onClose }) =>
       toast.error("Message encryption failed. Please try again.")
       return
     }
-
-    try {
-      setIsApproving(true)
-
-      const tokenAddress = usdcTokenAddress
-      const spenderAddress = smartcontractaddress as `0x${string}`
-      if (!spenderAddress) {
-        toast.error("Spender address is not defined")
-        return
-      }
-      const orderType = 1
-
-      await writeContractAsync({
-        address: tokenAddress,
-        abi: erc20Abi,
-        functionName: "approve",
-        args: [spenderAddress, parseUnits(transactionSummary.totalUSDC.toString(), 6)],
-      })
-
-      try {
-        if (!contract) throw new Error("Contract is not initialized.")
-        
-        const tx = await contract.createOrder(
-          address,
-          parseUnits(transactionSummary.totalUSDC.toString(), 6),
-          usdcTokenAddress,
-          orderType,
-          messageHash,
-        )
-        
-        // Update transaction receipt
-        const transactionReceipt = {
-          amount: amount || "0.00",
-          amountUSDC: Number(amount) * (exchangeRate ?? 1) || 0,
-          phoneNumber: mobileNumber || "",
-          address: account.address || "",
-          status: 1,
-          transactionHash: tx.hash || "",
-        }
-        
-        console.log("Transaction hash:", tx.hash)
-        toast.info("Transaction submitted. Awaiting confirmation...")
-
-        // Set order ID and show processing popup
-        const newOrderId = tx.hash || "pending"
-        setOrderId(newOrderId)
-        setShowProcessingPopup(true)
-      } catch (error: any) {
-        console.error("Error creating order:", error)
-        toast.error(error?.message || "Transaction failed.")
-      } finally {
-        setIsApproving(false)
-        setIsProcessing(true)
-        setSendCryptoReciept(true)
-      }
-    } catch (error: any) {
-      console.error("Approval error:", error)
-      toast.error(error?.shortMessage || "Failed to approve token")
-      setIsApproving(false)
-      setIsProcessing(false)
+    let cashout_type = getCashoutType()
+    console.log("Cashout Type:", cashout_type)
+    if (cashout_type === "PAYBILL" || cashout_type === "TILL") {
+      const isValid = await validateAccount();
+    if (!isValid) {
+      setShowValidationModal(true);
+      setModalMode("error");
+      setValidatedAccountInfo("Invalid account or business number.");
+      return;
     }
+    
+    setProceedAfterValidation(() => executeTokenApproval);
+    setShowValidationModal(true);
+    setModalMode("confirm");
+      
+    }
+    await executeTokenApproval();
   }
 
   const walletOptions: WalletOption[] = [
@@ -380,7 +429,15 @@ const SendCryptoModal: React.FC<SendCryptoModalProps> = ({ isOpen, onClose }) =>
                 reason={reason}
                 setReason={setReason}
                 totalKES={transactionSummary.totalKES}
+                tillNumber={tillNumber}
+                setTillNumber={setTillNumber}
+                paybillNumber={paybillNumber}
+                setPaybillNumber={setPaybillNumber}
+                accountNumber={accountNumber}
+                setAccountNumber={setAccountNumber}
+                setCashoutType={setCashoutType}
               />
+
 
               {/* Favorite Option */}
               <div className="flex items-center gap-2">
@@ -462,6 +519,21 @@ const SendCryptoModal: React.FC<SendCryptoModalProps> = ({ isOpen, onClose }) =>
             </div>
           </div>
         </div>
+        {/* Confirmation Modal */}
+        <ConfirmationModal
+          isOpen={showValidationModal}
+          onClose={() => setShowValidationModal(false)}
+          onConfirm={proceedAfterValidation}
+          accountInfo={validatedAccountInfo}
+          amountKES={transactionSummary.kesAmount}
+          accountNumber={accountNumber}
+          cashoutType={getCashoutType()}
+          mode={modalMode}
+          errorMessage={validatedAccountInfo}
+        />
+
+
+
 
         {/* Processing Popup */}
         {isBrowser && (
