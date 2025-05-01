@@ -139,9 +139,10 @@ const Footer = () => {
         </div>
 
         {/* Copyright */}
+        {/* Copyright */}
         <div className="pt-8 border-t border-gray-200">
           <p className="text-center text-gray-600">
-            © 2024 Elementpay. All rights reserved.
+            © {new Date().getFullYear()} Elementpay. All rights reserved.
           </p>
         </div>
       </div>

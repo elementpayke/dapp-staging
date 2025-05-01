@@ -511,11 +511,6 @@ const SendCryptoModal: React.FC<SendCryptoModalProps> = ({ isOpen, onClose }) =>
                   <span className="text-gray-600">USDC {transactionSummary.remainingBalance.toFixed(6)}</span>
                 </div>
               </div>
-
-              <div className="mt-3 text-sm text-gray-500">
-                We&apos;ll use your available balance when you shop online or send money for goods and services. If you
-                don&apos;t have enough money in your balance, we&apos;ll ask you to pick another wallet at checkout.
-              </div>
             </div>
           </div>
         </div>
