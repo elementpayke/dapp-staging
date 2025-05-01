@@ -1,25 +1,31 @@
 import React from "react";
-import { Wallet, ShieldCheck, Clock } from "lucide-react";
+import { Wallet, ShieldCheck, Clock, PiggyBank } from "lucide-react";
 
 const WhyWeRock = () => {
   const features = [
     {
       icon: Wallet,
-      title: "Connect Multiple Wallets",
+      title: "One Wallet, Every Transaction",
       description:
-        "Connect multiple wallets to your ElementPay account and send and deposit crypto in any of them instantly.",
+        "Link all your wallets in one place and experience the freedom to send, receive, and manage crypto seamlessly — all from your ElementPay dashboard.",
+    },
+    {
+      icon: PiggyBank,
+      title: "Micropayments from Just KES 10",
+      description:
+        "No amount is too small. Buy, pay, or tip — even with just 10 bob. Perfect for daily use, low fees, and instant processing.",
     },
     {
       icon: ShieldCheck,
-      title: "No KYC needed",
+      title: "Your Privacy. Your Power.",
       description:
-        "We don't want to know you or what you do with your accounts. We simply enable you to transact seamlessly.",
+        "We’re privacy-first. No unnecessary data collection. Just safe, secure transactions on your terms — now and always.",
     },
     {
       icon: Clock,
-      title: "Pay for anything. No waiting times",
+      title: "Instant Everything",
       description:
-        "When you pay, it reflects instantly. And now you can use your tokens to pay for any of your bill.",
+        "Say goodbye to waiting. Pay bills, buy services, or send funds — and see it reflect in real-time, every time.",
     },
   ];
 
@@ -30,18 +36,18 @@ const WhyWeRock = () => {
         <div className="text-center mb-12 md:mb-16">
           <div className="inline-flex flex-col items-center">
             <h2 className="text-xl md:text-2xl lg:text-3xl font-semibold text-[#546894] mb-4">
-              Why we rock!
+              Built for Real Life. Powered by You.
             </h2>
             <div className="h-0.5 bg-[#a6a6a6] w-full"></div>
           </div>
         </div>
 
         {/* Features Grid */}
-        <div className="grid md:grid-cols-3 gap-8 md:gap-12">
+        <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8 md:gap-12">
           {features.map((feature, index) => (
             <div
               key={index}
-              className="flex flex-col items-start text-left p-6"
+              className="flex flex-col items-start text-left p-6 bg-white rounded-2xl shadow-md hover:shadow-lg transition-shadow duration-300"
             >
               <div className="mb-4 p-3 bg-[#e6e6e8] rounded-full shadow-sm relative">
                 <svg width="32" height="32">

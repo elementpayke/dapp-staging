@@ -16,17 +16,17 @@ const faqs: FAQItem[] = [
   {
     question: "How do I spend my crypto with ElementPay?",
     answer:
-      "Spending crypto is simple with ElementPay! Pay directly with Ethereum or stablecoins. If the merchant doesn&apos;t accept crypto, ElementPay converts it to fiat and sends it to their M-Pesa or bank account.",
+      "Spending crypto is simple with ElementPay! Pay directly with Ethereum or stablecoins. If the merchant doesn’t accept crypto, ElementPay converts it to fiat and sends it to their M-Pesa or bank account.",
   },
   {
     question: "What are the fees?",
     answer:
-      "ElementPay covers all transaction fees, ensuring you save money while using our services. Enjoy fast, secure, and cost-free transactions.",
+      "At ElementPay, we believe in making crypto accessible for everyone. Our fees start as low as just 1 KES! Whether you're buying a coffee, paying for transport, or doing a larger transaction, our low fees ensure you get the most value out of every payment.",
   },
   {
     question: "What do I need to sign up?",
     answer:
-      "Nothing! There&apos;s no complicated sign-up process. Just go to our website, link your wallet, and start using it immediately.",
+      "Nothing! There’s no complicated sign-up process. Just go to our website, link your wallet, and start using it immediately.",
   },
   {
     question: "Can I withdraw my crypto back to fiat?",
@@ -37,6 +37,11 @@ const faqs: FAQItem[] = [
     question: "Do I need a specific wallet to use ElementPay?",
     answer:
       "Any Ethereum-compatible wallet, like MetaMask, Trust Wallet, or Coinbase Wallet, works with ElementPay. Just connect and start transacting seamlessly.",
+  },
+  {
+    question: "Can I use ElementPay for small payments like KES 10 or less?",
+    answer:
+      "Absolutely! ElementPay is built for micropayments. You can pay as little as KES 1 using your crypto wallet. Perfect for everyday spending — and no need to worry about high gas fees, we've got you covered.",
   },
   {
     question: "I have another question.",

@@ -1,67 +1,55 @@
 import React from "react";
-import Image from "next/image";
-import { Check } from "lucide-react";
 
-// Import images directly
-import tokensActions from "@/assets/Tokens Section/tokens-action.png";
-
-// Constants for image metadata
-const IMAGES = {
-  tokensActions: {
-    src: tokensActions,
-    alt: "Token actions flow diagram",
-    width: 600,
-    height: 600,
+const testimonials = [
+  {
+    name: "David",
+    location: "Nairobi",
+    feedback: "I paid for my boda ride with just 50 KES using USDC. No waiting, just pure convenience!",
   },
-};
+  {
+    name: "Jane",
+    location: "Kisumu",
+    feedback: "I used ElementPay to shop for groceries worth 5000 KES. Quick, secure, and seamless. This is the future of payments!",
+  },
+  {
+    name: "Julius",
+    location: "Mombasa",
+    feedback: "Paid Mama Mboga 20 KES for veggies using crypto. I never thought this day would come!",
+  },
+  {
+    name: "Rachel",
+    location: "Nyeri",
+    feedback: "ElementPay is my go-to for paying everyday bills—from transport to shopping. All in one place, fast and affordable.",
+  },
+];
 
-const TokensSection = () => {
+const Testimonials = () => {
   return (
-    <div className="bg-[#d7d7fc] min-h-screen overflow-hidden">
-      <div className="max-w-[1800px] mx-auto px-4 lg:px-8 py-16 md:py-24">
-        <div className="grid lg:grid-cols-2 gap-8 lg:gap-16 items-center">
-          {/* Left Column - Text Content */}
-          <div className="max-w-2xl">
-            <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold leading-tight mb-6 text-gray-900">
-              Your tokens can now do so much more
-            </h1>
-            <p className="text-xl md:text-2xl text-gray-700 mb-8">
-              Your tokens can now pay for anything. What do you need to pay for
-              today?
-            </p>
+    <div className="bg-[#f0f4ff] py-20 px-6 md:px-12">
+      <div className="max-w-6xl mx-auto text-center">
+        <h2 className="text-3xl md:text-4xl font-bold text-[#1c2b4d] mb-10">
+          Real Stories. Real Impact.
+        </h2>
+        <p className="text-lg text-gray-600 mb-16 max-w-2xl mx-auto">
+          ElementPay is transforming how Kenyans make payments—whether for your daily commute, shopping, or paying your local vendor. Here's how we're making it easier for everyday transactions.
+        </p>
 
-            {/* Buttons and KYC text */}
-            <div className="flex flex-wrap items-center gap-4">
-              <button className="bg-gradient-to-r from-[#0514eb] to-[#de0413] text-white px-6 py-3 rounded-full text-lg font-medium hover:opacity-90 transition-all">
-                Create a Wallet
-              </button>
-              <button className="bg-white text-gray-900 px-6 py-3 rounded-full text-lg font-medium hover:bg-gray-50 transition-all">
-                Connect a Wallet
-              </button>
-              <div className="flex items-center gap-2">
-                <div className="bg-blue-600 rounded-full w-5 h-5 flex items-center justify-center">
-                  <Check className="w-3 h-3 text-white" strokeWidth={3} />
-                </div>
-                <span className="text-gray-700">No KYC required</span>
-              </div>
+        <div className="grid md:grid-cols-2 gap-10">
+          {testimonials.map((item, index) => (
+            <div
+              key={index}
+              className="bg-white rounded-2xl shadow-md p-6 text-left border-l-4 border-[#0514eb]"
+            >
+              <p className="text-gray-700 italic mb-4">"{item.feedback}"</p>
+              <p className="text-sm text-gray-500 font-semibold">
+                — {item.name}, {item.location}
+              </p>
             </div>
-          </div>
-
-          {/* Right Column - Image */}
-          <div className="relative w-full h-[400px] lg:h-[600px]">
-            <Image
-              src={IMAGES.tokensActions.src}
-              alt={IMAGES.tokensActions.alt}
-              fill
-              className="object-contain"
-              sizes="(max-width: 768px) 100vw, 50vw"
-              priority
-            />
-          </div>
+          ))}
         </div>
       </div>
     </div>
   );
 };
 
-export default TokensSection;
+export default Testimonials;
