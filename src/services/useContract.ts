@@ -17,6 +17,8 @@ import { CONTRACT_ABI, CONTRACT_ADDRESS } from '../app/api/abi';
  * 4. Instantiates an ethers.js Contract with the provided contract address, ABI, and signer.
  * 5. Returns the contract instance along with the connected wallet address.
  */
+
+//@TODO maybe check and confirm if we realy need this hook
 export const useContract = () => {
   // Get the connected wallet address and connection status from wagmi.
   const { address, isConnected } = useAccount();
@@ -54,8 +56,7 @@ export const useContract = () => {
       CONTRACT_ABI,     // The contract's ABI
       signer            // The signer for sending transactions
     );
-  }, [isConnected, address, signer]);
-  
+  }, [isConnected, address, signer, contractAddress]); // Added contractAddress to the dependency array
 
   const contractWithProvider = useMemo(() => {
     if (!provider) return null;
@@ -65,7 +66,7 @@ export const useContract = () => {
       CONTRACT_ABI,     // The contract's ABI
       provider          // The signer for sending transactions
     );
-  }, [provider]);
+  }, [provider, contractAddress]); // Added contractAddress to the dependency array
 
 
   // Return the contract instance and the connected wallet address.

@@ -9,7 +9,7 @@ import type {
   OrderStatusResponse,
 } from "../../types/types";
 
-const AGGREGATOR_URL = process.env.NEXT_PUBLIC_AGGREGATOR_URL;
+const AGGREGATOR_URL = process.env.NEXT_PUBLIC_API_URL;
 const PROVIDER_ID = process.env.NEXT_PUBLIC_PROVIDER_ID;
 
 export const fetchRate = async ({
@@ -68,12 +68,19 @@ export const fetchAccountName = async (
 };
 
 export const fetchOrderStatus = async (
-  orderId: string,
+  orderId: string
 ): Promise<OrderStatusResponse> => {
   try {
     const response = await axios.get<OrderStatusResponse>(
-      `${AGGREGATOR_URL}/orders/${orderId}`
+      `${AGGREGATOR_URL}/orders/${orderId}`,
+      {
+        headers: {
+          "x-api-key": process.env.NEXT_PUBLIC_AGGR_API_KEY || "",
+          "Content-Type": "application/json",
+        },
+      }
     );
+    console.log("Order status response:", response.data);
     return response.data;
   } catch (error) {
     console.error("Error fetching order status:", error);

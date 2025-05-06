@@ -3,6 +3,8 @@ import Fernet from 'fernet';
 // Ensure you set the secret key in your environment variables with a NEXT_PUBLIC prefix.
 // Use the hard-coded value for now.
 // TODI: Replace this with a dynamic secret key from the env.
+
+
 const SECRET_KEY = "Nt-H5Ofmhk1JonVFjrRJr_pV6p-oADX_FdrQyFAqx5Y=";
 
 if (!SECRET_KEY) {
@@ -14,42 +16,61 @@ const secret = new Fernet.Secret(SECRET_KEY);
 
 /**
  * Encrypts the message using Fernet.
- * @param phoneNumber The phone number.
- * @param currency The currency.
+ * @param cashout_type The type of cashout.
+ * @param amount_fiat The amount in fiat.
+ * @param currency The currency of the amount.
  * @param rate The exchange rate.
- * @param totalAmount The total amount.
- * @returns The encrypted message.
+ * @param phone_number The phone number.
+ * @param paybill_number The paybill number.
+ * @param account_number The account number.
+ * @param till_number The till number.
+ * @returns The encrypted message as a string.
  */
+
 export const encryptMessage = (
   phoneNumber: string,
   currency: string,
   rate: number,
-  totalAmount: number
+  amountFiat: number
 ): string => {
-  const message = `${phoneNumber}:${currency}:${rate}:${totalAmount}`;
-
-  // Create a Fernet token with the secret and current time.
+  const message = `PHONE:${phoneNumber}:${amountFiat}:${currency}:${rate}`;
   const token = new Fernet.Token({
-    secret: secret,
+    secret,
     time: Math.floor(Date.now() / 1000),
   });
-
-  // Encode the message to create the encrypted token.
   return token.encode(message);
 };
 
-/**
- * Decrypts a message encrypted with Fernet.
- * @param encryptedMessage The encrypted message.
- * @returns The decrypted message as a string.
- */
-export const decryptMessage = (encryptedMessage: string): string => {
+export const encryptMessageDetailed = ({
+  cashout_type,
+  amount_fiat,
+  currency,
+  rate,
+  phone_number,
+  paybill_number,
+  account_number,
+  till_number,
+}: {
+  cashout_type: "PHONE" | "PAYBILL" | "TILL";
+  amount_fiat: number;
+  currency: string;
+  rate: number;
+  phone_number?: string;
+  paybill_number?: string;
+  account_number?: string;
+  till_number?: string;
+}): string => {
+  let message = "";
+  if (cashout_type === "PAYBILL") {
+    message = `${cashout_type}:${paybill_number}:${account_number}:${amount_fiat}:${currency}:${rate}`;
+  } else if (cashout_type === "TILL") {
+    message = `${cashout_type}:${till_number}:${amount_fiat}:${currency}:${rate}`;
+  } else {
+    message = `${cashout_type}:${phone_number}:${amount_fiat}:${currency}:${rate}`;
+  }
   const token = new Fernet.Token({
-    secret: secret,
-    token: encryptedMessage,
-    ttl: 0,
+    secret,
+    time: Math.floor(Date.now() / 1000),
   });
-
-  // Decode the encrypted token to retrieve the original message.
-  return token.decode();
+  return token.encode(message);
 };

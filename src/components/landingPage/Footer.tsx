@@ -1,6 +1,6 @@
 import React from "react";
 import Link from "next/link";
-import { X, Linkedin, Instagram, Facebook, Send } from "lucide-react";
+import { X, Linkedin, Instagram,Send } from "lucide-react";
 
 const Footer = () => {
   return (
@@ -19,7 +19,7 @@ const Footer = () => {
             </Link>
             <div className="flex gap-8 mt-6">
               <Link
-                href="https://x.com"
+                href="https://x.cohttps://x.com/elementpayhq"
                 className="text-gray-900 hover:text-gray-600"
               >
                 <X size={26} />
@@ -31,19 +31,13 @@ const Footer = () => {
                 <Linkedin size={26} />
               </Link>
               <Link
-                href="https://instagram.com"
+                href=""
                 className="text-gray-900 hover:text-gray-600"
               >
                 <Instagram size={26} />
               </Link>
               <Link
-                href="https://facebook.com"
-                className="text-gray-900 hover:text-gray-600"
-              >
-                <Facebook size={26} />
-              </Link>
-              <Link
-                href="https://telegram.me/elementpay"
+                href=""
                 className="text-gray-900 hover:text-gray-600"
               >
                 <Send size={26} />
@@ -57,7 +51,7 @@ const Footer = () => {
             <ul className="space-y-2">
               <li>
                 <Link
-                  href="/our-story"
+                  href=""
                   className="text-gray-600 hover:text-gray-900"
                 >
                   Our story
@@ -65,7 +59,7 @@ const Footer = () => {
               </li>
               <li>
                 <Link
-                  href="/careers"
+                  href=""
                   className="text-gray-600 hover:text-gray-900"
                 >
                   Careers
@@ -80,7 +74,7 @@ const Footer = () => {
             <ul className="space-y-2">
               <li>
                 <Link
-                  href="/payments"
+                  href=""
                   className="text-gray-600 hover:text-gray-900"
                 >
                   Payments
@@ -88,7 +82,7 @@ const Footer = () => {
               </li>
               <li>
                 <Link
-                  href="/virtual-cards"
+                  href=""
                   className="text-gray-600 hover:text-gray-900"
                 >
                   Virtual cards
@@ -104,7 +98,7 @@ const Footer = () => {
               <ul className="space-y-2">
                 <li>
                   <Link
-                    href="/privacy"
+                    href=""
                     className="text-gray-600 hover:text-gray-900"
                   >
                     Privacy Policy
@@ -112,7 +106,7 @@ const Footer = () => {
                 </li>
                 <li>
                   <Link
-                    href="/terms"
+                    href=""
                     className="text-gray-600 hover:text-gray-900"
                   >
                     Terms and Conditions
@@ -120,7 +114,7 @@ const Footer = () => {
                 </li>
                 <li>
                   <Link
-                    href="/cookies"
+                    href=""
                     className="text-gray-600 hover:text-gray-900"
                   >
                     Cookies Policy
@@ -133,7 +127,7 @@ const Footer = () => {
               <ul className="space-y-2">
                 <li>
                   <Link
-                    href="/support"
+                    href=""
                     className="text-gray-600 hover:text-gray-900"
                   >
                     Customer support
@@ -145,9 +139,10 @@ const Footer = () => {
         </div>
 
         {/* Copyright */}
+        {/* Copyright */}
         <div className="pt-8 border-t border-gray-200">
           <p className="text-center text-gray-600">
-            © 2024 Elementpay. All rights reserved.
+            © {new Date().getFullYear()} Elementpay. All rights reserved.
           </p>
         </div>
       </div>

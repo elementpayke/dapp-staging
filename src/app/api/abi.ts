@@ -692,7 +692,7 @@ export const CONTRACT_ABI = [
       { indexed: false, internalType: "string", name: "messageHash", type: "string" },
       { indexed: false, internalType: "uint256", name: "rate", type: "uint256" },
       { indexed: false, internalType: "enum IOrderManagement.OrderType", name: "orderType", type: "uint8" }
-    ],
+    ],  
     name: "OrderCreated",
     type: "event"
   },

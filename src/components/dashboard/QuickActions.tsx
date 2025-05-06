@@ -1,76 +1,81 @@
 "use client";
-
-import { FC, useState } from "react";
+import React, { FC, useState, useEffect } from "react";
 import SendCryptoModal from "./sendCrypto/SendCryptoModal";
 import DepositCryptoModal from "./depositCrypto/DepositCryptoModal";
+import { ArrowUpRight, ArrowDown, Wallet } from "lucide-react"; // Import icons
+import { useWallet } from "@/context/WalletContext";
 
 const QuickActions: FC = () => {
   const [isSendModalOpen, setIsSendModalOpen] = useState(false);
   const [isDepositModalOpen, setIsDepositModalOpen] = useState(false);
+  const [exchangeRate, setExchangeRate] = useState<number | null>(null);
+  const { usdcBalance } = useWallet(); // Fetch USDC balance from wallet context
+  const MARKUP_PERCENTAGE = 1.5; // 1.5% markup
+
+  // Fetch exchange rate from Coinbase API
+  useEffect(() => {
+    const fetchExchangeRate = async () => {
+      try {
+        const response = await fetch(
+          "https://api.coinbase.com/v2/exchange-rates?currency=USDC"
+        );
+        const data = await response.json();
+        if (data?.data?.rates?.KES) {
+          const baseRate = parseFloat(data.data.rates.KES);
+          const markupRate = baseRate * (1 - MARKUP_PERCENTAGE / 100);
+          setExchangeRate(markupRate);
+        } else {
+          console.error("KES rate not found");
+          setExchangeRate(null);
+        }
+      } catch (error) {
+        console.error("Error fetching exchange rate:", error);
+        setExchangeRate(null);
+      }
+    };
+
+    fetchExchangeRate();
+  }, []);
+
+  // Calculate fiat wallet balance in KES
+  const fiatBalanceKES = exchangeRate ? (usdcBalance * exchangeRate).toFixed(2) : "Loading...";
 
   return (
-    <div className="space-y-4">
-      <div className="flex justify-between items-center">
-        <h2 className="text-lg font-medium text-black">Quick Pay</h2>
-      </div>
+    <div className="space-y-6 p-6 bg-white shadow-xl rounded-2xl">
+      <h2 className="text-xl font-bold text-gray-900">🚀 Quick Pay</h2>
 
-      <div className="flex flex-col sm:flex-row gap-4">
-        {/* Button Group wrapper */}
-        <div className="sm:flex sm:bg-blue-50 sm:rounded-full">
-          {/* Send Crypto Button */}
-          <button
-            onClick={() => setIsSendModalOpen(true)}
-            className="w-full sm:w-auto bg-indigo-600 text-white px-6 py-3 rounded-full font-medium hover:bg-indigo-700 transition-colors"
-          >
-            Send Crypto
-          </button>
-          {/* Deposit Crypto Button */}
-          <button
-            onClick={() => setIsDepositModalOpen(true)}
-            className="w-full sm:w-auto mt-2 sm:mt-0 bg-blue-50 sm:bg-transparent px-6 py-3 text-gray-700 font-medium hover:bg-blue-100 rounded-full transition-colors"
-          >
-            Deposit Crypto
-          </button>
-        </div>
-
-        {/* Fiat Balance Button - Hidden on mobile */}
-        <button className="hidden sm:block sm:w-auto px-6 py-3 text-gray-700 font-medium rounded-full border border-gray-200 hover:bg-gray-50 transition-colors">
-          Fiat Balance
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        {/* Send Crypto Button */}
+        <button
+          onClick={() => setIsSendModalOpen(true)}
+          className="flex items-center justify-center gap-2 bg-gradient-to-r from-indigo-600 to-purple-500 text-white text-lg font-semibold py-4 rounded-xl shadow-lg hover:opacity-90 transition-all"
+        >
+          <ArrowUpRight size={24} />
+          Spend Crypto
         </button>
 
-        {/* Amount Display - Combined on mobile */}
-        <div className="w-full sm:w-auto sm:ml-auto flex items-center justify-between sm:justify-start gap-2 px-6 py-3 rounded-full border border-gray-200">
-          <div className="flex items-center gap-2">
-            <span className="text-gray-700 sm:hidden">Fiat Balance:</span>
-            <span className="font-medium text-gray-900">KES 89,899.87</span>
-          </div>
-          <span className="flex items-center text-green-500 text-sm">
-            <svg
-              viewBox="0 0 24 24"
-              fill="none"
-              className="w-4 h-4"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <line x1="12" y1="19" x2="12" y2="5" />
-              <polyline points="5 12 12 5 19 12" />
-            </svg>
-            1.28%
+        {/* Deposit Crypto Button */}
+        <button
+          onClick={() => setIsDepositModalOpen(true)}
+          className="flex items-center justify-center gap-2 bg-gradient-to-r from-green-500 to-teal-400 text-white text-lg font-semibold py-4 rounded-xl shadow-lg hover:opacity-90 transition-all"
+        >
+          <ArrowDown size={24} />
+          Deposit Crypto
+        </button>
+
+        {/* Fiat Balance Button */}
+        <button className="flex items-center justify-center gap-2 bg-gray-100 text-gray-800 text-lg font-semibold py-4 rounded-xl shadow-md hover:bg-gray-200 transition-all">
+          <Wallet size={24} />
+          Fiat Balance:{" "}
+          <span className="text-green-600 font-bold">
+            KES {fiatBalanceKES}
           </span>
-        </div>
+        </button>
       </div>
 
-      <SendCryptoModal
-        isOpen={isSendModalOpen}
-        onClose={() => setIsSendModalOpen(false)}
-      />
-
-      <DepositCryptoModal
-        isOpen={isDepositModalOpen}
-        onClose={() => setIsDepositModalOpen(false)}
-      />
+      {/* Modals */}
+      <SendCryptoModal isOpen={isSendModalOpen} onClose={() => setIsSendModalOpen(false)} />
+      <DepositCryptoModal isOpen={isDepositModalOpen} onClose={() => setIsDepositModalOpen(false)} />
     </div>
   );
 };

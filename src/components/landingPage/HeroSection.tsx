@@ -46,7 +46,7 @@ const IMAGES = {
 };
 
 const Hero = () => {
-  const { connectWallet,isConnected } = useWallet();
+  const { connectWallet, isConnected } = useWallet();
 
   return (
     <div className="bg-gradient-to-r from-white to-[#c7c7ff] min-h-[calc(100vh-64px)] overflow-x-hidden">
@@ -78,8 +78,11 @@ const Hero = () => {
 
             {/* CTA Buttons */}
             <div className="flex flex-wrap items-center gap-3 sm:gap-4 mb-8 sm:mb-12 xl:mb-16">
-              <button className="bg-gradient-to-r from-[#0514eb] to-[#de0413] text-white px-6 sm:px-8 py-3 sm:py-4 rounded-full text-base sm:text-lg xl:text-xl font-medium hover:opacity-90 transition-all whitespace-nowrap">
-                Create a Wallet
+              <button
+                className="bg-gradient-to-r from-[#0514eb] to-[#de0413] text-white px-6 sm:px-8 py-3 sm:py-4 rounded-full text-base sm:text-lg xl:text-xl font-medium hover:opacity-90 transition-all whitespace-nowrap"
+                onClick={() => (window.location.href = '/dashboard')}
+              >
+                {isConnected ? "Dashboard" : "Connect a Wallet"}
               </button>
               {isConnected ? (
                 <Wallet>
@@ -95,7 +98,6 @@ const Hero = () => {
                       <EthBalance />
                     </Identity>
                     <WalletDropdownBasename />
-                    
                     <WalletDropdownDisconnect />
                   </WalletDropdown>
                 </Wallet>
@@ -121,34 +123,36 @@ const Hero = () => {
                     />
                   </svg>
                 </div>
-                <span className="text-base sm:text-lg">No KYC required</span>
+                <span className="text-base sm:text-lg">
+                  Fast sign-up. KYC only when needed.
+                </span>
               </div>
             </div>
 
             {/* Stats */}
             <div className="grid grid-cols-3 gap-4 sm:gap-8">
               <div>
-                <h3 className="text-2xl sm:text-3xl font-bold mb-1 text-black/20">
-                  12
+                <h3 className="text-2xl sm:text-3xl font-bold mb-1 bg-gradient-to-r from-[#0514eb] to-[#de0413] bg-clip-text text-transparent">
+                  3 Taps
                 </h3>
                 <p className="text-xs sm:text-sm text-[#6B7280]">
-                  Banks supported
+                  From crypto to coffee
                 </p>
               </div>
               <div>
-                <h3 className="text-2xl sm:text-3xl font-bold mb-1 text-black/20">
-                  $2M
+                <h3 className="text-2xl sm:text-3xl font-bold mb-1 bg-gradient-to-r from-[#0514eb] to-[#de0413] bg-clip-text text-transparent">
+                  97%
                 </h3>
                 <p className="text-xs sm:text-sm text-[#6B7280]">
-                  Gross payments processed
+                  Lower fees than banks
                 </p>
               </div>
               <div>
-                <h3 className="text-2xl sm:text-3xl font-bold mb-1 text-black/20">
-                  600K+
+                <h3 className="text-2xl sm:text-3xl font-bold mb-1 bg-gradient-to-r from-[#0514eb] to-[#de0413] bg-clip-text text-transparent">
+                  Instant
                 </h3>
                 <p className="text-xs sm:text-sm text-[#6B7280]">
-                  Satisfied users
+                  No waiting periods
                 </p>
               </div>
             </div>

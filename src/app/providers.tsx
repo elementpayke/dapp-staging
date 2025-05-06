@@ -4,6 +4,7 @@ import type { ReactNode } from 'react';
 import { OnchainKitProvider } from '@coinbase/onchainkit';
 import { baseSepolia } from 'wagmi/chains';
 import { WalletProvider } from '@/context/WalletContext';
+import LogoImage from "@/assets/logo.png";
 
 export function Providers(props: { children: ReactNode }) {
   return (
@@ -12,8 +13,8 @@ export function Providers(props: { children: ReactNode }) {
       chain={baseSepolia}
       config={{
         appearance: {
-          name: 'Your App Name',
-          logo: 'https://your-logo.com',
+          name: 'ElementPay',
+          logo: LogoImage.src,
           mode: 'auto',
           theme: 'default',
         },

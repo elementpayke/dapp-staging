@@ -1,0 +1,77 @@
+"use client"
+import React from "react"
+
+type ModalMode = "confirm" | "error"
+
+interface ConfirmationModalProps {
+  isOpen: boolean
+  onClose: () => void
+  onConfirm: () => void
+  accountInfo: string
+  amountKES: number
+  accountNumber?: string // optional
+  cashoutType: "PHONE" | "TILL" | "PAYBILL"
+  mode: ModalMode
+  errorMessage?: string // optional
+}
+
+const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
+  isOpen,
+  onClose,
+  onConfirm,
+  accountInfo,
+  amountKES,
+  accountNumber,
+  cashoutType,
+  mode,
+  errorMessage,
+}) => {
+  if (!isOpen) return null
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black bg-opacity-40 flex justify-center items-center p-4">
+      <div className="bg-white rounded-xl p-6 w-full max-w-md shadow-xl">
+        <h2 className="text-lg font-semibold text-gray-900 mb-2">
+          {mode === "confirm" ? "Confirm Payment" : "Account Validation Failed"}
+        </h2>
+
+        {mode === "confirm" ? (
+          <p className="text-sm text-gray-700 mb-4">
+            You're about to send <strong>{amountKES?.toFixed(2)} KES</strong> to{" "}
+            <strong>{accountInfo}</strong>
+            {cashoutType === "PAYBILL" && accountNumber && (
+              <> (Account: <strong>{accountNumber}</strong>)</>
+            )}
+            . Do you want to proceed?
+          </p>
+        ) : (
+          <p className="text-sm text-red-600 mb-4">
+            {errorMessage || "We couldn’t validate the account number. Please check and try again."}
+          </p>
+        )}
+
+        <div className="flex justify-end gap-3">
+          <button
+            onClick={onClose}
+            className="px-4 py-2 text-gray-600 bg-gray-200 rounded-md hover:bg-gray-300 text-sm"
+          >
+            Close
+          </button>
+          {mode === "confirm" && (
+            <button
+              onClick={() => {
+                onConfirm?.();
+                onClose();
+              }}
+              className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 text-sm"
+            >
+              Proceed
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default ConfirmationModal
