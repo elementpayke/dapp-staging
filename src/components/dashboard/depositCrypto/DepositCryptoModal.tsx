@@ -25,11 +25,7 @@ type OrderStatus =
   | "settled"
   | "refunded";
 
-interface WalletOption {
-    id: string;
-    icon: string;
-    selected?: boolean;
-}
+
 
 const DepositCryptoModal: React.FC<DepositCryptoModalProps> = ({
     isOpen,
@@ -38,8 +34,6 @@ const DepositCryptoModal: React.FC<DepositCryptoModalProps> = ({
 
     const { usdcBalance } = useWallet();
     const [isTransactionModalOpen, setIsTransactionModalOpen] = useState(false);
-    const [isDepositCryptoReceipt, setDepositCryptoReceipt] = useState(false);
-    const [selectedWallet, setSelectedWallet] = useState<string>("metamask");
     const [selectedToken, setSelectedToken] = useState("USDC");
     const [amount, setAmount] = useState("0.00");
     const [depositFrom, setDepositFrom] = useState("MPESA");
@@ -98,14 +92,6 @@ const DepositCryptoModal: React.FC<DepositCryptoModalProps> = ({
         }
     };
 
-    const walletOptions: WalletOption[] = [
-        { id: "metamask", icon: "🦊", selected: selectedWallet === "metamask" },
-        { id: "coinbase", icon: "©️", selected: selectedWallet === "coinbase" },
-        { id: "qr", icon: "🔲", selected: selectedWallet === "qr" },
-    ];
-
-    
-
     const fetchExchangeRate = async () => {
         try {
             const response = await fetch("https://api.coinbase.com/v2/exchange-rates?currency=USDC");
@@ -142,17 +128,15 @@ const DepositCryptoModal: React.FC<DepositCryptoModalProps> = ({
       
             if (status === "complete" || status === "settled") {
               setIsTransactionModalOpen(false);
-              setDepositCryptoReceipt(true);
             } else {
               setIsTransactionModalOpen(true);
             }
-          } catch (err) {
+          } catch {
             toast.error("Unable to fetch order status");
           }
         },
         () => {
           setTransactionReceipt((prev: any) => ({ ...prev, status: "settled" }));
-          setDepositCryptoReceipt(true);
           setIsLoading(false);
           setIsTransactionModalOpen(false);
         },
@@ -205,7 +189,7 @@ const DepositCryptoModal: React.FC<DepositCryptoModalProps> = ({
             await handleOrderStatus(
                 orderCreatedEvents[0].orderId, 
                 setIsTransactionModalOpen, 
-                setDepositCryptoReceipt, 
+                setTransactionReceipt, 
                 transactionReceipt
             );
             setTransactionReceipt((prev: any) => ({ 
