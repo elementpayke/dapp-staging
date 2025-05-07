@@ -111,7 +111,7 @@ const ProcessingPopup: React.FC<ProcessingPopupProps> = ({
 
     // Reset states when popup becomes visible
     setStatus("processing")
-    setStatusMessage("taradhali subiri")
+    setStatusMessage("tafadhali subiri")
     setProgress(0)
     setShowConfetti(false)
     setCopied(false)

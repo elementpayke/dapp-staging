@@ -228,7 +228,6 @@ const SendCryptoModal: React.FC<SendCryptoModalProps> = ({ isOpen, onClose }) =>
     () => {
       setTransactionReciept((prev: any) => ({ ...prev, status: "settled" }));
       setShowProcessingPopup(false);
-      setSendCryptoReciept(true);
     },
     () => {
       setShowProcessingPopup(false);
@@ -281,7 +280,6 @@ const SendCryptoModal: React.FC<SendCryptoModalProps> = ({ isOpen, onClose }) =>
     } finally {
       setIsApproving(false)
       setIsProcessing(true)
-      setSendCryptoReciept(true)
     }
   }
 
@@ -342,7 +340,11 @@ const SendCryptoModal: React.FC<SendCryptoModalProps> = ({ isOpen, onClose }) =>
     }
   }, [isBrowser, amount, exchangeRate, mobileNumber, account.address]);
 
-  const [sendCryptoReciept, setSendCryptoReciept] = useState(false);
+  // Add styles for the modal
+  const modalStyles = {
+    maxHeight: '80vh', // Limit the height
+    overflowY: 'auto' as const, // Enable vertical scrolling
+  };
 
   if (!isOpen) return null
 
@@ -351,13 +353,13 @@ const SendCryptoModal: React.FC<SendCryptoModalProps> = ({ isOpen, onClose }) =>
       className="fixed inset-0 bg-black bg-opacity-50 flex items-start md:items-center justify-center z-50"
       onClick={handleClose}
     >
-      <div className="bg-white w-full h-full md:h-auto md:rounded-3xl md:max-w-4xl overflow-auto">
+      <div className="bg-white w-full h-full md:h-auto md:rounded-3xl md:max-w-4xl" style={modalStyles}>
         <div className="p-4 md:p-6">
           {/* Header */}
           <div className="flex justify-between items-center mb-4">
             <div className="flex items-center gap-2">
               <button onClick={onClose} className="md:hidden p-1" type="button">
-                <ArrowLeft className="w-6 h-6" />
+                <ArrowLeft className="w-6 h-9" />
               </button>
               <h2 className="text-xl md:text-2xl font-semibold text-gray-900">Spend Crypto</h2>
             </div>
@@ -492,7 +494,6 @@ const SendCryptoModal: React.FC<SendCryptoModalProps> = ({ isOpen, onClose }) =>
             onClose={() => {
               setShowProcessingPopup(false)
               if (transactionReciept.status === 1) {
-                setSendCryptoReciept(true)
               }
             }}
             orderId={orderId}
