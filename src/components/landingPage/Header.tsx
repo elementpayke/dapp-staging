@@ -92,6 +92,12 @@ const Header = () => {
             >
               FAQs
             </Link>
+            <Link
+              href="https://tally.so/r/mZ1N6B"
+              className="text-gray-600 hover:text-gray-900 text-sm font-medium transition-colors"
+            >
+              Join our waitlist
+            </Link>
           </div>
 
           {/* Wallet Connection */}
@@ -184,11 +190,10 @@ const Header = () => {
                 </Link>
                 <Link
                   href="https://tally.so/r/mZ1N6B"
-                  onClick={() => setIsMenuOpen(false)}
                   className="block text-xl sm:text-2xl font-medium text-gray-900"
                 >
                   Join our waitlist
-                  </Link>
+                </Link>
               </div>
 
               {/* Footer Links */}
