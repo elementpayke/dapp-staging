@@ -102,31 +102,7 @@ export type PubkeyResponse = {
   message: string;
 };
 
-type OrderStatusData = {
-  orderId: string;
-  amount: string;
-  token: string;
-  network: string;
-  settlePercent: string;
-  status: string;
-  txHash: string;
-  settlements: Settlement[];
-  txReceipts: TxReceipt[];
-  updatedAt: string;
-};
 
-type Settlement = {
-  splitOrderId: string;
-  amount: string;
-  rate: string;
-  orderPercent: string;
-};
-
-type TxReceipt = {
-  status: string;
-  txHash: string;
-  timestamp: string;
-};
 
 export interface OrderStatusAPIData {
   order_id: string;
@@ -145,8 +121,6 @@ export type OrderStatus =
   | "failed"
   | "settled"
   | "refunded";
-
-
 
 export type StateProps = {
   formValues: FormData;

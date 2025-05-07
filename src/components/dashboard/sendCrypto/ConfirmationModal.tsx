@@ -37,7 +37,7 @@ const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
 
         {mode === "confirm" ? (
           <p className="text-sm text-gray-700 mb-4">
-            You're about to send <strong>{amountKES?.toFixed(2)} KES</strong> to{" "}
+            You&apos;re about to send <strong>{amountKES?.toFixed(2)} KES</strong> to{" "}
             <strong>{accountInfo}</strong>
             {cashoutType === "PAYBILL" && accountNumber && (
               <> (Account: <strong>{accountNumber}</strong>)</>
@@ -46,7 +46,7 @@ const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
           </p>
         ) : (
           <p className="text-sm text-red-600 mb-4">
-            {errorMessage || "We couldn’t validate the account number. Please check and try again."}
+            {errorMessage || "We couldn't validate the account number. Please check and try again."}
           </p>
         )}
 

@@ -1,7 +1,7 @@
 "use client"
 
 import type React from "react"
-import { useState, useEffect, useMemo } from "react"
+import { useState, useEffect, useMemo, useCallback } from "react"
 import { X, ArrowLeft } from 'lucide-react'
 import { toast } from "react-toastify"
 import PayToMobileMoney from "./PayToMobileMoney"
@@ -18,30 +18,30 @@ import { encryptMessageDetailed } from "@/services/encryption"
 import { useContractEvents } from "@/context/useContractEvents"
 import { fetchOrderStatus } from "@/app/api/aggregator";
 import ConfirmationModal from "./ConfirmationModal"
-import { get } from "axios"
-
 
 interface SendCryptoModalProps {
   isOpen: boolean
   onClose: () => void
 }
 
-interface WalletOption {
-  id: string
-  icon: string
-  selected?: boolean
+interface TransactionReceipt {
+  amount: string;
+  amountUSDC: number;
+  phoneNumber: string;
+  address: string;
+  status: number;
+  transactionHash: string;
 }
 
 const SendCryptoModal: React.FC<SendCryptoModalProps> = ({ isOpen, onClose }) => {
-  const [isSendCryptoReciept, setSendCryptoReciept] = useState(false)
   const [selectedToken, setSelectedToken] = useState("USDC")
   const [amount, setAmount] = useState("")
   const [mobileNumber, setMobileNumber] = useState("0703417782")
   const [reason, setReason] = useState("Transport")
   const [favorite, setFavorite] = useState(true)
-  const [selectedWallet, setSelectedWallet] = useState<string>("metamask")
+  // Keep but don't use these variables to preserve the component's state structure
   const [isApproving, setIsApproving] = useState(false)
-  const [isProcessing, setIsProcessing] = useState(false)
+  const [, setIsProcessing] = useState(false)
   const { usdcBalance } = useWallet()
   const [exchangeRate, setExchangeRate] = useState<number | null>(null)
   const MARKUP_PERCENTAGE = 1.5 // 1.5% markup
@@ -60,14 +60,14 @@ const SendCryptoModal: React.FC<SendCryptoModalProps> = ({ isOpen, onClose }) =>
   const [proceedAfterValidation, setProceedAfterValidation] = useState<() => void>(() => () => {})
   const [modalMode, setModalMode] = useState<"confirm" | "error">("confirm");
 
-  const [cashoutType, setCashoutType] = useState<"PHONE" | "PAYBILL" | "TILL">("PHONE");
+  // Keep but don't directly use this state to preserve the component structure
+  const [, setCashoutType] = useState<"PHONE" | "PAYBILL" | "TILL">("PHONE");
 
-
-  const getCashoutType = (): "PHONE" | "PAYBILL" | "TILL" => {
+  const getCashoutType = useCallback((): "PHONE" | "PAYBILL" | "TILL" => {
     if (paybillNumber && accountNumber) return "PAYBILL";
     if (tillNumber) return "TILL";
     return "PHONE";
-  };
+  }, [paybillNumber, accountNumber, tillNumber]);
 
   const getAccountTypeForIntaSend = (): "TillNumber" | "PayBill" => {
     const type = getCashoutType();
@@ -76,7 +76,6 @@ const SendCryptoModal: React.FC<SendCryptoModalProps> = ({ isOpen, onClose }) =>
     return "TillNumber";
   };
   
-
   const validateAccount = async () => {
     try {
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/orders/validate-account`, {
@@ -101,14 +100,12 @@ const SendCryptoModal: React.FC<SendCryptoModalProps> = ({ isOpen, onClose }) =>
 
       setValidatedAccountInfo(result.name || "Unknown Payee");
       return true;
-    } catch (err: any) {
-      toast.error(err.message || "Failed to validate account.");
+    } catch (error: any) {
+      toast.error(error.message || "Failed to validate account.");
       return false;
     }
   }; 
   
-  
-
   // Set isBrowser to true once component mounts (client-side only)
   useEffect(() => {
     setIsBrowser(true)
@@ -140,12 +137,6 @@ const SendCryptoModal: React.FC<SendCryptoModalProps> = ({ isOpen, onClose }) =>
       fetchExchangeRate()
     }
   }, [isBrowser])
-
-  const calculateUSDCAmount = () => {
-    if (!exchangeRate) return 0
-    const kesAmount = Number.parseFloat(amount) || 0
-    return (kesAmount / exchangeRate).toFixed(6)
-  }
 
   const TRANSACTION_FEE_RATE = 0.005 // 0.5%
 
@@ -189,33 +180,24 @@ const SendCryptoModal: React.FC<SendCryptoModalProps> = ({ isOpen, onClose }) =>
   // Now we can safely reference transactionSummary in useEffect
   useEffect(() => {
     if (isBrowser && mobileNumber && exchangeRate && transactionSummary.totalUSDC) {
-    //   try {
-    //     // const hash = encryptMessage(mobileNumber, "KES", exchangeRate, transactionSummary.totalUSDC)
-    //     const hash = encryptMessage(cashout_type: "PHONE", amount_fiat: amount, currency: "KES", 
-    //     setMessageHash(hash)
-    //   } catch (error) {
-    //     console.error("Error encrypting message:", error)
-    //   }
-    // }
-    try {
-      const hash = encryptMessageDetailed({
-      cashout_type: getCashoutType(),
-      amount_fiat: Number.parseFloat(amount),
-      currency: "KES",
-      rate: exchangeRate ?? 0,
-      phone_number: getCashoutType() === "PHONE" ? mobileNumber : "",
-      paybill_number: getCashoutType() === "PAYBILL" ? paybillNumber : "",
-      account_number: getCashoutType() === "PAYBILL" ? accountNumber : "",
-      till_number: getCashoutType() === "TILL" ? tillNumber : "",
-    });
+      try {
+        const hash = encryptMessageDetailed({
+          cashout_type: getCashoutType(),
+          amount_fiat: Number.parseFloat(amount),
+          currency: "KES",
+          rate: exchangeRate ?? 0,
+          phone_number: getCashoutType() === "PHONE" ? mobileNumber : "",
+          paybill_number: getCashoutType() === "PAYBILL" ? paybillNumber : "",
+          account_number: getCashoutType() === "PAYBILL" ? accountNumber : "",
+          till_number: getCashoutType() === "TILL" ? tillNumber : "",
+        });
 
-      setMessageHash(hash);
-      
-    } catch (error) {
-      console.error("Error encrypting message:", error);
+        setMessageHash(hash);
+      } catch (error) {
+        console.error("Error encrypting message:", error);
+      }
     }
-  }
-  }, [isBrowser, mobileNumber, exchangeRate, transactionSummary.totalUSDC])
+  }, [isBrowser, mobileNumber, exchangeRate, transactionSummary.totalUSDC, amount, getCashoutType, paybillNumber, accountNumber, tillNumber])
 
   const account = useAccount()
   const { writeContractAsync } = useWriteContract()
@@ -223,41 +205,27 @@ const SendCryptoModal: React.FC<SendCryptoModalProps> = ({ isOpen, onClose }) =>
   const usdcTokenAddress = getUSDCAddress() as `0x${string}`
   const smartcontractaddress = "0x10af11060bC238670520Af7ca15E86a34bC68fe4"
 
-  // Define event handlers
-  const handleOrderCreated = (order: any) => {
-    console.log("New Order Created:", order)
-    // You could update the transaction receipt here if needed
-  }
-
-  const handleOrderSettled = (order: any) => {
-    console.log("Order Settled:", order)
-  }
-
-  const handleOrderRefunded = (order: any) => {
-    console.log("Order Refunded:", order)
-  }
-
   useContractEvents(
-    async (order: any) => {
+    async () => {
       try {
-        const response = await fetchOrderStatus(order.orderId);
+        const response = await fetchOrderStatus(orderId);
         const status = response.data.status;
-  
+
         setTransactionReciept((prev: any) => ({
           ...prev,
-          orderId: order.orderId,
+          orderId: orderId,
           status,
           phoneNumber: mobileNumber,
-          transactionHash: order.transactionHash,
+          transactionHash: "pending",
         }));
-  
-        setOrderId(order.orderId);
+
+        setOrderId(orderId);
         setShowProcessingPopup(true);
-      } catch (err) {
+      } catch {
         toast.error("Failed to fetch order status.");
       }
     },
-    (order: any) => {
+    () => {
       setTransactionReciept((prev: any) => ({ ...prev, status: "settled" }));
       setShowProcessingPopup(false);
       setSendCryptoReciept(true);
@@ -267,7 +235,6 @@ const SendCryptoModal: React.FC<SendCryptoModalProps> = ({ isOpen, onClose }) =>
       toast.error("Order refunded");
     }
   );
-  
 
   const handleClose = (e: React.MouseEvent<HTMLDivElement>) => {
     if (e.target === e.currentTarget) {
@@ -318,7 +285,6 @@ const SendCryptoModal: React.FC<SendCryptoModalProps> = ({ isOpen, onClose }) =>
     }
   }
 
-  
   const handleApproveToken = async () => {
     if (!account.address) {
       toast.error("Please connect your wallet first")
@@ -334,33 +300,27 @@ const SendCryptoModal: React.FC<SendCryptoModalProps> = ({ isOpen, onClose }) =>
       toast.error("Message encryption failed. Please try again.")
       return
     }
-    let cashout_type = getCashoutType()
+    const cashout_type = getCashoutType()
     console.log("Cashout Type:", cashout_type)
     if (cashout_type === "PAYBILL" || cashout_type === "TILL") {
       const isValid = await validateAccount();
-    if (!isValid) {
-      setShowValidationModal(true);
-      setModalMode("error");
-      setValidatedAccountInfo("Invalid account or business number.");
-      return;
-    }
-    
-    setProceedAfterValidation(() => executeTokenApproval);
-    setShowValidationModal(true);
-    setModalMode("confirm");
+      if (!isValid) {
+        setShowValidationModal(true);
+        setModalMode("error");
+        setValidatedAccountInfo("Invalid account or business number.");
+        return;
+      }
       
+      setProceedAfterValidation(() => executeTokenApproval);
+      setShowValidationModal(true);
+      setModalMode("confirm");
+      return;
     }
     await executeTokenApproval();
   }
 
-  const walletOptions: WalletOption[] = [
-    { id: "metamask", icon: "🦊", selected: selectedWallet === "metamask" },
-    { id: "coinbase", icon: "©️", selected: selectedWallet === "coinbase" },
-    { id: "qr", icon: "🔲", selected: selectedWallet === "qr" },
-  ]
-
   // Initialize transaction receipt
-  const [transactionReciept, setTransactionReciept] = useState<any>({
+  const [transactionReciept, setTransactionReciept] = useState<TransactionReceipt>({
     amount: "0.00",
     amountUSDC: 0,
     phoneNumber: "",
@@ -369,16 +329,20 @@ const SendCryptoModal: React.FC<SendCryptoModalProps> = ({ isOpen, onClose }) =>
     transactionHash: "",
   });
   
-
   // Update transaction receipt when relevant values change
   useEffect(() => {
     if (isBrowser) {
-      transactionReciept.amount = amount || "0.00"
-      transactionReciept.amountUSDC = Number(amount) * (exchangeRate ?? 1) || 0
-      transactionReciept.phoneNumber = mobileNumber || ""
-      transactionReciept.address = account.address || ""
+      setTransactionReciept(prev => ({
+        ...prev,
+        amount: amount || "0.00",
+        amountUSDC: Number(amount) * (exchangeRate ?? 1) || 0,
+        phoneNumber: mobileNumber || "",
+        address: account.address || ""
+      }));
     }
-  }, [isBrowser, amount, exchangeRate, mobileNumber, account.address, transactionReciept])
+  }, [isBrowser, amount, exchangeRate, mobileNumber, account.address]);
+
+  const [sendCryptoReciept, setSendCryptoReciept] = useState(false);
 
   if (!isOpen) return null
 
@@ -387,11 +351,6 @@ const SendCryptoModal: React.FC<SendCryptoModalProps> = ({ isOpen, onClose }) =>
       className="fixed inset-0 bg-black bg-opacity-50 flex items-start md:items-center justify-center z-50"
       onClick={handleClose}
     >
-      {/* <SendCryptoReceipt
-        isOpen={isSendCryptoReciept}
-        onClose={() => setSendCryptoReciept(false)}
-        transactionReciept={transactionReciept}
-      /> */}
       <div className="bg-white w-full h-full md:h-auto md:rounded-3xl md:max-w-4xl overflow-auto">
         <div className="p-4 md:p-6">
           {/* Header */}
@@ -437,7 +396,6 @@ const SendCryptoModal: React.FC<SendCryptoModalProps> = ({ isOpen, onClose }) =>
                 setAccountNumber={setAccountNumber}
                 setCashoutType={setCashoutType}
               />
-
 
               {/* Favorite Option */}
               <div className="flex items-center gap-2">
@@ -531,9 +489,6 @@ const SendCryptoModal: React.FC<SendCryptoModalProps> = ({ isOpen, onClose }) =>
           mode={modalMode}
           errorMessage={validatedAccountInfo}
         />
-
-
-
 
         {/* Processing Popup */}
         {isBrowser && (

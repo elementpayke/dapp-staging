@@ -2,10 +2,9 @@
 
 import type React from "react"
 import { useEffect, useState, useRef } from "react"
-import { Loader2, CreditCard, Download, Copy, CheckCheck, Printer, Mail, FileText, QrCode } from "lucide-react"
+import { Loader2, CreditCard, Download, Copy, CheckCheck, Printer, Mail, FileText } from "lucide-react"
 import { motion, AnimatePresence } from "framer-motion"
 import { toPng } from 'html-to-image'
-import QRCode from 'qrcode.react'
 
 // Transaction details interface
 interface TransactionDetails {
@@ -26,10 +25,7 @@ interface TransactionDetails {
   notes?: string
 }
 
-// Export options interface
-interface ExportOptions {
-  format: 'png' | 'pdf' | 'email' | 'print'
-}
+
 
 // Update the interface to accept transaction details and custom API function
 interface ProcessingPopupProps {

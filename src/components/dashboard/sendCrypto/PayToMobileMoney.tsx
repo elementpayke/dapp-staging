@@ -41,7 +41,6 @@ const PayToMobileMoney: React.FC<PayToMobileMoneyProps> = ({
   setCashoutType,
 }) => {
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("Send Money");
-  const [businessNumber, setBusinessNumber] = useState("");
   const [showRecipientName, setShowRecipientName] = useState(false);
   const [recipientName, setRecipientName] = useState("");
   const [recentRecipients] = useState([
@@ -69,7 +68,7 @@ const PayToMobileMoney: React.FC<PayToMobileMoneyProps> = ({
         setCashoutType("PHONE");
         break;
     }
-  }, [paymentMethod]);
+  }, [paymentMethod, setTillNumber, setCashoutType, setPaybillNumber, setAccountNumber]);
   
   // Simulate recipient name lookup after entering mobile number
   useEffect(() => {
@@ -249,7 +248,8 @@ const PayToMobileMoney: React.FC<PayToMobileMoneyProps> = ({
                     setPaybillNumber(recipient.number);
                     setAccountNumber(recipient.account || "");
                   } else if (recipient.type === "Buy Goods") {
-                    setBusinessNumber(recipient.number);
+                    setPaybillNumber(recipient.number);
+                    setAccountNumber(recipient.account || "");
                   }
                 }}
                 className="flex-shrink-0 cursor-pointer text-center"

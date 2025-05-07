@@ -88,7 +88,7 @@ const TransactionList: FC<{ walletAddress: string | null }> = ({ walletAddress }
           No transactions yet
         </h3>
         <p className="mt-2 text-sm text-gray-500">
-          You're connected with{" "}
+          You&apos;re connected with{" "}
           <span className="text-black font-medium">
             {walletAddress.slice(0, 6)}...{walletAddress.slice(-4)}
           </span>
