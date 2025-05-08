@@ -647,7 +647,8 @@ export const gatewayAbi = [
 ] as const;
 
 
-export const CONTRACT_ADDRESS = "0x10af11060bC238670520Af7ca15E86a34bC68fe4"
+// export const CONTRACT_ADDRESS = "0x10af11060bC238670520Af7ca15E86a34bC68fe4"
+export const CONTRACT_ADDRESS = process.env.NEXT_PUBLIC_CONTRACT_ADDRESS as `0x${string}`;
 
 export const CONTRACT_ABI = [
   {
