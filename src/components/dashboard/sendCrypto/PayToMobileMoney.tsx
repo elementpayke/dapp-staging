@@ -44,7 +44,7 @@ const PayToMobileMoney: React.FC<PayToMobileMoneyProps> = ({
   const [showRecipientName, setShowRecipientName] = useState(false);
   const [recipientName, setRecipientName] = useState("");
   const [recentRecipients] = useState([
-    { name: "John Doe", number: "0712345678", type: "Send Money" },
+    { name: "John Doe", number: "254712345678", type: "Send Money" },
     { name: "Supermarket", number: "567890", type: "Buy Goods" },
     { name: "KPLC", number: "888888", type: "Pay Bill", account: "12345" }
   ]);
@@ -118,7 +118,7 @@ const PayToMobileMoney: React.FC<PayToMobileMoneyProps> = ({
                 <input
                   type="tel"
                   value={mobileNumber}
-                  onChange={(e) => setMobileNumber(e.target.value.replace(/[^\d]/g, '').substring(0, 10))}
+                  onChange={(e) => setMobileNumber(e.target.value.replace(/[^\d]/g, '').substring(0, 12))}
                   className="w-full p-3 bg-gray-50 rounded-lg border-0 text-gray-900"
                   placeholder="e.g., 0712345678"
                 />
@@ -183,7 +183,7 @@ const PayToMobileMoney: React.FC<PayToMobileMoneyProps> = ({
                 <input
                   type="tel"
                   value={mobileNumber}
-                  onChange={(e) => setMobileNumber(e.target.value.replace(/[^\d]/g, '').substring(0, 10))}
+                  onChange={(e) => setMobileNumber(e.target.value.replace(/[^\d]/g, '').substring(0, 12))}
                   className="w-full p-3 bg-gray-50 rounded-lg border-0 text-gray-900"
                   placeholder="Business owner's number"
                 />
