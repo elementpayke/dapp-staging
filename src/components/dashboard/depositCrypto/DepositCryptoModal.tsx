@@ -87,6 +87,7 @@ const DepositCryptoModal: React.FC<DepositCryptoModalProps> = ({
         phoneNumber: phoneNumber || "",
         address: addressOwner || "",
         status: "pending",
+        reason: "", // Add reason field
         transactionHash: "",
     });
 
@@ -116,47 +117,87 @@ const DepositCryptoModal: React.FC<DepositCryptoModalProps> = ({
             setExchangeRate(127.3);
         }
     };
-
     const pollOrderStatus = async (orderId: string) => {
         try {
             console.log("Polling order status for orderId:", orderId);
             const response = await fetchOrderStatus(orderId);
 
+            // Handle 404 case - order not found yet
             if (response.status === 404) {
+                console.log("Order not found yet, will retry in 3 seconds...");
                 setTimeout(() => pollOrderStatus(orderId), 3000);
                 return;
             }
 
             if (response.status === 200 && response.data) {
                 const orderData = response.data;
-                const status = orderData.status?.toLowerCase() as OrderStatus;
+                const status = orderData.data?.status?.toLowerCase() as OrderStatus;
+                const failureReason = orderData.data?.failure_reason || "Unknown error";
+                
+                // Translate technical error messages to user-friendly messages
+                const getUserFriendlyError = (reason: string) => {
+                    const errorMap: { [key: string]: string } = {
+                        "Missing CheckoutRequestID in STK response.": "Invalid phone number. Please check and try again.",
+                        // Add more error mappings here as needed
+                    };
+                    return errorMap[reason] || reason;
+                };
+                
+                // Extract transaction hash correctly based on actual API response structure
+                const transactionHash = 
+                    orderData.data?.transaction_hashes?.settlement || 
+                    orderData.data?.transaction_hash || // Check for alternative keys
+                    "";
 
-                console.log("Order status:", status);
-                console.log("Full order data:", orderData);
-
-                setTransactionReceipt({
-                    orderId: orderData.order_id,
+                setTransactionReceipt((prev: {
+                    orderId?: string;
+                    status: string;
+                    reason: string;
+                    amount: number;
+                    amountUSDC: number;
+                    transactionHash: string;
+                }) => ({
+                    ...prev,
+                    orderId: orderData.data?.order_id,
                     status: status || "pending",
-                    phoneNumber,
-                    amount: orderData.amount_fiat || parseFloat(amount),
-                    amountUSDC:
-                        (orderData.amount_fiat || parseFloat(amount)) *
-                        (exchangeRate ?? 1),
-                    address: addressOwner,
-                    transactionHash: orderData.transaction_hashes?.settlement || "",
-                });
+                    reason: status === "failed" ? getUserFriendlyError(failureReason) : prev.reason,
+                    amount: orderData.data?.amount_fiat || parseFloat(amount),
+                    amountUSDC: (orderData.data?.amount_fiat || parseFloat(amount)) * (exchangeRate ?? 1),
+                    transactionHash: status === "failed" ? orderData.data?.transaction_hashes?.creation || "" : transactionHash,
+                }));
 
-                if (status === "settled" || status === "complete" || status === "completed") {
-                    console.log("Order settled, opening receipt modal...");
-                    setIsTransactionModalOpen(false);
-                    setIsReceiptModalOpen(true);
-                } else {
-                    setIsTransactionModalOpen(true);
-                    setIsReceiptModalOpen(false);
+                // Handle different status cases
+                switch (status) {
+                    case "settled":
+                        if (!transactionHash) {
+                            console.log("Status is settled but hash is empty, continuing to poll...");
+                            setTimeout(() => pollOrderStatus(orderId), 3000);
+                            return;
+                        }
+                        console.log("Order settled with hash:", transactionHash);
+                        setIsTransactionModalOpen(false);
+                        setIsReceiptModalOpen(true);
+                        break;
 
-                    if (status === "pending" || status === "processing") {
+                    case "failed":
+                        console.log("Order failed with reason:", failureReason);
+                        toast.error(getUserFriendlyError(failureReason));
+                        setIsTransactionModalOpen(false);
+                        setIsReceiptModalOpen(true);
+                        break;
+
+                    case "pending":
+                    case "processing":
+                        setIsTransactionModalOpen(true);
+                        setIsReceiptModalOpen(false);
                         setTimeout(() => pollOrderStatus(orderId), 3000);
-                    }
+                        break;
+
+                    default:
+                        console.log("Unknown status:", status);
+                        setIsTransactionModalOpen(true);
+                        setIsReceiptModalOpen(false);
+                        break;
                 }
             } else {
                 console.error("Invalid response format:", response);
@@ -168,7 +209,6 @@ const DepositCryptoModal: React.FC<DepositCryptoModalProps> = ({
             toast.error("Unable to fetch order status");
         }
     };
-
     useContractEvents(
         async (order: any) => {
             console.log("Order created event:", order);
@@ -224,6 +264,29 @@ const DepositCryptoModal: React.FC<DepositCryptoModalProps> = ({
         } finally {
             setIsLoading(false);
         }
+    };
+
+    const formatPhoneNumber = (number: string) => {
+        // Remove any non-digit characters
+        const digitsOnly = number.replace(/\D/g, '');
+        
+        // If number starts with 0, replace it with 254
+        if (digitsOnly.startsWith('0')) {
+            return '254' + digitsOnly.substring(1);
+        }
+        
+        // If number already starts with 254, return as is
+        if (digitsOnly.startsWith('254')) {
+            return digitsOnly;
+        }
+        
+        // If number doesn't start with either, assume it's a complete number
+        return digitsOnly;
+    };
+
+    const handlePhoneNumberChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const formattedNumber = formatPhoneNumber(e.target.value);
+        setPhoneNumber(formattedNumber);
     };
 
     if (!isOpen) return null;
@@ -331,7 +394,7 @@ const DepositCryptoModal: React.FC<DepositCryptoModalProps> = ({
                                 type="tel"
                                 className="w-full p-3 bg-gray-100 rounded-lg focus:outline-none"
                                 value={phoneNumber}
-                                onChange={(e) => setPhoneNumber(e.target.value)}
+                                onChange={handlePhoneNumberChange}
                                 placeholder="e.g. 0712345678"
                             />
                         </div>

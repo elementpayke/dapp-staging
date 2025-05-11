@@ -85,8 +85,19 @@ export const fetchOrderStatus = async (
     console.log("Order status response:", response.data);
     console.log("*****************************************");
     return response;
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error fetching order status:", error);
+    // If it's a 404 error, return a specific response structure
+    if (error.response?.status === 404) {
+      return {
+        status: 404,
+        data: {
+          status: "pending",
+          message: "Order not found yet, will retry",
+          data: null
+        }
+      };
+    }
     throw error;
   }
 };

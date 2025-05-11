@@ -37,7 +37,7 @@ const TransactionList: FC<{ walletAddress: string | null }> = ({ walletAddress }
           description: order.phone_number
             ? `To ${order.phone_number}`
             : `Token: ${order.token}`,
-          amount: `${order.amount_fiat.toFixed(2)} ${order.currency}`,
+          amount: `${order.amount_fiat.toFixed(2)} KES`,
         }));
         // log refund hash
         console.log("Refund transaction hash:", mapped);
@@ -134,7 +134,13 @@ const TransactionList: FC<{ walletAddress: string | null }> = ({ walletAddress }
             </div>
 
             <div className="w-24 flex justify-center">
-              <span className="px-2.5 py-0.5 text-xs font-medium rounded-full bg-green-100 text-green-800">
+              <span className={`px-2.5 py-0.5 text-xs font-medium rounded-full ${
+                tx.status === 'FAILED' 
+                  ? 'bg-red-100 text-red-800'
+                  : tx.status === 'PENDING'
+                  ? 'bg-yellow-100 text-yellow-800'
+                  : 'bg-green-100 text-green-800'
+              }`}>
                 {tx.status}
               </span>
             </div>
@@ -171,7 +177,13 @@ const TransactionList: FC<{ walletAddress: string | null }> = ({ walletAddress }
             </div>
 
             <div className="flex items-center justify-between">
-              <span className="px-2.5 py-0.5 text-xs font-medium rounded-full bg-green-100 text-green-800">
+              <span className={`px-2.5 py-0.5 text-xs font-medium rounded-full ${
+                tx.status === 'FAILED' 
+                  ? 'bg-red-100 text-red-800'
+                  : tx.status === 'PENDING'
+                  ? 'bg-yellow-100 text-yellow-800'
+                  : 'bg-green-100 text-green-800'
+              }`}>
                 {tx.status}
               </span>
               <span className="text-sm text-gray-600">{tx.description}</span>
