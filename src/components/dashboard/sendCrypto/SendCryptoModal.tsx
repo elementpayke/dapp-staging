@@ -14,7 +14,6 @@ import { getUSDCAddress } from "../../../services/tokens"
 import { useContract } from "@/services/useContract"
 import { useWallet } from "@/context/WalletContext"
 import { encryptMessageDetailed } from "@/services/encryption"
-// import SendCryptoReceipt from "./SendCryptoReciept"
 import { useContractEvents } from "@/context/useContractEvents"
 import { fetchOrderStatus } from "@/app/api/aggregator";
 import ConfirmationModal from "./ConfirmationModal"
@@ -36,7 +35,7 @@ interface TransactionReceipt {
 const SendCryptoModal: React.FC<SendCryptoModalProps> = ({ isOpen, onClose }) => {
   const [selectedToken, setSelectedToken] = useState("USDC")
   const [amount, setAmount] = useState("")
-  const [mobileNumber, setMobileNumber] = useState("0703417782")
+  const [mobileNumber, setMobileNumber] = useState("")
   const [reason, setReason] = useState("Transport")
   const [favorite, setFavorite] = useState(true)
   // Keep but don't use these variables to preserve the component's state structure
@@ -205,34 +204,13 @@ const SendCryptoModal: React.FC<SendCryptoModalProps> = ({ isOpen, onClose }) =>
   const usdcTokenAddress = getUSDCAddress() as `0x${string}`
   const smartcontractaddress = "0x10af11060bC238670520Af7ca15E86a34bC68fe4"
 
+  const [orderCreatedEvents, setOrderCreatedEvents] = useState<any[]>([]);
+
   useContractEvents(
-    async () => {
-      try {
-        const response = await fetchOrderStatus(orderId);
-        const status = response.data.status;
-
-        setTransactionReciept((prev: any) => ({
-          ...prev,
-          orderId: orderId,
-          status,
-          phoneNumber: mobileNumber,
-          transactionHash: "pending",
-        }));
-
-        setOrderId(orderId);
-        setShowProcessingPopup(true);
-      } catch {
-        toast.error("Failed to fetch order status.");
-      }
+    (order: any) => {
+      setOrderCreatedEvents((prev) => [...prev, order]);
+      setOrderId(order.orderId);
     },
-    () => {
-      setTransactionReciept((prev: any) => ({ ...prev, status: "settled" }));
-      setShowProcessingPopup(false);
-    },
-    () => {
-      setShowProcessingPopup(false);
-      toast.error("Order refunded");
-    }
   );
 
   const handleClose = (e: React.MouseEvent<HTMLDivElement>) => {
@@ -255,7 +233,7 @@ const SendCryptoModal: React.FC<SendCryptoModalProps> = ({ isOpen, onClose }) =>
         args: [spenderAddress, parseUnits(transactionSummary.totalUSDC.toString(), 6)],
       })
   
-      const tx = await contract!.createOrder(
+      await contract!.createOrder(
         address,
         parseUnits(transactionSummary.totalUSDC.toString(), 6),
         usdcTokenAddress,
@@ -263,17 +241,6 @@ const SendCryptoModal: React.FC<SendCryptoModalProps> = ({ isOpen, onClose }) =>
         messageHash
       )
   
-      const transactionReceipt = {
-        amount,
-        amountUSDC: Number(amount) * (exchangeRate ?? 1),
-        phoneNumber: mobileNumber,
-        address: account.address || "",
-        status: 1,
-        transactionHash: tx.hash || "",
-      }
-  
-      setTransactionReciept(transactionReceipt)
-      setOrderId(tx.hash || "pending")
       setShowProcessingPopup(true)
     } catch (error: any) {
       toast.error(error?.message || "Transaction failed.")
@@ -452,7 +419,7 @@ const SendCryptoModal: React.FC<SendCryptoModalProps> = ({ isOpen, onClose }) =>
               </div>
 
               <button
-                onClick={Number.parseFloat(amount) >= 20 ? handleApproveToken : undefined}
+                onClick={Number.parseFloat(amount) >= 10 ? handleApproveToken : undefined}
                 disabled={isApproving || transactionSummary.totalUSDC <= 0}
                 type="button"
                 className="w-full mt-4 py-3 bg-gradient-to-r from-blue-600 to-red-600 text-white rounded-full font-medium hover:opacity-90 transition-opacity disabled:opacity-50"

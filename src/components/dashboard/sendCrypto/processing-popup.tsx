@@ -1,31 +1,60 @@
 "use client"
 
 import type React from "react"
-import { useEffect, useState, useRef } from "react"
+import { useEffect, useState, useRef, useCallback } from "react"
 import { Loader2, CreditCard, Download, Copy, CheckCheck, Printer, Mail, FileText } from "lucide-react"
 import { motion, AnimatePresence } from "framer-motion"
-import { toPng } from 'html-to-image'
+import { toPng } from "html-to-image"
+import { fetchOrderStatus } from "@/app/api/aggregator"
 
 // Transaction details interface
 interface TransactionDetails {
   amount: string
-  currency: string
-  recipient: string
-  paymentMethod: string
+  currency?: string
+  recipient?: string
+  paymentMethod?: string
   transactionHash: string
   date: string
   receiptNumber: string
   paymentStatus: string
   customerName?: string
   customerEmail?: string
-  items?: {name: string, price: string, quantity: number}[]
+  items?: { name: string; price: string; quantity: number }[]
   subtotal?: string
   tax?: string
   merchantLogo?: string
   notes?: string
+  status: number // 0 = pending, 1 = completed, 2 = failed, 3 = refunded
+  failureReason?: string
+  orderId?: string
 }
 
+interface OrderStatusAPIData {
+  amount_fiat: number
+  created_at: string
+  currency: string
+  failure_reason: string | null
+  file_id: string
+  mpesa_receipt_number: string | null
+  order_id: string
+  order_type: string
+  receipt_number: string | null
+  receiver_name: string | null
+  status: string
+  token: string
+  transaction_hashes: {
+    creation: string | null
+    settlement: string | null
+    refund: string | null
+  }
+  wallet_address: string
+}
 
+interface OrderStatusResponse {
+  status: string
+  message: string
+  data: OrderStatusAPIData
+}
 
 // Update the interface to accept transaction details and custom API function
 interface ProcessingPopupProps {
@@ -33,11 +62,7 @@ interface ProcessingPopupProps {
   onClose: () => void
   orderId: string
   apiKey: string
-  // Add optional custom function for checking order status
-  checkOrderStatusFn?: (orderId: string) => Promise<string>
-  // Add optional transaction details
-  transactionDetails?: TransactionDetails
-  // Add branding options
+  transactionDetails: TransactionDetails
   branding?: {
     primaryColor: string
     logo?: string
@@ -45,7 +70,6 @@ interface ProcessingPopupProps {
     footerMessage?: string
     receiptTitle?: string
   }
-  // Email send function
   sendReceiptEmail?: (email: string, receiptData: any) => Promise<boolean>
 }
 
@@ -58,23 +82,11 @@ const ProcessingPopup: React.FC<ProcessingPopupProps> = ({
   onClose,
   orderId,
   apiKey,
-  checkOrderStatusFn,
-  transactionDetails = {
-    amount: "ksh 100",
-    currency: "KES",
-    recipient: "James Mwangi",
-    paymentMethod: "M-Pesa",
-    transactionHash: "0x3a8d7f6e5b4c2d1e0f9a8b7c6d5e4f3a2b1c0d9e8",
-    date: new Date().toISOString(),
-    receiptNumber: `RCP-${Math.floor(Math.random() * 1000000)
-      .toString()
-      .padStart(6, "0")}`,
-    paymentStatus: "Completed",
-  },
+  transactionDetails: initialTransactionDetails,
   branding = {
     primaryColor: "#4f46e5",
-    companyName: "Your Company",
-    footerMessage: "Thank you for using elementpay for your transactions.",
+    companyName: "Element Pay",
+    footerMessage: "Thank you for using Element Pay for your transactions.",
     receiptTitle: "Payment Receipt",
   },
   sendReceiptEmail,
@@ -84,11 +96,28 @@ const ProcessingPopup: React.FC<ProcessingPopupProps> = ({
   const [progress, setProgress] = useState(0)
   const [showConfetti, setShowConfetti] = useState(false)
   const [copied, setCopied] = useState(false)
-  const [emailInput, setEmailInput] = useState(transactionDetails.customerEmail || "")
+  const [emailInput, setEmailInput] = useState("")
   const [sendingEmail, setSendingEmail] = useState(false)
   const [emailSent, setEmailSent] = useState(false)
   const [activeTab, setActiveTab] = useState<"details" | "receipt">("details")
+  const [transactionDetails, setTransactionDetails] = useState<TransactionDetails>(initialTransactionDetails)
   const receiptRef = useRef<HTMLDivElement>(null)
+  const [fallbackDate, setFallbackDate] = useState<string>("")
+  const [showTechnicalDetails, setShowTechnicalDetails] = useState(false)
+
+  // Add cleanup function
+  const cleanupOrderId = useCallback(() => {
+    if (orderId) {
+      localStorage.removeItem(`order_${orderId}`);
+      sessionStorage.removeItem(`order_${orderId}`);
+    }
+  }, [orderId]);
+
+  useEffect(() => {
+    if (!fallbackDate) {
+      setFallbackDate(new Date().toISOString())
+    }
+  }, [fallbackDate])
 
   // Animation variants for staggered animations
   const containerVariants = {
@@ -106,69 +135,107 @@ const ProcessingPopup: React.FC<ProcessingPopupProps> = ({
     visible: { y: 0, opacity: 1 },
   }
 
+  // Poll for order status
   useEffect(() => {
     if (!isVisible || !orderId) return
 
-    // Reset states when popup becomes visible
-    setStatus("processing")
-    setStatusMessage("tafadhali subiri")
-    setProgress(0)
-    setShowConfetti(false)
-    setCopied(false)
-    setEmailSent(false)
-    setActiveTab("details")
-
-    // Simulate initial progress with easing
-    const progressInterval = setInterval(() => {
-      setProgress((prev) => {
-        // Slow down progress as it approaches 90%
-        const increment = Math.max(0.5, (90 - prev) / 20)
-        const newProgress = prev + increment
-        // Cap progress at 90% until we get confirmation
-        return newProgress > 90 ? 90 : newProgress
-      })
-    }, 300)
-
-    // Update the checkOrderStatus function to use the custom function if provided
-    const checkOrderStatus = async () => {
+    // Initial fetch
+    const fetchStatus = async () => {
       try {
-        // Simulate a delay for checking order status
-        await new Promise((resolve) => setTimeout(resolve, 2000));
+        console.log("Fetching order status in the processing-popup.tsx file")
+        console.log("Order ID:", orderId)
+        const orderStatus = await fetchOrderStatus(orderId) as OrderStatusResponse
+        console.log("Order status:", orderStatus)
+        
+        setTransactionDetails(prev => ({
+          ...prev,
+          amount: orderStatus.data.amount_fiat?.toString() || "N/A",
+          currency: orderStatus.data.currency || "N/A",
+          recipient: orderStatus.data.receiver_name || "N/A",
+          paymentMethod: orderStatus.data.order_type === "offramp" ? "Mobile Money" : "N/A",
+          transactionHash: orderStatus.data.transaction_hashes?.settlement || 
+                         orderStatus.data.transaction_hashes?.creation || 
+                         "N/A",
+          date: orderStatus.data.created_at || "N/A",
+          receiptNumber: orderStatus.data.receipt_number || 
+                        orderStatus.data.mpesa_receipt_number || 
+                        orderStatus.data.file_id || 
+                        "N/A",
+          paymentStatus: orderStatus.data.status === "settled" ? "settled" : 
+                        orderStatus.data.status === "failed" ? "Failed" : 
+                        orderStatus.data.status === "refunded" ? "Refunded" : "Processing",
+          status: Number(orderStatus.data.status === "settled" ? 1 : 
+                       orderStatus.data.status === "failed" ? 2 : 
+                       orderStatus.data.status === "refunded" ? 3 : 0),
+          failureReason: orderStatus.data.failure_reason || "N/A",
+          orderId: orderStatus.data.order_id || "N/A",
+          customerName: orderStatus.data.receiver_name || "N/A",
+          customerEmail: "N/A", // Not available in the response
+          items: [{
+            name: orderStatus.data.token || "N/A",
+            price: orderStatus.data.amount_fiat?.toString() || "N/A",
+            quantity: 1
+          }],
+          subtotal: orderStatus.data.amount_fiat?.toString() || "N/A",
+          tax: "N/A", // Not available in the response
+          merchantLogo: "N/A", // Not available in the response
+          notes: orderStatus.data.failure_reason || "N/A"
+        }))
 
-        // Randomly select an order status for testing
-        const statuses = ["processing", "success", "failed"];
-        const orderStatus = statuses[Math.floor(Math.random() * statuses.length)];
-
-        // Update UI based on simulated order status
-        if (orderStatus === "success") {
-          setStatus("success");
-          setStatusMessage("Payment successful!");
-          setProgress(100);
-          setShowConfetti(true);
-        } else if (orderStatus === "failed") {
-          setStatus("failed");
-          setStatusMessage("Payment failed. Please try again.");
-          setProgress(100);
+        // Update UI status based on order status
+        if (orderStatus.data.status === "settled") {
+          setStatus("success")
+          setStatusMessage("Payment successful!")
+          setProgress(100)
+          setShowConfetti(true)
+          cleanupOrderId() // Clean up on success
+          return true
+        } else if (orderStatus.data.status === "failed") {
+          setStatus("failed")
+          setStatusMessage(orderStatus.data.failure_reason || "Payment failed")
+          setProgress(100)
+          cleanupOrderId() // Clean up on failure
+          return true
+        } else if (orderStatus.data.status === "refunded") {
+          setStatus("failed")
+          setStatusMessage("Payment was refunded")
+          setProgress(100)
+          cleanupOrderId() // Clean up on refund
+          return true
         } else {
-          // If still processing, simulate another check
-          setTimeout(checkOrderStatus, 2000);
+          setStatus("processing")
+          setStatusMessage("Processing your payment...")
+          setProgress(90)
+          return false
         }
       } catch (error) {
-        console.error("Error checking order status:", error);
-        setStatus("failed");
-        setStatusMessage("Error checking payment status. Please check your wallet.");
-        setProgress(100);
+        console.error("Error polling order status:", error)
+        return false
       }
-    };
-
-    // Start checking status after a short delay
-    const statusCheckTimeout = setTimeout(checkOrderStatus, 1000)
-
-    return () => {
-      clearInterval(progressInterval)
-      clearTimeout(statusCheckTimeout)
     }
-  }, [isVisible, orderId, apiKey, onClose, checkOrderStatusFn])
+
+    // Initial fetch
+    fetchStatus().then(shouldContinuePolling => {
+      if (!shouldContinuePolling) {
+        // Start polling if the order is still processing
+        const pollInterval = setInterval(async () => {
+          const shouldStop = await fetchStatus()
+          if (shouldStop) {
+            clearInterval(pollInterval)
+          }
+        }, 5000) // Poll every 5 seconds
+
+        return () => clearInterval(pollInterval)
+      }
+    })
+  }, [isVisible, orderId, cleanupOrderId])
+
+  // Add cleanup on component unmount
+  useEffect(() => {
+    return () => {
+      cleanupOrderId()
+    }
+  }, [cleanupOrderId])
 
   // Function to copy transaction hash to clipboard
   const copyToClipboard = (text: string) => {
@@ -181,14 +248,14 @@ const ProcessingPopup: React.FC<ProcessingPopupProps> = ({
   // Function to send receipt via email
   const sendReceiptViaEmail = async () => {
     if (!emailInput || !sendReceiptEmail) return
-    
+
     setSendingEmail(true)
     try {
       const success = await sendReceiptEmail(emailInput, {
         ...transactionDetails,
-        orderId
+        orderId,
       })
-      
+
       if (success) {
         setEmailSent(true)
         setTimeout(() => setEmailSent(false), 3000)
@@ -203,33 +270,33 @@ const ProcessingPopup: React.FC<ProcessingPopupProps> = ({
   // Generate a downloadable image of the receipt
   const downloadReceiptAsImage = async () => {
     if (!receiptRef.current) return
-    
+
     try {
       const dataUrl = await toPng(receiptRef.current, { quality: 0.95 })
-      const link = document.createElement('a')
-      link.download = `Receipt-${transactionDetails.receiptNumber}.png`
+      const link = document.createElement("a")
+      link.download = `Receipt-${transactionDetails.receiptNumber || "unknown"}.png`
       link.href = dataUrl
       link.click()
     } catch (error) {
-      console.error('Error generating receipt image:', error)
+      console.error("Error generating receipt image:", error)
     }
   }
 
   // Print receipt
   const printReceipt = () => {
     if (!receiptRef.current) return
-    
-    const printWindow = window.open('', '_blank')
+
+    const printWindow = window.open("", "_blank")
     if (!printWindow) {
-      alert('Please allow popups to print your receipt')
+      alert("Please allow popups to print your receipt")
       return
     }
-    
+
     const receiptHTML = generateReceiptHTML()
     printWindow.document.open()
     printWindow.document.write(receiptHTML)
     printWindow.document.close()
-    
+
     // Automatically trigger print dialog after content loads
     printWindow.onload = () => {
       printWindow.print()
@@ -238,13 +305,13 @@ const ProcessingPopup: React.FC<ProcessingPopupProps> = ({
 
   // Generate receipt HTML for download or print
   const generateReceiptHTML = () => {
-    const brandColor = branding?.primaryColor || '#4f46e5'
-    
+    const brandColor = branding?.primaryColor || "#4f46e5"
+
     return `
       <!DOCTYPE html>
       <html>
       <head>
-        <title>Receipt: ${transactionDetails.receiptNumber}</title>
+        <title>Receipt: ${transactionDetails.receiptNumber || "unknown"}</title>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <style>
@@ -484,14 +551,14 @@ const ProcessingPopup: React.FC<ProcessingPopupProps> = ({
             </div>
             <div>
               <div class="receipt-label">Receipt ID</div>
-              <div class="receipt-number">${transactionDetails.receiptNumber}</div>
+              <div class="receipt-number">${transactionDetails.receiptNumber || "Pending"}</div>
             </div>
           </div>
           
-          <div class="receipt-title">${branding.receiptTitle || 'Payment Receipt'}</div>
+          <div class="receipt-title">${branding.receiptTitle || "Payment Receipt"}</div>
           
           <div style="text-align: center; margin-bottom: 30px;">
-            <div class="receipt-status">${transactionDetails.paymentStatus}</div>
+            <div class="receipt-status">${transactionDetails.paymentStatus || "Processing"}</div>
           </div>
           
           <div class="receipt-section">
@@ -499,39 +566,49 @@ const ProcessingPopup: React.FC<ProcessingPopupProps> = ({
             <div class="receipt-grid">
               <div class="receipt-info-item">
                 <div class="receipt-info-label">Date</div>
-                <div class="receipt-info-value">${transactionDetails.date}</div>
+                <div class="receipt-info-value">${transactionDetails.date || fallbackDate}</div>
               </div>
               <div class="receipt-info-item">
                 <div class="receipt-info-label">Recipient</div>
-                <div class="receipt-info-value">${transactionDetails.recipient}</div>
+                <div class="receipt-info-value">${transactionDetails.recipient || "Unknown"}</div>
               </div>
-              ${transactionDetails.customerName ? `
+              ${
+                transactionDetails.customerName
+                  ? `
               <div class="receipt-info-item">
                 <div class="receipt-info-label">Customer</div>
                 <div class="receipt-info-value">${transactionDetails.customerName}</div>
-              </div>` : ''}
-              ${transactionDetails.customerEmail ? `
+              </div>`
+                  : ""
+              }
+              ${
+                transactionDetails.customerEmail
+                  ? `
               <div class="receipt-info-item">
                 <div class="receipt-info-label">Email</div>
                 <div class="receipt-info-value">${transactionDetails.customerEmail}</div>
-              </div>` : ''}
+              </div>`
+                  : ""
+              }
             </div>
           </div>
           
           <div class="payment-method">
             <div class="payment-icon">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <rect x="1" y="4" width="22" height="16" rx="2" ry="2"></rect>
                 <line x1="1" y1="10" x2="23" y2="10"></line>
               </svg>
             </div>
             <div class="payment-details">
-              <div class="payment-name">${transactionDetails.paymentMethod}</div>
-              <div class="payment-date">Processed on ${transactionDetails.date}</div>
+              <div class="payment-name">${transactionDetails.paymentMethod || "Mobile Money"}</div>
+              <div class="payment-date">Processed on ${transactionDetails.date || fallbackDate}</div>
             </div>
           </div>
           
-          ${transactionDetails.items && transactionDetails.items.length > 0 ? `
+          ${
+            transactionDetails.items && transactionDetails.items.length > 0
+              ? `
           <div class="receipt-section">
             <div class="section-title">Items</div>
             <table class="items-table">
@@ -544,52 +621,66 @@ const ProcessingPopup: React.FC<ProcessingPopupProps> = ({
                 </tr>
               </thead>
               <tbody>
-                ${transactionDetails.items.map(item => `
+                ${transactionDetails.items
+                  .map(
+                    (item) => `
                 <tr>
                   <td>${item.name}</td>
                   <td>${item.price}</td>
                   <td class="item-quantity">${item.quantity}</td>
-                  <td class="item-total">$${(parseFloat(item.price.replace(/[^0-9.-]+/g, '')) * item.quantity).toFixed(2)}</td>
+                  <td class="item-total">Kes${(Number.parseFloat(item.price.replace(/[^0-9.-]+/g, "")) * item.quantity).toFixed(2)}</td>
                 </tr>
-                `).join('')}
+                `,
+                  )
+                  .join("")}
               </tbody>
             </table>
           </div>
-          ` : ''}
+          `
+              : ""
+          }
           
           <div class="receipt-section">
             <div class="section-title">Transaction Details</div>
             <div class="receipt-info-item">
               <div class="receipt-info-label">Transaction ID</div>
-              <div class="transaction-id">${transactionDetails.transactionHash}</div>
+              <div class="transaction-id">${transactionDetails.transactionHash || "Pending"}</div>
             </div>
           </div>
           
           <div class="amount-section">
-            ${transactionDetails.subtotal ? `
+            ${
+              transactionDetails.subtotal
+                ? `
             <div style="margin-bottom: 5px;">
               <span style="color: #777; display: inline-block; width: 120px; text-align: right;">Subtotal:</span>
               <span style="font-weight: 500; display: inline-block; width: 100px; text-align: right;">${transactionDetails.subtotal}</span>
-            </div>` : ''}
+            </div>`
+                : ""
+            }
             
-            ${transactionDetails.tax ? `
+            ${
+              transactionDetails.tax
+                ? `
             <div style="margin-bottom: 5px;">
               <span style="color: #777; display: inline-block; width: 120px; text-align: right;">Tax:</span>
               <span style="font-weight: 500; display: inline-block; width: 100px; text-align: right;">${transactionDetails.tax}</span>
-            </div>` : ''}
+            </div>`
+                : ""
+            }
             
-            <div class="total-amount">${transactionDetails.amount} ${transactionDetails.currency}</div>
+            <div class="total-amount">${transactionDetails.amount || "0"} ${transactionDetails.currency || "KES"}</div>
           </div>
           
           <div class="receipt-barcode">
             <div class="qrcode-container">
-              <img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(transactionDetails.transactionHash)}" width="120" height="120" alt="Transaction QR Code">
+              <img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(transactionDetails.transactionHash || "pending")}" width="120" height="120" alt="Transaction QR Code">
             </div>
             <div style="margin-top: 10px; font-size: 12px; color: #777;">Scan to verify transaction</div>
           </div>
           
           <div class="receipt-footer">
-            ${branding.footerMessage || 'Thank you for your business!'}
+            ${branding.footerMessage || "Thank you for your business!"}
             <div style="margin-top: 5px; font-size: 12px;">
               For questions about this transaction, please contact customer support.
             </div>
@@ -911,48 +1002,204 @@ const ProcessingPopup: React.FC<ProcessingPopupProps> = ({
 
                 {status === "failed" && (
                   <motion.div
-                    initial={{ rotate: -90, opacity: 0 }}
-                    animate={{ rotate: 0, opacity: 1 }}
-                    transition={{ type: "spring", stiffness: 300, damping: 20 }}
-                    className="bg-red-100 rounded-full p-4"
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.5 }}
+                    className="w-full max-w-2xl mx-auto"
                   >
-                    {/* X animation with drawing effect */}
-                    <svg
-                      className="w-12 h-12 text-red-500"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
+                    {/* Error severity indicator with animation */}
+                    <div className="flex items-center justify-center mb-6">
+                      <motion.div 
+                        className="bg-red-50 rounded-full p-4 relative"
+                        initial={{ scale: 0.8 }}
+                        animate={{ scale: 1 }}
+                        transition={{ type: "spring", stiffness: 300, damping: 20 }}
+                      >
+                        {/* Pulsing background effect */}
+                        <motion.div
+                          className="absolute inset-0 rounded-full bg-red-100"
+                          animate={{ scale: [1, 1.2, 1] }}
+                          transition={{ duration: 2, repeat: Infinity }}
+                        />
+                        <svg
+                          className="w-10 h-10 text-red-500 relative z-10"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        >
+                          <motion.circle
+                            cx="12"
+                            cy="12"
+                            r="10"
+                            initial={{ pathLength: 0 }}
+                            animate={{ pathLength: 1 }}
+                            transition={{ duration: 0.5 }}
+                          />
+                          <motion.line
+                            x1="15"
+                            y1="9"
+                            x2="9"
+                            y2="15"
+                            initial={{ pathLength: 0 }}
+                            animate={{ pathLength: 1 }}
+                            transition={{ duration: 0.3, delay: 0.5 }}
+                          />
+                          <motion.line
+                            x1="9"
+                            y1="9"
+                            x2="15"
+                            y2="15"
+                            initial={{ pathLength: 0 }}
+                            animate={{ pathLength: 1 }}
+                            transition={{ duration: 0.3, delay: 0.8 }}
+                          />
+                        </svg>
+                      </motion.div>
+                    </div>
+
+                    {/* Error message with improved typography */}
+                    <div className="text-center mb-8">
+                      <motion.h3 
+                        className="text-2xl md:text-3xl font-bold text-gray-900 mb-3"
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: 0.6 }}
+                      >
+                        Payment Failed
+                      </motion.h3>
+                      <motion.p 
+                        className="text-gray-600 text-lg"
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        transition={{ delay: 0.7 }}
+                      >
+                        {statusMessage}
+                      </motion.p>
+                    </div>
+
+                    {/* Error details card with improved layout */}
+                    <motion.div 
+                      className="bg-red-50 rounded-xl p-6 mb-8 shadow-sm"
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: 0.8 }}
                     >
-                      <motion.circle
-                        cx="12"
-                        cy="12"
-                        r="10"
-                        initial={{ pathLength: 0 }}
-                        animate={{ pathLength: 1 }}
-                        transition={{ duration: 0.5 }}
-                      />
-                      <motion.line
-                        x1="15"
-                        y1="9"
-                        x2="9"
-                        y2="15"
-                        initial={{ pathLength: 0 }}
-                        animate={{ pathLength: 1 }}
-                        transition={{ duration: 0.3, delay: 0.5 }}
-                      />
-                      <motion.line
-                        x1="9"
-                        y1="9"
-                        x2="15"
-                        y2="15"
-                        initial={{ pathLength: 0 }}
-                        animate={{ pathLength: 1 }}
-                        transition={{ duration: 0.3, delay: 0.8 }}
-                      />
-                    </svg>
+                      <div className="flex items-start space-x-4">
+                        <div className="flex-shrink-0 mt-1">
+                          <div className="w-8 h-8 rounded-full bg-red-100 flex items-center justify-center">
+                            <svg className="h-5 w-5 text-red-500" viewBox="0 0 20 20" fill="currentColor">
+                              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                            </svg>
+                          </div>
+                        </div>
+                        <div className="flex-1">
+                          <h4 className="text-lg font-semibold text-red-800 mb-2">What happened?</h4>
+                          <p className="text-red-700 leading-relaxed">
+                            {transactionDetails.failureReason || "The payment could not be processed at this time."}
+                          </p>
+                        </div>
+                      </div>
+                    </motion.div>
+
+                    {/* Action buttons with improved layout */}
+                    <motion.div 
+                      className="space-y-4 md:space-y-0 md:flex md:space-x-4"
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: 0.9 }}
+                    >
+                      <motion.button
+                        onClick={onClose}
+                        className="w-full md:w-1/2 px-6 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 transition-colors font-medium text-lg shadow-sm"
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.98 }}
+                      >
+                        Try Again
+                      </motion.button>
+                      
+                      <motion.button
+                        onClick={() => window.open('mailto:support@elementpay.com', '_blank')}
+                        className="w-full md:w-1/2 px-6 py-3 bg-white text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 transition-colors font-medium text-lg shadow-sm"
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.98 }}
+                      >
+                        Contact Support
+                      </motion.button>
+                    </motion.div>
+
+                    {/* Technical details with improved collapsible UI */}
+                    <motion.div 
+                      className="mt-8"
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      transition={{ delay: 1 }}
+                    >
+                      <button
+                        onClick={() => setShowTechnicalDetails(!showTechnicalDetails)}
+                        className="w-full flex items-center justify-between px-4 py-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
+                      >
+                        <span className="text-gray-700 font-medium">Technical Details</span>
+                        <motion.svg
+                          className={`w-5 h-5 text-gray-500 transform transition-transform ${showTechnicalDetails ? 'rotate-180' : ''}`}
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                          animate={{ rotate: showTechnicalDetails ? 180 : 0 }}
+                        >
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                        </motion.svg>
+                      </button>
+                      
+                      <AnimatePresence>
+                        {showTechnicalDetails && (
+                          <motion.div
+                            initial={{ height: 0, opacity: 0 }}
+                            animate={{ height: "auto", opacity: 1 }}
+                            exit={{ height: 0, opacity: 0 }}
+                            transition={{ duration: 0.3 }}
+                            className="mt-4 bg-gray-50 rounded-lg overflow-hidden"
+                          >
+                            <div className="p-4">
+                              <div className="text-sm text-gray-500 mb-2">Transaction ID</div>
+                              <div className="flex items-center gap-2 bg-white p-3 rounded-lg border border-gray-200">
+                                <div className="text-sm font-mono text-gray-700 break-all flex-1">
+                                  {transactionDetails.transactionHash || "Pending"}
+                                </div>
+                                <motion.button
+                                  onClick={() => copyToClipboard(transactionDetails.transactionHash)}
+                                  className="flex-shrink-0 text-gray-500 hover:text-gray-700 focus:outline-none p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                                  whileHover={{ scale: 1.1 }}
+                                  whileTap={{ scale: 0.95 }}
+                                >
+                                  {copied ? <CheckCheck size={16} /> : <Copy size={16} />}
+                                </motion.button>
+                              </div>
+                            </div>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+                    </motion.div>
+
+                    {/* Additional help section */}
+                    <motion.div 
+                      className="mt-8 text-center"
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      transition={{ delay: 1.1 }}
+                    >
+                      <p className="text-gray-500 text-sm">
+                        Need immediate assistance? Our support team is available 24/7
+                      </p>
+                      <a 
+                        href="tel:+254700000000" 
+                        className="inline-block mt-2 text-red-600 hover:text-red-700 font-medium"
+                      >
+                        +254 700 000 000
+                      </a>
+                    </motion.div>
                   </motion.div>
                 )}
               </motion.div>
@@ -1014,12 +1261,7 @@ const ProcessingPopup: React.FC<ProcessingPopupProps> = ({
 
               {/* Transaction details tabs - only show on success */}
               {status === "success" && (
-                <motion.div
-                  className="w-full"
-                  initial="hidden"
-                  animate="visible"
-                  variants={containerVariants}
-                >
+                <motion.div className="w-full" initial="hidden" animate="visible" variants={containerVariants}>
                   {/* Tabs for switching between transaction details and receipt */}
                   <div className="flex border-b mb-4">
                     <button
@@ -1062,27 +1304,27 @@ const ProcessingPopup: React.FC<ProcessingPopupProps> = ({
 
                         <motion.div className="flex justify-between mb-2" variants={itemVariants}>
                           <span className="text-gray-600">Recipient:</span>
-                          <span className="font-medium">{transactionDetails.recipient}</span>
+                          <span className="font-medium">{transactionDetails.recipient || "N/A"}</span>
                         </motion.div>
 
                         <motion.div className="flex justify-between mb-2" variants={itemVariants}>
                           <span className="text-gray-600">Payment Method:</span>
-                          <span className="font-medium">{transactionDetails.paymentMethod}</span>
+                          <span className="font-medium">{transactionDetails.paymentMethod || "Mobile Money"}</span>
                         </motion.div>
 
                         <motion.div className="flex justify-between mb-2" variants={itemVariants}>
                           <span className="text-gray-600">Date:</span>
-                          <span className="font-medium">{transactionDetails.date}</span>
+                          <span className="font-medium">{transactionDetails.date || fallbackDate}</span>
                         </motion.div>
 
                         <motion.div className="flex justify-between items-center" variants={itemVariants}>
                           <span className="text-gray-600">Transaction ID:</span>
                           <div className="flex items-center">
                             <span className="font-medium text-xs truncate max-w-[120px] md:max-w-[180px]">
-                              {transactionDetails.transactionHash}
+                              {transactionDetails.transactionHash || "Pending"}
                             </span>
                             <motion.button
-                              onClick={() => copyToClipboard(transactionDetails.transactionHash)}
+                              onClick={() => copyToClipboard(transactionDetails.transactionHash || "")}
                               className="ml-2 text-blue-500 hover:text-blue-700 focus:outline-none"
                               whileHover={{ scale: 1.1 }}
                               whileTap={{ scale: 0.95 }}
@@ -1134,9 +1376,7 @@ const ProcessingPopup: React.FC<ProcessingPopupProps> = ({
                                 onClick={sendReceiptViaEmail}
                                 disabled={!emailInput || sendingEmail}
                                 className={`flex items-center gap-1 px-3 py-2 ${
-                                  emailSent
-                                    ? "bg-green-500 text-white"
-                                    : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                                  emailSent ? "bg-green-500 text-white" : "bg-gray-100 text-gray-700 hover:bg-gray-200"
                                 } rounded-r-md transition-colors text-sm whitespace-nowrap`}
                               >
                                 {sendingEmail ? (
@@ -1173,15 +1413,17 @@ const ProcessingPopup: React.FC<ProcessingPopupProps> = ({
                           </div>
                           <div>
                             <div className="text-xs text-gray-500">Receipt ID</div>
-                            <div className="text-sm font-medium">{transactionDetails.receiptNumber}</div>
+                            <div className="text-sm font-medium">{transactionDetails.receiptNumber || "Pending"}</div>
                           </div>
                         </div>
 
                         {/* Receipt Title */}
                         <div className="p-4 text-center">
-                          <h3 className="text-xl font-bold text-gray-800">{branding.receiptTitle || 'Payment Receipt'}</h3>
+                          <h3 className="text-xl font-bold text-gray-800">
+                            {branding.receiptTitle || "Payment Receipt"}
+                          </h3>
                           <div className="mt-2 inline-block px-3 py-1 bg-green-100 text-green-800 text-xs font-medium rounded-full">
-                            {transactionDetails.paymentStatus}
+                            {transactionDetails.paymentStatus || "Processing"}
                           </div>
                         </div>
 
@@ -1191,11 +1433,11 @@ const ProcessingPopup: React.FC<ProcessingPopupProps> = ({
                           <div className="grid grid-cols-2 gap-3">
                             <div>
                               <div className="text-xs text-gray-500">Date</div>
-                              <div className="text-sm">{transactionDetails.date}</div>
+                              <div className="text-sm">{transactionDetails.date || fallbackDate}</div>
                             </div>
                             <div>
                               <div className="text-xs text-gray-500">Recipient</div>
-                              <div className="text-sm">{transactionDetails.recipient}</div>
+                              <div className="text-sm">{transactionDetails.recipient || "N/A"}</div>
                             </div>
                             {transactionDetails.customerName && (
                               <div>
@@ -1212,8 +1454,12 @@ const ProcessingPopup: React.FC<ProcessingPopupProps> = ({
                             <CreditCard size={16} />
                           </div>
                           <div>
-                            <div className="text-sm font-medium">{transactionDetails.paymentMethod}</div>
-                            <div className="text-xs text-gray-500">Processed on {transactionDetails.date}</div>
+                            <div className="text-sm font-medium">
+                              {transactionDetails.paymentMethod || "Mobile Money"}
+                            </div>
+                            <div className="text-xs text-gray-500">
+                              Processed on {transactionDetails.date || fallbackDate}
+                            </div>
                           </div>
                         </div>
 
@@ -1223,7 +1469,7 @@ const ProcessingPopup: React.FC<ProcessingPopupProps> = ({
                           <div>
                             <div className="text-xs text-gray-500 mb-1">Transaction ID</div>
                             <div className="text-xs font-mono bg-gray-50 p-2 rounded border border-gray-100 break-all">
-                              {transactionDetails.transactionHash}
+                              {transactionDetails.transactionHash || "Pending"}
                             </div>
                           </div>
                         </div>
@@ -1232,19 +1478,15 @@ const ProcessingPopup: React.FC<ProcessingPopupProps> = ({
                         <div className="px-4 py-3 border-t border-gray-100 text-right">
                           <div className="text-xs text-gray-500 mb-1">Total Amount</div>
                           <div className="text-2xl font-bold text-blue-600">
-                            {transactionDetails.amount} {transactionDetails.currency}
+                            {transactionDetails.amount || "0"} {transactionDetails.currency || "KES"}
                           </div>
                         </div>
 
-                        {/* QR Code */}
-                        {/* <div className="p-4 border-t border-gray-100 flex flex-col items-center">
-                          <QRCode value={transactionDetails.transactionHash} size={100} renderAs="svg" />
-                          <div className="text-xs text-gray-500 mt-2">Scan to verify transaction</div>
-                        </div> */}
-
                         {/* Receipt Footer */}
                         <div className="p-4 border-t border-gray-100 text-center">
-                          <div className="text-sm text-gray-600">{branding.footerMessage || 'Thank you for your business!'}</div>
+                          <div className="text-sm text-gray-600">
+                            {branding.footerMessage || "Thank you for your business!"}
+                          </div>
                           <div className="text-xs text-gray-500 mt-1">
                             For questions about this transaction, please contact customer support.
                           </div>

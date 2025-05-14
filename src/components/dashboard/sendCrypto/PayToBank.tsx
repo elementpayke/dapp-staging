@@ -1,16 +1,18 @@
-import React from "react";
+"use client"
+
+import type React from "react"
 
 interface PayToBankProps {
-  selectedToken: string;
-  setSelectedToken: (value: string) => void;
-  amount: string;
-  setAmount: (value: string) => void;
-  bank: string;
-  setBank: (value: string) => void;
-  accountNumber: string;
-  setAccountNumber: (value: string) => void;
-  reason: string;
-  setReason: (value: string) => void;
+  selectedToken: string
+  setSelectedToken: (value: string) => void
+  amount: string
+  setAmount: (value: string) => void
+  bank: string
+  setBank: (value: string) => void
+  accountNumber: string
+  setAccountNumber: (value: string) => void
+  reason: string
+  setReason: (value: string) => void
 }
 
 const PayToBank: React.FC<PayToBankProps> = ({
@@ -102,7 +104,7 @@ const PayToBank: React.FC<PayToBankProps> = ({
         />
       </div>
     </div>
-  );
-};
+  )
+}
 
-export default PayToBank;
+export default PayToBank
