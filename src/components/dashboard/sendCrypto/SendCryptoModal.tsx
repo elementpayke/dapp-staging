@@ -241,6 +241,16 @@ const SendCryptoModal: React.FC<SendCryptoModalProps> = ({ isOpen, onClose }) =>
         messageHash
       )
   
+      // Reset states before showing processing popup
+      setOrderId("")
+      setTransactionReciept({
+        amount: "0.00",
+        amountUSDC: 0,
+        phoneNumber: "",
+        address: "",
+        status: 0,
+        transactionHash: "",
+      })
       setShowProcessingPopup(true)
     } catch (error: any) {
       toast.error(error?.message || "Transaction failed.")
@@ -460,11 +470,23 @@ const SendCryptoModal: React.FC<SendCryptoModalProps> = ({ isOpen, onClose }) =>
             isVisible={showProcessingPopup}
             onClose={() => {
               setShowProcessingPopup(false)
+              setOrderId("")
               if (transactionReciept.status === 1) {
               }
             }}
             orderId={orderId}
             apiKey={apiKey}
+            transactionDetails={{
+              amount: amount,
+              currency: "KES",
+              recipient: mobileNumber,
+              paymentMethod: "Mobile Money",
+              transactionHash: "",
+              date: new Date().toISOString(),
+              receiptNumber: "",
+              paymentStatus: "Processing",
+              status: 0
+            }}
           />
         )}
       </div>

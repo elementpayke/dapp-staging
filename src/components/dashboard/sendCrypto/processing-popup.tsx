@@ -2,7 +2,7 @@
 
 import type React from "react"
 import { useEffect, useState, useRef, useCallback } from "react"
-import { Loader2, CreditCard, Download, Copy, CheckCheck, Printer, Mail, FileText } from "lucide-react"
+import { Loader2, CreditCard, Download, Copy, CheckCheck, Printer, Mail, FileText, X, ExternalLink } from "lucide-react"
 import { motion, AnimatePresence } from "framer-motion"
 import { toPng } from "html-to-image"
 import { fetchOrderStatus } from "@/app/api/aggregator"
@@ -112,6 +112,23 @@ const ProcessingPopup: React.FC<ProcessingPopupProps> = ({
       sessionStorage.removeItem(`order_${orderId}`);
     }
   }, [orderId]);
+
+  // Reset all state when popup becomes invisible
+  useEffect(() => {
+    if (!isVisible) {
+      setStatus("processing");
+      setStatusMessage("Processing your payment...");
+      setProgress(0);
+      setShowConfetti(false);
+      setCopied(false);
+      setEmailInput("");
+      setSendingEmail(false);
+      setEmailSent(false);
+      setActiveTab("details");
+      setShowTechnicalDetails(false);
+      setTransactionDetails(initialTransactionDetails);
+    }
+  }, [isVisible, initialTransactionDetails]);
 
   useEffect(() => {
     if (!fallbackDate) {
@@ -790,9 +807,7 @@ const ProcessingPopup: React.FC<ProcessingPopupProps> = ({
             animate={{ scale: 1, y: 0, opacity: 1 }}
             exit={{ scale: 0.9, y: 20, opacity: 0 }}
             transition={{ type: "spring", damping: 25, stiffness: 300 }}
-            className={`bg-white rounded-2xl p-6 max-w-md w-full mx-4 shadow-xl relative overflow-hidden ${
-              status === "success" ? "md:max-w-lg" : ""
-            }`}
+            className="bg-white rounded-2xl p-6 max-w-[95vw] w-full md:max-w-lg min-w-[340px] shadow-xl relative overflow-hidden"
             style={{ maxHeight: "90vh", overflowY: "auto" }}
           >
             {/* Animated background patterns */}
@@ -889,15 +904,128 @@ const ProcessingPopup: React.FC<ProcessingPopupProps> = ({
               )}
 
               {status === "failed" && (
-                <motion.div
-                  className="absolute inset-0 opacity-10"
-                  style={{
-                    background: "linear-gradient(120deg, #ff9a9e 0%, #fad0c4 100%)",
-                  }}
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 0.1 }}
-                  transition={{ duration: 1 }}
-                />
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+                  <motion.div 
+                    className="bg-white rounded-xl shadow-xl max-w-md w-full overflow-hidden relative"
+                    initial={{ opacity: 0, scale: 0.95 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    transition={{ duration: 0.2 }}
+                  >
+                    {/* Close button */}
+                    <button 
+                      onClick={onClose}
+                      className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 focus:outline-none"
+                    >
+                      <X size={20} />
+                    </button>
+                    <div className="p-6">
+                      {/* Simplified header with cleaner icon */}
+                      <div className="flex items-center justify-center mb-5">
+                        <motion.div 
+                          className="bg-red-100 rounded-full p-3"
+                          initial={{ scale: 0.8 }}
+                          animate={{ scale: 1 }}
+                          transition={{ type: "spring", stiffness: 300 }}
+                        >
+                          <svg className="w-8 h-8 text-red-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                            <circle cx="12" cy="12" r="10" />
+                            <line x1="15" y1="9" x2="9" y2="15" />
+                            <line x1="9" y1="9" x2="15" y2="15" />
+                          </svg>
+                        </motion.div>
+                      </div>
+                      {/* Clearer error title and message */}
+                      <div className="text-center mb-6">
+                        <h3 className="text-xl font-bold text-gray-900 mb-2">
+                          Unsupported Customer Type
+                        </h3>
+                        <p className="text-gray-600 text-base">
+                          {transactionDetails.failureReason || ("Your account is registered as a Credit Party customer, which is not compatible with this payment method. Please try a different payment option or contact our support team.")}
+                        </p>
+                      </div>
+                      {/* Simplified explanation card */}
+                      <motion.div 
+                        className="bg-red-50 rounded-lg p-4 mb-5"
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: 0.2 }}
+                      >
+                        <div className="flex items-start space-x-3">
+                          <div className="mt-0.5">
+                            <svg className="h-5 w-5 text-red-500" viewBox="0 0 20 20" fill="currentColor">
+                              <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2h-1V9z" clipRule="evenodd" />
+                            </svg>
+                          </div>
+                          <div>
+                            <p className="text-sm text-red-700">
+                              {transactionDetails.failureReason || "The payment could not be processed at this time."}
+                            </p>
+                          </div>
+                        </div>
+                      </motion.div>
+                      {/* Action buttons with better hierarchy */}
+                      <div className="space-y-3 mb-5">
+                        <button
+                          onClick={() => window.open('mailto:support@elementpay.com', '_blank')}
+                          className="w-full px-4 py-2.5 bg-red-600 text-white rounded-lg hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 transition-colors font-medium flex items-center justify-center"
+                        >
+                          <ExternalLink size={16} className="mr-2" />
+                          Contact Support
+                        </button>
+                        <button
+                          onClick={onClose}
+                          className="w-full px-4 py-2.5 bg-white text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-300 focus:ring-offset-2 transition-colors font-medium"
+                        >
+                          Return to Payment Options
+                        </button>
+                      </div>
+                      {/* Technical details (simplified) */}
+                      <div>
+                        <button
+                          onClick={() => setShowTechnicalDetails(!showTechnicalDetails)}
+                          className="w-full flex items-center justify-between px-3 py-2 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
+                        >
+                          <span className="text-sm text-gray-600">Technical Details</span>
+                          <svg
+                            className={`w-4 h-4 text-gray-500 transform transition-transform ${showTechnicalDetails ? 'rotate-180' : ''}`}
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke="currentColor"
+                          >
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                          </svg>
+                        </button>
+                        <AnimatePresence>
+                          {showTechnicalDetails && (
+                            <motion.div
+                              initial={{ height: 0, opacity: 0 }}
+                              animate={{ height: "auto", opacity: 1 }}
+                              exit={{ height: 0, opacity: 0 }}
+                              transition={{ duration: 0.2 }}
+                              className="mt-2 bg-gray-50 rounded-lg overflow-hidden"
+                            >
+                              <div className="p-3">
+                                <div className="text-xs text-gray-500 mb-1">Error Code: CUST_TYPE_UNSUPPORTED</div>
+                                <div className="text-xs text-gray-500 mb-2">Transaction ID</div>
+                                <div className="flex items-center gap-2 bg-white p-2 rounded-md border border-gray-200">
+                                  <div className="text-xs font-mono text-gray-700 break-all flex-1">
+                                    {transactionDetails.transactionHash}
+                                  </div>
+                                  <button
+                                    onClick={() => copyToClipboard(transactionDetails.transactionHash)}
+                                    className="flex-shrink-0 text-gray-500 hover:text-gray-700 focus:outline-none p-1 hover:bg-gray-100 rounded transition-colors"
+                                  >
+                                    {copied ? <CheckCheck size={14} /> : <Copy size={14} />}
+                                  </button>
+                                </div>
+                              </div>
+                            </motion.div>
+                          )}
+                        </AnimatePresence>
+                      </div>
+                    </div>
+                  </motion.div>
+                </div>
               )}
             </div>
 
@@ -1005,7 +1133,7 @@ const ProcessingPopup: React.FC<ProcessingPopupProps> = ({
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: 0.5 }}
-                    className="w-full max-w-2xl mx-auto"
+                    className="w-full px-4"
                   >
                     {/* Error severity indicator with animation */}
                     <div className="flex items-center justify-center mb-6">
@@ -1061,9 +1189,9 @@ const ProcessingPopup: React.FC<ProcessingPopupProps> = ({
                     </div>
 
                     {/* Error message with improved typography */}
-                    <div className="text-center mb-8">
+                    <div className="text-center mb-8 break-words">
                       <motion.h3 
-                        className="text-2xl md:text-3xl font-bold text-gray-900 mb-3"
+                        className="text-2xl font-bold text-gray-900 mb-3"
                         initial={{ opacity: 0, y: 10 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ delay: 0.6 }}
@@ -1071,7 +1199,7 @@ const ProcessingPopup: React.FC<ProcessingPopupProps> = ({
                         Payment Failed
                       </motion.h3>
                       <motion.p 
-                        className="text-gray-600 text-lg"
+                        className="text-gray-600 text-base break-words"
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
                         transition={{ delay: 0.7 }}
@@ -1082,12 +1210,12 @@ const ProcessingPopup: React.FC<ProcessingPopupProps> = ({
 
                     {/* Error details card with improved layout */}
                     <motion.div 
-                      className="bg-red-50 rounded-xl p-6 mb-8 shadow-sm"
+                      className="bg-red-50 rounded-xl p-4 mb-6 shadow-sm"
                       initial={{ opacity: 0, y: 20 }}
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ delay: 0.8 }}
                     >
-                      <div className="flex items-start space-x-4">
+                      <div className="flex items-start space-x-3">
                         <div className="flex-shrink-0 mt-1">
                           <div className="w-8 h-8 rounded-full bg-red-100 flex items-center justify-center">
                             <svg className="h-5 w-5 text-red-500" viewBox="0 0 20 20" fill="currentColor">
@@ -1096,8 +1224,8 @@ const ProcessingPopup: React.FC<ProcessingPopupProps> = ({
                           </div>
                         </div>
                         <div className="flex-1">
-                          <h4 className="text-lg font-semibold text-red-800 mb-2">What happened?</h4>
-                          <p className="text-red-700 leading-relaxed">
+                          <h4 className="text-base font-semibold text-red-800 mb-1">What happened?</h4>
+                          <p className="text-sm text-red-700 leading-relaxed">
                             {transactionDetails.failureReason || "The payment could not be processed at this time."}
                           </p>
                         </div>
@@ -1106,25 +1234,22 @@ const ProcessingPopup: React.FC<ProcessingPopupProps> = ({
 
                     {/* Action buttons with improved layout */}
                     <motion.div 
-                      className="space-y-4 md:space-y-0 md:flex md:space-x-4"
+                      className="space-y-3"
                       initial={{ opacity: 0, y: 20 }}
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ delay: 0.9 }}
                     >
                       <motion.button
                         onClick={onClose}
-                        className="w-full md:w-1/2 px-6 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 transition-colors font-medium text-lg shadow-sm"
-                        whileHover={{ scale: 1.02 }}
-                        whileTap={{ scale: 0.98 }}
+                        className="w-full px-4 py-2.5 bg-red-600 text-white rounded-lg hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 transition-colors font-medium flex items-center justify-center"
                       >
-                        Try Again
+                        <ExternalLink size={16} className="mr-2" />
+                        Contact Support
                       </motion.button>
                       
                       <motion.button
                         onClick={() => window.open('mailto:support@elementpay.com', '_blank')}
-                        className="w-full md:w-1/2 px-6 py-3 bg-white text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 transition-colors font-medium text-lg shadow-sm"
-                        whileHover={{ scale: 1.02 }}
-                        whileTap={{ scale: 0.98 }}
+                        className="w-full px-4 py-2.5 bg-white text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-300 focus:ring-offset-2 transition-colors font-medium"
                       >
                         Contact Support
                       </motion.button>
@@ -1132,18 +1257,18 @@ const ProcessingPopup: React.FC<ProcessingPopupProps> = ({
 
                     {/* Technical details with improved collapsible UI */}
                     <motion.div 
-                      className="mt-8"
+                      className="mt-6"
                       initial={{ opacity: 0 }}
                       animate={{ opacity: 1 }}
                       transition={{ delay: 1 }}
                     >
                       <button
                         onClick={() => setShowTechnicalDetails(!showTechnicalDetails)}
-                        className="w-full flex items-center justify-between px-4 py-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
+                        className="w-full flex items-center justify-between px-3 py-2 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
                       >
-                        <span className="text-gray-700 font-medium">Technical Details</span>
+                        <span className="text-sm text-gray-700 font-medium">Technical Details</span>
                         <motion.svg
-                          className={`w-5 h-5 text-gray-500 transform transition-transform ${showTechnicalDetails ? 'rotate-180' : ''}`}
+                          className={`w-4 h-4 text-gray-500 transform transition-transform ${showTechnicalDetails ? 'rotate-180' : ''}`}
                           fill="none"
                           viewBox="0 0 24 24"
                           stroke="currentColor"
@@ -1160,22 +1285,20 @@ const ProcessingPopup: React.FC<ProcessingPopupProps> = ({
                             animate={{ height: "auto", opacity: 1 }}
                             exit={{ height: 0, opacity: 0 }}
                             transition={{ duration: 0.3 }}
-                            className="mt-4 bg-gray-50 rounded-lg overflow-hidden"
+                            className="mt-2 bg-gray-50 rounded-lg overflow-hidden"
                           >
-                            <div className="p-4">
-                              <div className="text-sm text-gray-500 mb-2">Transaction ID</div>
-                              <div className="flex items-center gap-2 bg-white p-3 rounded-lg border border-gray-200">
-                                <div className="text-sm font-mono text-gray-700 break-all flex-1">
-                                  {transactionDetails.transactionHash || "Pending"}
+                            <div className="p-3">
+                              <div className="text-xs text-gray-500 mb-1">Transaction ID</div>
+                              <div className="flex items-center gap-2 bg-white p-2 rounded-md border border-gray-200">
+                                <div className="text-xs font-mono text-gray-700 break-all flex-1">
+                                  {transactionDetails.transactionHash}
                                 </div>
-                                <motion.button
+                                <button
                                   onClick={() => copyToClipboard(transactionDetails.transactionHash)}
-                                  className="flex-shrink-0 text-gray-500 hover:text-gray-700 focus:outline-none p-2 hover:bg-gray-100 rounded-lg transition-colors"
-                                  whileHover={{ scale: 1.1 }}
-                                  whileTap={{ scale: 0.95 }}
+                                  className="flex-shrink-0 text-gray-500 hover:text-gray-700 focus:outline-none p-1 hover:bg-gray-100 rounded transition-colors"
                                 >
-                                  {copied ? <CheckCheck size={16} /> : <Copy size={16} />}
-                                </motion.button>
+                                  {copied ? <CheckCheck size={14} /> : <Copy size={14} />}
+                                </button>
                               </div>
                             </div>
                           </motion.div>
@@ -1185,17 +1308,17 @@ const ProcessingPopup: React.FC<ProcessingPopupProps> = ({
 
                     {/* Additional help section */}
                     <motion.div 
-                      className="mt-8 text-center"
+                      className="mt-6 text-center"
                       initial={{ opacity: 0 }}
                       animate={{ opacity: 1 }}
                       transition={{ delay: 1.1 }}
                     >
-                      <p className="text-gray-500 text-sm">
+                      <p className="text-xs text-gray-500">
                         Need immediate assistance? Our support team is available 24/7
                       </p>
                       <a 
                         href="tel:+254700000000" 
-                        className="inline-block mt-2 text-red-600 hover:text-red-700 font-medium"
+                        className="inline-block mt-1 text-sm text-red-600 hover:text-red-700 font-medium"
                       >
                         +254 700 000 000
                       </a>
