@@ -102,11 +102,19 @@ export type PubkeyResponse = {
   message: string;
 };
 
-
-
 export interface OrderStatusAPIData {
   order_id: string;
   status: OrderStatus;
+  receipt_number?: string;
+  transaction_hashes?: {
+    settlement?: string;
+    creation?: string;
+    refund?: string;
+  };
+  failure_reason?: string;
+  amount_fiat?: number;
+  currency?: string;
+  created_at?: string;
 }
 
 export interface OrderStatusResponse {
@@ -114,6 +122,7 @@ export interface OrderStatusResponse {
   message: string;
   data: OrderStatusAPIData;
 }
+
 export type OrderStatus =
   | "pending"
   | "processing"

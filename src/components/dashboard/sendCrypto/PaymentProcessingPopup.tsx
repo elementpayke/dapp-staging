@@ -1,21 +1,23 @@
-import React, { useState, useEffect } from 'react';
+"use client"
+
+import type React from "react"
+import { useState, useEffect } from "react"
 
 interface PaymentProcessingProps {
-  amount: number;
-  recipient: string;
+  amount: number
+  recipient: string
 }
 
 const PaymentProcessing: React.FC<PaymentProcessingProps> = ({ amount, recipient }) => {
-
-  const [timeRemaining, setTimeRemaining] = useState(30);
+  const [timeRemaining, setTimeRemaining] = useState(30)
 
   useEffect(() => {
     const timer = setInterval(() => {
-      setTimeRemaining((prevTime) => prevTime - 1);
-    }, 1000);
+      setTimeRemaining((prevTime) => prevTime - 1)
+    }, 1000)
 
-    return () => clearInterval(timer);
-  }, []);
+    return () => clearInterval(timer)
+  }, [])
 
   return (
     <div className="fixed z-50 inset-0 overflow-y-auto">
@@ -30,15 +32,15 @@ const PaymentProcessing: React.FC<PaymentProcessingProps> = ({ amount, recipient
             </div>
           </div>
           <div className="mb-4">
-            <p>Sending {amount} to {recipient}</p>
+            <p>
+              Sending {amount} to {recipient}
+            </p>
           </div>
-          <div className="text-center text-gray-500 mb-4">
-            {timeRemaining} seconds remaining
-          </div>
+          <div className="text-center text-gray-500 mb-4">{timeRemaining} seconds remaining</div>
         </div>
       </div>
     </div>
-  );
-};
+  )
+}
 
-export default PaymentProcessing;
+export default PaymentProcessing
