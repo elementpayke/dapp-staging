@@ -57,9 +57,14 @@ const Hero = () => {
             <Sparkles className="w-3 h-3 sm:w-4 sm:h-4 text-[#0514eb]" />
             <span className="text-gray-800 font-medium">New</span>
           </div>
-          <span className="bg-gradient-to-r from-[#0514eb] to-[#de0413] bg-clip-text text-transparent font-semibold whitespace-nowrap">
-            Create a Virtual Card
-          </span>
+          <a 
+            href="http://tally.so/r/mZ1N6B"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="bg-gradient-to-r from-[#0514eb] to-[#de0413] bg-clip-text text-transparent font-semibold whitespace-nowrap hover:opacity-80 transition-opacity"
+          >
+            Join our Waitlist
+          </a>
           <span className="text-gray-400">→</span>
         </div>
 
