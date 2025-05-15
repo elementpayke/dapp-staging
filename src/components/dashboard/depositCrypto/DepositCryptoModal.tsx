@@ -44,7 +44,7 @@ const DepositCryptoModal: React.FC<DepositCryptoModalProps> = ({
         phoneNumber: false,
     });
 
-    const MARKUP_PERCENTAGE = 1.5;
+    const MARKUP_PERCENTAGE = 0.5;
 
     const transactionSummary = useMemo(() => {
         if (!exchangeRate)
@@ -106,17 +106,17 @@ const DepositCryptoModal: React.FC<DepositCryptoModalProps> = ({
 
             if (data?.data?.rates?.KES) {
                 const baseRate = parseFloat(data.data.rates.KES);
-                const markupRate = baseRate * (1 - MARKUP_PERCENTAGE / 100);
+                const markupRate = baseRate * (1 + MARKUP_PERCENTAGE / 100);
+                //add 1.5% markup to the base rate
+                const adjustedRate = baseRate + markupRate;
                 setExchangeRate(markupRate);
-            } else {
-                // Use hardcoded value for the image
-                setExchangeRate(127.3);
             }
-        } catch {
-            // Use hardcoded value for the image
-            setExchangeRate(127.3);
+        } catch (error) {
+            console.error("Error fetching exchange rate:", error);
+            toast.error("Unable to fetch exchange rate");
         }
-    };
+    }
+
     const pollOrderStatus = async (orderId: string) => {
         try {
             console.log("Polling order status for orderId:", orderId);

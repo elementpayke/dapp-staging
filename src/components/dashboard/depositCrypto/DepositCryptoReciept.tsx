@@ -118,7 +118,7 @@ export default function DepositCryptoReceipt({ isOpen, onClose, transactionRecie
                             </p>
                             {transactionReciept?.transactionHash && (
                                 <a 
-                                    href={`https://sepolia.basescan.org/tx/0x${transactionReciept.transactionHash}`}
+                                    href={`${process.env.NEXT_PUBLIC_BASESCAN_URL}/tx/0x${transactionReciept.transactionHash}`}
                                     target="_blank"
                                     rel="noopener noreferrer"
                                     className="text-blue-600 hover:text-blue-800 text-sm flex items-center"
