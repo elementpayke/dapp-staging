@@ -15,7 +15,6 @@ import { useContract } from "@/services/useContract"
 import { useWallet } from "@/context/WalletContext"
 import { encryptMessageDetailed } from "@/services/encryption"
 import { useContractEvents } from "@/context/useContractEvents"
-import { fetchOrderStatus } from "@/app/api/aggregator";
 import ConfirmationModal from "./ConfirmationModal"
 
 interface SendCryptoModalProps {
@@ -204,13 +203,18 @@ const SendCryptoModal: React.FC<SendCryptoModalProps> = ({ isOpen, onClose }) =>
   const usdcTokenAddress = getUSDCAddress() as `0x${string}`
   const smartcontractaddress = "0x10af11060bC238670520Af7ca15E86a34bC68fe4"
 
-  const [orderCreatedEvents, setOrderCreatedEvents] = useState<any[]>([]);
-
   useContractEvents(
     (order: any) => {
-      setOrderCreatedEvents((prev) => [...prev, order]);
       setOrderId(order.orderId);
     },
+    (order: any) => {
+      // Handle order settled event
+      console.log("Order settled:", order);
+    },
+    (orderId: any) => {
+      // Handle order refunded event
+      console.log("Order refunded:", orderId);
+    }
   );
 
   const handleClose = (e: React.MouseEvent<HTMLDivElement>) => {
@@ -218,6 +222,20 @@ const SendCryptoModal: React.FC<SendCryptoModalProps> = ({ isOpen, onClose }) =>
       onClose()
     }
   }
+
+  // Add cleanup function
+  const cleanupOrderStates = useCallback(() => {
+    setOrderId("")
+    setShowProcessingPopup(false)
+    setTransactionReciept({
+      amount: "0.00",
+      amountUSDC: 0,
+      phoneNumber: "",
+      address: "",
+      status: 0,
+      transactionHash: "",
+    })
+  }, [])
 
   const executeTokenApproval = async () => {
     try {
@@ -242,15 +260,7 @@ const SendCryptoModal: React.FC<SendCryptoModalProps> = ({ isOpen, onClose }) =>
       )
   
       // Reset states before showing processing popup
-      setOrderId("")
-      setTransactionReciept({
-        amount: "0.00",
-        amountUSDC: 0,
-        phoneNumber: "",
-        address: "",
-        status: 0,
-        transactionHash: "",
-      })
+      cleanupOrderStates()
       setShowProcessingPopup(true)
     } catch (error: any) {
       toast.error(error?.message || "Transaction failed.")
@@ -469,9 +479,9 @@ const SendCryptoModal: React.FC<SendCryptoModalProps> = ({ isOpen, onClose }) =>
           <ProcessingPopup
             isVisible={showProcessingPopup}
             onClose={() => {
-              setShowProcessingPopup(false)
-              setOrderId("")
+              cleanupOrderStates()
               if (transactionReciept.status === 1) {
+                onClose()
               }
             }}
             orderId={orderId}
