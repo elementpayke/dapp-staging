@@ -223,6 +223,20 @@ const SendCryptoModal: React.FC<SendCryptoModalProps> = ({ isOpen, onClose }) =>
     }
   }
 
+  // Add cleanup function
+  const cleanupOrderStates = useCallback(() => {
+    setOrderId("")
+    setShowProcessingPopup(false)
+    setTransactionReciept({
+      amount: "0.00",
+      amountUSDC: 0,
+      phoneNumber: "",
+      address: "",
+      status: 0,
+      transactionHash: "",
+    })
+  }, [])
+
   const executeTokenApproval = async () => {
     try {
       setIsApproving(true)
@@ -246,15 +260,7 @@ const SendCryptoModal: React.FC<SendCryptoModalProps> = ({ isOpen, onClose }) =>
       )
   
       // Reset states before showing processing popup
-      setOrderId("")
-      setTransactionReciept({
-        amount: "0.00",
-        amountUSDC: 0,
-        phoneNumber: "",
-        address: "",
-        status: 0,
-        transactionHash: "",
-      })
+      cleanupOrderStates()
       setShowProcessingPopup(true)
     } catch (error: any) {
       toast.error(error?.message || "Transaction failed.")
@@ -473,12 +479,13 @@ const SendCryptoModal: React.FC<SendCryptoModalProps> = ({ isOpen, onClose }) =>
           <ProcessingPopup
             isVisible={showProcessingPopup}
             onClose={() => {
-              setShowProcessingPopup(false)
-              setOrderId("")
+              cleanupOrderStates()
               if (transactionReciept.status === 1) {
+                onClose()
               }
             }}
             orderId={orderId}
+            apiKey={apiKey}
             transactionDetails={{
               amount: amount,
               currency: "KES",

@@ -6,6 +6,7 @@ import type {
   InstitutionProps,
   PubkeyResponse,
   VerifyAccountPayload,
+  OrderStatusResponse,
 } from "../../types/types";
 
 const AGGREGATOR_URL = process.env.NEXT_PUBLIC_API_URL;

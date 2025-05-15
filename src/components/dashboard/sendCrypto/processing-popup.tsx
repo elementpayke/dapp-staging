@@ -48,6 +48,7 @@ interface OrderStatusAPIData {
     refund: string | null
   }
   wallet_address: string
+  phone_number?: string
 }
 
 interface OrderStatusResponse {
@@ -61,6 +62,7 @@ interface ProcessingPopupProps {
   isVisible: boolean
   onClose: () => void
   orderId: string
+  apiKey: string
   transactionDetails: TransactionDetails
   branding?: {
     primaryColor: string
@@ -97,6 +99,7 @@ const ProcessingPopup: React.FC<ProcessingPopupProps> = ({
   isVisible,
   onClose,
   orderId,
+  apiKey,
   transactionDetails: initialTransactionDetails,
   branding = {
     primaryColor: "#4f46e5",
@@ -180,19 +183,20 @@ const ProcessingPopup: React.FC<ProcessingPopupProps> = ({
     if (!isVisible || !orderId) return
 
     let pollInterval: NodeJS.Timeout | null = null;
+    let isPolling = true; // Add flag to track if component is still mounted
 
     // Initial fetch
     const fetchStatus = async () => {
+      if (!isPolling) return; // Don't update state if component is unmounted
+      
       try {
         console.log("Fetching order status in the processing-popup.tsx file")
         console.log("Order ID:", orderId)
         const response = await fetchOrderStatus(orderId)
-        const orderStatus = {
-          status: response.status.toString(),
-          message: "Success",
-          data: response.data
-        } as OrderStatusResponse
+        const orderStatus = response.data as OrderStatusResponse
         console.log("Order status:", orderStatus)
+        
+        if (!isPolling) return; // Check again before updating state
         
         setTransactionDetails(prev => ({
           ...prev,
@@ -230,33 +234,47 @@ const ProcessingPopup: React.FC<ProcessingPopupProps> = ({
         }))
 
         // Update UI status based on order status
-        if (orderStatus.data.status === "settled") {
-          setStatus("success")
-          setStatusMessage("Payment successful!")
-          setProgress(100)
-          setShowConfetti(true)
-          cleanupOrderId() // Clean up on success
-          if (pollInterval) clearInterval(pollInterval)
-          return true
-        } else if (orderStatus.data.status === "failed") {
-          setStatus("failed")
-          setStatusMessage(formatErrorMessage(orderStatus.data.failure_reason || "Payment failed"))
-          setProgress(100)
-          cleanupOrderId() // Clean up on failure
-          if (pollInterval) clearInterval(pollInterval)
-          return true
-        } else if (orderStatus.data.status === "refunded") {
-          setStatus("failed")
-          setStatusMessage("Payment was refunded")
-          setProgress(100)
-          cleanupOrderId() // Clean up on refund
-          if (pollInterval) clearInterval(pollInterval)
-          return true
-        } else {
-          setStatus("processing")
-          setStatusMessage("Processing your payment...")
-          setProgress(90)
-          return false
+        const orderStatusValue = orderStatus.data.status.toLowerCase();
+        
+        switch (orderStatusValue) {
+          case "settled":
+            setStatus("success");
+            setStatusMessage("Payment successful!");
+            setProgress(100);
+            setShowConfetti(true);
+            cleanupOrderId();
+            if (pollInterval) clearInterval(pollInterval);
+            return true;
+            
+          case "failed":
+            setStatus("failed");
+            setStatusMessage(formatErrorMessage(orderStatus.data.failure_reason || "Payment failed"));
+            setProgress(100);
+            cleanupOrderId();
+            if (pollInterval) clearInterval(pollInterval);
+            return true;
+            
+          case "refunded":
+            setStatus("failed");
+            setStatusMessage(orderStatus.data.failure_reason || "Payment was refunded");
+            setProgress(100);
+            cleanupOrderId();
+            if (pollInterval) clearInterval(pollInterval);
+            return true;
+            
+          case "pending":
+          case "processing":
+            setStatus("processing");
+            setStatusMessage("Processing your payment...");
+            setProgress(90);
+            return false;
+            
+          default:
+            console.warn(`Unknown order status: ${orderStatusValue}`);
+            setStatus("processing");
+            setStatusMessage("Processing your payment...");
+            setProgress(90);
+            return false;
         }
       } catch (error) {
         console.error("Error polling order status:", error)
@@ -266,7 +284,7 @@ const ProcessingPopup: React.FC<ProcessingPopupProps> = ({
 
     // Initial fetch
     fetchStatus().then(shouldContinuePolling => {
-      if (!shouldContinuePolling) {
+      if (!shouldContinuePolling && isPolling) {
         // Start polling if the order is still processing
         pollInterval = setInterval(async () => {
           const shouldStop = await fetchStatus()
@@ -279,6 +297,7 @@ const ProcessingPopup: React.FC<ProcessingPopupProps> = ({
 
     // Cleanup function
     return () => {
+      isPolling = false; // Set flag to false when component unmounts
       if (pollInterval) {
         clearInterval(pollInterval)
       }
