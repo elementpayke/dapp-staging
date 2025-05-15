@@ -15,7 +15,6 @@ import { useContract } from "@/services/useContract"
 import { useWallet } from "@/context/WalletContext"
 import { encryptMessageDetailed } from "@/services/encryption"
 import { useContractEvents } from "@/context/useContractEvents"
-import { fetchOrderStatus } from "@/app/api/aggregator";
 import ConfirmationModal from "./ConfirmationModal"
 
 interface SendCryptoModalProps {
@@ -204,13 +203,18 @@ const SendCryptoModal: React.FC<SendCryptoModalProps> = ({ isOpen, onClose }) =>
   const usdcTokenAddress = getUSDCAddress() as `0x${string}`
   const smartcontractaddress = "0x10af11060bC238670520Af7ca15E86a34bC68fe4"
 
-  const [orderCreatedEvents, setOrderCreatedEvents] = useState<any[]>([]);
-
   useContractEvents(
     (order: any) => {
-      setOrderCreatedEvents((prev) => [...prev, order]);
       setOrderId(order.orderId);
     },
+    (order: any) => {
+      // Handle order settled event
+      console.log("Order settled:", order);
+    },
+    (orderId: any) => {
+      // Handle order refunded event
+      console.log("Order refunded:", orderId);
+    }
   );
 
   const handleClose = (e: React.MouseEvent<HTMLDivElement>) => {
@@ -475,7 +479,6 @@ const SendCryptoModal: React.FC<SendCryptoModalProps> = ({ isOpen, onClose }) =>
               }
             }}
             orderId={orderId}
-            apiKey={apiKey}
             transactionDetails={{
               amount: amount,
               currency: "KES",

@@ -36,13 +36,8 @@ const DepositCryptoModal: React.FC<DepositCryptoModalProps> = ({
     const [exchangeRate, setExchangeRate] = useState<number | null>(null);
     const [isFavorite, setIsFavorite] = useState(false);
     const TRANSACTION_FEE_RATE = 0.005;
-    const [orderCreatedEvents, setOrderCreatedEvents] = useState<any[]>([]);
     const { contract, address } = useContract();
     const addressOwner = useAccount();
-    const [formValidation, setFormValidation] = useState({
-        amount: false,
-        phoneNumber: false,
-    });
 
     const MARKUP_PERCENTAGE = 0.5;
 
@@ -107,8 +102,6 @@ const DepositCryptoModal: React.FC<DepositCryptoModalProps> = ({
             if (data?.data?.rates?.KES) {
                 const baseRate = parseFloat(data.data.rates.KES);
                 const markupRate = baseRate * (1 + MARKUP_PERCENTAGE / 100);
-                //add 1.5% markup to the base rate
-                const adjustedRate = baseRate + markupRate;
                 setExchangeRate(markupRate);
             }
         } catch (error) {
@@ -212,8 +205,6 @@ const DepositCryptoModal: React.FC<DepositCryptoModalProps> = ({
     useContractEvents(
         async (order: any) => {
             console.log("Order created event:", order);
-            setOrderCreatedEvents((prev) => [...prev, order]);
-
             pollOrderStatus(order.orderId);
         },
         () => {

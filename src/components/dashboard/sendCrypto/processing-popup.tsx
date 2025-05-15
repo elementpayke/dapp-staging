@@ -61,7 +61,6 @@ interface ProcessingPopupProps {
   isVisible: boolean
   onClose: () => void
   orderId: string
-  apiKey: string
   transactionDetails: TransactionDetails
   branding?: {
     primaryColor: string
@@ -98,7 +97,6 @@ const ProcessingPopup: React.FC<ProcessingPopupProps> = ({
   isVisible,
   onClose,
   orderId,
-  apiKey,
   transactionDetails: initialTransactionDetails,
   branding = {
     primaryColor: "#4f46e5",
@@ -188,7 +186,12 @@ const ProcessingPopup: React.FC<ProcessingPopupProps> = ({
       try {
         console.log("Fetching order status in the processing-popup.tsx file")
         console.log("Order ID:", orderId)
-        const orderStatus = await fetchOrderStatus(orderId) as OrderStatusResponse
+        const response = await fetchOrderStatus(orderId)
+        const orderStatus = {
+          status: response.status.toString(),
+          message: "Success",
+          data: response.data
+        } as OrderStatusResponse
         console.log("Order status:", orderStatus)
         
         setTransactionDetails(prev => ({
