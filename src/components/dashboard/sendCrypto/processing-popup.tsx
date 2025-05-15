@@ -73,6 +73,23 @@ interface ProcessingPopupProps {
   sendReceiptEmail?: (email: string, receiptData: any) => Promise<boolean>
 }
 
+// Add helper function to format receiver name
+const formatReceiverName = (name: string | null): string => {
+  if (!name) return "N/A";
+  
+  // If the name contains a phone number pattern followed by a dash
+  const phoneNamePattern = /^(\d+)\s*-\s*(.+)$/;
+  const match = name.match(phoneNamePattern);
+  
+  if (match) {
+    // Return only the name part after the dash
+    return match[2].trim();
+  }
+  
+  // If it's just a phone number or doesn't match the pattern, return as is
+  return name.trim();
+};
+
 /**
  * ProcessingPopup - A component that displays the status of a transaction
  * with engaging animations, visual feedback, and transaction details
@@ -178,7 +195,7 @@ const ProcessingPopup: React.FC<ProcessingPopupProps> = ({
           ...prev,
           amount: orderStatus.data.amount_fiat?.toString() || "N/A",
           currency: orderStatus.data.currency || "N/A",
-          recipient: orderStatus.data.receiver_name || "N/A",
+          recipient: formatReceiverName(orderStatus.data.receiver_name),
           paymentMethod: orderStatus.data.order_type === "offramp" ? "Mobile Money" : "N/A",
           transactionHash: orderStatus.data.transaction_hashes?.settlement || 
                          orderStatus.data.transaction_hashes?.creation || 
@@ -196,7 +213,7 @@ const ProcessingPopup: React.FC<ProcessingPopupProps> = ({
                        orderStatus.data.status === "refunded" ? 3 : 0),
           failureReason: orderStatus.data.failure_reason || "N/A",
           orderId: orderStatus.data.order_id || "N/A",
-          customerName: orderStatus.data.receiver_name || "N/A",
+          customerName: formatReceiverName(orderStatus.data.receiver_name),
           customerEmail: "N/A", // Not available in the response
           items: [{
             name: orderStatus.data.token || "N/A",
@@ -1338,7 +1355,7 @@ const ProcessingPopup: React.FC<ProcessingPopupProps> = ({
                         href="tel:+254700000000" 
                         className="inline-block mt-1 text-sm text-red-600 hover:text-red-700 font-medium"
                       >
-                        +254 700 000 000
+                        +254110919165
                       </a>
                     </motion.div>
                   </motion.div>
