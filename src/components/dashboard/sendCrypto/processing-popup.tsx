@@ -105,6 +105,14 @@ const ProcessingPopup: React.FC<ProcessingPopupProps> = ({
   const [fallbackDate, setFallbackDate] = useState<string>("")
   const [showTechnicalDetails, setShowTechnicalDetails] = useState(false)
 
+  // Add function to format error message
+  const formatErrorMessage = (error: string) => {
+    if (error.toLowerCase().includes("The operator does not exist")) {
+      return "Phone number does not exist. Please enter a valid phone number.";
+    }
+    return error;
+  };
+
   // Add cleanup function
   const cleanupOrderId = useCallback(() => {
     if (orderId) {
@@ -156,6 +164,8 @@ const ProcessingPopup: React.FC<ProcessingPopupProps> = ({
   useEffect(() => {
     if (!isVisible || !orderId) return
 
+    let pollInterval: NodeJS.Timeout | null = null;
+
     // Initial fetch
     const fetchStatus = async () => {
       try {
@@ -206,18 +216,21 @@ const ProcessingPopup: React.FC<ProcessingPopupProps> = ({
           setProgress(100)
           setShowConfetti(true)
           cleanupOrderId() // Clean up on success
+          if (pollInterval) clearInterval(pollInterval)
           return true
         } else if (orderStatus.data.status === "failed") {
           setStatus("failed")
-          setStatusMessage(orderStatus.data.failure_reason || "Payment failed")
+          setStatusMessage(formatErrorMessage(orderStatus.data.failure_reason || "Payment failed"))
           setProgress(100)
           cleanupOrderId() // Clean up on failure
+          if (pollInterval) clearInterval(pollInterval)
           return true
         } else if (orderStatus.data.status === "refunded") {
           setStatus("failed")
           setStatusMessage("Payment was refunded")
           setProgress(100)
           cleanupOrderId() // Clean up on refund
+          if (pollInterval) clearInterval(pollInterval)
           return true
         } else {
           setStatus("processing")
@@ -235,16 +248,21 @@ const ProcessingPopup: React.FC<ProcessingPopupProps> = ({
     fetchStatus().then(shouldContinuePolling => {
       if (!shouldContinuePolling) {
         // Start polling if the order is still processing
-        const pollInterval = setInterval(async () => {
+        pollInterval = setInterval(async () => {
           const shouldStop = await fetchStatus()
-          if (shouldStop) {
+          if (shouldStop && pollInterval) {
             clearInterval(pollInterval)
           }
         }, 5000) // Poll every 5 seconds
-
-        return () => clearInterval(pollInterval)
       }
     })
+
+    // Cleanup function
+    return () => {
+      if (pollInterval) {
+        clearInterval(pollInterval)
+      }
+    }
   }, [isVisible, orderId, cleanupOrderId])
 
   // Add cleanup on component unmount
