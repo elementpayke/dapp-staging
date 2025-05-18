@@ -27,6 +27,8 @@ const WalletContext = createContext<WalletContextType>({
   connectWallet: async () => {},
   disconnectWallet: () => {},
 });
+//read ca from .env
+const USDC_CONTRACT_ADDRESS = process.env.NEXT_PUBLIC_USDC_ADDRESS as `0x${string}`;
 
 
 export const useWallet = () => useContext(WalletContext);
@@ -43,7 +45,7 @@ export const WalletProvider = ({ children }: WalletProviderProps) => {
   const router = useRouter();
   const { data: usdcBalanceData, refetch: fetchUSDCBalance } = useBalance({
     address: wagmiAddress, 
-    token: "0x036CbD53842c5426634e7929541eC2318f3dCF7e",
+    token: USDC_CONTRACT_ADDRESS,
     query: {
       staleTime: 10_000,
       refetchInterval: 15_000,

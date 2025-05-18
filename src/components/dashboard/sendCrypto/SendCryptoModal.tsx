@@ -201,7 +201,7 @@ const SendCryptoModal: React.FC<SendCryptoModalProps> = ({ isOpen, onClose }) =>
   const { writeContractAsync } = useWriteContract()
   const { contract, address } = useContract()
   const usdcTokenAddress = getUSDCAddress() as `0x${string}`
-  const smartcontractaddress = "0x10af11060bC238670520Af7ca15E86a34bC68fe4"
+  const smartcontractaddress = "0xF18685Ed0C29b1eFA46d62e456B375C73db16359"
 
   useContractEvents(
     (order: any) => {
