@@ -24,7 +24,9 @@
         "react-hook-form": "^7.54.2",
         "react-toastify": "^11.0.2",
         "thirdweb": "^5.83.1",
-        "web3": "^4.16.0"
+        "wagmi": "^2.15.4",
+        "web3": "^4.16.0",
+        "zustand": "^5.0.4"
     },
     "devDependencies": {
         "@eslint/eslintrc": "^3",

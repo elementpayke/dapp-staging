@@ -28,7 +28,6 @@ const WalletContext = createContext<WalletContextType>({
   disconnectWallet: () => {},
 });
 
-
 export const useWallet = () => useContext(WalletContext);
 
 interface WalletProviderProps {
@@ -42,7 +41,7 @@ export const WalletProvider = ({ children }: WalletProviderProps) => {
   const [isConnected, setIsConnected] = useState(false);
   const router = useRouter();
   const { data: usdcBalanceData, refetch: fetchUSDCBalance } = useBalance({
-    address: wagmiAddress, 
+    address: wagmiAddress,
     token: "0x036CbD53842c5426634e7929541eC2318f3dCF7e",
     query: {
       staleTime: 10_000,
