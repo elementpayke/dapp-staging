@@ -5,7 +5,6 @@ import OverviewPage from "@/components/dashboard/pages/OverviewPage";
 import TransactionsPage from "@/components/dashboard/pages/TransactionsPage";
 import WhatsAppPage from "@/components/dashboard/pages/WhatsAppPage";
 import EmailPage from "@/components/dashboard/pages/EmailPage";
-
 import { Bell, ChevronDown, LogOut, ShieldAlert, Loader2 } from "lucide-react";
 import Image from "next/image";
 import avatarPlaceholder from "@/assets/avatar-placeholder.svg";
@@ -24,16 +23,14 @@ type PageComponent =
 export default function Dashboard() {
   const { isConnected, ensName, address, disconnectWallet } = useWallet();
   const [currentPage, setCurrentPage] = useState<PageComponent>("overview");
-  const [showDropdown, setShowDropdown] = useState(false); // Dropdown state
+  const [showDropdown, setShowDropdown] = useState(false);
   const router = useRouter();
   const [isCheckingConnection, setIsCheckingConnection] = useState(true);
 
   useEffect(() => {
-    // Simulate connection check delay (you can remove this timeout if using actual loading state from context)
     const timer = setTimeout(() => {
       setIsCheckingConnection(false);
     }, 2500);
-    
     return () => clearTimeout(timer);
   }, []);
 
@@ -71,7 +68,6 @@ export default function Dashboard() {
       </div>
     );
   }
-
 
   const renderPage = () => {
     switch (currentPage) {
@@ -144,7 +140,11 @@ export default function Dashboard() {
                     >
                       {ensName || truncateAddress(address)}
                     </span>
-                    <ChevronDown className={`w-4 h-4 text-gray-600 transition-transform ${showDropdown ? 'rotate-180' : ''}`} />
+                    <ChevronDown
+                      className={`w-4 h-4 text-gray-600 transition-transform ${
+                        showDropdown ? "rotate-180" : ""
+                      }`}
+                    />
                   </button>
 
                   {/* Dropdown Menu */}
