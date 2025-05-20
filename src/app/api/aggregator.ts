@@ -69,21 +69,35 @@ export const fetchAccountName = async (
 
 export const fetchOrderStatus = async (
   orderId: string
-): Promise<OrderStatusResponse> => {
+): Promise<{ status: number; data: any }> => {
   try {
-    const response = await axios.get<OrderStatusResponse>(
+    console.log("Fetching order status for orderId:", orderId);
+    console.log("*****************************************");
+    const response = await axios.get<{ status: number; data: any }>(
       `${AGGREGATOR_URL}/orders/${orderId}`,
       {
         headers: {
-          "x-api-key": process.env.NEXT_PUBLIC_AGGR_API_KEY || "",
+          "x-api-key": process.env.NEXT_PUBLIC_AGGR_API_KEY,
           "Content-Type": "application/json",
         },
       }
     );
     console.log("Order status response:", response.data);
-    return response.data;
-  } catch (error) {
+    console.log("*****************************************");
+    return response;
+  } catch (error: any) {
     console.error("Error fetching order status:", error);
+    // If it's a 404 error, return a specific response structure
+    if (error.response?.status === 404) {
+      return {
+        status: 404,
+        data: {
+          status: "pending",
+          message: "Order not found yet, will retry",
+          data: null
+        }
+      };
+    }
     throw error;
   }
 };

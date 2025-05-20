@@ -1,45 +1,32 @@
-import React, {useEffect, useMemo, useState, useCallback } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { CheckCircle, X, ArrowLeft } from "lucide-react";
 import { toast } from "react-toastify";
-import { parseUnits } from 'ethers';
-import { getUSDCAddress } from '../../../services/tokens';
+import { parseUnits } from "ethers";
+import { getUSDCAddress } from "../../../services/tokens";
 import { useContract } from "@/services/useContract";
 import { encryptMessage } from "@/services/encryption";
 import { useWallet } from "@/context/WalletContext";
 import { useAccount } from "wagmi";
-import { useContractEvents, useContractHandleOrderStatus } from "@/context/useContractEvents";
+import { useContractEvents } from "@/context/useContractEvents";
 import TransactionInProgressModal from "./TranactionInProgress";
+import DepositCryptoReceipt from "./DepositCryptoReciept";
 import { fetchOrderStatus } from "@/app/api/aggregator";
-// import DepositCryptoReceipt from "./DepositCryptoReciept";
+
+// Define the OrderStatus type that was missing
+type OrderStatus = "pending" | "processing" | "settled" | "complete" | "completed" | "failed";
 
 interface DepositCryptoModalProps {
     isOpen: boolean;
     onClose: () => void;
 }
 
-type OrderStatus =
-  | "pending"
-  | "processing"
-  | "complete"
-  | "failed"
-  | "settled"
-  | "refunded";
-
-interface WalletOption {
-    id: string;
-    icon: string;
-    selected?: boolean;
-}
-
 const DepositCryptoModal: React.FC<DepositCryptoModalProps> = ({
     isOpen,
     onClose,
 }) => {
-
     const { usdcBalance } = useWallet();
     const [isTransactionModalOpen, setIsTransactionModalOpen] = useState(false);
-    const [isDepositCryptoReceipt, setDepositCryptoReceipt] = useState(false);
-    const [selectedWallet, setSelectedWallet] = useState<string>("metamask");
+    const [isReceiptModalOpen, setIsReceiptModalOpen] = useState(false);
     const [selectedToken, setSelectedToken] = useState("USDC");
     const [amount, setAmount] = useState("0.00");
     const [depositFrom, setDepositFrom] = useState("MPESA");
@@ -47,27 +34,33 @@ const DepositCryptoModal: React.FC<DepositCryptoModalProps> = ({
     const [reason, setReason] = useState("Transport");
     const [isLoading, setIsLoading] = useState(false);
     const [exchangeRate, setExchangeRate] = useState<number | null>(null);
+    const [isFavorite, setIsFavorite] = useState(false);
     const TRANSACTION_FEE_RATE = 0.005;
-    const [orderCreatedEvents, setOrderCreatedEvents] = useState<any[]>([]);
-    const { handleOrderStatus, isProcessing } = useContractHandleOrderStatus();
     const { contract, address } = useContract();
     const addressOwner = useAccount();
-    const [formValidation, setFormValidation] = useState({
-        amount: false,
-        phoneNumber: false,
-    });
 
-    const MARKUP_PERCENTAGE = 1.5;
+    const MARKUP_PERCENTAGE = 0.5;
 
     const transactionSummary = useMemo(() => {
-        if (!exchangeRate) return { kesAmount: 0, usdcAmount: 0, transactionCharge: 0, totalUSDC: 0, totalKES: 0, totalKESBalance: 0, walletBalance: 0, remainingBalance: 0, usdcBalance: 0 };
+        if (!exchangeRate)
+            return {
+                kesAmount: 0,
+                usdcAmount: 0,
+                transactionCharge: 0,
+                totalUSDC: 0,
+                totalKES: 0,
+                totalKESBalance: 0,
+                walletBalance: usdcBalance || 36.07,
+                remainingBalance: 0,
+                usdcBalance: usdcBalance || 36.07,
+            };
 
         const kesAmount = parseFloat(amount) * exchangeRate || 0;
         const usdcAmount = parseFloat(amount) || 0;
         const transactionCharge = usdcAmount * TRANSACTION_FEE_RATE;
         const totalUSDC = usdcAmount;
-        const remainingBalance = usdcBalance + totalUSDC;
-        const totalKES = usdcBalance * exchangeRate;
+        const remainingBalance = (usdcBalance || 36.07) + totalUSDC;
+        const totalKES = (usdcBalance || 36.07) * exchangeRate;
         const totalKESBalance = totalKES + kesAmount;
 
         return {
@@ -77,9 +70,9 @@ const DepositCryptoModal: React.FC<DepositCryptoModalProps> = ({
             totalUSDC,
             totalKES,
             totalKESBalance,
-            walletBalance: parseFloat(amount) || 0,
+            walletBalance: usdcBalance || 36.07,
             remainingBalance: Math.max(remainingBalance, 0),
-            usdcBalance,
+            usdcBalance: usdcBalance || 36.07,
         };
     }, [amount, exchangeRate, usdcBalance]);
 
@@ -88,7 +81,8 @@ const DepositCryptoModal: React.FC<DepositCryptoModalProps> = ({
         amountUSDC: Number(amount) * (exchangeRate ?? 1) || 0,
         phoneNumber: phoneNumber || "",
         address: addressOwner || "",
-        status: 0,
+        status: "pending",
+        reason: "", // Add reason field
         transactionHash: "",
     });
 
@@ -98,70 +92,132 @@ const DepositCryptoModal: React.FC<DepositCryptoModalProps> = ({
         }
     };
 
-    const walletOptions: WalletOption[] = [
-        { id: "metamask", icon: "🦊", selected: selectedWallet === "metamask" },
-        { id: "coinbase", icon: "©️", selected: selectedWallet === "coinbase" },
-        { id: "qr", icon: "🔲", selected: selectedWallet === "qr" },
-    ];
-
-    
-
     const fetchExchangeRate = async () => {
         try {
-            const response = await fetch("https://api.coinbase.com/v2/exchange-rates?currency=USDC");
+            const response = await fetch(
+                "https://api.coinbase.com/v2/exchange-rates?currency=USDC"
+            );
             const data = await response.json();
 
             if (data?.data?.rates?.KES) {
                 const baseRate = parseFloat(data.data.rates.KES);
-                const markupRate = baseRate * (1 - MARKUP_PERCENTAGE / 100);
+                const markupRate = baseRate * (1 + MARKUP_PERCENTAGE / 100);
                 setExchangeRate(markupRate);
-            } else {
-                setExchangeRate(null);
             }
-        } catch {
-            setExchangeRate(null);
+        } catch (error) {
+            console.error("Error fetching exchange rate:", error);
+            toast.error("Unable to fetch exchange rate");
+        }
+    }
+
+    const pollOrderStatus = async (orderId: string) => {
+        try {
+            console.log("Polling order status for orderId:", orderId);
+            const response = await fetchOrderStatus(orderId);
+
+            // Handle 404 case - order not found yet
+            if (response.status === 404) {
+                console.log("Order not found yet, will retry in 3 seconds...");
+                setTimeout(() => pollOrderStatus(orderId), 3000);
+                return;
+            }
+
+            if (response.status === 200 && response.data) {
+                const orderData = response.data;
+                const status = orderData.data?.status?.toLowerCase() as OrderStatus;
+                const failureReason = orderData.data?.failure_reason || "Unknown error";
+                
+                // Translate technical error messages to user-friendly messages
+                const getUserFriendlyError = (reason: string) => {
+                    const errorMap: { [key: string]: string } = {
+                        "Missing CheckoutRequestID in STK response.": "Invalid phone number. Please check and try again.",
+                        // Add more error mappings here as needed
+                    };
+                    return errorMap[reason] || reason;
+                };
+                
+                // Extract transaction hash correctly based on actual API response structure
+                const transactionHash = 
+                    orderData.data?.transaction_hashes?.settlement || 
+                    orderData.data?.transaction_hash || // Check for alternative keys
+                    "";
+
+                setTransactionReceipt((prev: {
+                    orderId?: string;
+                    status: string;
+                    reason: string;
+                    amount: number;
+                    amountUSDC: number;
+                    transactionHash: string;
+                }) => ({
+                    ...prev,
+                    orderId: orderData.data?.order_id,
+                    status: status || "pending",
+                    reason: status === "failed" ? getUserFriendlyError(failureReason) : prev.reason,
+                    amount: orderData.data?.amount_fiat || parseFloat(amount),
+                    amountUSDC: (orderData.data?.amount_fiat || parseFloat(amount)) * (exchangeRate ?? 1),
+                    transactionHash: status === "failed" ? orderData.data?.transaction_hashes?.creation || "" : transactionHash,
+                }));
+
+                // Handle different status cases
+                switch (status) {
+                    case "settled":
+                        if (!transactionHash) {
+                            console.log("Status is settled but hash is empty, continuing to poll...");
+                            setTimeout(() => pollOrderStatus(orderId), 3000);
+                            return;
+                        }
+                        console.log("Order settled with hash:", transactionHash);
+                        setIsTransactionModalOpen(false);
+                        setIsReceiptModalOpen(true);
+                        break;
+
+                    case "failed":
+                        console.log("Order failed with reason:", failureReason);
+                        toast.error(getUserFriendlyError(failureReason));
+                        setIsTransactionModalOpen(false);
+                        setIsReceiptModalOpen(true);
+                        break;
+
+                    case "pending":
+                    case "processing":
+                        setIsTransactionModalOpen(true);
+                        setIsReceiptModalOpen(false);
+                        setTimeout(() => pollOrderStatus(orderId), 3000);
+                        break;
+
+                    default:
+                        console.log("Unknown status:", status);
+                        setIsTransactionModalOpen(true);
+                        setIsReceiptModalOpen(false);
+                        break;
+                }
+            } else {
+                console.error("Invalid response format:", response);
+                toast.error("Unable to process order status");
+                setIsTransactionModalOpen(false);
+            }
+        } catch (error) {
+            console.error("Error fetching order status:", error);
+            toast.error("Unable to fetch order status");
         }
     };
-
     useContractEvents(
         async (order: any) => {
-          console.log("Order created event:", order);
-          setOrderCreatedEvents((prev) => [...prev, order]);
-      
-          try {
-            const response = await fetchOrderStatus(order.orderId);
-            console.log("Order status response:", response);
-            const status = response.data.status.toLowerCase() as OrderStatus;
-      
-            setTransactionReceipt((prev: any) => ({
-              ...prev,
-              orderId: order.orderId,
-              status,
-              phoneNumber,
-            }));
-      
-            if (status === "complete" || status === "settled") {
-              setIsTransactionModalOpen(false);
-              setDepositCryptoReceipt(true);
-            } else {
-              setIsTransactionModalOpen(true);
-            }
-          } catch (err) {
-            toast.error("Unable to fetch order status");
-          }
+            console.log("Order created event:", order);
+            pollOrderStatus(order.orderId);
         },
         () => {
-          setTransactionReceipt((prev: any) => ({ ...prev, status: "settled" }));
-          setDepositCryptoReceipt(true);
-          setIsLoading(false);
-          setIsTransactionModalOpen(false);
+            setTransactionReceipt((prev: any) => ({ ...prev, status: "settled" }));
+            setIsLoading(false);
+            setIsTransactionModalOpen(false);
+            setIsReceiptModalOpen(true);
         },
         () => {
-          setIsTransactionModalOpen(false);
-          setIsLoading(false);
+            setIsTransactionModalOpen(false);
+            setIsLoading(false);
         }
-      );
-      
+    );
 
     useEffect(() => {
         fetchExchangeRate();
@@ -169,7 +225,8 @@ const DepositCryptoModal: React.FC<DepositCryptoModalProps> = ({
 
     const handleConfirmPayment = async () => {
         if (!address) return toast.error("Please connect your wallet first.");
-        if (parseFloat(amount) <= 0) return toast.error("Amount must be greater than zero.");
+        if (parseFloat(amount) <= 0)
+            return toast.error("Amount must be greater than zero.");
 
         setIsLoading(true);
         const orderType = depositFrom === "MPESA" ? 0 : 1;
@@ -182,48 +239,47 @@ const DepositCryptoModal: React.FC<DepositCryptoModalProps> = ({
                 "USD",
                 exchangeRate ?? 0,
                 mpesaAmount
-              );
+            );
             if (!contract) throw new Error("Contract is not initialized.");
             await contract.createOrder(
-                address, 
-                parseUnits(amount, 6), 
-                usdcTokenAddress, 
-                orderType, 
+                address,
+                parseUnits(amount, 6),
+                usdcTokenAddress,
+                orderType,
                 messageHash
             );
             setIsTransactionModalOpen(true);
-        } catch {
+        } catch (error) {
+            console.error("Transaction failed:", error);
             toast.error("Transaction failed.");
         } finally {
             setIsLoading(false);
         }
     };
 
-    const handleConfirmOrderStatus = useCallback(async () => {
-        if (orderCreatedEvents.length === 0 || isProcessing) return;
-        try {
-            await handleOrderStatus(
-                orderCreatedEvents[0].orderId, 
-                setIsTransactionModalOpen, 
-                setDepositCryptoReceipt, 
-                transactionReceipt
-            );
-            setTransactionReceipt((prev: any) => ({ 
-                ...prev, 
-                amount, 
-                amountUSDC: parseFloat(amount) * (exchangeRate ?? 1), 
-                phoneNumber 
-            }));
-        } catch {
-            toast.error("Error processing order status");
+    const formatPhoneNumber = (number: string) => {
+        // Remove any non-digit characters
+        const digitsOnly = number.replace(/\D/g, '');
+        
+        // If number starts with 0, replace it with 254
+        if (digitsOnly.startsWith('0')) {
+            return '254' + digitsOnly.substring(1);
         }
-    }, [orderCreatedEvents, isProcessing, handleOrderStatus, transactionReceipt, amount, exchangeRate, phoneNumber]);
+        
+        // If number already starts with 254, return as is
+        if (digitsOnly.startsWith('254')) {
+            return digitsOnly;
+        }
+        
+        // If number doesn't start with either, assume it's a complete number
+        return digitsOnly;
+    };
 
-    useEffect(() => {
-        if (orderCreatedEvents.length > 0 && !isProcessing) {
-            handleConfirmOrderStatus();
-        }
-    }, [orderCreatedEvents, isProcessing, handleConfirmOrderStatus]);
+    const handlePhoneNumberChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const formattedNumber = formatPhoneNumber(e.target.value);
+        setPhoneNumber(formattedNumber);
+    };
+
     if (!isOpen) return null;
 
     return (
@@ -231,190 +287,204 @@ const DepositCryptoModal: React.FC<DepositCryptoModalProps> = ({
             className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center py-4 md:px-4 z-50"
             onClick={handleClose}
         >
-            <TransactionInProgressModal 
-                isOpen={isTransactionModalOpen} 
-                onClose={() => setIsTransactionModalOpen(false)} 
-                phone_number={phoneNumber} 
+            <TransactionInProgressModal
+                isOpen={isTransactionModalOpen}
+                onClose={() => setIsTransactionModalOpen(false)}
+                phone_number={phoneNumber}
             />
-            {/* <DepositCryptoReceipt
-                isOpen={isDepositCryptoReceipt}
-                onClose={() => setDepositCryptoReceipt(false)}
-                transactionReciept={transactionReceipt} // Corrected the prop name
-            /> */}
-            <div className="bg-white md:rounded-3xl max-w-4xl md:h-auto h-screen overflow-y-auto">
-                <div className="p-6">
-                    {/* Header */}
-                    <div className="flex justify-between items-center mb-4">
-                       <div className="flex items-center gap-4">
-                        <button
-                                onClick={onClose}
-                                className="p-2 hover:bg-gray-100 rounded-full transition-colors block md-hidden"
-                                type="button"
+            <DepositCryptoReceipt
+                isOpen={isReceiptModalOpen}
+                onClose={() => {
+                    setIsReceiptModalOpen(false);
+                    onClose();
+                }}
+                transactionReciept={transactionReceipt}
+            />
+            
+            {/* Modal content */}
+            <div 
+                className="bg-white rounded-lg w-full max-w-md max-h-[90vh] overflow-y-auto flex flex-col" 
+                onClick={e => e.stopPropagation()}
+                style={{maxWidth: "800px"}}
+            >
+                {/* Header */}
+                <div className="flex items-center p-4 border-b">
+                    <button 
+                        className="mr-3 text-gray-500 hover:text-gray-700"
+                        onClick={onClose}
+                    >
+                        <ArrowLeft size={20} />
+                    </button>
+                    <h2 className="text-xl font-semibold flex-grow">Deposit Crypto</h2>
+                    <button 
+                        className="text-gray-500 hover:text-gray-700"
+                        onClick={onClose}
+                    >
+                        <X size={20} />
+                    </button>
+                </div>
+                
+                {/* Content */}
+                <div className="flex flex-col md:flex-row flex-1">
+                    {/* Left form side */}
+                    <div className="md:w-1/2 p-6 flex flex-col space-y-4">
+                        {/* Token */}
+                        <div>
+                            <label className="block text-sm text-gray-600 mb-1">Token</label>
+                            <div className="relative">
+                                <select 
+                                    className="w-full p-3 bg-gray-100 rounded-lg focus:outline-none"
+                                    value={selectedToken}
+                                    onChange={(e) => setSelectedToken(e.target.value)}
+                                >
+                                    <option value="USDC">USDC</option>
+                                </select>
+                                <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+                                    <svg className="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path>
+                                    </svg>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        {/* Amount */}
+                        <div>
+                            <label className="block text-sm text-gray-600 mb-1">Amount in USDC</label>
+                            <input
+                                type="number"
+                                className="w-full p-3 bg-gray-100 rounded-lg focus:outline-none"
+                                value={amount}
+                                onChange={(e) => setAmount(e.target.value)}
+                                placeholder="0.00"
+                            />
+                        </div>
+                        
+                        {/* Deposit from */}
+                        <div>
+                            <label className="block text-sm text-gray-600 mb-1">Deposit from</label>
+                            <div className="relative">
+                                <select 
+                                    className="w-full p-3 bg-gray-100 rounded-lg focus:outline-none"
+                                    value={depositFrom}
+                                    onChange={(e) => setDepositFrom(e.target.value)}
+                                >
+                                    <option value="MPESA">MPESA</option>
+                                </select>
+                                <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+                                    <svg className="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path>
+                                    </svg>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        {/* Phone number */}
+                        <div>
+                            <label className="block text-sm text-gray-600 mb-1">Phone number</label>
+                            <input
+                                type="tel"
+                                className="w-full p-3 bg-gray-100 rounded-lg focus:outline-none"
+                                value={phoneNumber}
+                                onChange={handlePhoneNumberChange}
+                                placeholder="e.g. 0712345678"
+                            />
+                        </div>
+                        
+                        {/* Reason */}
+                        <div>
+                            <label className="block text-sm text-gray-600 mb-1">Payment reason (Optional)</label>
+                            <input
+                                type="text"
+                                className="w-full p-3 bg-gray-100 rounded-lg focus:outline-none"
+                                value={reason}
+                                onChange={(e) => setReason(e.target.value)}
+                                placeholder="e.g. Transport"
+                            />
+                        </div>
+                        
+                        {/* Favorite checkbox */}
+                        <div className="flex items-center mt-2">
+                            <div 
+                                className={`flex items-center justify-center w-6 h-6 rounded-full border mr-2 cursor-pointer ${isFavorite ? 'bg-blue-500 border-blue-500' : 'border-gray-300'}`}
+                                onClick={() => setIsFavorite(!isFavorite)}
                             >
-                                <ArrowLeft className="w-6 h-6 text-[#444]" />
-                            </button>
-                            <h2 className="text-2xl font-semibold text-gray-900">
-                                Deposit Crypto
-                            </h2>
+                                {isFavorite && <CheckCircle size={16} className="text-white" />}
+                            </div>
+                            <label className="text-sm text-gray-600 cursor-pointer" onClick={() => setIsFavorite(!isFavorite)}>
+                                Favorite this payment details for future transactions
+                            </label>
                         </div>
-                        <button
-                            onClick={onClose}
-                            className="p-2 hover:bg-gray-100 rounded-full transition-colors hidden md:block "
-                            type="button"
-                        >
-                            <X className="w-6 h-6 text-[#444]" />
-                        </button>
                     </div>
-
-                    <div className="grid md:grid-cols-5 gap-6">
-                        {/* Left Column - Form */}
-                        <div className="col-span-3 space-y-4">
-
-                            {/* Token and Amount */}
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div>
-                                    <label className="block text-gray-600 mb-2">Token</label>
-                                    <select
-                                        value={selectedToken}
-                                        onChange={(e) => setSelectedToken(e.target.value)}
-                                        className="w-full p-3 bg-gray-50 rounded-lg border-0 text-gray-900"
-                                    >
-                                        <option value="USDC">USDC</option>
-                                    </select>
-                                </div>
-                                <div>
-                                    <label className="block text-gray-600 mb-2">Amount in USDC</label>
-                                    <input
-                                        type="text"
-                                        value={amount}
-                                        placeholder="0.00"
-                                        onChange={(e) => {
-                                            const newAmount = parseFloat(e.target.value);
-                                            if (!isNaN(newAmount) && newAmount >= 0 && newAmount <= 1000) {
-                                                setAmount(e.target.value);
-                                            } else if (e.target.value === "") {
-                                                setAmount("");
-                                            }
-                                        }}
-                                        className={`w-full p-3 bg-gray-50 rounded-lg border-0 text-gray-900 ${formValidation.amount ? "border-red-500" : "" }`}
-                                    />
-                                </div>
-                            </div>
-
-                            {/* Deposit From and Phone Number */}
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div>
-                                    <label className="block text-gray-600 mb-2">
-                                        Deposit from
-                                    </label>
-                                    <select
-                                        value={depositFrom}
-                                        onChange={(e) => setDepositFrom(e.target.value)}
-                                        className="w-full p-3 bg-gray-50 rounded-lg border-0 text-gray-900"
-                                    >
-                                        <option value="MPESA">MPESA</option>
-                                    </select>
-                                </div>
-                                <div>
-                                    <label className="block text-gray-600 mb-2">
-                                        Phone number
-                                    </label>
-                                    <input
-                                        type="text"
-                                        value={phoneNumber}
-                                        onChange={(e) => setPhoneNumber(e.target.value)}
-                                        className="w-full p-3 bg-gray-50 rounded-lg border-0 text-gray-900"
-                                    />
-                                </div>
-                            </div>
-
-                            {/* Payment Reason */}
-                            <div>
-                                <label className="block text-gray-600 mb-2">
-                                    Payment reason (Optional)
-                                </label>
-                                <input
-                                    type="text"
-                                    value={reason}
-                                    onChange={(e) => setReason(e.target.value)}
-                                    className="w-full p-3 bg-gray-50 rounded-lg border-0 text-gray-900"
-                                    placeholder="Enter payment reason"
-                                />
-                            </div>
-
-                            <p className="text-gray-500 flex gap-2 item-center text-sm md:text-md">
-                                <CheckCircle className="w-6 h-6 text-blue-600 inline-block" />
-                                <span>Favorite this payment details for future transactions</span>
-                            </p>
-                        </div>
-
-                        {/* Right Column - Transaction Summary */}
-                        <div className="col-span-3 md:col-span-2 bg-gray-50 p-4 rounded-2xl h-fit">
-                            <h3 className="text-xl font-semibold mb-4 text-gray-900 hidden md:block hidden md:block">
-                                Transaction summary
-                            </h3>
-                            <div className="space-y-3 hidden md:block">
-                                <div className="flex justify-between items-center">
+                    
+                    {/* Right transaction summary side */}
+                    <div className="md:w-1/2 p-6 flex flex-col bg-gray-50 space-y-4">
+                        <div>
+                            <h3 className="text-xl font-medium mb-4">Transaction summary</h3>
+                            
+                            <div className="space-y-3">
+                                <div className="flex justify-between">
                                     <span className="text-gray-600">KES Equivalent</span>
-                                    <span className="text-gray-900">
-                                        KES {transactionSummary.kesAmount.toFixed(1)}0
+                                    <span className="font-medium">
+                                        KES {(parseFloat(amount || "0") * (exchangeRate || 127.3)).toFixed(2)}
                                     </span>
                                 </div>
-
-                                <div className="flex justify-between items-center">
+                                
+                                <div className="flex justify-between">
                                     <span className="text-gray-600">Amount to recieve</span>
-                                    <span className="text-gray-900">USDC {amount}</span>
-                                </div>
-                                <div className="flex justify-between items-center">
-                                    <span className="text-gray-600">Transaction charge</span>
-                                    {/* TODO: Decide on the charge */}
-                                    <span className="text-orange-600">KE 0.00</span>
-                                </div>
-                                <div className="flex justify-between items-center border-t pt-3">
-                                    <span className="text-gray-600">Wallet balance</span>
-                                    <span className="text-green-600 font-medium">
-                                        {/* TODO: Get USDC balance (reference offramp modal)*/}
-                                        USDC {transactionSummary.usdcBalance.toFixed(2)}
+                                    <span className="font-medium">
+                                        USDC {parseFloat(amount || "0").toFixed(2)}
                                     </span>
                                 </div>
-                                <div className="flex justify-between items-center font-medium">
-                                    <span className="text-gray-900">Total:</span>
-                                    {/* Update Total calculation */}
-                                    <span className="text-gray-900">KE {transactionSummary.kesAmount.toFixed(1)}0</span>
+                                
+                                <div className="flex justify-between">
+                                    <span className="text-gray-600">Transaction charge</span>
+                                    <span className="font-medium text-orange-500">
+                                        KE {(parseFloat(amount || "0") * TRANSACTION_FEE_RATE * (exchangeRate || 127.3)).toFixed(2)}
+                                    </span>
+                                </div>
+                                
+                                <div className="flex justify-between">
+                                    <span className="text-gray-600">Wallet balance</span>
+                                    <span className="font-medium text-green-500">
+                                        USDC {transactionSummary.walletBalance.toFixed(2)}
+                                    </span>
+                                </div>
+                                
+                                <div className="flex justify-between pt-3 border-t">
+                                    <span className="font-medium">Total:</span>
+                                    <span className="font-medium">
+                                        KE {(parseFloat(amount || "0") * (exchangeRate || 127.3)).toFixed(2)}
+                                    </span>
                                 </div>
                             </div>
-
+                            
+                            {/* Confirm payment button */}
                             <button
-                                type="button"
-                                onClick={() => {
-                                    if (Number(amount) > 0) {
-                                        handleConfirmPayment();
-                                    } else {
-                                        setFormValidation({ ...formValidation, amount: true });
-                                    }
+                                className="w-full mt-6 py-4 rounded-lg text-white font-medium"
+                                onClick={handleConfirmPayment}
+                                disabled={isLoading || parseFloat(amount) <= 0}
+                                style={{
+                                    background: "linear-gradient(90deg, rgba(59,130,246,1) 0%, rgba(239,68,68,1) 100%)",
+                                    opacity: isLoading || parseFloat(amount) <= 0 ? 0.7 : 1
                                 }}
-                                disabled={isLoading}
-                                className={`w-full mt-4 py-3 bg-gradient-to-r from-blue-600 to-red-600 text-white rounded-full font-medium hover:opacity-90 transition-opacity ${isLoading ? "opacity-50 cursor-not-allowed" : ""
-                                    }`}
                             >
                                 {isLoading ? "Processing..." : "Confirm payment"}
                             </button>
-
-                            <div className="mt-4 bg-gray-100 p-3 rounded-lg hidden md:block">
-                                <div className="text-gray-500 mb-1">
-                                    Crypto Balance after transaction
-                                </div>
-                                <div className="flex justify-between">
-                                    <span className="text-gray-600">USDC: {transactionSummary.remainingBalance.toFixed(2)}</span>
-                                    <span className="text-gray-600">KE {transactionSummary.totalKESBalance.toFixed(2)}</span>
-                                </div>
+                        </div>
+                        
+                        {/* Balance after transaction */}
+                        <div className="mt-6 bg-gray-100 rounded-lg p-4">
+                            <h4 className="text-gray-600 mb-2">Crypto Balance after transaction</h4>
+                            <div className="flex justify-between">
+                                <span>USDC: {transactionSummary.walletBalance.toFixed(2)}</span>
+                                <span>KE {(transactionSummary.walletBalance * (exchangeRate || 127.3)).toFixed(2)}</span>
                             </div>
-
-                            <div className="mt-3 text-sm text-gray-500">
-                                At the moment, ElementsPay only allow users to deposit USDC to
-                                the wallet used at registration. However, we will soon allow the
-                                deposit of other tokens.
-                            </div>
+                        </div>
+                        
+                        {/* Information text */}
+                        <div className="mt-4 text-gray-500 text-sm">
+                            At the moment, ElementsPay only allow users to deposit USDC to the wallet used at registration. 
+                            However, we will soon allow the deposit of other tokens.
                         </div>
                     </div>
                 </div>

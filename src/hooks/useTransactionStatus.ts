@@ -28,7 +28,8 @@ export function useTransactionStatus({
   const startPolling = useCallback(() => {
     if (!orderId) return
     setStatus("processing")
-    setStatusMessage("Processing your payment...")
+    // setStatusMessage("Processing your payment...")
+    setStatusMessage("Processing ... Please wait.")
     setAttempts(0)
     setIsPolling(true)
   }, [orderId])
