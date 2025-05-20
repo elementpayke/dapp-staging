@@ -1,0 +1,19 @@
+# Block all crawlers from accessing /
+User-agent: *
+Disallow: /dashboard
+
+# Allow Twitter to fetch Open Graph data from /
+User-agent: Twitterbot
+Allow: /
+
+# Allow Facebook to fetch Open Graph data from /
+User-agent: facebookexternalhit
+Allow: /
+
+# Allow LinkedIn to fetch Open Graph data from /
+User-agent: LinkedInBot
+Allow: /
+
+# Allow crawling of the homepage for all crawlers
+User-agent: *
+Allow: /
