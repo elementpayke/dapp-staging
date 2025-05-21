@@ -11,6 +11,9 @@ importers:
       '@coinbase/onchainkit':
         specifier: ^0.36.4
         version: 0.36.11(@tanstack/query-core@5.76.0)(@types/react@19.1.4)(bufferutil@4.0.9)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(tailwindcss@3.4.17)(typescript@5.8.3)(utf-8-validate@5.0.10)(zod@3.25.7)
+      '@wagmi/core':
+        specifier: ^2.17.2
+        version: 2.17.2(@tanstack/query-core@5.76.0)(@types/react@19.1.4)(react@18.3.1)(typescript@5.8.3)(use-sync-external-store@1.4.0(react@18.3.1))(viem@2.30.0(bufferutil@4.0.9)(typescript@5.8.3)(utf-8-validate@5.0.10)(zod@3.25.7))
       axios:
         specifier: ^1.7.9
         version: 1.9.0
