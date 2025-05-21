@@ -44,8 +44,6 @@ const WalletConnection = ({
     redirect("/dashboard");
   }
 
-  console.log("Homepage", isConnected);
-
   const getButtonClassName = () => {
     let style;
     if (isMobile) {
