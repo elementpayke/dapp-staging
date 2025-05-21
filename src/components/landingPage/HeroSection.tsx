@@ -39,7 +39,7 @@ const Hero = () => {
             <span className="text-gray-800 font-medium">New</span>
           </div>
           <span className="bg-gradient-to-r from-[#0514eb] to-[#de0413] bg-clip-text text-transparent font-semibold whitespace-nowrap">
-            Create a Virtual Card
+            Join our Waitlist
           </span>
           <span className="text-gray-400">→</span>
         </div>
