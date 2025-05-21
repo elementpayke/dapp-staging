@@ -30,7 +30,6 @@ const WalletContext = createContext<WalletContextType>({
 //read ca from .env
 const USDC_CONTRACT_ADDRESS = process.env.NEXT_PUBLIC_USDC_ADDRESS as `0x${string}`;
 
-
 export const useWallet = () => useContext(WalletContext);
 
 interface WalletProviderProps {
