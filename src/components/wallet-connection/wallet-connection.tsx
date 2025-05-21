@@ -14,7 +14,6 @@ import {
   Identity,
   EthBalance,
 } from "@coinbase/onchainkit/identity";
-
 import { twMerge } from "tailwind-merge";
 import { redirect, usePathname } from "next/navigation";
 import { useWallet } from "@/hooks/useWallet";
