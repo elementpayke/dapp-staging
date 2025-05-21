@@ -16,14 +16,14 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: {
-    template: "%s | ElementPay - Crypto Payments Made Simple",
-    default: "ElementPay - Crypto Payments Made Simple",
+    template: "%s | ElementPay - Crypto Micro Payments Made Simple",
+    default: "ElementPay - Crypto Micro Payments Made Simple",
   },
   description:
-    "Use your crypto for everyday purchases with ElementPay. Make instant payments, create virtual cards, and connect all your wallets in one place.",
+    "Use your crypto for everyday purchases with ElementPay. Make instant payments, and connect all your wallets in one place.",
   keywords: [
     "crypto payments",
-    "virtual cards",
+    "off-ramp in kenya",
     "ElementPay",
     "M-PESA crypto",
     "crypto to fiat",
@@ -40,7 +40,7 @@ export const metadata: Metadata = {
     canonical: "https://www.elementpay.net",
   },
   openGraph: {
-    title: "ElementPay - Crypto Payments Made Simple",
+    title: "ElementPay - Crypto Micro Payments Made Simple",
     description:
       "Connect your wallet and pay for anything—from coffee to groceries—instantly with crypto. No delays, no high fees.",
     url: "https://www.elementpay.net",
@@ -50,9 +50,9 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "ElementPay - Crypto Payments Made Simple",
+    title: "ElementPay - Crypto Micro Payments Made Simple",
     description:
-      "Use your crypto for everyday payments. Create virtual cards, pay to M-PESA or banks, and link all your wallets with ease.",
+      "Use your crypto for everyday payments pay to M-PESA or banks, and link all your wallets with ease.",
     site: "@elementpayhq",
     creator: "@elementpayhq",
   },
