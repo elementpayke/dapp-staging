@@ -1,8 +1,5 @@
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
-import { useRouter } from "next/navigation";
-import { useAccount, useEnsName, useBalance } from "wagmi";
-import { useEffect } from "react";
 
 interface WalletState {
   isConnected: boolean;
@@ -26,18 +23,19 @@ export const useWalletStore = create<WalletState>()(
       fetchUSDCBalance: () => {},
       connectWallet: async () => {
         console.log("Connecting wallet...");
-        const router = useRouter();
-        router.push("/dashboard");
       },
       disconnectWallet: () => {
-        const router = useRouter();
-        set({
-          isConnected: false,
-          address: null,
-          ensName: null,
-          usdcBalance: 0,
-        });
-        router.push("/");
+        try {
+          set({
+            isConnected: false,
+            address: null,
+            ensName: null,
+            usdcBalance: 0,
+          });
+          localStorage.clear();
+        } catch (error) {
+          console.error("Error disconnecting wallet:", error);
+        }
       },
       setWalletData: (address: string | null, isConnected: boolean) =>
         set({ address, isConnected }),
@@ -53,38 +51,3 @@ export const useWalletStore = create<WalletState>()(
     }
   )
 );
-
-export const useWallet = () => {
-  const { address: wagmiAddress, isConnected: wagmiConnected } = useAccount();
-  const { data: ensName } = useEnsName({ address: wagmiAddress });
-  const { data: usdcBalanceData, refetch: fetchUSDCBalance } = useBalance({
-    address: wagmiAddress,
-    token: `${process.env.NEXT_PUBLIC_USDC_ADDRESS}` as `0x${string}`,
-    query: {
-      staleTime: 10_000,
-      refetchInterval: 15_000,
-    },
-  });
-  const { setWalletData, setUsdcBalance, ...store } = useWalletStore();
-
-  useEffect(() => {
-    if (usdcBalanceData?.formatted) {
-      setUsdcBalance(parseFloat(usdcBalanceData.formatted));
-      console.log("Fetched USDC Balance:", usdcBalanceData.formatted);
-    }
-  }, [usdcBalanceData, setUsdcBalance]);
-
-  useEffect(() => {
-    setWalletData(wagmiAddress || null, wagmiConnected);
-  }, [wagmiAddress, wagmiConnected, setWalletData]);
-
-  useEffect(() => {
-    useWalletStore.setState({ fetchUSDCBalance });
-  }, [fetchUSDCBalance]);
-
-  return {
-    ...store,
-    ensName: ensName || null,
-    fetchUSDCBalance,
-  };
-};
