@@ -2,28 +2,11 @@
 import React from "react";
 import Image from "next/image";
 import { Sparkles } from "lucide-react";
-import { useWallet } from "@/context/WalletContext";
-import {
-  ConnectWallet,
-  Wallet,
-  WalletDropdown,
-  WalletDropdownBasename,
-  WalletDropdownDisconnect,
-} from "@coinbase/onchainkit/wallet";
-import {
-  Address,
-  Avatar,
-  Name,
-  Identity,
-  EthBalance,
-} from "@coinbase/onchainkit/identity";
-
-// Import images directly
 import happyCouple from "@/assets/happy-couple.png";
 import ethereumLogo from "@/assets/ethereum-logo.svg";
 import bitcoinLogo from "@/assets/bitcoin-logo.svg";
+import WalletConnection from "../wallet-connection/wallet-connection";
 
-// Constants for image metadata
 const IMAGES = {
   heroMain: {
     src: happyCouple,
@@ -46,8 +29,6 @@ const IMAGES = {
 };
 
 const Hero = () => {
-  const { connectWallet, isConnected } = useWallet();
-
   return (
     <div className="bg-gradient-to-r from-white to-[#c7c7ff] min-h-[calc(100vh-64px)] overflow-x-hidden">
       <div className="max-w-[2000px] mx-auto h-full px-4 sm:px-6 lg:px-8 xl:px-12 py-6 md:py-8 relative">
@@ -57,14 +38,9 @@ const Hero = () => {
             <Sparkles className="w-3 h-3 sm:w-4 sm:h-4 text-[#0514eb]" />
             <span className="text-gray-800 font-medium">New</span>
           </div>
-          <a 
-            href="http://tally.so/r/mZ1N6B"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="bg-gradient-to-r from-[#0514eb] to-[#de0413] bg-clip-text text-transparent font-semibold whitespace-nowrap hover:opacity-80 transition-opacity"
-          >
-            Join our Waitlist
-          </a>
+          <span className="bg-gradient-to-r from-[#0514eb] to-[#de0413] bg-clip-text text-transparent font-semibold whitespace-nowrap">
+            Create a Virtual Card
+          </span>
           <span className="text-gray-400">→</span>
         </div>
 
@@ -83,37 +59,13 @@ const Hero = () => {
 
             {/* CTA Buttons */}
             <div className="flex flex-wrap items-center gap-3 sm:gap-4 mb-8 sm:mb-12 xl:mb-16">
-              <button
+              {/* <button
                 className="bg-gradient-to-r from-[#0514eb] to-[#de0413] text-white px-6 sm:px-8 py-3 sm:py-4 rounded-full text-base sm:text-lg xl:text-xl font-medium hover:opacity-90 transition-all whitespace-nowrap"
                 onClick={() => (window.location.href = '/dashboard')}
               >
                 {isConnected ? "Dashboard" : "Connect a Wallet"}
-              </button>
-              {isConnected ? (
-                <Wallet>
-                  <ConnectWallet>
-                    <Avatar className="h-6 w-6" />
-                    <Name />
-                  </ConnectWallet>
-                  <WalletDropdown>
-                    <Identity className="px-4 pt-3 pb-2" hasCopyAddressOnClick>
-                      <Avatar />
-                      <Name />
-                      <Address />
-                      <EthBalance />
-                    </Identity>
-                    <WalletDropdownBasename />
-                    <WalletDropdownDisconnect />
-                  </WalletDropdown>
-                </Wallet>
-              ) : (
-                <ConnectWallet
-                  className="bg-white text-[#0514eb] px-6 sm:px-8 py-3 sm:py-4 rounded-full text-base sm:text-lg xl:text-xl font-medium border-2 border-[#0514eb] hover:bg-blue-50 transition-all whitespace-nowrap"
-                  onConnect={connectWallet}
-                >
-                  Connect a Wallet
-                </ConnectWallet>
-              )}
+              </button> */}
+              <WalletConnection isHero />
               <div className="flex items-center gap-2 text-gray-600 mt-2 sm:mt-0">
                 <div className="text-[#0514eb]">
                   <svg
