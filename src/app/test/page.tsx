@@ -1,13 +1,14 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { useWallet } from "@/context/WalletContext";
+
 import { useContractEvents } from "@/context/useContractEvents";
 import { useContract } from "@/services/useContract";
 import { ConnectWallet } from "@coinbase/onchainkit/wallet";
 import { getUSDCAddress } from "@/services/tokens";
 import { encryptMessage } from "@/services/encryption";
 import { parseUnits } from "ethers";
+import { useWallet } from "@/hooks/useWallet";
 
 export default function Page() {
   const [amount, setAmount] = useState("");
@@ -26,7 +27,9 @@ export default function Page() {
 
   const fetchExchangeRate = async () => {
     try {
-      const response = await fetch("https://api.coinbase.com/v2/exchange-rates?currency=USDC");
+      const response = await fetch(
+        "https://api.coinbase.com/v2/exchange-rates?currency=USDC"
+      );
       const data = await response.json();
 
       if (data?.data?.rates?.KES) {
@@ -50,7 +53,7 @@ export default function Page() {
     () => console.log("OrderRefunded")
   );
 
-  const handleSendCrypto = async () => { 
+  const handleSendCrypto = async () => {
     if (!amount || isNaN(parseFloat(amount)) || parseFloat(amount) <= 0) {
       setErrorMessage("Please enter a valid amount.");
       return;
@@ -87,12 +90,17 @@ export default function Page() {
 
     setIsLoading(true);
     try {
-      const messageHash = encryptMessage(phoneNumber, "USDC", exchangeRate, mpesaAmount);
+      const messageHash = encryptMessage(
+        phoneNumber,
+        "USDC",
+        exchangeRate,
+        mpesaAmount
+      );
       if (!contract) throw new Error("Contract not found");
-      
+
       const tx = await contract.createOrder(
         address,
-        parsedAmount, 
+        parsedAmount,
         usdcTokenAddress,
         orderType,
         messageHash
@@ -110,7 +118,9 @@ export default function Page() {
 
   return (
     <div className="max-w-md mx-auto p-6 bg-white rounded-lg shadow-lg my-auto">
-      <h1 className="text-2xl font-bold mb-6 text-center text-[#444]">Send Crypto</h1>
+      <h1 className="text-2xl font-bold mb-6 text-center text-[#444]">
+        Send Crypto
+      </h1>
 
       {errorMessage && (
         <p className="text-red-500 text-sm text-center mb-4">{errorMessage}</p>
@@ -145,7 +155,10 @@ export default function Page() {
           </div>
 
           <p className="text-sm text-gray-500">
-            Exchange Rate: {exchangeRate ? `1 USDC = ${exchangeRate.toFixed(2)} KES` : "Loading..."}
+            Exchange Rate:{" "}
+            {exchangeRate
+              ? `1 USDC = ${exchangeRate.toFixed(2)} KES`
+              : "Loading..."}
           </p>
 
           <button
@@ -156,10 +169,8 @@ export default function Page() {
             {isLoading ? "Sending..." : "Send Crypto"}
           </button>
 
-          <div className="px-5 border mt-6 pt-6 h-[100px]">    
-            <p className="text-sm text-gray-500">
-              USDC Balance: {usdcBalance}
-            </p>
+          <div className="px-5 border mt-6 pt-6 h-[100px]">
+            <p className="text-sm text-gray-500">USDC Balance: {usdcBalance}</p>
           </div>
 
           <button
