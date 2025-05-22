@@ -5,7 +5,6 @@ import { parseUnits } from "ethers";
 import { getUSDCAddress } from "../../../services/tokens";
 import { useContract } from "@/services/useContract";
 import { encryptMessage } from "@/services/encryption";
-import { useWallet } from "@/context/WalletContext";
 import { useAccount } from "wagmi";
 import { useContractEvents } from "@/context/useContractEvents";
 import TransactionInProgressModal from "./TranactionInProgress";
@@ -18,6 +17,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { useWallet } from "@/hooks/useWallet";
 
 type OrderStatus =
   | "pending"

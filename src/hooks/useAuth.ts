@@ -1,6 +1,6 @@
-import { useEffect } from 'react';
-import { useRouter } from 'next/navigation';
-import { useWallet } from '@/context/WalletContext';
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { useWallet } from "./useWallet";
 
 export const useAuth = () => {
   const { isConnected } = useWallet();
@@ -8,7 +8,7 @@ export const useAuth = () => {
 
   useEffect(() => {
     if (!isConnected) {
-      router.push('/');
+      router.push("/");
     }
   }, [isConnected, router]);
 

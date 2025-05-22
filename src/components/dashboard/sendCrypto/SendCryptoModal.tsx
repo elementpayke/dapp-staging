@@ -12,7 +12,7 @@ import { useAccount, useWriteContract } from "wagmi";
 import { erc20Abi } from "@/app/api/abi";
 import { getUSDCAddress } from "../../../services/tokens";
 import { useContract } from "@/services/useContract";
-import { useWallet } from "@/context/WalletContext";
+
 import { encryptMessageDetailed } from "@/services/encryption";
 import { useContractEvents } from "@/context/useContractEvents";
 import ConfirmationModal from "./ConfirmationModal";
@@ -23,6 +23,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { useWallet } from "@/hooks/useWallet";
 
 interface TransactionReceipt {
   amount: string;
