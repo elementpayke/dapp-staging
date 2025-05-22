@@ -356,17 +356,17 @@ const SendCryptoModal: React.FC = () => {
         <ArrowUpRight size={24} />
         Spend Crypto
       </DialogTrigger>
-      <DialogContent>
+      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Spend Crypto</DialogTitle>
         </DialogHeader>
 
-        <div className="grid md:grid-cols-5 gap-6">
-          {/* Left Column - Form */}
-          <div className="md:col-span-3 space-y-4">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Left Column - Payment Form */}
+          <div className="lg:col-span-2 space-y-4">
             {/* Payment Type Header */}
-            <div className="mb-4">
-              <h3 className="text-lg font-medium text-gray-900">
+            <div>
+              <h3 className="text-lg font-medium text-gray-900 mb-4">
                 Pay to Mobile Money
               </h3>
             </div>
@@ -391,7 +391,7 @@ const SendCryptoModal: React.FC = () => {
             />
 
             {/* Favorite Option */}
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 pt-2">
               <input
                 id="favorite"
                 type="checkbox"
@@ -404,87 +404,107 @@ const SendCryptoModal: React.FC = () => {
               </label>
             </div>
 
-            {/* Mobile View Confirm Button */}
-            <button
-              onClick={
-                Number.parseFloat(amount) >= 20 ? handleApproveToken : undefined
-              }
-              disabled={isApproving || transactionSummary.totalUSDC <= 0}
-              type="button"
-              className="w-full md:hidden mt-4 py-3 bg-gradient-to-r from-blue-600 to-red-600 text-white rounded-full font-medium"
-            >
-              {isApproving ? "Approving..." : "Confirm Payment"}
-            </button>
+            {/* Mobile Confirm Button - Only shown on small screens */}
+            <div className="lg:hidden pt-4">
+              <button
+                onClick={
+                  Number.parseFloat(amount) >= 10
+                    ? handleApproveToken
+                    : undefined
+                }
+                disabled={isApproving || transactionSummary.totalUSDC <= 0}
+                type="button"
+                className="w-full py-3 bg-gradient-to-r from-blue-600 to-red-600 text-white rounded-full font-medium hover:opacity-90 transition-opacity disabled:opacity-50"
+              >
+                {isApproving ? "Approving..." : "Confirm Payment"}
+              </button>
+            </div>
           </div>
 
-          {/* Right Column - Transaction Summary (Hidden on Mobile) */}
-          <div className="hidden md:block md:col-span-2 bg-gray-50 p-4 rounded-2xl h-fit">
-            <h3 className="text-xl font-semibold mb-4 text-gray-900">
-              Transaction summary
-            </h3>
-            <div className="space-y-3">
-              <div className="flex justify-between items-center">
-                <span className="text-gray-600">Wallet balance</span>
-                <span className="text-green-600 font-medium">
-                  USDC {transactionSummary.usdcBalance.toFixed(6)}
-                </span>
+          {/* Right Column - Transaction Summary */}
+          <div className="lg:col-span-1">
+            <div className="bg-gray-50 p-4 rounded-xl h-fit sticky top-4">
+              <h3 className="text-lg font-semibold mb-4 text-gray-900">
+                Transaction Summary
+              </h3>
+
+              {/* Main Summary */}
+              <div className="space-y-3 mb-4">
+                <div className="flex justify-between items-center">
+                  <span className="text-gray-600 text-sm">Wallet balance</span>
+                  <span className="text-green-600 font-medium text-sm">
+                    USDC {transactionSummary.usdcBalance.toFixed(6)}
+                  </span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-gray-600 text-sm">Amount to send</span>
+                  <span className="text-gray-900 font-medium">
+                    KE {transactionSummary.kesAmount.toFixed(2)}
+                  </span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-gray-600 text-sm">
+                    Transaction charge (0.5%)
+                  </span>
+                  <span className="text-orange-600 text-sm">
+                    KE {transactionSummary.transactionCharge.toFixed(2)}
+                  </span>
+                </div>
+                <div className="border-t pt-3 flex justify-between items-center font-semibold">
+                  <span className="text-gray-900">Total:</span>
+                  <span className="text-gray-900">
+                    KE {transactionSummary.kesAmount.toFixed(2)}
+                  </span>
+                </div>
               </div>
-              <div className="flex justify-between items-center">
-                <span className="text-gray-600">Amount to send</span>
-                <span className="text-gray-900">
-                  KE {transactionSummary.kesAmount.toFixed(2)}
-                </span>
-              </div>
+
+              {/* Credit Opt-in Warning */}
               {amount &&
                 Math.abs(
                   Number.parseFloat(amount) - transactionSummary.totalKES
                 ) <= 0.9 && (
-                  <div className="text-red-500 text-sm">
-                    <p className="text-red-500 mt-2 text-sm">
+                  <div className="bg-red-50 border border-red-200 rounded-lg p-3 mb-4">
+                    <p className="text-red-600 text-xs">
                       Opt-In to Hakiba to gain credit
                     </p>
                   </div>
                 )}
-              <div className="flex justify-between items-center">
-                <span className="text-gray-600">Transaction charge (0.5%)</span>
-                <span className="text-orange-600">
-                  KE {transactionSummary.transactionCharge.toFixed(2)}
-                </span>
-              </div>
-              <div className="border-t pt-3 flex justify-between items-center font-medium">
-                <span className="text-gray-900">Total:</span>
-                <span className="text-gray-900">
-                  KE {transactionSummary.kesAmount.toFixed(2)}
-                </span>
-              </div>
-            </div>
 
-            <button
-              onClick={
-                Number.parseFloat(amount) >= 10 ? handleApproveToken : undefined
-              }
-              disabled={isApproving || transactionSummary.totalUSDC <= 0}
-              type="button"
-              className="w-full mt-4 py-3 bg-gradient-to-r from-blue-600 to-red-600 text-white rounded-full font-medium hover:opacity-90 transition-opacity disabled:opacity-50"
-            >
-              {isApproving ? "Approving..." : "Confirm payment"}
-            </button>
+              {/* Desktop Confirm Button */}
+              <div className="hidden lg:block mb-4">
+                <button
+                  onClick={
+                    Number.parseFloat(amount) >= 10
+                      ? handleApproveToken
+                      : undefined
+                  }
+                  disabled={isApproving || transactionSummary.totalUSDC <= 0}
+                  type="button"
+                  className="w-full py-3 bg-gradient-to-r from-blue-600 to-red-600 text-white rounded-full font-medium hover:opacity-90 transition-opacity disabled:opacity-50 text-sm"
+                >
+                  {isApproving ? "Approving..." : "Confirm Payment"}
+                </button>
+              </div>
 
-            <div className="mt-4 bg-gray-100 p-3 rounded-lg">
-              <div className="text-gray-500 mb-1">
-                Balance after transaction
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-600">Remaining Balance</span>
-                <span className="text-gray-600">
-                  KE {transactionSummary.totalKESBalance.toFixed(2)}
-                </span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-600">USDC Balance</span>
-                <span className="text-gray-600">
-                  USDC {transactionSummary.remainingBalance.toFixed(6)}
-                </span>
+              {/* Balance after transaction */}
+              <div className="bg-white border border-gray-200 p-3 rounded-lg">
+                <div className="text-gray-600 mb-2 text-xs font-medium uppercase tracking-wider">
+                  Balance After Transaction
+                </div>
+                <div className="space-y-2">
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-600 text-sm">Remaining KES</span>
+                    <span className="text-gray-900 font-medium text-sm">
+                      KE {transactionSummary.totalKESBalance.toFixed(2)}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-600 text-sm">USDC Balance</span>
+                    <span className="text-gray-900 font-medium text-sm">
+                      {transactionSummary.remainingBalance.toFixed(6)}
+                    </span>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -508,9 +528,6 @@ const SendCryptoModal: React.FC = () => {
           isVisible={showProcessingPopup}
           onClose={() => {
             cleanupOrderStates();
-            // if (transactionReciept.status === 1) {
-            //   onClose();
-            // }
           }}
           orderId={orderId}
           apiKey={apiKey}
