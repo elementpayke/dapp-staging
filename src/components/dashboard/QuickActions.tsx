@@ -1,13 +1,19 @@
 "use client";
 import React, { FC, useState, useEffect } from "react";
+import {
+  ArrowDown,
+  ArrowDownLeft,
+  ArrowRightLeft,
+  ArrowUpRight,
+  Bell,
+  MoreHorizontal,
+  Wallet,
+} from "lucide-react"; // Import icons
+import { useWallet } from "@/context/WalletContext";
 import SendCryptoModal from "./sendCrypto/SendCryptoModal";
 import DepositCryptoModal from "./depositCrypto/DepositCryptoModal";
-import { ArrowUpRight, ArrowDown, Wallet } from "lucide-react"; // Import icons
-import { useWallet } from "@/context/WalletContext";
 
 const QuickActions: FC = () => {
-  const [isSendModalOpen, setIsSendModalOpen] = useState(false);
-  const [isDepositModalOpen, setIsDepositModalOpen] = useState(false);
   const [exchangeRate, setExchangeRate] = useState<number | null>(null);
   const { usdcBalance } = useWallet(); // Fetch USDC balance from wallet context
   const MARKUP_PERCENTAGE = 1.5; // 1.5% markup
@@ -43,36 +49,28 @@ const QuickActions: FC = () => {
     : "Loading...";
 
   return (
-    <div className="space-y-6 p-6 bg-white shadow-xl rounded-2xl">
-      <h2 className="text-xl font-bold text-gray-900">🚀 Quick Pay</h2>
-
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        {/* Send Crypto Button */}
-        <SendCryptoModal />
-
-        {/* Deposit Crypto Button */}
-        <button
-          onClick={() => setIsDepositModalOpen(true)}
-          className="flex items-center justify-center gap-2 bg-gradient-to-r from-green-500 to-teal-400 text-white text-lg font-semibold py-4 rounded-xl shadow-lg hover:opacity-90 transition-all"
-        >
-          <ArrowDown size={24} />
-          Deposit Crypto
-        </button>
-
-        {/* Fiat Balance Button */}
-        <button className="flex items-center justify-center gap-2 bg-gray-100 text-gray-800 text-lg font-semibold py-4 rounded-xl shadow-md hover:bg-gray-200 transition-all">
-          <Wallet size={24} />
-          Fiat Balance:{" "}
-          <span className="text-green-600 font-bold">KES {fiatBalanceKES}</span>
-        </button>
+    <div className="p-6 bg-white shadow-lg rounded-2xl border border-gray-100">
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <p className="text-sm text-gray-600 mb-1">Fiat Balance</p>
+          <p className="text-3xl font-bold text-gray-900">
+            KES <span className="text-emerald-600">{fiatBalanceKES}</span>
+          </p>
+        </div>
+        <div className="flex gap-2">
+          <button className="p-2 rounded-full border border-gray-200 hover:bg-gray-50">
+            <Bell size={18} className="text-gray-600" />
+          </button>
+          <button className="p-2 rounded-full border border-gray-200 hover:bg-gray-50">
+            <MoreHorizontal size={18} className="text-gray-600" />
+          </button>
+        </div>
       </div>
 
-      {/* Modals */}
-
-      <DepositCryptoModal
-        isOpen={isDepositModalOpen}
-        onClose={() => setIsDepositModalOpen(false)}
-      />
+      <div className="flex gap-3">
+        <SendCryptoModal />
+        <DepositCryptoModal />
+      </div>
     </div>
   );
 };
