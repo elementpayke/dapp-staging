@@ -18,7 +18,6 @@ import { motion, AnimatePresence } from "framer-motion";
 import { toPng } from "html-to-image";
 import { fetchOrderStatus } from "@/app/api/aggregator";
 
-// Transaction details interface
 interface TransactionDetails {
   amount: string;
   currency?: string;
@@ -848,7 +847,7 @@ const ProcessingPopup: React.FC<ProcessingPopupProps> = ({
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-99999 backdrop-blur-sm"
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[2147483647] backdrop-blur-sm"
         >
           {/* Custom confetti effect */}
           {showConfetti && (
