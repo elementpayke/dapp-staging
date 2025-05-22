@@ -1,92 +1,102 @@
-"use client"
+"use client";
 
-import type React from "react"
-import { useEffect, useState, useRef, useCallback } from "react"
-import { Loader2, CreditCard, Download, Copy, CheckCheck, Printer, Mail, FileText, X, ExternalLink } from "lucide-react"
-import { motion, AnimatePresence } from "framer-motion"
-import { toPng } from "html-to-image"
-import { fetchOrderStatus } from "@/app/api/aggregator"
+import type React from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
+import {
+  Loader2,
+  CreditCard,
+  Download,
+  Copy,
+  CheckCheck,
+  Printer,
+  Mail,
+  FileText,
+  X,
+  ExternalLink,
+} from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+import { toPng } from "html-to-image";
+import { fetchOrderStatus } from "@/app/api/aggregator";
 
-// Transaction details interface
 interface TransactionDetails {
-  amount: string
-  currency?: string
-  recipient?: string
-  paymentMethod?: string
-  transactionHash: string
-  date: string
-  receiptNumber: string
-  paymentStatus: string
-  customerName?: string
-  customerEmail?: string
-  items?: { name: string; price: string; quantity: number }[]
-  subtotal?: string
-  tax?: string
-  merchantLogo?: string
-  notes?: string
-  status: number // 0 = pending, 1 = completed, 2 = failed, 3 = refunded
-  failureReason?: string
-  orderId?: string
+  amount: string;
+  currency?: string;
+  recipient?: string;
+  paymentMethod?: string;
+  transactionHash: string;
+  date: string;
+  receiptNumber: string;
+  paymentStatus: string;
+  customerName?: string;
+  customerEmail?: string;
+  items?: { name: string; price: string; quantity: number }[];
+  subtotal?: string;
+  tax?: string;
+  merchantLogo?: string;
+  notes?: string;
+  status: number; // 0 = pending, 1 = completed, 2 = failed, 3 = refunded
+  failureReason?: string;
+  orderId?: string;
 }
 
 interface OrderStatusAPIData {
-  amount_fiat: number
-  created_at: string
-  currency: string
-  failure_reason: string | null
-  file_id: string
-  mpesa_receipt_number: string | null
-  order_id: string
-  order_type: string
-  receipt_number: string | null
-  receiver_name: string | null
-  status: string
-  token: string
+  amount_fiat: number;
+  created_at: string;
+  currency: string;
+  failure_reason: string | null;
+  file_id: string;
+  mpesa_receipt_number: string | null;
+  order_id: string;
+  order_type: string;
+  receipt_number: string | null;
+  receiver_name: string | null;
+  status: string;
+  token: string;
   transaction_hashes: {
-    creation: string | null
-    settlement: string | null
-    refund: string | null
-  }
-  wallet_address: string
-  phone_number?: string
+    creation: string | null;
+    settlement: string | null;
+    refund: string | null;
+  };
+  wallet_address: string;
+  phone_number?: string;
 }
 
 interface OrderStatusResponse {
-  status: string
-  message: string
-  data: OrderStatusAPIData
+  status: string;
+  message: string;
+  data: OrderStatusAPIData;
 }
 
 // Update the interface to accept transaction details and custom API function
 interface ProcessingPopupProps {
-  isVisible: boolean
-  onClose: () => void
-  orderId: string
-  apiKey: string
-  transactionDetails: TransactionDetails
+  isVisible: boolean;
+  onClose: () => void;
+  orderId: string;
+  apiKey: string;
+  transactionDetails: TransactionDetails;
   branding?: {
-    primaryColor: string
-    logo?: string
-    companyName: string
-    footerMessage?: string
-    receiptTitle?: string
-  }
-  sendReceiptEmail?: (email: string, receiptData: any) => Promise<boolean>
+    primaryColor: string;
+    logo?: string;
+    companyName: string;
+    footerMessage?: string;
+    receiptTitle?: string;
+  };
+  sendReceiptEmail?: (email: string, receiptData: any) => Promise<boolean>;
 }
 
 // Add helper function to format receiver name
 const formatReceiverName = (name: string | null): string => {
   if (!name) return "N/A";
-  
+
   // If the name contains a phone number pattern followed by a dash
   const phoneNamePattern = /^(\d+)\s*-\s*(.+)$/;
   const match = name.match(phoneNamePattern);
-  
+
   if (match) {
     // Return only the name part after the dash
     return match[2].trim();
   }
-  
+
   // If it's just a phone number or doesn't match the pattern, return as is
   return name.trim();
 };
@@ -99,7 +109,6 @@ const ProcessingPopup: React.FC<ProcessingPopupProps> = ({
   isVisible,
   onClose,
   orderId,
-  apiKey,
   transactionDetails: initialTransactionDetails,
   branding = {
     primaryColor: "#4f46e5",
@@ -109,19 +118,24 @@ const ProcessingPopup: React.FC<ProcessingPopupProps> = ({
   },
   sendReceiptEmail,
 }) => {
-  const [status, setStatus] = useState<"processing" | "success" | "failed">("processing")
-  const [statusMessage, setStatusMessage] = useState("Processing your payment...")
-  const [progress, setProgress] = useState(0)
-  const [showConfetti, setShowConfetti] = useState(false)
-  const [copied, setCopied] = useState(false)
-  const [emailInput, setEmailInput] = useState("")
-  const [sendingEmail, setSendingEmail] = useState(false)
-  const [emailSent, setEmailSent] = useState(false)
-  const [activeTab, setActiveTab] = useState<"details" | "receipt">("details")
-  const [transactionDetails, setTransactionDetails] = useState<TransactionDetails>(initialTransactionDetails)
-  const receiptRef = useRef<HTMLDivElement>(null)
-  const [fallbackDate, setFallbackDate] = useState<string>("")
-  const [showTechnicalDetails, setShowTechnicalDetails] = useState(false)
+  const [status, setStatus] = useState<"processing" | "success" | "failed">(
+    "processing"
+  );
+  const [statusMessage, setStatusMessage] = useState(
+    "Processing your payment..."
+  );
+  const [progress, setProgress] = useState(0);
+  const [showConfetti, setShowConfetti] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const [emailInput, setEmailInput] = useState("");
+  const [sendingEmail, setSendingEmail] = useState(false);
+  const [emailSent, setEmailSent] = useState(false);
+  const [activeTab, setActiveTab] = useState<"details" | "receipt">("details");
+  const [transactionDetails, setTransactionDetails] =
+    useState<TransactionDetails>(initialTransactionDetails);
+  const receiptRef = useRef<HTMLDivElement>(null);
+  const [fallbackDate, setFallbackDate] = useState<string>("");
+  const [showTechnicalDetails, setShowTechnicalDetails] = useState(false);
 
   // Add function to format error message
   const formatErrorMessage = (error: string) => {
@@ -158,9 +172,9 @@ const ProcessingPopup: React.FC<ProcessingPopupProps> = ({
 
   useEffect(() => {
     if (!fallbackDate) {
-      setFallbackDate(new Date().toISOString())
+      setFallbackDate(new Date().toISOString());
     }
-  }, [fallbackDate])
+  }, [fallbackDate]);
 
   // Animation variants for staggered animations
   const containerVariants = {
@@ -171,16 +185,16 @@ const ProcessingPopup: React.FC<ProcessingPopupProps> = ({
         staggerChildren: 0.1,
       },
     },
-  }
+  };
 
   const itemVariants = {
     hidden: { y: 20, opacity: 0 },
     visible: { y: 0, opacity: 1 },
-  }
+  };
 
   // Poll for order status
   useEffect(() => {
-    if (!isVisible || !orderId) return
+    if (!isVisible || !orderId) return;
 
     let pollInterval: NodeJS.Timeout | null = null;
     let isPolling = true; // Add flag to track if component is still mounted
@@ -188,54 +202,70 @@ const ProcessingPopup: React.FC<ProcessingPopupProps> = ({
     // Initial fetch
     const fetchStatus = async () => {
       if (!isPolling) return; // Don't update state if component is unmounted
-      
+
       try {
-        console.log("Fetching order status in the processing-popup.tsx file")
-        console.log("Order ID:", orderId)
-        const response = await fetchOrderStatus(orderId)
-        const orderStatus = response.data as OrderStatusResponse
-        console.log("Order status:", orderStatus)
-        
+        console.log("Fetching order status in the processing-popup.tsx file");
+        console.log("Order ID:", orderId);
+        const response = await fetchOrderStatus(orderId);
+        const orderStatus = response.data as OrderStatusResponse;
+        console.log("Order status:", orderStatus);
+
         if (!isPolling) return; // Check again before updating state
-        
-        setTransactionDetails(prev => ({
+
+        setTransactionDetails((prev) => ({
           ...prev,
           amount: orderStatus.data.amount_fiat?.toString() || "N/A",
           currency: orderStatus.data.currency || "N/A",
           recipient: formatReceiverName(orderStatus.data.receiver_name),
-          paymentMethod: orderStatus.data.order_type === "offramp" ? "Mobile Money" : "N/A",
-          transactionHash: orderStatus.data.transaction_hashes?.settlement || 
-                         orderStatus.data.transaction_hashes?.creation || 
-                         "N/A",
+          paymentMethod:
+            orderStatus.data.order_type === "offramp" ? "Mobile Money" : "N/A",
+          transactionHash:
+            orderStatus.data.transaction_hashes?.settlement ||
+            orderStatus.data.transaction_hashes?.creation ||
+            "N/A",
           date: orderStatus.data.created_at || "N/A",
-          receiptNumber: orderStatus.data.receipt_number || 
-                        orderStatus.data.mpesa_receipt_number || 
-                        orderStatus.data.file_id || 
-                        "N/A",
-          paymentStatus: orderStatus.data.status === "settled" ? "settled" : 
-                        orderStatus.data.status === "failed" ? "Failed" : 
-                        orderStatus.data.status === "refunded" ? "Refunded" : "Processing",
-          status: Number(orderStatus.data.status === "settled" ? 1 : 
-                       orderStatus.data.status === "failed" ? 2 : 
-                       orderStatus.data.status === "refunded" ? 3 : 0),
+          receiptNumber:
+            orderStatus.data.receipt_number ||
+            orderStatus.data.mpesa_receipt_number ||
+            orderStatus.data.file_id ||
+            "N/A",
+          paymentStatus:
+            orderStatus.data.status === "settled"
+              ? "settled"
+              : orderStatus.data.status === "failed"
+              ? "Failed"
+              : orderStatus.data.status === "refunded"
+              ? "Refunded"
+              : "Processing",
+          status: Number(
+            orderStatus.data.status === "settled"
+              ? 1
+              : orderStatus.data.status === "failed"
+              ? 2
+              : orderStatus.data.status === "refunded"
+              ? 3
+              : 0
+          ),
           failureReason: orderStatus.data.failure_reason || "N/A",
           orderId: orderStatus.data.order_id || "N/A",
           customerName: formatReceiverName(orderStatus.data.receiver_name),
           customerEmail: "N/A", // Not available in the response
-          items: [{
-            name: orderStatus.data.token || "N/A",
-            price: orderStatus.data.amount_fiat?.toString() || "N/A",
-            quantity: 1
-          }],
+          items: [
+            {
+              name: orderStatus.data.token || "N/A",
+              price: orderStatus.data.amount_fiat?.toString() || "N/A",
+              quantity: 1,
+            },
+          ],
           subtotal: orderStatus.data.amount_fiat?.toString() || "N/A",
           tax: "N/A", // Not available in the response
           merchantLogo: "N/A", // Not available in the response
-          notes: orderStatus.data.failure_reason || "N/A"
-        }))
+          notes: orderStatus.data.failure_reason || "N/A",
+        }));
 
         // Update UI status based on order status
         const orderStatusValue = orderStatus.data.status.toLowerCase();
-        
+
         switch (orderStatusValue) {
           case "settled":
             setStatus("success");
@@ -245,30 +275,36 @@ const ProcessingPopup: React.FC<ProcessingPopupProps> = ({
             cleanupOrderId();
             if (pollInterval) clearInterval(pollInterval);
             return true;
-            
+
           case "failed":
             setStatus("failed");
-            setStatusMessage(formatErrorMessage(orderStatus.data.failure_reason || "Payment failed"));
+            setStatusMessage(
+              formatErrorMessage(
+                orderStatus.data.failure_reason || "Payment failed"
+              )
+            );
             setProgress(100);
             cleanupOrderId();
             if (pollInterval) clearInterval(pollInterval);
             return true;
-            
+
           case "refunded":
             setStatus("failed");
-            setStatusMessage(orderStatus.data.failure_reason || "Payment was refunded");
+            setStatusMessage(
+              orderStatus.data.failure_reason || "Payment was refunded"
+            );
             setProgress(100);
             cleanupOrderId();
             if (pollInterval) clearInterval(pollInterval);
             return true;
-            
+
           case "pending":
           case "processing":
             setStatus("processing");
             setStatusMessage("Processing your payment...");
             setProgress(90);
             return false;
-            
+
           default:
             console.warn(`Unknown order status: ${orderStatusValue}`);
             setStatus("processing");
@@ -277,109 +313,111 @@ const ProcessingPopup: React.FC<ProcessingPopupProps> = ({
             return false;
         }
       } catch (error) {
-        console.error("Error polling order status:", error)
-        return false
+        console.error("Error polling order status:", error);
+        return false;
       }
-    }
+    };
 
     // Initial fetch
-    fetchStatus().then(shouldContinuePolling => {
+    fetchStatus().then((shouldContinuePolling) => {
       if (!shouldContinuePolling && isPolling) {
         // Start polling if the order is still processing
         pollInterval = setInterval(async () => {
-          const shouldStop = await fetchStatus()
+          const shouldStop = await fetchStatus();
           if (shouldStop && pollInterval) {
-            clearInterval(pollInterval)
+            clearInterval(pollInterval);
           }
-        }, 5000) // Poll every 5 seconds
+        }, 5000); // Poll every 5 seconds
       }
-    })
+    });
 
     // Cleanup function
     return () => {
       isPolling = false; // Set flag to false when component unmounts
       if (pollInterval) {
-        clearInterval(pollInterval)
+        clearInterval(pollInterval);
       }
-    }
-  }, [isVisible, orderId, cleanupOrderId])
+    };
+  }, [isVisible, orderId, cleanupOrderId]);
 
   // Add cleanup on component unmount
   useEffect(() => {
     return () => {
-      cleanupOrderId()
-    }
-  }, [cleanupOrderId])
+      cleanupOrderId();
+    };
+  }, [cleanupOrderId]);
 
   // Function to copy transaction hash to clipboard
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text).then(() => {
-      setCopied(true)
-      setTimeout(() => setCopied(false), 2000)
-    })
-  }
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  };
 
   // Function to send receipt via email
   const sendReceiptViaEmail = async () => {
-    if (!emailInput || !sendReceiptEmail) return
+    if (!emailInput || !sendReceiptEmail) return;
 
-    setSendingEmail(true)
+    setSendingEmail(true);
     try {
       const success = await sendReceiptEmail(emailInput, {
         ...transactionDetails,
         orderId,
-      })
+      });
 
       if (success) {
-        setEmailSent(true)
-        setTimeout(() => setEmailSent(false), 3000)
+        setEmailSent(true);
+        setTimeout(() => setEmailSent(false), 3000);
       }
     } catch (error) {
-      console.error("Error sending email:", error)
+      console.error("Error sending email:", error);
     } finally {
-      setSendingEmail(false)
+      setSendingEmail(false);
     }
-  }
+  };
 
   // Generate a downloadable image of the receipt
   const downloadReceiptAsImage = async () => {
-    if (!receiptRef.current) return
+    if (!receiptRef.current) return;
 
     try {
-      const dataUrl = await toPng(receiptRef.current, { quality: 0.95 })
-      const link = document.createElement("a")
-      link.download = `Receipt-${transactionDetails.receiptNumber || "unknown"}.png`
-      link.href = dataUrl
-      link.click()
+      const dataUrl = await toPng(receiptRef.current, { quality: 0.95 });
+      const link = document.createElement("a");
+      link.download = `Receipt-${
+        transactionDetails.receiptNumber || "unknown"
+      }.png`;
+      link.href = dataUrl;
+      link.click();
     } catch (error) {
-      console.error("Error generating receipt image:", error)
+      console.error("Error generating receipt image:", error);
     }
-  }
+  };
 
   // Print receipt
   const printReceipt = () => {
-    if (!receiptRef.current) return
+    if (!receiptRef.current) return;
 
-    const printWindow = window.open("", "_blank")
+    const printWindow = window.open("", "_blank");
     if (!printWindow) {
-      alert("Please allow popups to print your receipt")
-      return
+      alert("Please allow popups to print your receipt");
+      return;
     }
 
-    const receiptHTML = generateReceiptHTML()
-    printWindow.document.open()
-    printWindow.document.write(receiptHTML)
-    printWindow.document.close()
+    const receiptHTML = generateReceiptHTML();
+    printWindow.document.open();
+    printWindow.document.write(receiptHTML);
+    printWindow.document.close();
 
     // Automatically trigger print dialog after content loads
     printWindow.onload = () => {
-      printWindow.print()
-    }
-  }
+      printWindow.print();
+    };
+  };
 
   // Generate receipt HTML for download or print
   const generateReceiptHTML = () => {
-    const brandColor = branding?.primaryColor || "#4f46e5"
+    const brandColor = branding?.primaryColor || "#4f46e5";
 
     return `
       <!DOCTYPE html>
@@ -625,14 +663,20 @@ const ProcessingPopup: React.FC<ProcessingPopupProps> = ({
             </div>
             <div>
               <div class="receipt-label">Receipt ID</div>
-              <div class="receipt-number">${transactionDetails.receiptNumber || "Pending"}</div>
+              <div class="receipt-number">${
+                transactionDetails.receiptNumber || "Pending"
+              }</div>
             </div>
           </div>
           
-          <div class="receipt-title">${branding.receiptTitle || "Payment Receipt"}</div>
+          <div class="receipt-title">${
+            branding.receiptTitle || "Payment Receipt"
+          }</div>
           
           <div style="text-align: center; margin-bottom: 30px;">
-            <div class="receipt-status">${transactionDetails.paymentStatus || "Processing"}</div>
+            <div class="receipt-status">${
+              transactionDetails.paymentStatus || "Processing"
+            }</div>
           </div>
           
           <div class="receipt-section">
@@ -640,11 +684,15 @@ const ProcessingPopup: React.FC<ProcessingPopupProps> = ({
             <div class="receipt-grid">
               <div class="receipt-info-item">
                 <div class="receipt-info-label">Date</div>
-                <div class="receipt-info-value">${transactionDetails.date || fallbackDate}</div>
+                <div class="receipt-info-value">${
+                  transactionDetails.date || fallbackDate
+                }</div>
               </div>
               <div class="receipt-info-item">
                 <div class="receipt-info-label">Recipient</div>
-                <div class="receipt-info-value">${transactionDetails.recipient || "Unknown"}</div>
+                <div class="receipt-info-value">${
+                  transactionDetails.recipient || "Unknown"
+                }</div>
               </div>
               ${
                 transactionDetails.customerName
@@ -675,8 +723,12 @@ const ProcessingPopup: React.FC<ProcessingPopupProps> = ({
               </svg>
             </div>
             <div class="payment-details">
-              <div class="payment-name">${transactionDetails.paymentMethod || "Mobile Money"}</div>
-              <div class="payment-date">Processed on ${transactionDetails.date || fallbackDate}</div>
+              <div class="payment-name">${
+                transactionDetails.paymentMethod || "Mobile Money"
+              }</div>
+              <div class="payment-date">Processed on ${
+                transactionDetails.date || fallbackDate
+              }</div>
             </div>
           </div>
           
@@ -702,9 +754,12 @@ const ProcessingPopup: React.FC<ProcessingPopupProps> = ({
                   <td>${item.name}</td>
                   <td>${item.price}</td>
                   <td class="item-quantity">${item.quantity}</td>
-                  <td class="item-total">Kes${(Number.parseFloat(item.price.replace(/[^0-9.-]+/g, "")) * item.quantity).toFixed(2)}</td>
+                  <td class="item-total">Kes${(
+                    Number.parseFloat(item.price.replace(/[^0-9.-]+/g, "")) *
+                    item.quantity
+                  ).toFixed(2)}</td>
                 </tr>
-                `,
+                `
                   )
                   .join("")}
               </tbody>
@@ -718,7 +773,9 @@ const ProcessingPopup: React.FC<ProcessingPopupProps> = ({
             <div class="section-title">Transaction Details</div>
             <div class="receipt-info-item">
               <div class="receipt-info-label">Transaction ID</div>
-              <div class="transaction-id">${transactionDetails.transactionHash || "Pending"}</div>
+              <div class="transaction-id">${
+                transactionDetails.transactionHash || "Pending"
+              }</div>
             </div>
           </div>
           
@@ -743,12 +800,16 @@ const ProcessingPopup: React.FC<ProcessingPopupProps> = ({
                 : ""
             }
             
-            <div class="total-amount">${transactionDetails.amount || "0"} ${transactionDetails.currency || "KES"}</div>
+            <div class="total-amount">${transactionDetails.amount || "0"} ${
+      transactionDetails.currency || "KES"
+    }</div>
           </div>
           
           <div class="receipt-barcode">
             <div class="qrcode-container">
-              <img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(transactionDetails.transactionHash || "pending")}" width="120" height="120" alt="Transaction QR Code">
+              <img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(
+                transactionDetails.transactionHash || "pending"
+              )}" width="120" height="120" alt="Transaction QR Code">
             </div>
             <div style="margin-top: 10px; font-size: 12px; color: #777;">Scan to verify transaction</div>
           </div>
@@ -774,10 +835,10 @@ const ProcessingPopup: React.FC<ProcessingPopupProps> = ({
         </div>
       </body>
       </html>
-    `
-  }
+    `;
+  };
 
-  if (!isVisible) return null
+  if (!isVisible) return null;
 
   return (
     <AnimatePresence>
@@ -786,7 +847,7 @@ const ProcessingPopup: React.FC<ProcessingPopupProps> = ({
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 backdrop-blur-sm"
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[2147483647] backdrop-blur-sm"
         >
           {/* Custom confetti effect */}
           {showConfetti && (
@@ -795,7 +856,11 @@ const ProcessingPopup: React.FC<ProcessingPopupProps> = ({
               {[...Array(100)].map((_, i) => (
                 <motion.div
                   key={i}
-                  className={`absolute ${Math.random() > 0.7 ? "w-3 h-8 rounded-full" : "w-2 h-2 rounded-full"}`}
+                  className={`absolute ${
+                    Math.random() > 0.7
+                      ? "w-3 h-8 rounded-full"
+                      : "w-2 h-2 rounded-full"
+                  }`}
                   initial={{
                     top: "50%",
                     left: "50%",
@@ -817,7 +882,8 @@ const ProcessingPopup: React.FC<ProcessingPopupProps> = ({
                     left: `${Math.random() * 100}%`,
                     scale: [0, 1 + Math.random(), 0.5],
                     opacity: [1, 1, 0],
-                    rotate: Math.random() * 360 * (Math.random() > 0.5 ? 1 : -1),
+                    rotate:
+                      Math.random() * 360 * (Math.random() > 0.5 ? 1 : -1),
                   }}
                   transition={{
                     duration: 2 + Math.random() * 2,
@@ -875,7 +941,8 @@ const ProcessingPopup: React.FC<ProcessingPopupProps> = ({
                   <motion.div
                     className="absolute inset-0 opacity-10"
                     style={{
-                      background: "linear-gradient(120deg, #a1c4fd 0%, #c2e9fb 100%)",
+                      background:
+                        "linear-gradient(120deg, #a1c4fd 0%, #c2e9fb 100%)",
                     }}
                     animate={{
                       backgroundPosition: ["0% 0%", "100% 100%"],
@@ -914,7 +981,10 @@ const ProcessingPopup: React.FC<ProcessingPopupProps> = ({
                   ))}
 
                   {/* Animated lines */}
-                  <svg className="absolute inset-0 w-full h-full opacity-5" xmlns="http://www.w3.org/2000/svg">
+                  <svg
+                    className="absolute inset-0 w-full h-full opacity-5"
+                    xmlns="http://www.w3.org/2000/svg"
+                  >
                     <motion.path
                       d="M0,100 Q50,50 100,100 T200,100 T300,100 T400,100"
                       stroke="#4299e1"
@@ -952,7 +1022,8 @@ const ProcessingPopup: React.FC<ProcessingPopupProps> = ({
                 <motion.div
                   className="absolute inset-0 opacity-10"
                   style={{
-                    background: "linear-gradient(120deg, #84fab0 0%, #8fd3f4 100%)",
+                    background:
+                      "linear-gradient(120deg, #84fab0 0%, #8fd3f4 100%)",
                   }}
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 0.1 }}
@@ -962,14 +1033,14 @@ const ProcessingPopup: React.FC<ProcessingPopupProps> = ({
 
               {status === "failed" && (
                 <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-                  <motion.div 
+                  <motion.div
                     className="bg-white rounded-xl shadow-xl max-w-md w-full overflow-hidden relative"
                     initial={{ opacity: 0, scale: 0.95 }}
                     animate={{ opacity: 1, scale: 1 }}
                     transition={{ duration: 0.2 }}
                   >
                     {/* Close button */}
-                    <button 
+                    <button
                       onClick={onClose}
                       className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 focus:outline-none"
                     >
@@ -978,13 +1049,19 @@ const ProcessingPopup: React.FC<ProcessingPopupProps> = ({
                     <div className="p-6">
                       {/* Simplified header with cleaner icon */}
                       <div className="flex items-center justify-center mb-5">
-                        <motion.div 
+                        <motion.div
                           className="bg-red-100 rounded-full p-3"
                           initial={{ scale: 0.8 }}
                           animate={{ scale: 1 }}
                           transition={{ type: "spring", stiffness: 300 }}
                         >
-                          <svg className="w-8 h-8 text-red-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                          <svg
+                            className="w-8 h-8 text-red-500"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2.5"
+                          >
                             <circle cx="12" cy="12" r="10" />
                             <line x1="15" y1="9" x2="9" y2="15" />
                             <line x1="9" y1="9" x2="15" y2="15" />
@@ -997,11 +1074,12 @@ const ProcessingPopup: React.FC<ProcessingPopupProps> = ({
                           Unsupported Customer Type
                         </h3>
                         <p className="text-gray-600 text-base">
-                          {transactionDetails.failureReason || ("Your account is registered as a Credit Party customer, which is not compatible with this payment method. Please try a different payment option or contact our support team.")}
+                          {transactionDetails.failureReason ||
+                            "Your account is registered as a Credit Party customer, which is not compatible with this payment method. Please try a different payment option or contact our support team."}
                         </p>
                       </div>
                       {/* Simplified explanation card */}
-                      <motion.div 
+                      <motion.div
                         className="bg-red-50 rounded-lg p-4 mb-5"
                         initial={{ opacity: 0, y: 10 }}
                         animate={{ opacity: 1, y: 0 }}
@@ -1009,13 +1087,22 @@ const ProcessingPopup: React.FC<ProcessingPopupProps> = ({
                       >
                         <div className="flex items-start space-x-3">
                           <div className="mt-0.5">
-                            <svg className="h-5 w-5 text-red-500" viewBox="0 0 20 20" fill="currentColor">
-                              <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2h-1V9z" clipRule="evenodd" />
+                            <svg
+                              className="h-5 w-5 text-red-500"
+                              viewBox="0 0 20 20"
+                              fill="currentColor"
+                            >
+                              <path
+                                fillRule="evenodd"
+                                d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2h-1V9z"
+                                clipRule="evenodd"
+                              />
                             </svg>
                           </div>
                           <div>
                             <p className="text-sm text-red-700">
-                              {transactionDetails.failureReason || "The payment could not be processed at this time."}
+                              {transactionDetails.failureReason ||
+                                "The payment could not be processed at this time."}
                             </p>
                           </div>
                         </div>
@@ -1023,7 +1110,12 @@ const ProcessingPopup: React.FC<ProcessingPopupProps> = ({
                       {/* Action buttons with better hierarchy */}
                       <div className="space-y-3 mb-5">
                         <button
-                          onClick={() => window.open('mailto:support@elementpay.com', '_blank')}
+                          onClick={() =>
+                            window.open(
+                              "mailto:support@elementpay.com",
+                              "_blank"
+                            )
+                          }
                           className="w-full px-4 py-2.5 bg-red-600 text-white rounded-lg hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 transition-colors font-medium flex items-center justify-center"
                         >
                           <ExternalLink size={16} className="mr-2" />
@@ -1039,17 +1131,28 @@ const ProcessingPopup: React.FC<ProcessingPopupProps> = ({
                       {/* Technical details (simplified) */}
                       <div>
                         <button
-                          onClick={() => setShowTechnicalDetails(!showTechnicalDetails)}
+                          onClick={() =>
+                            setShowTechnicalDetails(!showTechnicalDetails)
+                          }
                           className="w-full flex items-center justify-between px-3 py-2 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
                         >
-                          <span className="text-sm text-gray-600">Technical Details</span>
+                          <span className="text-sm text-gray-600">
+                            Technical Details
+                          </span>
                           <svg
-                            className={`w-4 h-4 text-gray-500 transform transition-transform ${showTechnicalDetails ? 'rotate-180' : ''}`}
+                            className={`w-4 h-4 text-gray-500 transform transition-transform ${
+                              showTechnicalDetails ? "rotate-180" : ""
+                            }`}
                             fill="none"
                             viewBox="0 0 24 24"
                             stroke="currentColor"
                           >
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M19 9l-7 7-7-7"
+                            />
                           </svg>
                         </button>
                         <AnimatePresence>
@@ -1062,17 +1165,29 @@ const ProcessingPopup: React.FC<ProcessingPopupProps> = ({
                               className="mt-2 bg-gray-50 rounded-lg overflow-hidden"
                             >
                               <div className="p-3">
-                                <div className="text-xs text-gray-500 mb-1">Error Code: CUST_TYPE_UNSUPPORTED</div>
-                                <div className="text-xs text-gray-500 mb-2">Transaction ID</div>
+                                <div className="text-xs text-gray-500 mb-1">
+                                  Error Code: CUST_TYPE_UNSUPPORTED
+                                </div>
+                                <div className="text-xs text-gray-500 mb-2">
+                                  Transaction ID
+                                </div>
                                 <div className="flex items-center gap-2 bg-white p-2 rounded-md border border-gray-200">
                                   <div className="text-xs font-mono text-gray-700 break-all flex-1">
                                     {transactionDetails.transactionHash}
                                   </div>
                                   <button
-                                    onClick={() => copyToClipboard(transactionDetails.transactionHash)}
+                                    onClick={() =>
+                                      copyToClipboard(
+                                        transactionDetails.transactionHash
+                                      )
+                                    }
                                     className="flex-shrink-0 text-gray-500 hover:text-gray-700 focus:outline-none p-1 hover:bg-gray-100 rounded transition-colors"
                                   >
-                                    {copied ? <CheckCheck size={14} /> : <Copy size={14} />}
+                                    {copied ? (
+                                      <CheckCheck size={14} />
+                                    ) : (
+                                      <Copy size={14} />
+                                    )}
                                   </button>
                                 </div>
                               </div>
@@ -1117,7 +1232,10 @@ const ProcessingPopup: React.FC<ProcessingPopupProps> = ({
                     <motion.div
                       className="absolute inset-0 rounded-full bg-blue-100 opacity-70"
                       animate={{ scale: [1, 1.1, 1] }}
-                      transition={{ duration: 2, repeat: Number.POSITIVE_INFINITY }}
+                      transition={{
+                        duration: 2,
+                        repeat: Number.POSITIVE_INFINITY,
+                      }}
                     />
 
                     {/* Spinning loader */}
@@ -1127,8 +1245,16 @@ const ProcessingPopup: React.FC<ProcessingPopupProps> = ({
                         scale: [1, 1.05, 1],
                       }}
                       transition={{
-                        rotate: { duration: 1.5, repeat: Number.POSITIVE_INFINITY, ease: "linear" },
-                        scale: { duration: 2, repeat: Number.POSITIVE_INFINITY, ease: "easeInOut" },
+                        rotate: {
+                          duration: 1.5,
+                          repeat: Number.POSITIVE_INFINITY,
+                          ease: "linear",
+                        },
+                        scale: {
+                          duration: 2,
+                          repeat: Number.POSITIVE_INFINITY,
+                          ease: "easeInOut",
+                        },
                       }}
                     >
                       <Loader2 className="w-12 h-12 text-blue-600" />
@@ -1176,7 +1302,8 @@ const ProcessingPopup: React.FC<ProcessingPopupProps> = ({
                     <motion.div
                       className="absolute inset-0 rounded-full"
                       style={{
-                        background: "radial-gradient(circle, rgba(74,222,128,0.4) 0%, rgba(74,222,128,0) 70%)",
+                        background:
+                          "radial-gradient(circle, rgba(74,222,128,0.4) 0%, rgba(74,222,128,0) 70%)",
                       }}
                       initial={{ opacity: 0, scale: 0.8 }}
                       animate={{ opacity: 1, scale: 1.2 }}
@@ -1194,11 +1321,15 @@ const ProcessingPopup: React.FC<ProcessingPopupProps> = ({
                   >
                     {/* Error severity indicator with animation */}
                     <div className="flex items-center justify-center mb-6">
-                      <motion.div 
+                      <motion.div
                         className="bg-red-50 rounded-full p-4 relative"
                         initial={{ scale: 0.8 }}
                         animate={{ scale: 1 }}
-                        transition={{ type: "spring", stiffness: 300, damping: 20 }}
+                        transition={{
+                          type: "spring",
+                          stiffness: 300,
+                          damping: 20,
+                        }}
                       >
                         {/* Pulsing background effect */}
                         <motion.div
@@ -1247,7 +1378,7 @@ const ProcessingPopup: React.FC<ProcessingPopupProps> = ({
 
                     {/* Error message with improved typography */}
                     <div className="text-center mb-8 break-words">
-                      <motion.h3 
+                      <motion.h3
                         className="text-2xl font-bold text-gray-900 mb-3"
                         initial={{ opacity: 0, y: 10 }}
                         animate={{ opacity: 1, y: 0 }}
@@ -1255,7 +1386,7 @@ const ProcessingPopup: React.FC<ProcessingPopupProps> = ({
                       >
                         Payment Failed
                       </motion.h3>
-                      <motion.p 
+                      <motion.p
                         className="text-gray-600 text-base break-words"
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
@@ -1266,7 +1397,7 @@ const ProcessingPopup: React.FC<ProcessingPopupProps> = ({
                     </div>
 
                     {/* Error details card with improved layout */}
-                    <motion.div 
+                    <motion.div
                       className="bg-red-50 rounded-xl p-4 mb-6 shadow-sm"
                       initial={{ opacity: 0, y: 20 }}
                       animate={{ opacity: 1, y: 0 }}
@@ -1275,22 +1406,33 @@ const ProcessingPopup: React.FC<ProcessingPopupProps> = ({
                       <div className="flex items-start space-x-3">
                         <div className="flex-shrink-0 mt-1">
                           <div className="w-8 h-8 rounded-full bg-red-100 flex items-center justify-center">
-                            <svg className="h-5 w-5 text-red-500" viewBox="0 0 20 20" fill="currentColor">
-                              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                            <svg
+                              className="h-5 w-5 text-red-500"
+                              viewBox="0 0 20 20"
+                              fill="currentColor"
+                            >
+                              <path
+                                fillRule="evenodd"
+                                d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
+                                clipRule="evenodd"
+                              />
                             </svg>
                           </div>
                         </div>
                         <div className="flex-1">
-                          <h4 className="text-base font-semibold text-red-800 mb-1">What happened?</h4>
+                          <h4 className="text-base font-semibold text-red-800 mb-1">
+                            What happened?
+                          </h4>
                           <p className="text-sm text-red-700 leading-relaxed">
-                            {transactionDetails.failureReason || "The payment could not be processed at this time."}
+                            {transactionDetails.failureReason ||
+                              "The payment could not be processed at this time."}
                           </p>
                         </div>
                       </div>
                     </motion.div>
 
                     {/* Action buttons with improved layout */}
-                    <motion.div 
+                    <motion.div
                       className="space-y-3"
                       initial={{ opacity: 0, y: 20 }}
                       animate={{ opacity: 1, y: 0 }}
@@ -1303,9 +1445,11 @@ const ProcessingPopup: React.FC<ProcessingPopupProps> = ({
                         <ExternalLink size={16} className="mr-2" />
                         Contact Support
                       </motion.button>
-                      
+
                       <motion.button
-                        onClick={() => window.open('mailto:support@elementpay.com', '_blank')}
+                        onClick={() =>
+                          window.open("mailto:support@elementpay.com", "_blank")
+                        }
                         className="w-full px-4 py-2.5 bg-white text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-300 focus:ring-offset-2 transition-colors font-medium"
                       >
                         Contact Support
@@ -1313,28 +1457,39 @@ const ProcessingPopup: React.FC<ProcessingPopupProps> = ({
                     </motion.div>
 
                     {/* Technical details with improved collapsible UI */}
-                    <motion.div 
+                    <motion.div
                       className="mt-6"
                       initial={{ opacity: 0 }}
                       animate={{ opacity: 1 }}
                       transition={{ delay: 1 }}
                     >
                       <button
-                        onClick={() => setShowTechnicalDetails(!showTechnicalDetails)}
+                        onClick={() =>
+                          setShowTechnicalDetails(!showTechnicalDetails)
+                        }
                         className="w-full flex items-center justify-between px-3 py-2 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
                       >
-                        <span className="text-sm text-gray-700 font-medium">Technical Details</span>
+                        <span className="text-sm text-gray-700 font-medium">
+                          Technical Details
+                        </span>
                         <motion.svg
-                          className={`w-4 h-4 text-gray-500 transform transition-transform ${showTechnicalDetails ? 'rotate-180' : ''}`}
+                          className={`w-4 h-4 text-gray-500 transform transition-transform ${
+                            showTechnicalDetails ? "rotate-180" : ""
+                          }`}
                           fill="none"
                           viewBox="0 0 24 24"
                           stroke="currentColor"
                           animate={{ rotate: showTechnicalDetails ? 180 : 0 }}
                         >
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M19 9l-7 7-7-7"
+                          />
                         </motion.svg>
                       </button>
-                      
+
                       <AnimatePresence>
                         {showTechnicalDetails && (
                           <motion.div
@@ -1345,16 +1500,26 @@ const ProcessingPopup: React.FC<ProcessingPopupProps> = ({
                             className="mt-2 bg-gray-50 rounded-lg overflow-hidden"
                           >
                             <div className="p-3">
-                              <div className="text-xs text-gray-500 mb-1">Transaction ID</div>
+                              <div className="text-xs text-gray-500 mb-1">
+                                Transaction ID
+                              </div>
                               <div className="flex items-center gap-2 bg-white p-2 rounded-md border border-gray-200">
                                 <div className="text-xs font-mono text-gray-700 break-all flex-1">
                                   {transactionDetails.transactionHash}
                                 </div>
                                 <button
-                                  onClick={() => copyToClipboard(transactionDetails.transactionHash)}
+                                  onClick={() =>
+                                    copyToClipboard(
+                                      transactionDetails.transactionHash
+                                    )
+                                  }
                                   className="flex-shrink-0 text-gray-500 hover:text-gray-700 focus:outline-none p-1 hover:bg-gray-100 rounded transition-colors"
                                 >
-                                  {copied ? <CheckCheck size={14} /> : <Copy size={14} />}
+                                  {copied ? (
+                                    <CheckCheck size={14} />
+                                  ) : (
+                                    <Copy size={14} />
+                                  )}
                                 </button>
                               </div>
                             </div>
@@ -1364,17 +1529,18 @@ const ProcessingPopup: React.FC<ProcessingPopupProps> = ({
                     </motion.div>
 
                     {/* Additional help section */}
-                    <motion.div 
+                    <motion.div
                       className="mt-6 text-center"
                       initial={{ opacity: 0 }}
                       animate={{ opacity: 1 }}
                       transition={{ delay: 1.1 }}
                     >
                       <p className="text-xs text-gray-500">
-                        Need immediate assistance? Our support team is available 24/7
+                        Need immediate assistance? Our support team is available
+                        24/7
                       </p>
-                      <a 
-                        href="tel:+254700000000" 
+                      <a
+                        href="tel:+254700000000"
                         className="inline-block mt-1 text-sm text-red-600 hover:text-red-700 font-medium"
                       >
                         +254110919165
@@ -1393,8 +1559,8 @@ const ProcessingPopup: React.FC<ProcessingPopupProps> = ({
                 {status === "processing"
                   ? "Processing Payment"
                   : status === "success"
-                    ? "Payment Successful"
-                    : "Payment Failed"}
+                  ? "Payment Successful"
+                  : "Payment Failed"}
               </motion.h3>
 
               <motion.p
@@ -1415,7 +1581,11 @@ const ProcessingPopup: React.FC<ProcessingPopupProps> = ({
               >
                 <motion.div
                   className={`h-3 rounded-full ${
-                    status === "success" ? "bg-green-500" : status === "failed" ? "bg-red-500" : "bg-blue-600"
+                    status === "success"
+                      ? "bg-green-500"
+                      : status === "failed"
+                      ? "bg-red-500"
+                      : "bg-blue-600"
                   }`}
                   initial={{ width: "0%" }}
                   animate={{ width: `${progress}%` }}
@@ -1441,7 +1611,12 @@ const ProcessingPopup: React.FC<ProcessingPopupProps> = ({
 
               {/* Transaction details tabs - only show on success */}
               {status === "success" && (
-                <motion.div className="w-full" initial="hidden" animate="visible" variants={containerVariants}>
+                <motion.div
+                  className="w-full"
+                  initial="hidden"
+                  animate="visible"
+                  variants={containerVariants}
+                >
                   {/* Tabs for switching between transaction details and receipt */}
                   <div className="flex border-b mb-4">
                     <button
@@ -1475,49 +1650,84 @@ const ProcessingPopup: React.FC<ProcessingPopupProps> = ({
                       exit={{ opacity: 0, y: 10 }}
                     >
                       <div className="bg-gray-50 rounded-lg p-4 border border-gray-100">
-                        <motion.div className="flex justify-between mb-2" variants={itemVariants}>
+                        <motion.div
+                          className="flex justify-between mb-2"
+                          variants={itemVariants}
+                        >
                           <span className="text-gray-600">Amount:</span>
                           <span className="font-medium">
-                            {transactionDetails.amount} {transactionDetails.currency}
+                            {transactionDetails.amount}{" "}
+                            {transactionDetails.currency}
                           </span>
                         </motion.div>
 
-                        <motion.div className="flex justify-between mb-2" variants={itemVariants}>
+                        <motion.div
+                          className="flex justify-between mb-2"
+                          variants={itemVariants}
+                        >
                           <span className="text-gray-600">Recipient:</span>
-                          <span className="font-medium">{transactionDetails.recipient || "N/A"}</span>
+                          <span className="font-medium">
+                            {transactionDetails.recipient || "N/A"}
+                          </span>
                         </motion.div>
 
-                        <motion.div className="flex justify-between mb-2" variants={itemVariants}>
+                        <motion.div
+                          className="flex justify-between mb-2"
+                          variants={itemVariants}
+                        >
                           <span className="text-gray-600">Payment Method:</span>
-                          <span className="font-medium">{transactionDetails.paymentMethod || "Mobile Money"}</span>
+                          <span className="font-medium">
+                            {transactionDetails.paymentMethod || "Mobile Money"}
+                          </span>
                         </motion.div>
 
-                        <motion.div className="flex justify-between mb-2" variants={itemVariants}>
+                        <motion.div
+                          className="flex justify-between mb-2"
+                          variants={itemVariants}
+                        >
                           <span className="text-gray-600">Date:</span>
-                          <span className="font-medium">{transactionDetails.date || fallbackDate}</span>
+                          <span className="font-medium">
+                            {transactionDetails.date || fallbackDate}
+                          </span>
                         </motion.div>
 
-                        <motion.div className="flex justify-between items-center" variants={itemVariants}>
+                        <motion.div
+                          className="flex justify-between items-center"
+                          variants={itemVariants}
+                        >
                           <span className="text-gray-600">Transaction ID:</span>
                           <div className="flex items-center">
                             <span className="font-medium text-xs truncate max-w-[120px] md:max-w-[180px]">
                               {transactionDetails.transactionHash || "Pending"}
                             </span>
                             <motion.button
-                              onClick={() => copyToClipboard(transactionDetails.transactionHash || "")}
+                              onClick={() =>
+                                copyToClipboard(
+                                  transactionDetails.transactionHash || ""
+                                )
+                              }
                               className="ml-2 text-blue-500 hover:text-blue-700 focus:outline-none"
                               whileHover={{ scale: 1.1 }}
                               whileTap={{ scale: 0.95 }}
                             >
-                              {copied ? <CheckCheck size={16} /> : <Copy size={16} />}
+                              {copied ? (
+                                <CheckCheck size={16} />
+                              ) : (
+                                <Copy size={16} />
+                              )}
                             </motion.button>
                           </div>
                         </motion.div>
                       </div>
 
                       {/* Download options */}
-                      <motion.div className="mt-6 space-y-2" variants={itemVariants}>
-                        <div className="text-sm text-gray-600 mb-2">Export Receipt:</div>
+                      <motion.div
+                        className="mt-6 space-y-2"
+                        variants={itemVariants}
+                      >
+                        <div className="text-sm text-gray-600 mb-2">
+                          Export Receipt:
+                        </div>
                         <div className="flex flex-wrap gap-2 justify-center">
                           <motion.button
                             onClick={printReceipt}
@@ -1556,7 +1766,9 @@ const ProcessingPopup: React.FC<ProcessingPopupProps> = ({
                                 onClick={sendReceiptViaEmail}
                                 disabled={!emailInput || sendingEmail}
                                 className={`flex items-center gap-1 px-3 py-2 ${
-                                  emailSent ? "bg-green-500 text-white" : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                                  emailSent
+                                    ? "bg-green-500 text-white"
+                                    : "bg-gray-100 text-gray-700 hover:bg-gray-200"
                                 } rounded-r-md transition-colors text-sm whitespace-nowrap`}
                               >
                                 {sendingEmail ? (
@@ -1588,12 +1800,20 @@ const ProcessingPopup: React.FC<ProcessingPopupProps> = ({
                         {/* Receipt Header */}
                         <div className="border-b border-gray-100 p-4 flex justify-between items-center">
                           <div>
-                            <div className="text-lg font-bold text-gray-800">{branding.companyName}</div>
-                            <div className="text-xs text-gray-500">Official Payment Receipt</div>
+                            <div className="text-lg font-bold text-gray-800">
+                              {branding.companyName}
+                            </div>
+                            <div className="text-xs text-gray-500">
+                              Official Payment Receipt
+                            </div>
                           </div>
                           <div>
-                            <div className="text-xs text-gray-500">Receipt ID</div>
-                            <div className="text-sm font-medium">{transactionDetails.receiptNumber || "Pending"}</div>
+                            <div className="text-xs text-gray-500">
+                              Receipt ID
+                            </div>
+                            <div className="text-sm font-medium">
+                              {transactionDetails.receiptNumber || "Pending"}
+                            </div>
                           </div>
                         </div>
 
@@ -1609,20 +1829,32 @@ const ProcessingPopup: React.FC<ProcessingPopupProps> = ({
 
                         {/* Payment Information */}
                         <div className="px-4 py-3">
-                          <div className="text-sm font-medium text-gray-600 mb-2">Payment Information</div>
+                          <div className="text-sm font-medium text-gray-600 mb-2">
+                            Payment Information
+                          </div>
                           <div className="grid grid-cols-2 gap-3">
                             <div>
                               <div className="text-xs text-gray-500">Date</div>
-                              <div className="text-sm">{transactionDetails.date || fallbackDate}</div>
+                              <div className="text-sm">
+                                {transactionDetails.date || fallbackDate}
+                              </div>
                             </div>
                             <div>
-                              <div className="text-xs text-gray-500">Recipient</div>
-                              <div className="text-sm">{transactionDetails.recipient || "N/A"}</div>
+                              <div className="text-xs text-gray-500">
+                                Recipient
+                              </div>
+                              <div className="text-sm">
+                                {transactionDetails.recipient || "N/A"}
+                              </div>
                             </div>
                             {transactionDetails.customerName && (
                               <div>
-                                <div className="text-xs text-gray-500">Customer</div>
-                                <div className="text-sm">{transactionDetails.customerName}</div>
+                                <div className="text-xs text-gray-500">
+                                  Customer
+                                </div>
+                                <div className="text-sm">
+                                  {transactionDetails.customerName}
+                                </div>
                               </div>
                             )}
                           </div>
@@ -1635,19 +1867,25 @@ const ProcessingPopup: React.FC<ProcessingPopupProps> = ({
                           </div>
                           <div>
                             <div className="text-sm font-medium">
-                              {transactionDetails.paymentMethod || "Mobile Money"}
+                              {transactionDetails.paymentMethod ||
+                                "Mobile Money"}
                             </div>
                             <div className="text-xs text-gray-500">
-                              Processed on {transactionDetails.date || fallbackDate}
+                              Processed on{" "}
+                              {transactionDetails.date || fallbackDate}
                             </div>
                           </div>
                         </div>
 
                         {/* Transaction Details */}
                         <div className="px-4 py-3 border-t border-gray-100">
-                          <div className="text-sm font-medium text-gray-600 mb-2">Transaction Details</div>
+                          <div className="text-sm font-medium text-gray-600 mb-2">
+                            Transaction Details
+                          </div>
                           <div>
-                            <div className="text-xs text-gray-500 mb-1">Transaction ID</div>
+                            <div className="text-xs text-gray-500 mb-1">
+                              Transaction ID
+                            </div>
                             <div className="text-xs font-mono bg-gray-50 p-2 rounded border border-gray-100 break-all">
                               {transactionDetails.transactionHash || "Pending"}
                             </div>
@@ -1656,19 +1894,24 @@ const ProcessingPopup: React.FC<ProcessingPopupProps> = ({
 
                         {/* Total Amount */}
                         <div className="px-4 py-3 border-t border-gray-100 text-right">
-                          <div className="text-xs text-gray-500 mb-1">Total Amount</div>
+                          <div className="text-xs text-gray-500 mb-1">
+                            Total Amount
+                          </div>
                           <div className="text-2xl font-bold text-blue-600">
-                            {transactionDetails.amount || "0"} {transactionDetails.currency || "KES"}
+                            {transactionDetails.amount || "0"}{" "}
+                            {transactionDetails.currency || "KES"}
                           </div>
                         </div>
 
                         {/* Receipt Footer */}
                         <div className="p-4 border-t border-gray-100 text-center">
                           <div className="text-sm text-gray-600">
-                            {branding.footerMessage || "Thank you for your business!"}
+                            {branding.footerMessage ||
+                              "Thank you for your business!"}
                           </div>
                           <div className="text-xs text-gray-500 mt-1">
-                            For questions about this transaction, please contact customer support.
+                            For questions about this transaction, please contact
+                            customer support.
                           </div>
                         </div>
                       </div>
@@ -1719,7 +1962,7 @@ const ProcessingPopup: React.FC<ProcessingPopupProps> = ({
         </motion.div>
       )}
     </AnimatePresence>
-  )
-}
+  );
+};
 
-export default ProcessingPopup
+export default ProcessingPopup;

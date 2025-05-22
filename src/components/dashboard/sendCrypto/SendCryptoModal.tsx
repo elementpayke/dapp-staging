@@ -2,7 +2,7 @@
 
 import type React from "react";
 import { useState, useEffect, useMemo, useCallback } from "react";
-import { X, ArrowLeft } from "lucide-react";
+import { ArrowUpRight } from "lucide-react";
 import { toast } from "react-toastify";
 import PayToMobileMoney from "./PayToMobileMoney";
 import ProcessingPopup from "./processing-popup";
@@ -12,15 +12,18 @@ import { useAccount, useWriteContract } from "wagmi";
 import { erc20Abi } from "@/app/api/abi";
 import { getUSDCAddress } from "../../../services/tokens";
 import { useContract } from "@/services/useContract";
-import { useWallet } from "@/context/WalletContext";
+
 import { encryptMessageDetailed } from "@/services/encryption";
 import { useContractEvents } from "@/context/useContractEvents";
 import ConfirmationModal from "./ConfirmationModal";
-
-interface SendCryptoModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-}
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { useWallet } from "@/hooks/useWallet";
 
 interface TransactionReceipt {
   amount: string;
@@ -31,10 +34,7 @@ interface TransactionReceipt {
   transactionHash: string;
 }
 
-const SendCryptoModal: React.FC<SendCryptoModalProps> = ({
-  isOpen,
-  onClose,
-}) => {
+const SendCryptoModal: React.FC = () => {
   const [selectedToken, setSelectedToken] = useState("USDC");
   const [amount, setAmount] = useState("");
   const [mobileNumber, setMobileNumber] = useState("");
@@ -243,12 +243,6 @@ const SendCryptoModal: React.FC<SendCryptoModalProps> = ({
     }
   );
 
-  const handleClose = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (e.target === e.currentTarget) {
-      onClose();
-    }
-  };
-
   // Add cleanup function
   const cleanupOrderStates = useCallback(() => {
     setOrderId("");
@@ -357,145 +351,62 @@ const SendCryptoModal: React.FC<SendCryptoModalProps> = ({
     }
   }, [isBrowser, amount, exchangeRate, mobileNumber, account.address]);
 
-  // Add styles for the modal
-  const modalStyles = {
-    maxHeight: "80vh", // Limit the height
-    overflowY: "auto" as const, // Enable vertical scrolling
-  };
-
-  if (!isOpen) return null;
-
   return (
-    <div
-      className="fixed inset-0 bg-black bg-opacity-50 flex items-start md:items-center justify-center z-50"
-      onClick={handleClose}
-    >
-      <div
-        className="bg-white w-full h-full md:h-auto md:rounded-3xl md:max-w-4xl"
-        style={modalStyles}
-      >
-        <div className="p-4 md:p-6">
-          {/* Header */}
-          <div className="flex justify-between items-center mb-4">
-            <div className="flex items-center gap-2">
-              <button onClick={onClose} className="md:hidden p-1" type="button">
-                <ArrowLeft className="w-6 h-9" />
-              </button>
-              <h2 className="text-xl md:text-2xl font-semibold text-gray-900">
-                Spend Crypto
-              </h2>
-            </div>
-            <button
-              onClick={onClose}
-              className="hidden md:block p-2 hover:bg-gray-100 rounded-full transition-colors"
-              type="button"
-            >
-              <X className="w-6 h-6" />
-            </button>
-          </div>
+    <Dialog>
+      <DialogTrigger className="flex items-center gap-2 bg-gradient-to-r from-blue-600 to-red-600 text-white text-sm font-medium py-3 px-4 rounded-xl hover:opacity-90 transition-opacity disabled:opacity-50">
+        <ArrowUpRight size={24} />
+        Spend Crypto
+      </DialogTrigger>
+      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>Spend Crypto</DialogTitle>
+        </DialogHeader>
 
-          <div className="grid md:grid-cols-5 gap-6">
-            {/* Left Column - Form */}
-            <div className="md:col-span-3 space-y-4">
-              {/* Payment Type Header */}
-              <div className="mb-4">
-                <h3 className="text-lg font-medium text-gray-900">
-                  Pay to Mobile Money
-                </h3>
-              </div>
-
-              <PayToMobileMoney
-                selectedToken={selectedToken}
-                setSelectedToken={setSelectedToken}
-                amount={amount}
-                setAmount={setAmount}
-                mobileNumber={mobileNumber}
-                setMobileNumber={setMobileNumber}
-                reason={reason}
-                setReason={setReason}
-                totalKES={transactionSummary.totalKES}
-                tillNumber={tillNumber}
-                setTillNumber={setTillNumber}
-                paybillNumber={paybillNumber}
-                setPaybillNumber={setPaybillNumber}
-                accountNumber={accountNumber}
-                setAccountNumber={setAccountNumber}
-                setCashoutType={setCashoutType}
-              />
-
-              {/* Favorite Option */}
-              <div className="flex items-center gap-2">
-                <input
-                  id="favorite"
-                  type="checkbox"
-                  checked={favorite}
-                  onChange={(e) => setFavorite(e.target.checked)}
-                  className="w-4 h-4 rounded border-gray-300 text-blue-600"
-                />
-                <label htmlFor="favorite" className="text-gray-600 text-sm">
-                  Favorite this payment details for future transactions
-                </label>
-              </div>
-
-              {/* Mobile View Confirm Button */}
-              <button
-                onClick={
-                  Number.parseFloat(amount) >= 20
-                    ? handleApproveToken
-                    : undefined
-                }
-                disabled={isApproving || transactionSummary.totalUSDC <= 0}
-                type="button"
-                className="w-full md:hidden mt-4 py-3 bg-gradient-to-r from-blue-600 to-red-600 text-white rounded-full font-medium"
-              >
-                {isApproving ? "Approving..." : "Confirm Payment"}
-              </button>
-            </div>
-
-            {/* Right Column - Transaction Summary (Hidden on Mobile) */}
-            <div className="hidden md:block md:col-span-2 bg-gray-50 p-4 rounded-2xl h-fit">
-              <h3 className="text-xl font-semibold mb-4 text-gray-900">
-                Transaction summary
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Left Column - Payment Form */}
+          <div className="lg:col-span-2 space-y-4">
+            {/* Payment Type Header */}
+            <div>
+              <h3 className="text-lg font-medium text-gray-900 mb-4">
+                Pay to Mobile Money
               </h3>
-              <div className="space-y-3">
-                <div className="flex justify-between items-center">
-                  <span className="text-gray-600">Wallet balance</span>
-                  <span className="text-green-600 font-medium">
-                    USDC {transactionSummary.usdcBalance.toFixed(6)}
-                  </span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-gray-600">Amount to send</span>
-                  <span className="text-gray-900">
-                    KE {transactionSummary.kesAmount.toFixed(2)}
-                  </span>
-                </div>
-                {amount &&
-                  Math.abs(
-                    Number.parseFloat(amount) - transactionSummary.totalKES
-                  ) <= 0.9 && (
-                    <div className="text-red-500 text-sm">
-                      <p className="text-red-500 mt-2 text-sm">
-                        Opt-In to Hakiba to gain credit
-                      </p>
-                    </div>
-                  )}
-                <div className="flex justify-between items-center">
-                  <span className="text-gray-600">
-                    Transaction charge (0.5%)
-                  </span>
-                  <span className="text-orange-600">
-                    KE {transactionSummary.transactionCharge.toFixed(2)}
-                  </span>
-                </div>
-                <div className="border-t pt-3 flex justify-between items-center font-medium">
-                  <span className="text-gray-900">Total:</span>
-                  <span className="text-gray-900">
-                    KE {transactionSummary.kesAmount.toFixed(2)}
-                  </span>
-                </div>
-              </div>
+            </div>
 
+            <PayToMobileMoney
+              selectedToken={selectedToken}
+              setSelectedToken={setSelectedToken}
+              amount={amount}
+              setAmount={setAmount}
+              mobileNumber={mobileNumber}
+              setMobileNumber={setMobileNumber}
+              reason={reason}
+              setReason={setReason}
+              totalKES={transactionSummary.totalKES}
+              tillNumber={tillNumber}
+              setTillNumber={setTillNumber}
+              paybillNumber={paybillNumber}
+              setPaybillNumber={setPaybillNumber}
+              accountNumber={accountNumber}
+              setAccountNumber={setAccountNumber}
+              setCashoutType={setCashoutType}
+            />
+
+            {/* Favorite Option */}
+            <div className="flex items-center gap-2 pt-2">
+              <input
+                id="favorite"
+                type="checkbox"
+                checked={favorite}
+                onChange={(e) => setFavorite(e.target.checked)}
+                className="w-4 h-4 rounded border-gray-300 text-blue-600"
+              />
+              <label htmlFor="favorite" className="text-gray-600 text-sm">
+                Favorite this payment details for future transactions
+              </label>
+            </div>
+
+            {/* Mobile Confirm Button - Only shown on small screens */}
+            <div className="lg:hidden pt-4">
               <button
                 onClick={
                   Number.parseFloat(amount) >= 10
@@ -504,71 +415,137 @@ const SendCryptoModal: React.FC<SendCryptoModalProps> = ({
                 }
                 disabled={isApproving || transactionSummary.totalUSDC <= 0}
                 type="button"
-                className="w-full mt-4 py-3 bg-gradient-to-r from-blue-600 to-red-600 text-white rounded-full font-medium hover:opacity-90 transition-opacity disabled:opacity-50"
+                className="w-full py-3 bg-gradient-to-r from-blue-600 to-red-600 text-white rounded-full font-medium hover:opacity-90 transition-opacity disabled:opacity-50"
               >
-                {isApproving ? "Approving..." : "Confirm payment"}
+                {isApproving ? "Approving..." : "Confirm Payment"}
               </button>
+            </div>
+          </div>
 
-              <div className="mt-4 bg-gray-100 p-3 rounded-lg">
-                <div className="text-gray-500 mb-1">
-                  Balance after transaction
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Remaining Balance</span>
-                  <span className="text-gray-600">
-                    KE {transactionSummary.totalKESBalance.toFixed(2)}
+          {/* Right Column - Transaction Summary */}
+          <div className="lg:col-span-1">
+            <div className="bg-gray-50 p-4 rounded-xl h-fit sticky top-4">
+              <h3 className="text-lg font-semibold mb-4 text-gray-900">
+                Transaction Summary
+              </h3>
+
+              {/* Main Summary */}
+              <div className="space-y-3 mb-4">
+                <div className="flex justify-between items-center">
+                  <span className="text-gray-600 text-sm">Wallet balance</span>
+                  <span className="text-green-600 font-medium text-sm">
+                    USDC {transactionSummary.usdcBalance.toFixed(6)}
                   </span>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600">USDC Balance</span>
-                  <span className="text-gray-600">
-                    USDC {transactionSummary.remainingBalance.toFixed(6)}
+                <div className="flex justify-between items-center">
+                  <span className="text-gray-600 text-sm">Amount to send</span>
+                  <span className="text-gray-900 font-medium">
+                    KE {transactionSummary.kesAmount.toFixed(2)}
                   </span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-gray-600 text-sm">
+                    Transaction charge (0.5%)
+                  </span>
+                  <span className="text-orange-600 text-sm">
+                    KE {transactionSummary.transactionCharge.toFixed(2)}
+                  </span>
+                </div>
+                <div className="border-t pt-3 flex justify-between items-center font-semibold">
+                  <span className="text-gray-900">Total:</span>
+                  <span className="text-gray-900">
+                    KE {transactionSummary.kesAmount.toFixed(2)}
+                  </span>
+                </div>
+              </div>
+
+              {/* Credit Opt-in Warning */}
+              {amount &&
+                Math.abs(
+                  Number.parseFloat(amount) - transactionSummary.totalKES
+                ) <= 0.9 && (
+                  <div className="bg-red-50 border border-red-200 rounded-lg p-3 mb-4">
+                    <p className="text-red-600 text-xs">
+                      Opt-In to Hakiba to gain credit
+                    </p>
+                  </div>
+                )}
+
+              {/* Desktop Confirm Button */}
+              <div className="hidden lg:block mb-4">
+                <button
+                  onClick={
+                    Number.parseFloat(amount) >= 10
+                      ? handleApproveToken
+                      : undefined
+                  }
+                  disabled={isApproving || transactionSummary.totalUSDC <= 0}
+                  type="button"
+                  className="w-full py-3 bg-gradient-to-r from-blue-600 to-red-600 text-white rounded-full font-medium hover:opacity-90 transition-opacity disabled:opacity-50 text-sm"
+                >
+                  {isApproving ? "Approving..." : "Confirm Payment"}
+                </button>
+              </div>
+
+              {/* Balance after transaction */}
+              <div className="bg-white border border-gray-200 p-3 rounded-lg">
+                <div className="text-gray-600 mb-2 text-xs font-medium uppercase tracking-wider">
+                  Balance After Transaction
+                </div>
+                <div className="space-y-2">
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-600 text-sm">Remaining KES</span>
+                    <span className="text-gray-900 font-medium text-sm">
+                      KE {transactionSummary.totalKESBalance.toFixed(2)}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-600 text-sm">USDC Balance</span>
+                    <span className="text-gray-900 font-medium text-sm">
+                      {transactionSummary.remainingBalance.toFixed(6)}
+                    </span>
+                  </div>
                 </div>
               </div>
             </div>
           </div>
         </div>
-        {/* Confirmation Modal */}
-        <ConfirmationModal
-          isOpen={showValidationModal}
-          onClose={() => setShowValidationModal(false)}
-          onConfirm={proceedAfterValidation}
-          accountInfo={validatedAccountInfo}
-          amountKES={transactionSummary.kesAmount}
-          accountNumber={accountNumber}
-          cashoutType={getCashoutType()}
-          mode={modalMode}
-          errorMessage={validatedAccountInfo}
-        />
+      </DialogContent>
 
-        {/* Processing Popup */}
-        {isBrowser && (
-          <ProcessingPopup
-            isVisible={showProcessingPopup}
-            onClose={() => {
-              cleanupOrderStates();
-              if (transactionReciept.status === 1) {
-                onClose();
-              }
-            }}
-            orderId={orderId}
-            apiKey={apiKey}
-            transactionDetails={{
-              amount: amount,
-              currency: "KES",
-              recipient: mobileNumber,
-              paymentMethod: "Mobile Money",
-              transactionHash: "",
-              date: new Date().toISOString(),
-              receiptNumber: "",
-              paymentStatus: "Processing",
-              status: 0,
-            }}
-          />
-        )}
-      </div>
-    </div>
+      <ConfirmationModal
+        isOpen={showValidationModal}
+        onClose={() => setShowValidationModal(false)}
+        onConfirm={proceedAfterValidation}
+        accountInfo={validatedAccountInfo}
+        amountKES={transactionSummary.kesAmount}
+        accountNumber={accountNumber}
+        cashoutType={getCashoutType()}
+        mode={modalMode}
+        errorMessage={validatedAccountInfo}
+      />
+
+      {isBrowser && (
+        <ProcessingPopup
+          isVisible={showProcessingPopup}
+          onClose={() => {
+            cleanupOrderStates();
+          }}
+          orderId={orderId}
+          apiKey={apiKey}
+          transactionDetails={{
+            amount: amount,
+            currency: "KES",
+            recipient: mobileNumber,
+            paymentMethod: "Mobile Money",
+            transactionHash: "",
+            date: new Date().toISOString(),
+            receiptNumber: "",
+            paymentStatus: "Processing",
+            status: 0,
+          }}
+        />
+      )}
+    </Dialog>
   );
 };
 
