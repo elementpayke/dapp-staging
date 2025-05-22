@@ -1,9 +1,9 @@
-'use client';
+"use client";
 
-import type { ReactNode } from 'react';
-import { OnchainKitProvider } from '@coinbase/onchainkit';
-import { baseSepolia } from 'wagmi/chains';
-import { WalletProvider } from '@/context/WalletContext';
+import type { ReactNode } from "react";
+import { OnchainKitProvider } from "@coinbase/onchainkit";
+import { baseSepolia } from "wagmi/chains";
+
 import LogoImage from "@/assets/logo.png";
 
 export function Providers(props: { children: ReactNode }) {
@@ -13,21 +13,19 @@ export function Providers(props: { children: ReactNode }) {
       chain={baseSepolia}
       config={{
         appearance: {
-          name: 'ElementPay',
+          name: "ElementPay",
           logo: LogoImage.src,
-          mode: 'auto',
-          theme: 'default',
+          mode: "auto",
+          theme: "default",
         },
-        wallet: { 
-          display: 'modal', 
-          termsUrl: 'https://...', 
-          privacyUrl: 'https://...', 
+        wallet: {
+          display: "modal",
+          termsUrl: "https://...",
+          privacyUrl: "https://...",
         },
       }}
     >
-      <WalletProvider>
-        {props.children}
-      </WalletProvider>
+      {props.children}
     </OnchainKitProvider>
   );
 }

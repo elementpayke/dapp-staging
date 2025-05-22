@@ -12,7 +12,7 @@ import { useAccount, useWriteContract } from "wagmi";
 import { erc20Abi } from "@/app/api/abi";
 import { getUSDCAddress } from "../../../services/tokens";
 import { useContract } from "@/services/useContract";
-import { useWallet } from "@/context/WalletContext";
+
 import { encryptMessageDetailed } from "@/services/encryption";
 import { useContractEvents } from "@/context/useContractEvents";
 import ConfirmationModal from "./ConfirmationModal";
@@ -23,6 +23,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { useWallet } from "@/hooks/useWallet";
 
 interface TransactionReceipt {
   amount: string;
@@ -352,7 +353,7 @@ const SendCryptoModal: React.FC = () => {
 
   return (
     <Dialog>
-      <DialogTrigger className="flex items-center justify-center gap-2 bg-gradient-to-r from-indigo-600 to-purple-500 text-white text-lg font-semibold py-4 rounded-xl shadow-lg hover:opacity-90 transition-all">
+      <DialogTrigger className="flex items-center gap-2 bg-gradient-to-r from-blue-600 to-red-600 text-white text-sm font-medium py-3 px-4 rounded-xl hover:opacity-90 transition-opacity disabled:opacity-50">
         <ArrowUpRight size={24} />
         Spend Crypto
       </DialogTrigger>
