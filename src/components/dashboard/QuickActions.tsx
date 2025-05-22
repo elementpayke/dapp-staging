@@ -38,7 +38,9 @@ const QuickActions: FC = () => {
   }, []);
 
   // Calculate fiat wallet balance in KES
-  const fiatBalanceKES = exchangeRate ? (usdcBalance * exchangeRate).toFixed(2) : "Loading...";
+  const fiatBalanceKES = exchangeRate
+    ? (usdcBalance * exchangeRate).toFixed(2)
+    : "Loading...";
 
   return (
     <div className="space-y-6 p-6 bg-white shadow-xl rounded-2xl">
@@ -46,13 +48,7 @@ const QuickActions: FC = () => {
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         {/* Send Crypto Button */}
-        <button
-          onClick={() => setIsSendModalOpen(true)}
-          className="flex items-center justify-center gap-2 bg-gradient-to-r from-indigo-600 to-purple-500 text-white text-lg font-semibold py-4 rounded-xl shadow-lg hover:opacity-90 transition-all"
-        >
-          <ArrowUpRight size={24} />
-          Spend Crypto
-        </button>
+        <SendCryptoModal />
 
         {/* Deposit Crypto Button */}
         <button
@@ -67,15 +63,16 @@ const QuickActions: FC = () => {
         <button className="flex items-center justify-center gap-2 bg-gray-100 text-gray-800 text-lg font-semibold py-4 rounded-xl shadow-md hover:bg-gray-200 transition-all">
           <Wallet size={24} />
           Fiat Balance:{" "}
-          <span className="text-green-600 font-bold">
-            KES {fiatBalanceKES}
-          </span>
+          <span className="text-green-600 font-bold">KES {fiatBalanceKES}</span>
         </button>
       </div>
 
       {/* Modals */}
-      <SendCryptoModal isOpen={isSendModalOpen} onClose={() => setIsSendModalOpen(false)} />
-      <DepositCryptoModal isOpen={isDepositModalOpen} onClose={() => setIsDepositModalOpen(false)} />
+
+      <DepositCryptoModal
+        isOpen={isDepositModalOpen}
+        onClose={() => setIsDepositModalOpen(false)}
+      />
     </div>
   );
 };
