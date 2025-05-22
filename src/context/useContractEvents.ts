@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback } from "react";
 import { ethers, BigNumberish } from "ethers";
 import { CONTRACT_ABI, CONTRACT_ADDRESS } from "@/app/api/abi";
 
-const NODE_URL = process.env.NEXT_PUBLIC_BASE_WS_URL || "wss://base-mainnet.infura.io/ws/v3/e42a50a52ffe43dc8967940dbe4cbfd0";
+const NODE_URL = process.env.NEXT_PUBLIC_BASE_WS_URL || "wss://base-mainnet.infura.io/ws/v3/079a8513fe4e46829490d949e078e4c1";
 const provider = new ethers.WebSocketProvider(NODE_URL);
 const contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, provider);
 
