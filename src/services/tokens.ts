@@ -10,4 +10,16 @@ export const getUSDCAddress = (): `0x${string}` => {
    }
    return address as `0x${string}`;
  };
+
+ export const getContractAddress = (): `0x${string}` => {
+  //get it from the env
+   const address = process.env.NEXT_PUBLIC_CONTRACT_ADDRESS;
+   if (!address) {
+     throw new Error("Contract address is not defined in the environment variables");
+   }
+   if (!/^0x[a-fA-F0-9]{40}$/.test(address)) {
+     throw new Error("Contract address is not a valid Ethereum address");
+   }
+   return address as `0x${string}`;
+ }
  

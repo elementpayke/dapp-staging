@@ -10,7 +10,7 @@ import ProcessingPopup from "./processing-popup";
 import { parseUnits } from "viem";
 import { useAccount, useWriteContract } from "wagmi";
 import { erc20Abi } from "@/app/api/abi";
-import { getUSDCAddress } from "../../../services/tokens";
+import { getUSDCAddress, getContractAddress } from "../../../services/tokens";
 import { useContract } from "@/services/useContract";
 
 import { encryptMessageDetailed } from "@/services/encryption";
@@ -227,7 +227,7 @@ const SendCryptoModal: React.FC = () => {
   const { writeContractAsync } = useWriteContract();
   const { contract, address } = useContract();
   const usdcTokenAddress = getUSDCAddress() as `0x${string}`;
-  const smartcontractaddress = "0xb5616e6f82F274db9DfbA91Fc7B073bf93817148";
+  const smartcontractaddress = getContractAddress() as `0x${string}`;
 
   useContractEvents(
     (order: any) => {
