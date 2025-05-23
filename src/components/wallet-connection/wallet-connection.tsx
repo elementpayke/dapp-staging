@@ -1,4 +1,4 @@
-import React from "react";
+import React, {useEffect, useState} from "react";
 import {
   ConnectWallet,
   Wallet,
@@ -28,6 +28,8 @@ const buttonStyles = {
     "bg-gradient-to-r from-[#0514eb] to-[#de0413] text-white px-8 py-3.5 rounded-full flex items-center space-x-2 hover:opacity-90 transition-opacity",
 };
 
+
+
 const WalletConnection = ({
   isMobile = false,
   isHero = false,
@@ -43,6 +45,8 @@ const WalletConnection = ({
   if (isConnected && pathname === "/") {
     redirect("/dashboard");
   }
+
+  
 
   const getButtonClassName = () => {
     let style;

@@ -6,6 +6,7 @@ import happyCouple from "@/assets/happy-couple.png";
 import ethereumLogo from "@/assets/ethereum-logo.svg";
 import bitcoinLogo from "@/assets/bitcoin-logo.svg";
 import WalletConnection from "../wallet-connection/wallet-connection";
+import { useIsMobile } from "@/hooks/useIsMobile";
 
 const IMAGES = {
   heroMain: {
@@ -29,6 +30,7 @@ const IMAGES = {
 };
 
 const Hero = () => {
+  const isMobile = useIsMobile();
   return (
     <div className="bg-gradient-to-r from-white to-[#c7c7ff] min-h-[calc(100vh-64px)] overflow-x-hidden">
       <div className="max-w-[2000px] mx-auto h-full px-4 sm:px-6 lg:px-8 xl:px-12 py-6 md:py-8 relative">
@@ -65,7 +67,7 @@ const Hero = () => {
               >
                 {isConnected ? "Dashboard" : "Connect a Wallet"}
               </button> */}
-              <WalletConnection isHero />
+              <WalletConnection isMobile={isMobile} isHero buttonClassName="w-auto px-4 py-2 text-sm ml-auto"/>
               <div className="flex items-center gap-2 text-gray-600 mt-2 sm:mt-0">
                 <div className="text-[#0514eb]">
                   <svg

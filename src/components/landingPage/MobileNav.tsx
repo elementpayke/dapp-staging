@@ -103,7 +103,7 @@ const MobileNav = ({}) => {
           </Link>
 
           {/* Mobile Wallet Connection */}
-          <WalletConnection isMobile={true} />
+          <WalletConnection isMobile={true} buttonClassName="w-auto px-4 py-2 text-sm ml-auto"/>
 
           {/* No KYC Required */}
           <div className="flex items-center justify-center mt-6 space-x-2">
