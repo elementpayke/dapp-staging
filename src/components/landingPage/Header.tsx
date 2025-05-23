@@ -6,11 +6,12 @@ import { useLockBodyScroll } from "@/lib/useScroll";
 import MobileNav from "./MobileNav";
 import { useMenuStore } from "@/lib/useMobileNav";
 import WalletConnection from "../wallet-connection/wallet-connection";
+import { useIsMobile } from "@/hooks/useIsMobile";
 
 const Header = () => {
   const { toggleMenu, isMenuOpen } = useMenuStore();
   useLockBodyScroll(isMenuOpen);
-
+  const isMobile = useIsMobile();
   return (
     <header className="bg-gradient-to-r from-white to-[#c7c7ff]">
       <nav className="mx-auto max-w-[2000px] px-4 sm:px-6 lg:px-8 xl:px-12">
@@ -46,14 +47,14 @@ const Header = () => {
             >
               FAQs
             </Link>
-            <Link
+            {/* <Link
               href="/hakiba"
               className="text-gray-600 hover:text-gray-900 text-sm font-medium transition-colors"
             >
               Hakiba
-            </Link>
+            </Link> */}
           </div>
-          <WalletConnection />
+          <WalletConnection isMobile={isMobile} buttonClassName="w-auto px-4 py-2 text-sm ml-auto"/>
 
           {/* Mobile Menu Button */}
           <button
