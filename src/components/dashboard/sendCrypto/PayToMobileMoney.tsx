@@ -230,20 +230,29 @@ const PayToMobileMoney: React.FC<PayToMobileMoneyProps> = ({
       <div>
         <label className="block text-gray-600 mb-2">Payment Method</label>
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-          {(["Send Money", "Pay Bill", "Buy Goods", "Pochi La Biashara"] as PaymentMethod[]).map((method) => (
-            <button
-              key={method}
-              type="button"
-              onClick={() => setPaymentMethod(method)}
-              className={`p-3 rounded-lg text-center text-sm font-medium transition-colors ${
-                paymentMethod === method
-                  ? "bg-green-100 text-green-800 border-2 border-green-600"
-                  : "bg-gray-50 text-gray-700 border border-gray-200 hover:bg-gray-100"
-              }`}
-            >
-              {method}
-            </button>
-          ))}
+          {(["Send Money", "Pay Bill", "Buy Goods", "Pochi La Biashara"] as PaymentMethod[]).map((method) => {
+            const isSendMoney = method === "Send Money"
+            return (
+              <button
+                key={method}
+                type="button"
+                onClick={() => isSendMoney && setPaymentMethod(method)}
+                disabled={!isSendMoney}
+                className={`relative p-3 rounded-lg text-center text-sm font-medium transition-colors ${
+                  paymentMethod === method && isSendMoney
+                    ? "bg-green-100 text-green-800 border-2 border-green-600"
+                    : "bg-gray-50 text-gray-700 border border-gray-200"
+                } ${!isSendMoney ? "opacity-60 cursor-not-allowed" : "hover:bg-gray-100"}`}
+              >
+                {method}
+                {!isSendMoney && (
+                  <span className="absolute top-1 right-1 bg-yellow-200 text-yellow-800 text-xs px-2 py-0.5 rounded">
+                    Coming Soon
+                  </span>
+                )}
+              </button>
+            )
+          })}
         </div>
       </div>
 

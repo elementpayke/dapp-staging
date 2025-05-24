@@ -74,7 +74,7 @@ const SendCryptoModal: React.FC = () => {
 
   const getAccountTypeForIntaSend = (): "TillNumber" | "PayBill" => {
     const type = getCashoutType();
-    if (type === "TILL") return "TillNumber";
+    // if (type === "TILL") return "TillNumber";
     if (type === "PAYBILL") return "PayBill";
     return "TillNumber";
   };
@@ -310,7 +310,7 @@ const SendCryptoModal: React.FC = () => {
     }
     const cashout_type = getCashoutType();
     console.log("Cashout Type:", cashout_type);
-    if (cashout_type === "PAYBILL" || cashout_type === "TILL") {
+    if (cashout_type === "PAYBILL") {
       const isValid = await validateAccount();
       if (!isValid) {
         setShowValidationModal(true);
