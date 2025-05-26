@@ -5,7 +5,7 @@ import { parseUnits } from "ethers";
 import { getUSDCAddress } from "../../../services/tokens";
 import { useContract } from "@/services/useContract";
 import { encryptMessage } from "@/services/encryption";
-import { useAccount } from "wagmi";
+import { useAccount, useSwitchChain } from "wagmi";
 import { useContractEvents } from "@/context/useContractEvents";
 import TransactionInProgressModal from "./TranactionInProgress";
 import DepositCryptoReceipt from "./DepositCryptoReciept";
@@ -42,6 +42,9 @@ const DepositCryptoModal: React.FC = () => {
   const TRANSACTION_FEE_RATE = 0.005;
   const { contract, address } = useContract();
   const addressOwner = useAccount();
+  const { chain } = useAccount();
+  const { switchChain } = useSwitchChain();
+  const TARGET_CHAIN_ID = 8453; // Base
 
   const MARKUP_PERCENTAGE = 0.5;
 
@@ -54,17 +57,17 @@ const DepositCryptoModal: React.FC = () => {
         totalUSDC: 0,
         totalKES: 0,
         totalKESBalance: 0,
-        walletBalance: usdcBalance || 36.07,
+        walletBalance: usdcBalance ?? 0,
         remainingBalance: 0,
-        usdcBalance: usdcBalance || 36.07,
+        usdcBalance: usdcBalance ?? 0,
       };
 
     const kesAmount = parseFloat(amount) * exchangeRate || 0;
     const usdcAmount = parseFloat(amount) || 0;
     const transactionCharge = usdcAmount * TRANSACTION_FEE_RATE;
     const totalUSDC = usdcAmount;
-    const remainingBalance = (usdcBalance || 36.07) + totalUSDC;
-    const totalKES = (usdcBalance || 36.07) * exchangeRate;
+    const remainingBalance = (usdcBalance ?? 0) + totalUSDC;
+    const totalKES = (usdcBalance ?? 0) * exchangeRate;
     const totalKESBalance = totalKES + kesAmount;
 
     return {
@@ -74,9 +77,9 @@ const DepositCryptoModal: React.FC = () => {
       totalUSDC,
       totalKES,
       totalKESBalance,
-      walletBalance: usdcBalance || 36.07,
+      walletBalance: usdcBalance ?? 0,
       remainingBalance: Math.max(remainingBalance, 0),
-      usdcBalance: usdcBalance || 36.07,
+      usdcBalance: usdcBalance ?? 0,
     };
   }, [amount, exchangeRate, usdcBalance]);
 
@@ -240,6 +243,18 @@ const DepositCryptoModal: React.FC = () => {
     if (parseFloat(amount) <= 0)
       return toast.error("Amount must be greater than zero.");
 
+    // Check if connected to Base chain
+    if (chain?.id !== TARGET_CHAIN_ID) {
+      try {
+        await switchChain({ chainId: TARGET_CHAIN_ID });
+        toast.success("Switched to Base. Please click Confirm again.");
+        return; // Exit so user can retry after chain switch
+      } catch (error) {
+        toast.error("Please switch to Base network to proceed.");
+        return;
+      }
+    }
+
     setIsLoading(true);
     const orderType = depositFrom === "MPESA" ? 0 : 1;
     const usdcTokenAddress = getUSDCAddress() as `0x${string}`;
@@ -253,6 +268,7 @@ const DepositCryptoModal: React.FC = () => {
         mpesaAmount
       );
       if (!contract) throw new Error("Contract is not initialized.");
+
       await contract.createOrder(
         address,
         parseUnits(amount, 6),
