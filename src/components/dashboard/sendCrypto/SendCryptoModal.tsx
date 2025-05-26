@@ -8,7 +8,7 @@ import PayToMobileMoney from "./PayToMobileMoney";
 import ProcessingPopup from "./processing-popup";
 
 import { parseUnits } from "viem";
-import { useAccount, useWriteContract } from "wagmi";
+import { useAccount, useWriteContract, useSwitchChain, useChainId, usePublicClient } from "wagmi";
 import { erc20Abi } from "@/app/api/abi";
 import { getUSDCAddress, getContractAddress } from "../../../services/tokens";
 import { useContract } from "@/services/useContract";
@@ -257,36 +257,50 @@ const SendCryptoModal: React.FC = () => {
     });
   }, []);
 
+  const publicClient = usePublicClient();
+
+  const { switchChain } = useSwitchChain();
+  const currentChainId = useChainId();
+
+  const TARGET_CHAIN_ID = 8453; // Base
+
   const executeTokenApproval = async () => {
+    if (currentChainId !== TARGET_CHAIN_ID) {
+      try {
+        await switchChain({ chainId: TARGET_CHAIN_ID });
+      } catch (err) {
+        toast.error("Please switch to Base to continue.");
+        return;
+      }
+    }
+
     try {
       setIsApproving(true);
-      const tokenAddress = usdcTokenAddress;
-      const spenderAddress = smartcontractaddress as `0x${string}`;
-      const orderType = 1;
 
-      await writeContractAsync({
-        address: tokenAddress,
+      const approveHash = await writeContractAsync({
+        address: usdcTokenAddress,
         abi: erc20Abi,
         functionName: "approve",
         args: [
-          spenderAddress,
+          smartcontractaddress as `0x${string}`,
           parseUnits(transactionSummary.totalUSDC.toString(), 6),
         ],
       });
+
+      await publicClient.waitForTransactionReceipt({ hash: approveHash });
 
       await contract!.createOrder(
         address,
         parseUnits(transactionSummary.totalUSDC.toString(), 6),
         usdcTokenAddress,
-        orderType,
+        1,
         messageHash
       );
 
-      // Reset states before showing processing popup
       cleanupOrderStates();
       setShowProcessingPopup(true);
-    } catch (error: any) {
-      toast.error(error?.message || "Transaction failed.");
+    } catch (err: any) {
+      toast.error(err?.message || "Transaction failed");
     } finally {
       setIsApproving(false);
       setIsProcessing(true);
