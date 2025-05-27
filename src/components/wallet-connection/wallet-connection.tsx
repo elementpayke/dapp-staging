@@ -1,4 +1,6 @@
-import React, {useEffect, useState} from "react";
+"use client";
+
+import React, { useState, useEffect } from "react";
 import {
   ConnectWallet,
   Wallet,
@@ -20,15 +22,13 @@ import { useWallet } from "@/hooks/useWallet";
 
 const buttonStyles = {
   default:
-    "w-full bg-blue-800 text-white px-6 py-3 sm:py-4 rounded-full text-base sm:text-lg font-medium hover:bg-blue-700 transition-colors",
-  hero: "w-full bg-gradient-to-r from-[#0514eb] to-[#de0413] text-white px-8 py-4 rounded-full text-base sm:text-lg font-medium hover:opacity-90 transition-opacity",
+    "w-full bg-blue-800 !text-white px-6 py-3 sm:py-4 rounded-full text-base sm:text-lg font-medium hover:bg-blue-700 transition-colors",
+  hero: "w-full bg-gradient-to-r from-[#0514eb] to-[#de0413] !text-white px-8 py-4 rounded-full text-base sm:text-lg font-medium hover:opacity-90 transition-opacity",
   desktop:
-    "bg-blue-800 text-white px-6 py-2.5 rounded-full flex items-center space-x-2 hover:bg-blue-700 transition-colors",
+    "bg-blue-800 !text-white px-6 py-2.5 rounded-full flex items-center space-x-2 hover:bg-blue-700 transition-colors",
   desktopHero:
-    "bg-gradient-to-r from-[#0514eb] to-[#de0413] text-white px-8 py-3.5 rounded-full flex items-center space-x-2 hover:opacity-90 transition-opacity",
+    "bg-gradient-to-r from-[#0514eb] to-[#de0413] !text-white px-8 py-3.5 rounded-full flex items-center space-x-2 hover:opacity-90 transition-opacity",
 };
-
-
 
 const WalletConnection = ({
   isMobile = false,
@@ -41,12 +41,17 @@ const WalletConnection = ({
 }) => {
   const { connectWallet, isConnected } = useWallet();
   const pathname = usePathname();
+  const [isClient, setIsClient] = useState(false);
 
-  if (isConnected && pathname === "/") {
-    redirect("/dashboard");
-  }
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
 
-  
+  useEffect(() => {
+    if (isClient && isConnected && pathname === "/") {
+      redirect("/dashboard");
+    }
+  }, [isClient, isConnected, pathname]);
 
   const getButtonClassName = () => {
     let style;
@@ -57,6 +62,16 @@ const WalletConnection = ({
     }
     return twMerge(style, buttonClassName);
   };
+
+  if (!isClient) {
+    return (
+      <div className={isMobile ? "mt-8 space-y-4" : "hidden md:block"}>
+        <button className={getButtonClassName()} disabled>
+          Loading...
+        </button>
+      </div>
+    );
+  }
 
   return (
     <>
@@ -73,8 +88,9 @@ const WalletConnection = ({
             <ConnectWallet
               className={getButtonClassName()}
               onConnect={connectWallet}
-              text="Sign Up"
-            />
+            >
+              Connect Wallet
+            </ConnectWallet>
           )}
         </div>
       ) : (
@@ -106,8 +122,9 @@ const WalletConnection = ({
             <ConnectWallet
               className={getButtonClassName()}
               onConnect={connectWallet}
-              text="Connect Wallet"
-            />
+            >
+              Connect Wallet
+            </ConnectWallet>
           )}
         </div>
       )}

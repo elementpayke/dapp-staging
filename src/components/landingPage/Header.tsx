@@ -47,14 +47,8 @@ const Header = () => {
             >
               FAQs
             </Link>
-            {/* <Link
-              href="/hakiba"
-              className="text-gray-600 hover:text-gray-900 text-sm font-medium transition-colors"
-            >
-              Hakiba
-            </Link> */}
           </div>
-          <WalletConnection isMobile={isMobile} buttonClassName="w-auto px-4 py-2 text-sm ml-auto"/>
+          <WalletConnection />
 
           {/* Mobile Menu Button */}
           <button
