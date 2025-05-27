@@ -8,7 +8,13 @@ import PayToMobileMoney from "./PayToMobileMoney";
 import ProcessingPopup from "./processing-popup";
 
 import { parseUnits } from "viem";
-import { useAccount, useWriteContract, useSwitchChain, useChainId, usePublicClient } from "wagmi";
+import {
+  useAccount,
+  useWriteContract,
+  useSwitchChain,
+  useChainId,
+  usePublicClient,
+} from "wagmi";
 import { erc20Abi } from "@/app/api/abi";
 import { getUSDCAddress, getContractAddress } from "../../../services/tokens";
 import { useContract } from "@/services/useContract";
@@ -286,12 +292,7 @@ const SendCryptoModal: React.FC = () => {
           parseUnits(transactionSummary.totalUSDC.toString(), 6),
         ],
       });
-
-      if (!publicClient) {
-        throw new Error("Public client is not available.");
-      }
-
-      await publicClient.waitForTransactionReceipt({ hash: approveHash });
+      await publicClient?.waitForTransactionReceipt({ hash: approveHash });
 
       await contract!.createOrder(
         address,

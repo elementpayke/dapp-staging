@@ -1,7 +1,7 @@
 "use client";
 import React from "react";
 import Image from "next/image";
-import { Sparkles } from "lucide-react";
+import { CircleCheckIcon, Sparkles } from "lucide-react";
 import happyCouple from "@/assets/happy-couple.png";
 import ethereumLogo from "@/assets/ethereum-logo.svg";
 import bitcoinLogo from "@/assets/bitcoin-logo.svg";
@@ -59,30 +59,14 @@ const Hero = () => {
               instantly, easily.
             </p>
 
-            {/* CTA Buttons */}
-            <div className="flex flex-wrap items-center gap-3 sm:gap-4 mb-8 sm:mb-12 xl:mb-16">
-              {/* <button
-                className="bg-gradient-to-r from-[#0514eb] to-[#de0413] text-white px-6 sm:px-8 py-3 sm:py-4 rounded-full text-base sm:text-lg xl:text-xl font-medium hover:opacity-90 transition-all whitespace-nowrap"
-                onClick={() => (window.location.href = '/dashboard')}
-              >
-                {isConnected ? "Dashboard" : "Connect a Wallet"}
-              </button> */}
-              <WalletConnection isMobile={isMobile} isHero buttonClassName="w-auto px-4 py-2 text-sm ml-auto"/>
-              <div className="flex items-center gap-2 text-gray-600 mt-2 sm:mt-0">
-                <div className="text-[#0514eb]">
-                  <svg
-                    className="w-4 h-4 sm:w-5 sm:h-5"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    xmlns="http://www.w3.org/2000/svg"
-                  >
-                    <path
-                      d="M12 2C6.48 2 2 6.48 2 12C2 17.52 6.48 22 12 22C17.52 22 22 17.52 22 12C22 6.48 17.52 2 12 2ZM10 17L5 12L6.41 10.59L10 14.17L17.59 6.58L19 8L10 17Z"
-                      fill="currentColor"
-                    />
-                  </svg>
-                </div>
-                <span className="text-base sm:text-lg">
+            <div className="flex flex-col md:flex-row md:items-center  gap-4 sm:gap-6 lg:gap-8 mb-8 sm:mb-12 md:mb-16 px-4 sm:px-6 lg:p-0">
+              <WalletConnection isMobile={isMobile} isHero />
+              <div className="flex items-center gap-2 sm:gap-3 text-gray-600">
+                <CircleCheckIcon
+                  color="#0514eb"
+                  className="w-5 h-5 sm:w-6 sm:h-6"
+                />
+                <span className="text-sm sm:text-base lg:text-lg font-medium">
                   Fast sign-up. KYC only when needed.
                 </span>
               </div>
