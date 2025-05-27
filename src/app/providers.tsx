@@ -2,7 +2,7 @@
 
 import type { ReactNode } from "react";
 import { OnchainKitProvider } from "@coinbase/onchainkit";
-import { baseSepolia } from "wagmi/chains";
+import { base } from "wagmi/chains";
 
 import LogoImage from "@/assets/logo.png";
 
@@ -10,7 +10,7 @@ export function Providers(props: { children: ReactNode }) {
   return (
     <OnchainKitProvider
       apiKey={process.env.ONCHAINKIT_API_KEY}
-      chain={baseSepolia}
+      chain={base}
       config={{
         appearance: {
           name: "ElementPay",
