@@ -292,7 +292,6 @@ const SendCryptoModal: React.FC = () => {
           parseUnits(transactionSummary.totalUSDC.toString(), 6),
         ],
       });
-
       await publicClient?.waitForTransactionReceipt({ hash: approveHash });
 
       await contract!.createOrder(
