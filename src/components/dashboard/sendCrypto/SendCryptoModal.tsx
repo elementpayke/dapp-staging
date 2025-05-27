@@ -287,6 +287,10 @@ const SendCryptoModal: React.FC = () => {
         ],
       });
 
+      if (!publicClient) {
+        throw new Error("Public client is not available.");
+      }
+
       await publicClient.waitForTransactionReceipt({ hash: approveHash });
 
       await contract!.createOrder(
