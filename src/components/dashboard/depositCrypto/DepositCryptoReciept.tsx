@@ -47,7 +47,7 @@ export default function DepositCryptoReceipt({ isOpen, onClose, transactionRecie
 
     return (
         <div
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50"
+            className="fixed inset-0 z-70 flex items-center justify-center bg-black bg-opacity-50"
             onClick={(e) => {
                 // Only close if clicking the backdrop
                 if (e.target === e.currentTarget) onClose();
@@ -114,7 +114,9 @@ export default function DepositCryptoReceipt({ isOpen, onClose, transactionRecie
                         </button>
                         <div className="flex items-center space-x-2">
                             <p className="text-md text-[#1E1E1E] font-semibold truncate max-w-[250px]">
-                                {transactionReciept?.transactionHash || "Processing..."}
+                                {transactionReciept?.transactionHash
+                                ? transactionReciept.transactionHash
+                                : "Settlement pending or not available"}
                             </p>
                             {transactionReciept?.transactionHash && (
                                 <a 

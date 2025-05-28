@@ -34,7 +34,7 @@ const DepositCryptoModal: React.FC = () => {
   const [selectedToken, setSelectedToken] = useState("USDC");
   const [amount, setAmount] = useState("0.00");
   const [depositFrom, setDepositFrom] = useState("MPESA");
-  const [phoneNumber, setPhoneNumber] = useState("0113159363");
+  const [phoneNumber, setPhoneNumber] = useState("");
   const [reason, setReason] = useState("Transport");
   const [isLoading, setIsLoading] = useState(false);
   const [exchangeRate, setExchangeRate] = useState<number | null>(null);
@@ -45,6 +45,8 @@ const DepositCryptoModal: React.FC = () => {
   const { chain } = useAccount();
   const { switchChain } = useSwitchChain();
   const TARGET_CHAIN_ID = 8453; // Base
+  const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
+
 
   const MARKUP_PERCENTAGE = 0.5;
 
@@ -138,56 +140,49 @@ const DepositCryptoModal: React.FC = () => {
           return errorMap[reason] || reason;
         };
 
-        // Extract transaction hash correctly based on actual API response structure
-        const transactionHash =
-          orderData.data?.transaction_hashes?.settlement ||
-          orderData.data?.transaction_hash || // Check for alternative keys
-          "";
+        const txHashes = orderData.data?.transaction_hashes || {};
+        const txHash =
+          status === "failed"
+            ? txHashes.creation || ""
+            : txHashes.settlement || orderData.data?.transaction_hash || "";
 
-        setTransactionReceipt(
-          (prev: {
-            orderId?: string;
-            status: string;
-            reason: string;
-            amount: number;
-            amountUSDC: number;
-            transactionHash: string;
-          }) => ({
-            ...prev,
-            orderId: orderData.data?.order_id,
-            status: status || "pending",
-            reason:
-              status === "failed"
-                ? getUserFriendlyError(failureReason)
-                : prev.reason,
-            amount: orderData.data?.amount_fiat || parseFloat(amount),
-            amountUSDC:
-              (orderData.data?.amount_fiat || parseFloat(amount)) *
-              (exchangeRate ?? 1),
-            transactionHash:
-              status === "failed"
-                ? orderData.data?.transaction_hashes?.creation || ""
-                : transactionHash,
-          })
-        );
+        // Log hash status explicitly
+        if ((status === "settled" || status === "failed") && !txHash) {
+          console.warn("Terminal status reached but no tx hash found:", {
+            status,
+            orderId,
+            orderData,
+          });
+          // Retry if we expect hash to arrive soon
+          setTimeout(() => pollOrderStatus(orderId), 3000);
+          return;
+        }
 
-        // Handle different status cases
+        // Update receipt
+        setTransactionReceipt({
+          orderId: orderData.data?.order_id,
+          status: status || "pending",
+          reason:
+            status === "failed" ? getUserFriendlyError(failureReason) : "",
+          amount: orderData.data?.amount_fiat || parseFloat(amount),
+          amountUSDC:
+            (orderData.data?.amount_fiat || parseFloat(amount)) *
+            (exchangeRate ?? 1),
+          transactionHash: txHash,
+          address: orderData.data?.wallet_address || "",
+          phoneNumber, // preserve passed phone number
+        });
+
+        // Handle final UI state
         switch (status) {
           case "settled":
-            if (!transactionHash) {
-              console.log(
-                "Status is settled but hash is empty, continuing to poll..."
-              );
-              setTimeout(() => pollOrderStatus(orderId), 3000);
-              return;
-            }
-            console.log("Order settled with hash:", transactionHash);
+            console.log("Order settled with txHash:", txHash);
             setIsTransactionModalOpen(false);
             setIsReceiptModalOpen(true);
             break;
 
           case "failed":
-            console.log("Order failed with reason:", failureReason);
+            console.log("Order failed:", failureReason);
             toast.error(getUserFriendlyError(failureReason));
             setIsTransactionModalOpen(false);
             setIsReceiptModalOpen(true);
@@ -207,13 +202,13 @@ const DepositCryptoModal: React.FC = () => {
             break;
         }
       } else {
-        console.error("Invalid response format:", response);
-        toast.error("Unable to process order status");
+        console.error("Unexpected response format:", response);
+        toast.error("Unable to fetch order status");
         setIsTransactionModalOpen(false);
       }
     } catch (error) {
-      console.error("Error fetching order status:", error);
-      toast.error("Unable to fetch order status");
+      console.error("Error during polling:", error);
+      toast.error("Error checking order status");
     }
   };
 
@@ -278,6 +273,7 @@ const DepositCryptoModal: React.FC = () => {
         tokenAddress: usdcTokenAddress,
         messageHash: messageHash,
       });
+      setIsConfirmModalOpen(false);
       setIsTransactionModalOpen(true);
 
 
@@ -314,26 +310,13 @@ const DepositCryptoModal: React.FC = () => {
   };
 
   return (
-    <Dialog>
-      <DialogTrigger className="flex items-center gap-2 bg-gradient-to-r from-green-500 to-teal-400  text-white text-sm font-medium py-3 px-4 rounded-xl hover:bg-purple-700 transition-colors">
+    <>
+    <Dialog open={isConfirmModalOpen} onOpenChange={setIsConfirmModalOpen}>
+      <DialogTrigger className="flex items-center gap-2 bg-gradient-to-r from-green-500 to-teal-400  text-white text-sm font-medium py-3 px-4 rounded-xl hover:bg-purple-700 transition-colors" onClick={() => setIsConfirmModalOpen(true)}>
         <ArrowUpRight size={24} />
         Deposit Crypto
       </DialogTrigger>
 
-      <TransactionInProgressModal
-        isOpen={isTransactionModalOpen}
-        onClose={() => setIsTransactionModalOpen(false)}
-        phone_number={phoneNumber}
-      />
-
-      <DepositCryptoReceipt
-        isOpen={isReceiptModalOpen}
-        onClose={() => {
-          setIsReceiptModalOpen(false);
-          // onClose(); // Remove this line as onClose is not defined in props
-        }}
-        transactionReciept={transactionReceipt}
-      />
 
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
@@ -549,6 +532,21 @@ const DepositCryptoModal: React.FC = () => {
         </div>
       </DialogContent>
     </Dialog>
+    <TransactionInProgressModal
+        isOpen={isTransactionModalOpen}
+        onClose={() => setIsTransactionModalOpen(false)}
+        phone_number={phoneNumber}
+      />
+
+      <DepositCryptoReceipt
+        isOpen={isReceiptModalOpen}
+        onClose={() => {
+          setIsReceiptModalOpen(false);
+          // onClose(); // Remove this line as onClose is not defined in props
+        }}
+        transactionReciept={transactionReceipt}
+      />
+      </>
   );
 };
 
