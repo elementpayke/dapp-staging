@@ -11,6 +11,7 @@ import type {
 
 const AGGREGATOR_URL = process.env.NEXT_PUBLIC_API_URL;
 const PROVIDER_ID = process.env.NEXT_PUBLIC_PROVIDER_ID;
+const API_KEY = process.env.NEXT_PUBLIC_AGGR_API_KEY;
 
 export const fetchRate = async ({
   token,
@@ -100,4 +101,32 @@ export const fetchOrderStatus = async (
     }
     throw error;
   }
+};
+
+const api = axios.create({
+  baseURL: AGGREGATOR_URL,
+  headers: {
+    'Content-Type': 'application/json',
+    'x-api-key': API_KEY || '',
+  },
+});
+
+export const createOnRampOrder = async ({
+  userAddress,
+  tokenAddress,
+  messageHash,
+}: {
+  userAddress: string;
+  tokenAddress: string;
+  messageHash: string;
+}) => {
+  const payload = {
+    user_address: userAddress,
+    token: tokenAddress,
+    order_type: 0,
+    amount: 10, // ✅ Dummy value here,
+    message_hash: messageHash,
+  };
+
+  return api.post('/orders/create', payload);
 };

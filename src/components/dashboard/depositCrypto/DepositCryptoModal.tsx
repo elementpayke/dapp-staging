@@ -9,7 +9,7 @@ import { useAccount, useSwitchChain } from "wagmi";
 import { useContractEvents } from "@/context/useContractEvents";
 import TransactionInProgressModal from "./TranactionInProgress";
 import DepositCryptoReceipt from "./DepositCryptoReciept";
-import { fetchOrderStatus } from "@/app/api/aggregator";
+import { createOnRampOrder, fetchOrderStatus } from "@/app/api/aggregator";
 import {
   Dialog,
   DialogContent,
@@ -237,6 +237,7 @@ const DepositCryptoModal: React.FC = () => {
   useEffect(() => {
     fetchExchangeRate();
   }, []);
+  
 
   const handleConfirmPayment = async () => {
     if (!address) return toast.error("Please connect your wallet first.");
@@ -263,24 +264,28 @@ const DepositCryptoModal: React.FC = () => {
     try {
       const messageHash = encryptMessage(
         phoneNumber,
-        "USD",
+        "KES",
         exchangeRate ?? 0,
         mpesaAmount
       );
+      
+      console.log("Message Hash:", messageHash);
+
       if (!contract) throw new Error("Contract is not initialized.");
 
-      await contract.createOrder(
-        address,
-        parseUnits(amount, 6),
-        usdcTokenAddress,
-        orderType,
-        messageHash
-      );
+      await createOnRampOrder({
+        userAddress: address,
+        tokenAddress: usdcTokenAddress,
+        messageHash: messageHash,
+      });
       setIsTransactionModalOpen(true);
-    } catch (error) {
-      console.error("Transaction failed:", error);
-      toast.error("Transaction failed.");
-    } finally {
+
+
+    } catch (error: any) {
+      console.error("Transaction failed:", error?.message || error);
+      toast.error(error?.message || "Transaction failed.");
+    }
+    finally {
       setIsLoading(false);
     }
   };
