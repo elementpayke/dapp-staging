@@ -44,14 +44,8 @@ const ProcessingPopup: React.FC<ProcessingPopupProps> = ({
 }) => {
   const {
     status,
-    statusMessage,
-    progress,
     showConfetti,
-    copied,
     emailInput,
-    sendingEmail,
-    emailSent,
-    activeTab,
     transactionDetails,
     fallbackDate,
     showTechnicalDetails,
@@ -60,10 +54,8 @@ const ProcessingPopup: React.FC<ProcessingPopupProps> = ({
     setProgress,
     setShowConfetti,
     setCopied,
-    setEmailInput,
     setSendingEmail,
     setEmailSent,
-    setActiveTab,
     setTransactionDetails,
     setFallbackDate,
     setShowTechnicalDetails,
@@ -71,21 +63,6 @@ const ProcessingPopup: React.FC<ProcessingPopupProps> = ({
   } = useProcessingPopupStore();
 
   const receiptRef = useRef<HTMLDivElement>(null);
-
-  const containerVariants = {
-    hidden: { opacity: 0 },
-    visible: {
-      opacity: 1,
-      transition: {
-        staggerChildren: 0.1,
-      },
-    },
-  };
-
-  const itemVariants = {
-    hidden: { y: 20, opacity: 0 },
-    visible: { y: 0, opacity: 1 },
-  };
 
   // Reset state when popup becomes invisible
   useEffect(() => {
@@ -375,29 +352,14 @@ const ProcessingPopup: React.FC<ProcessingPopupProps> = ({
               setShowTechnicalDetails={setShowTechnicalDetails}
               onClose={onClose}
             />
-
             <ProgressPopup
-              status={status}
-              statusMessage={statusMessage}
-              progress={progress}
-              transactionDetails={transactionDetails}
               onClose={onClose}
-              showTechnicalDetails={showTechnicalDetails}
-              setShowTechnicalDetails={setShowTechnicalDetails}
-              copied={copied}
               copyToClipboard={copyToClipboard}
-              activeTab={activeTab}
-              setActiveTab={setActiveTab}
               printReceipt={printReceipt}
               downloadReceiptAsImage={downloadReceiptAsImage}
               sendReceiptEmail={true}
-              emailInput={emailInput}
-              setEmailInput={setEmailInput}
-              sendingEmail={sendingEmail}
-              emailSent={emailSent}
               sendReceiptViaEmail={sendReceiptViaEmail}
               branding={branding}
-              fallbackDate="2025-05-29"
               receiptRef={receiptRef}
             />
           </motion.div>

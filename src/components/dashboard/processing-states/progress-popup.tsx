@@ -8,22 +8,9 @@ import {
   Printer,
   Download,
   Mail,
-  ExternalLink,
 } from "lucide-react";
 import React, { RefObject } from "react";
-
-interface TransactionDetails {
-  amount?: string;
-  currency?: string;
-  recipient?: string;
-  paymentMethod?: string;
-  date?: string;
-  transactionHash?: string;
-  failureReason?: string;
-  customerName?: string;
-  receiptNumber?: string;
-  paymentStatus?: string;
-}
+import { useProcessingPopupStore } from "@/lib/processingPopupStore";
 
 interface Branding {
   companyName?: string;
@@ -32,54 +19,43 @@ interface Branding {
 }
 
 interface ProgressPopupProps {
-  status: "processing" | "success" | "failed";
-  statusMessage: string;
-  progress: number;
-  transactionDetails: TransactionDetails;
   onClose: () => void;
-  showTechnicalDetails: boolean;
-  setShowTechnicalDetails: (value: boolean) => void;
-  copied: boolean;
   copyToClipboard: (text: string) => void;
-  activeTab: "details" | "receipt";
-  setActiveTab: (tab: "details" | "receipt") => void;
   printReceipt: () => void;
   downloadReceiptAsImage: () => void;
   sendReceiptEmail?: boolean;
-  emailInput: string;
-  setEmailInput: (value: string) => void;
-  sendingEmail: boolean;
-  emailSent: boolean;
   sendReceiptViaEmail: () => void;
   branding: Branding;
-  fallbackDate: string;
   receiptRef: RefObject<HTMLDivElement | null>;
 }
 
 const ProgressPopup: React.FC<ProgressPopupProps> = ({
-  status,
-  statusMessage,
-  progress,
-  transactionDetails,
   onClose,
-  showTechnicalDetails,
-  setShowTechnicalDetails,
-  copied,
   copyToClipboard,
-  activeTab,
-  setActiveTab,
   printReceipt,
   downloadReceiptAsImage,
   sendReceiptEmail,
-  emailInput,
-  setEmailInput,
-  sendingEmail,
-  emailSent,
   sendReceiptViaEmail,
   branding,
-  fallbackDate,
   receiptRef,
 }) => {
+  const {
+    status,
+    statusMessage,
+    progress,
+    copied,
+    emailInput,
+    sendingEmail,
+    emailSent,
+    activeTab,
+    transactionDetails,
+    fallbackDate,
+    showTechnicalDetails,
+    setEmailInput,
+    setActiveTab,
+    setShowTechnicalDetails,
+  } = useProcessingPopupStore();
+
   const containerVariants = {
     hidden: { opacity: 0 },
     visible: {
@@ -326,7 +302,7 @@ const ProgressPopup: React.FC<ProgressPopupProps> = ({
               </div>
             </motion.div>
 
-            {/* Action buttons with improved layout */}
+            {/* Action button */}
             <motion.div
               className="space-y-3"
               initial={{ opacity: 0, y: 20 }}
@@ -334,19 +310,12 @@ const ProgressPopup: React.FC<ProgressPopupProps> = ({
               transition={{ delay: 0.9 }}
             >
               <motion.button
-                onClick={onClose}
-                className="w-full px-4 py-2.5 bg-red-600 text-white rounded-lg hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 transition-colors font-medium flex items-center justify-center"
-              >
-                <ExternalLink size={16} className="mr-2" />
-                Contact Support
-              </motion.button>
-
-              <motion.button
                 onClick={() =>
                   window.open("mailto:support@elementpay.com", "_blank")
                 }
-                className="w-full px-4 py-2.5 bg-white text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-300 focus:ring-offset-2 transition-colors font-medium"
+                className="w-full px-4 py-2.5 bg-red-600 text-white rounded-lg hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 transition-colors font-medium flex items-center justify-center"
               >
+                <Mail size={16} className="mr-2" />
                 Contact Support
               </motion.button>
             </motion.div>
@@ -398,7 +367,7 @@ const ProgressPopup: React.FC<ProgressPopupProps> = ({
                       </div>
                       <div className="flex items-center gap-2 bg-white p-2 rounded-md border border-gray-200">
                         <div className="text-xs font-mono text-gray-700 break-all flex-1">
-                          {transactionDetails.transactionHash}
+                          {transactionDetails.transactionHash || "N/A"}
                         </div>
                         <button
                           onClick={() =>
@@ -432,7 +401,7 @@ const ProgressPopup: React.FC<ProgressPopupProps> = ({
                 Need immediate assistance? Our support team is available 24/7
               </p>
               <a
-                href="tel:+254700000000"
+                href="tel:+254110919165"
                 className="inline-block mt-1 text-sm text-red-600 hover:text-red-700 font-medium"
               >
                 +254110919165
