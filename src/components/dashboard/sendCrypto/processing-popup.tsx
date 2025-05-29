@@ -17,7 +17,6 @@ interface ProcessingPopupProps {
   isVisible: boolean;
   onClose: () => void;
   orderId: string;
-  apiKey: string;
   transactionDetails: TransactionDetails;
   branding?: {
     primaryColor: string;

@@ -550,7 +550,6 @@ const SendCryptoModal: React.FC = () => {
             cleanupOrderStates();
           }}
           orderId={orderId}
-          apiKey={apiKey}
           transactionDetails={{
             amount: amount,
             currency: "KES",

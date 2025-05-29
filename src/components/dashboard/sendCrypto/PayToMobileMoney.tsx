@@ -1,28 +1,32 @@
-"use client"
+"use client";
 
-import type React from "react"
-import { useState, useEffect } from "react"
+import type React from "react";
+import { useState, useEffect } from "react";
 
 interface PayToMobileMoneyProps {
-  selectedToken: string
-  setSelectedToken: (value: string) => void
-  amount: string
-  setAmount: (value: string) => void
-  mobileNumber: string
-  setMobileNumber: (value: string) => void
-  reason: string
-  setReason: (value: string) => void
-  totalKES: number
-  tillNumber: string
-  setTillNumber: (value: string) => void
-  paybillNumber: string
-  setPaybillNumber: (value: string) => void
-  accountNumber: string
-  setAccountNumber: (value: string) => void
-  setCashoutType: (type: "PHONE" | "TILL" | "PAYBILL") => void
+  selectedToken: string;
+  setSelectedToken: (value: string) => void;
+  amount: string;
+  setAmount: (value: string) => void;
+  mobileNumber: string;
+  setMobileNumber: (value: string) => void;
+  reason: string;
+  setReason: (value: string) => void;
+  totalKES: number;
+  tillNumber: string;
+  setTillNumber: (value: string) => void;
+  paybillNumber: string;
+  setPaybillNumber: (value: string) => void;
+  accountNumber: string;
+  setAccountNumber: (value: string) => void;
+  setCashoutType: (type: "PHONE" | "TILL" | "PAYBILL") => void;
 }
 
-type PaymentMethod = "Send Money" | "Pay Bill" | "Buy Goods" | "Pochi La Biashara"
+type PaymentMethod =
+  | "Send Money"
+  | "Pay Bill"
+  | "Buy Goods"
+  | "Pochi La Biashara";
 
 const PayToMobileMoney: React.FC<PayToMobileMoneyProps> = ({
   selectedToken,
@@ -42,71 +46,78 @@ const PayToMobileMoney: React.FC<PayToMobileMoneyProps> = ({
   setAccountNumber,
   setCashoutType,
 }) => {
-  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("Send Money")
-  const [showRecipientName, setShowRecipientName] = useState(false)
-  const [recipientName, setRecipientName] = useState("")
+  const [paymentMethod, setPaymentMethod] =
+    useState<PaymentMethod>("Send Money");
+  const [showRecipientName, setShowRecipientName] = useState(false);
+  const [recipientName, setRecipientName] = useState("");
   const [recentRecipients] = useState([
     { name: "John Doe", number: "254712345678", type: "Send Money" },
     { name: "Supermarket", number: "567890", type: "Buy Goods" },
     { name: "KPLC", number: "888888", type: "Pay Bill", account: "12345" },
-  ])
+  ]);
 
   useEffect(() => {
     switch (paymentMethod) {
       case "Pay Bill":
-        setTillNumber("")
-        setCashoutType("PAYBILL")
-        break
+        setTillNumber("");
+        setCashoutType("PAYBILL");
+        break;
       case "Buy Goods":
-        setPaybillNumber("")
-        setAccountNumber("")
-        setCashoutType("TILL")
-        break
+        setPaybillNumber("");
+        setAccountNumber("");
+        setCashoutType("TILL");
+        break;
       case "Send Money":
       case "Pochi La Biashara":
-        setPaybillNumber("")
-        setAccountNumber("")
-        setTillNumber("")
-        setCashoutType("PHONE")
-        break
+        setPaybillNumber("");
+        setAccountNumber("");
+        setTillNumber("");
+        setCashoutType("PHONE");
+        break;
       default:
-        setCashoutType("PHONE") // Add default case
-        break
+        setCashoutType("PHONE"); // Add default case
+        break;
     }
-  }, [paymentMethod, setTillNumber, setCashoutType, setPaybillNumber, setAccountNumber])
+  }, [
+    paymentMethod,
+    setTillNumber,
+    setCashoutType,
+    setPaybillNumber,
+    setAccountNumber,
+  ]);
 
   // Simulate recipient name lookup after entering mobile number
   useEffect(() => {
     if (paymentMethod === "Send Money" && mobileNumber.length >= 10) {
       // This would be an API call in a real app
       setTimeout(() => {
-        const found = recentRecipients.find((r) => r.number === mobileNumber)
+        const found = recentRecipients.find((r) => r.number === mobileNumber);
         if (found) {
-          setRecipientName(found.name)
+          setRecipientName(found.name);
         } else {
-          setRecipientName("Unknown User")
+          setRecipientName("Unknown User");
         }
-        setShowRecipientName(true)
-      }, 500)
+        setShowRecipientName(true);
+      }, 500);
     } else {
-      setShowRecipientName(false)
+      setShowRecipientName(false);
     }
-  }, [mobileNumber, paymentMethod, recentRecipients]) // Added 'recentRecipients' to the dependency array
+  }, [mobileNumber, paymentMethod, recentRecipients]); // Added 'recentRecipients' to the dependency array
 
   // Validate input based on payment method
   const validateInput = () => {
     if (amount && Number.parseFloat(amount) < 10) {
-      return "Minimum amount is 10 KES"
+      return "Minimum amount is 10 KES";
     }
 
     if (paymentMethod === "Pay Bill" && !paybillNumber) {
-      return "Business number is required"
+      return "Business number is required";
     }
 
-    return null
-  }
+    return null;
+  };
 
-  const error = validateInput()
+  const error = validateInput();
 
   const renderInputFields = () => {
     switch (paymentMethod) {
@@ -121,25 +132,29 @@ const PayToMobileMoney: React.FC<PayToMobileMoneyProps> = ({
                   value={mobileNumber}
                   autoComplete="false"
                   onChange={(e) => {
-                    let input = e.target.value.replace(/[^\d]/g, "").substring(0, 12)
+                    let input = e.target.value
+                      .replace(/[^\d]/g, "")
+                      .substring(0, 12);
                     // If starts with '2540', prevent entering
                     if (input.startsWith("2540")) {
                       // Do not update the value
-                      return
+                      return;
                     }
                     // If input is empty, set default to '254'
                     if (input === "") {
-                      setMobileNumber("254")
-                      return
+                      setMobileNumber("254");
+                      return;
                     }
                     // Ensure input always starts with '254'
                     if (!input.startsWith("254")) {
-                      input = "254" + input.replace(/^254*/, "")
+                      input = "254" + input.replace(/^254*/, "");
                     }
-                    setMobileNumber(input)
+                    setMobileNumber(input);
                   }}
                   className={`w-full p-3 bg-gray-50 rounded-lg border-0 text-gray-900 ${
-                    paymentMethod === "Send Money" && mobileNumber.length > 0 && mobileNumber.length !== 12
+                    paymentMethod === "Send Money" &&
+                    mobileNumber.length > 0 &&
+                    mobileNumber.length !== 12
                       ? "border border-red-500"
                       : ""
                   }`}
@@ -154,17 +169,21 @@ const PayToMobileMoney: React.FC<PayToMobileMoneyProps> = ({
               </div>
             </div>
           </>
-        )
+        );
 
       case "Pay Bill":
         return (
           <>
             <div>
-              <label className="block text-gray-600 mb-2">Business Number</label>
+              <label className="block text-gray-600 mb-2">
+                Business Number
+              </label>
               <input
                 type="text"
                 value={paybillNumber}
-                onChange={(e) => setPaybillNumber(e.target.value.replace(/[^\d]/g, ""))}
+                onChange={(e) =>
+                  setPaybillNumber(e.target.value.replace(/[^\d]/g, ""))
+                }
                 className="w-full p-3 bg-gray-50 rounded-lg border-0 text-gray-900"
                 placeholder="e.g., 888888"
               />
@@ -180,7 +199,7 @@ const PayToMobileMoney: React.FC<PayToMobileMoneyProps> = ({
               />
             </div>
           </>
-        )
+        );
 
       case "Buy Goods":
         return (
@@ -190,13 +209,15 @@ const PayToMobileMoney: React.FC<PayToMobileMoneyProps> = ({
               <input
                 type="text"
                 value={tillNumber}
-                onChange={(e) => setTillNumber(e.target.value.replace(/[^\d]/g, ""))}
+                onChange={(e) =>
+                  setTillNumber(e.target.value.replace(/[^\d]/g, ""))
+                }
                 className="w-full p-3 bg-gray-50 rounded-lg border-0 text-gray-900"
                 placeholder="e.g., 567890"
               />
             </div>
           </>
-        )
+        );
 
       case "Pochi La Biashara":
         return (
@@ -207,20 +228,28 @@ const PayToMobileMoney: React.FC<PayToMobileMoneyProps> = ({
                 <input
                   type="tel"
                   value={mobileNumber}
-                  onChange={(e) => setMobileNumber(e.target.value.replace(/[^\d]/g, "").substring(0, 12))}
+                  onChange={(e) =>
+                    setMobileNumber(
+                      e.target.value.replace(/[^\d]/g, "").substring(0, 12)
+                    )
+                  }
                   className="w-full p-3 bg-gray-50 rounded-lg border-0 text-gray-900"
                   placeholder="Business owner's number"
                 />
-                {showRecipientName && <div className="mt-1 text-sm text-gray-600">Business: {recipientName}</div>}
+                {showRecipientName && (
+                  <div className="mt-1 text-sm text-gray-600">
+                    Business: {recipientName}
+                  </div>
+                )}
               </div>
             </div>
           </>
-        )
+        );
 
       default:
-        return null
+        return null;
     }
-  }
+  };
 
   return (
     <div className="space-y-4">
@@ -230,8 +259,15 @@ const PayToMobileMoney: React.FC<PayToMobileMoneyProps> = ({
       <div>
         <label className="block text-gray-600 mb-2">Payment Method</label>
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-          {(["Send Money", "Pay Bill", "Buy Goods", "Pochi La Biashara"] as PaymentMethod[]).map((method) => {
-            const isSendMoney = method === "Send Money"
+          {(
+            [
+              "Send Money",
+              "Pay Bill",
+              "Buy Goods",
+              "Pochi La Biashara",
+            ] as PaymentMethod[]
+          ).map((method) => {
+            const isSendMoney = method === "Send Money";
             return (
               <button
                 key={method}
@@ -242,7 +278,11 @@ const PayToMobileMoney: React.FC<PayToMobileMoneyProps> = ({
                   paymentMethod === method && isSendMoney
                     ? "bg-green-100 text-green-800 border-2 border-green-600"
                     : "bg-gray-50 text-gray-700 border border-gray-200"
-                } ${!isSendMoney ? "opacity-60 cursor-not-allowed" : "hover:bg-gray-100"}`}
+                } ${
+                  !isSendMoney
+                    ? "opacity-60 cursor-not-allowed"
+                    : "hover:bg-gray-100"
+                }`}
               >
                 {method}
                 {!isSendMoney && (
@@ -251,7 +291,7 @@ const PayToMobileMoney: React.FC<PayToMobileMoneyProps> = ({
                   </span>
                 )}
               </button>
-            )
+            );
           })}
         </div>
       </div>
@@ -262,31 +302,37 @@ const PayToMobileMoney: React.FC<PayToMobileMoneyProps> = ({
         <div className="flex overflow-x-auto space-x-3 pb-2">
           {recentRecipients
             .filter((r) => {
-              if (paymentMethod === "Send Money") return r.type === "Send Money"
-              if (paymentMethod === "Buy Goods") return r.type === "Buy Goods"
-              if (paymentMethod === "Pay Bill") return r.type === "Pay Bill"
-              if (paymentMethod === "Pochi La Biashara") return r.type === "Pochi La Biashara"
-              return false
+              if (paymentMethod === "Send Money")
+                return r.type === "Send Money";
+              if (paymentMethod === "Buy Goods") return r.type === "Buy Goods";
+              if (paymentMethod === "Pay Bill") return r.type === "Pay Bill";
+              if (paymentMethod === "Pochi La Biashara")
+                return r.type === "Pochi La Biashara";
+              return false;
             })
             .map((recipient, index) => (
               <div
                 key={index}
                 onClick={() => {
-                  setMobileNumber(recipient.number)
+                  setMobileNumber(recipient.number);
                   if (recipient.type === "Pay Bill") {
-                    setPaybillNumber(recipient.number)
-                    setAccountNumber(recipient.account || "")
+                    setPaybillNumber(recipient.number);
+                    setAccountNumber(recipient.account || "");
                   } else if (recipient.type === "Buy Goods") {
-                    setPaybillNumber(recipient.number)
-                    setAccountNumber(recipient.account || "")
+                    setPaybillNumber(recipient.number);
+                    setAccountNumber(recipient.account || "");
                   }
                 }}
                 className="flex-shrink-0 cursor-pointer text-center"
               >
                 <div className="w-12 h-12 mx-auto rounded-full bg-gray-200 flex items-center justify-center mb-1">
-                  <span className="text-gray-700 font-bold">{recipient.name.charAt(0)}</span>
+                  <span className="text-gray-700 font-bold">
+                    {recipient.name.charAt(0)}
+                  </span>
                 </div>
-                <span className="text-xs text-gray-600 block truncate w-16">{recipient.name}</span>
+                <span className="text-xs text-gray-600 block truncate w-16">
+                  {recipient.name}
+                </span>
               </div>
             ))}
         </div>
@@ -315,20 +361,20 @@ const PayToMobileMoney: React.FC<PayToMobileMoneyProps> = ({
             type="text"
             value={amount}
             onChange={(e) => {
-              const newValue = e.target.value.replace(/[^\d.]/g, "")
+              const newValue = e.target.value.replace(/[^\d.]/g, "");
 
               if (newValue === "") {
-                setAmount("")
-                return
+                setAmount("");
+                return;
               }
 
-              const parsedValue = Number.parseFloat(newValue)
+              const parsedValue = Number.parseFloat(newValue);
 
               if (!isNaN(parsedValue)) {
                 if (!totalKES || parsedValue <= totalKES) {
-                  setAmount(newValue)
+                  setAmount(newValue);
                 } else {
-                  setAmount(totalKES.toFixed(0).toString())
+                  setAmount(totalKES.toFixed(0).toString());
                 }
               }
             }}
@@ -342,7 +388,9 @@ const PayToMobileMoney: React.FC<PayToMobileMoneyProps> = ({
       {/* Payment Reason */}
       <div>
         <label className="block text-gray-600 mb-2">
-          {paymentMethod === "Pay Bill" ? "Payment Reference (Optional)" : "Payment Reason (Optional)"}
+          {paymentMethod === "Pay Bill"
+            ? "Payment Reference (Optional)"
+            : "Payment Reason (Optional)"}
         </label>
         <input
           type="text"
@@ -353,8 +401,8 @@ const PayToMobileMoney: React.FC<PayToMobileMoneyProps> = ({
             paymentMethod === "Pay Bill"
               ? "Enter payment reference"
               : paymentMethod === "Buy Goods"
-                ? "Enter store name or item purchased"
-                : "Enter payment reason"
+              ? "Enter store name or item purchased"
+              : "Enter payment reason"
           }
         />
       </div>
@@ -368,12 +416,15 @@ const PayToMobileMoney: React.FC<PayToMobileMoneyProps> = ({
         <div className="flex justify-between text-sm">
           <span className="text-gray-600">Transaction fee:</span>
           <span className="font-medium">
-            {amount ? Math.min(Number.parseFloat(amount) * 0.01, 100).toFixed(2) : "0.00"} KES
+            {amount
+              ? Math.min(Number.parseFloat(amount) * 0.01, 100).toFixed(2)
+              : "0.00"}{" "}
+            KES
           </span>
         </div>
       </div>
     </div>
-  )
-}
+  );
+};
 
-export default PayToMobileMoney
+export default PayToMobileMoney;
