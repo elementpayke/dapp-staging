@@ -6,7 +6,6 @@ import type {
   InstitutionProps,
   PubkeyResponse,
   VerifyAccountPayload,
-  OrderStatusResponse,
 } from "../../types/types";
 
 const AGGREGATOR_URL = process.env.NEXT_PUBLIC_API_URL;
@@ -29,7 +28,7 @@ export const fetchRate = async ({
 };
 
 export const fetchSupportedInstitutions = async (
-  currency: string,
+  currency: string
 ): Promise<InstitutionProps[]> => {
   try {
     const response = await axios.get<{ data: InstitutionProps[] }>(
@@ -44,7 +43,9 @@ export const fetchSupportedInstitutions = async (
 
 export const fetchAggregatorPublicKey = async (): Promise<PubkeyResponse> => {
   try {
-    const response = await axios.get<PubkeyResponse>(`${AGGREGATOR_URL}/pubkey`);
+    const response = await axios.get<PubkeyResponse>(
+      `${AGGREGATOR_URL}/pubkey`
+    );
     return response.data;
   } catch (error) {
     console.error("Error fetching aggregator public key:", error);
@@ -53,7 +54,7 @@ export const fetchAggregatorPublicKey = async (): Promise<PubkeyResponse> => {
 };
 
 export const fetchAccountName = async (
-  payload: VerifyAccountPayload,
+  payload: VerifyAccountPayload
 ): Promise<string> => {
   try {
     const response = await axios.post<{ data: string }>(
@@ -94,8 +95,8 @@ export const fetchOrderStatus = async (
         data: {
           status: "pending",
           message: "Order not found yet, will retry",
-          data: null
-        }
+          data: null,
+        },
       };
     }
     throw error;

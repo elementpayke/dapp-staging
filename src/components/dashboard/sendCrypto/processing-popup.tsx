@@ -1,7 +1,7 @@
 "use client";
 
 import type React from "react";
-import { useEffect, useState, useRef, useCallback } from "react";
+import { useEffect, useRef } from "react";
 import {
   Loader2,
   CreditCard,
@@ -18,57 +18,10 @@ import { motion, AnimatePresence } from "framer-motion";
 import { toPng } from "html-to-image";
 import { fetchOrderStatus } from "@/app/api/aggregator";
 import generateReceiptHTML from "@/components/generateHtml";
+import { useProcessingPopupStore } from "@/lib/processingPopupStore";
+import { TransactionDetails } from "@/types/processing-popup";
+import { formatErrorMessage, formatReceiverName } from "@/utils/helpers";
 
-interface TransactionDetails {
-  amount: string;
-  currency?: string;
-  recipient?: string;
-  paymentMethod?: string;
-  transactionHash: string;
-  date: string;
-  receiptNumber: string;
-  paymentStatus: string;
-  customerName?: string;
-  customerEmail?: string;
-  items?: { name: string; price: string; quantity: number }[];
-  subtotal?: string;
-  tax?: string;
-  merchantLogo?: string;
-  notes?: string;
-  status: number; // 0 = pending, 1 = completed, 2 = failed, 3 = refunded
-  failureReason?: string;
-  orderId?: string;
-}
-
-interface OrderStatusAPIData {
-  amount_fiat: number;
-  created_at: string;
-  currency: string;
-  failure_reason: string | null;
-  file_id: string;
-  mpesa_receipt_number: string | null;
-  order_id: string;
-  order_type: string;
-  receipt_number: string | null;
-  receiver_name: string | null;
-  status: string;
-  token: string;
-  transaction_hashes: {
-    creation: string | null;
-    settlement: string | null;
-    refund: string | null;
-  };
-  wallet_address: string;
-  phone_number?: string;
-}
-
-interface OrderStatusResponse {
-  status: string;
-  message: string;
-  data: OrderStatusAPIData;
-}
-
-// Update the interface to accept transaction details and custom API function
 interface ProcessingPopupProps {
   isVisible: boolean;
   onClose: () => void;
@@ -85,27 +38,6 @@ interface ProcessingPopupProps {
   sendReceiptEmail?: (email: string, receiptData: any) => Promise<boolean>;
 }
 
-// Add helper function to format receiver name
-const formatReceiverName = (name: string | null): string => {
-  if (!name) return "N/A";
-
-  // If the name contains a phone number pattern followed by a dash
-  const phoneNamePattern = /^(\d+)\s*-\s*(.+)$/;
-  const match = name.match(phoneNamePattern);
-
-  if (match) {
-    // Return only the name part after the dash
-    return match[2].trim();
-  }
-
-  // If it's just a phone number or doesn't match the pattern, return as is
-  return name.trim();
-};
-
-/**
- * ProcessingPopup - A component that displays the status of a transaction
- * with engaging animations, visual feedback, and transaction details
- */
 const ProcessingPopup: React.FC<ProcessingPopupProps> = ({
   isVisible,
   onClose,
@@ -119,65 +51,36 @@ const ProcessingPopup: React.FC<ProcessingPopupProps> = ({
   },
   sendReceiptEmail,
 }) => {
-  const [status, setStatus] = useState<"processing" | "success" | "failed">(
-    "processing"
-  );
-  const [statusMessage, setStatusMessage] = useState(
-    "Processing your payment..."
-  );
-  const [progress, setProgress] = useState(0);
-  const [showConfetti, setShowConfetti] = useState(false);
-  const [copied, setCopied] = useState(false);
-  const [emailInput, setEmailInput] = useState("");
-  const [sendingEmail, setSendingEmail] = useState(false);
-  const [emailSent, setEmailSent] = useState(false);
-  const [activeTab, setActiveTab] = useState<"details" | "receipt">("details");
-  const [transactionDetails, setTransactionDetails] =
-    useState<TransactionDetails>(initialTransactionDetails);
+  const {
+    status,
+    statusMessage,
+    progress,
+    showConfetti,
+    copied,
+    emailInput,
+    sendingEmail,
+    emailSent,
+    activeTab,
+    transactionDetails,
+    fallbackDate,
+    showTechnicalDetails,
+    setStatus,
+    setStatusMessage,
+    setProgress,
+    setShowConfetti,
+    setCopied,
+    setEmailInput,
+    setSendingEmail,
+    setEmailSent,
+    setActiveTab,
+    setTransactionDetails,
+    setFallbackDate,
+    setShowTechnicalDetails,
+    reset,
+  } = useProcessingPopupStore();
+
   const receiptRef = useRef<HTMLDivElement>(null);
-  const [fallbackDate, setFallbackDate] = useState<string>("");
-  const [showTechnicalDetails, setShowTechnicalDetails] = useState(false);
 
-  // Add function to format error message
-  const formatErrorMessage = (error: string) => {
-    if (error.toLowerCase().includes("The operator does not exist")) {
-      return "Phone number does not exist. Please enter a valid phone number.";
-    }
-    return error;
-  };
-
-  // Add cleanup function
-  const cleanupOrderId = useCallback(() => {
-    if (orderId) {
-      localStorage.removeItem(`order_${orderId}`);
-      sessionStorage.removeItem(`order_${orderId}`);
-    }
-  }, [orderId]);
-
-  // Reset all state when popup becomes invisible
-  useEffect(() => {
-    if (!isVisible) {
-      setStatus("processing");
-      setStatusMessage("Processing your payment...");
-      setProgress(0);
-      setShowConfetti(false);
-      setCopied(false);
-      setEmailInput("");
-      setSendingEmail(false);
-      setEmailSent(false);
-      setActiveTab("details");
-      setShowTechnicalDetails(false);
-      setTransactionDetails(initialTransactionDetails);
-    }
-  }, [isVisible, initialTransactionDetails]);
-
-  useEffect(() => {
-    if (!fallbackDate) {
-      setFallbackDate(new Date().toISOString());
-    }
-  }, [fallbackDate]);
-
-  // Animation variants for staggered animations
   const containerVariants = {
     hidden: { opacity: 0 },
     visible: {
@@ -193,28 +96,43 @@ const ProcessingPopup: React.FC<ProcessingPopupProps> = ({
     visible: { y: 0, opacity: 1 },
   };
 
+  // Reset state when popup becomes invisible
+  useEffect(() => {
+    if (!isVisible) {
+      reset(initialTransactionDetails);
+    }
+  }, [isVisible, initialTransactionDetails, reset]);
+
+  // Set fallback date if not already set
+  useEffect(() => {
+    if (!fallbackDate) {
+      setFallbackDate(new Date().toISOString());
+    }
+  }, [fallbackDate, setFallbackDate]);
+
   // Poll for order status
   useEffect(() => {
     if (!isVisible || !orderId) return;
 
     let pollInterval: NodeJS.Timeout | null = null;
-    let isPolling = true; // Add flag to track if component is still mounted
+    let isPolling = true;
 
-    // Initial fetch
+    const cleanupOrderId = () => {
+      if (orderId) {
+        localStorage.removeItem(`order_${orderId}`);
+        sessionStorage.removeItem(`order_${orderId}`);
+      }
+    };
+
     const fetchStatus = async () => {
-      if (!isPolling) return; // Don't update state if component is unmounted
+      if (!isPolling) return false;
 
       try {
-        console.log("Fetching order status in the processing-popup.tsx file");
-        console.log("Order ID:", orderId);
         const response = await fetchOrderStatus(orderId);
-        const orderStatus = response.data as OrderStatusResponse;
-        console.log("Order status:", orderStatus);
+        const orderStatus = response.data;
 
-        if (!isPolling) return; // Check again before updating state
-
-        setTransactionDetails((prev) => ({
-          ...prev,
+        setTransactionDetails({
+          ...transactionDetails,
           amount: orderStatus.data.amount_fiat?.toString() || "N/A",
           currency: orderStatus.data.currency || "N/A",
           recipient: formatReceiverName(orderStatus.data.receiver_name),
@@ -250,7 +168,7 @@ const ProcessingPopup: React.FC<ProcessingPopupProps> = ({
           failureReason: orderStatus.data.failure_reason || "N/A",
           orderId: orderStatus.data.order_id || "N/A",
           customerName: formatReceiverName(orderStatus.data.receiver_name),
-          customerEmail: "N/A", // Not available in the response
+          customerEmail: "N/A",
           items: [
             {
               name: orderStatus.data.token || "N/A",
@@ -259,12 +177,11 @@ const ProcessingPopup: React.FC<ProcessingPopupProps> = ({
             },
           ],
           subtotal: orderStatus.data.amount_fiat?.toString() || "N/A",
-          tax: "N/A", // Not available in the response
-          merchantLogo: "N/A", // Not available in the response
+          tax: "N/A",
+          merchantLogo: "N/A",
           notes: orderStatus.data.failure_reason || "N/A",
-        }));
+        });
 
-        // Update UI status based on order status
         const orderStatusValue = orderStatus.data.status.toLowerCase();
 
         switch (orderStatusValue) {
@@ -319,36 +236,36 @@ const ProcessingPopup: React.FC<ProcessingPopupProps> = ({
       }
     };
 
-    // Initial fetch
     fetchStatus().then((shouldContinuePolling) => {
       if (!shouldContinuePolling && isPolling) {
-        // Start polling if the order is still processing
         pollInterval = setInterval(async () => {
           const shouldStop = await fetchStatus();
           if (shouldStop && pollInterval) {
             clearInterval(pollInterval);
           }
-        }, 5000); // Poll every 5 seconds
+        }, 5000);
       }
     });
 
-    // Cleanup function
     return () => {
-      isPolling = false; // Set flag to false when component unmounts
+      isPolling = false;
       if (pollInterval) {
         clearInterval(pollInterval);
       }
-    };
-  }, [isVisible, orderId, cleanupOrderId]);
-
-  // Add cleanup on component unmount
-  useEffect(() => {
-    return () => {
       cleanupOrderId();
     };
-  }, [cleanupOrderId]);
+  }, [
+    isVisible,
+    orderId,
+    setStatus,
+    setStatusMessage,
+    setProgress,
+    setShowConfetti,
+    setTransactionDetails,
+    transactionDetails,
+  ]);
 
-  // Function to copy transaction hash to clipboard
+  // Copy to clipboard
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text).then(() => {
       setCopied(true);
@@ -356,7 +273,7 @@ const ProcessingPopup: React.FC<ProcessingPopupProps> = ({
     });
   };
 
-  // Function to send receipt via email
+  // Send receipt via email
   const sendReceiptViaEmail = async () => {
     if (!emailInput || !sendReceiptEmail) return;
 
@@ -378,7 +295,7 @@ const ProcessingPopup: React.FC<ProcessingPopupProps> = ({
     }
   };
 
-  // Generate a downloadable image of the receipt
+  // Download receipt as image
   const downloadReceiptAsImage = async () => {
     if (!receiptRef.current) return;
 
@@ -432,7 +349,6 @@ const ProcessingPopup: React.FC<ProcessingPopupProps> = ({
     printWindow.document.write(receiptHTML);
     printWindow.document.close();
 
-    // Automatically trigger print dialog after content loads
     printWindow.onload = () => {
       printWindow.print();
     };
