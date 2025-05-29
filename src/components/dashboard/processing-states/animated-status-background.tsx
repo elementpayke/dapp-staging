@@ -1,8 +1,7 @@
-// components/AnimatedStatusBackground.tsx
-
 import { motion, AnimatePresence } from "framer-motion";
 import { X, ExternalLink } from "lucide-react";
 import React from "react";
+import { useProcessingPopupStore } from "@/lib/processingPopupStore";
 
 type TransactionDetails = {
   failureReason?: string;
@@ -17,12 +16,14 @@ type AnimatedStatusBackgroundProps = {
 };
 
 export function AnimatedStatusBackground({
-  status,
-  transactionDetails,
-  showTechnicalDetails,
-  setShowTechnicalDetails,
   onClose,
 }: AnimatedStatusBackgroundProps) {
+  const {
+    status,
+    transactionDetails,
+    showTechnicalDetails,
+    setShowTechnicalDetails,
+  } = useProcessingPopupStore();
   return (
     <div className="absolute inset-0 overflow-hidden">
       {status === "processing" && (
