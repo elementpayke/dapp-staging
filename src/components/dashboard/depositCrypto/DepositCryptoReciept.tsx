@@ -18,9 +18,7 @@ interface DepositCryptoReceiptProps {
 
 export default function DepositCryptoReceipt({ isOpen, onClose, transactionReciept }: DepositCryptoReceiptProps) {
     if (!isOpen) return null; // Ensure modal is only rendered when open
-
-    console.log("Receipt modal opened with data:", transactionReciept);
-    
+    console.log("Transaction Receipt:", transactionReciept);
     const [copied, setCopied] = useState(false);
 
     const handleCopy = () => {
@@ -71,7 +69,9 @@ export default function DepositCryptoReceipt({ isOpen, onClose, transactionRecie
                 </div>
 
                 <div className="flex justify-center items-center py-[30px]">
-                    <p className="text-[#02542D] text-md font-bold">{`${transactionReciept?.amount || 0} USD ≈ KES ${transactionReciept?.amountUSDC || 0}`}</p>
+                    <p className="text-[#02542D] text-md font-bold">
+                    KES {transactionReciept.amount.toFixed(2)} <span className="text-[#333] font-medium">≈  USDC {(transactionReciept.amountUSDC).toFixed(2)}</span>
+                    </p>
                 </div>
 
                 <div className="flex w-full justify-between items-center">

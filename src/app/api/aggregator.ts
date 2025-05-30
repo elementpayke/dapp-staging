@@ -13,6 +13,11 @@ const AGGREGATOR_URL = process.env.NEXT_PUBLIC_API_URL;
 const PROVIDER_ID = process.env.NEXT_PUBLIC_PROVIDER_ID;
 const API_KEY = process.env.NEXT_PUBLIC_AGGR_API_KEY;
 
+interface CreateOrderResponse {
+  tx_hash: string;
+  status: string; // optional: "submitted"
+}
+
 export const fetchRate = async ({
   token,
   amount,
@@ -68,7 +73,10 @@ export const fetchAccountName = async (
   }
 };
 
-export const fetchOrderStatus = async (
+export const 
+
+
+fetchOrderStatus = async (
   orderId: string
 ): Promise<{ status: number; data: any }> => {
   try {
@@ -119,7 +127,7 @@ export const createOnRampOrder = async ({
   userAddress: string;
   tokenAddress: string;
   messageHash: string;
-}) => {
+}): Promise<CreateOrderResponse> => {
   const payload = {
     user_address: userAddress,
     token: tokenAddress,
@@ -128,5 +136,6 @@ export const createOnRampOrder = async ({
     message_hash: messageHash,
   };
 
-  return api.post('/orders/create', payload);
+  const response = await api.post<CreateOrderResponse>('/orders/create', payload);
+  return response.data;
 };

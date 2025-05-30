@@ -1,15 +1,13 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { ArrowUpRight } from "lucide-react";
 import { toast } from "react-toastify";
-import { parseUnits } from "ethers";
 import { getUSDCAddress } from "../../../services/tokens";
 import { useContract } from "@/services/useContract";
 import { encryptMessage } from "@/services/encryption";
 import { useAccount, useSwitchChain } from "wagmi";
-import { useContractEvents } from "@/context/useContractEvents";
 import TransactionInProgressModal from "./TranactionInProgress";
 import DepositCryptoReceipt from "./DepositCryptoReciept";
-import { createOnRampOrder, fetchOrderStatus } from "@/app/api/aggregator";
+import { createOnRampOrder } from "@/app/api/aggregator";
 import {
   Dialog,
   DialogContent,
@@ -18,6 +16,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { useWallet } from "@/hooks/useWallet";
+import { TransactionReceipt } from "@/types/types";
 
 type OrderStatus =
   | "pending"
@@ -46,6 +45,7 @@ const DepositCryptoModal: React.FC = () => {
   const { switchChain } = useSwitchChain();
   const TARGET_CHAIN_ID = 8453; // Base
   const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
+  const continuePollingRef = useRef<boolean>(true);
 
 
   const MARKUP_PERCENTAGE = 0.5;
@@ -85,14 +85,15 @@ const DepositCryptoModal: React.FC = () => {
     };
   }, [amount, exchangeRate, usdcBalance]);
 
-  const [transactionReceipt, setTransactionReceipt] = useState<any | null>({
-    amount: amount || "0.00",
-    amountUSDC: Number(amount) * (exchangeRate ?? 1) || 0,
-    phoneNumber: phoneNumber || "",
-    address: addressOwner || "",
+  const [transactionReceipt, setTransactionReceipt] = useState<TransactionReceipt>({
+    orderId: "",
     status: "pending",
-    reason: "", // Add reason field
+    reason: "",
+    amount: 0,
+    amountUSDC: 0,
     transactionHash: "",
+    address: "",
+    phoneNumber: "",
   });
 
   const fetchExchangeRate = async () => {
@@ -113,126 +114,64 @@ const DepositCryptoModal: React.FC = () => {
     }
   };
 
-  const pollOrderStatus = async (orderId: string) => {
-    try {
-      console.log("Polling order status for orderId:", orderId);
-      const response = await fetchOrderStatus(orderId);
+const pollOrderStatusByTxHash = async (txHash: string) => {
+  if (!txHash) return;
 
-      // Handle 404 case - order not found yet
-      if (response.status === 404) {
-        console.log("Order not found yet, will retry in 3 seconds...");
-        setTimeout(() => pollOrderStatus(orderId), 3000);
+  const normalizedHash = txHash.startsWith("0x") ? txHash.slice(2) : txHash;
+
+  try {
+    const AGGREGATOR_URL = process.env.NEXT_PUBLIC_API_URL;
+    const response = await fetch(`${AGGREGATOR_URL}/orders/tx/${normalizedHash}`, {
+      headers: {
+        "x-api-key": process.env.NEXT_PUBLIC_AGGR_API_KEY!
+      }
+    });
+
+    if (response.status === 200) {
+      const orderData = (await response.json()).data;
+
+      const status = orderData.status?.toLowerCase();
+      const txHashes = orderData.transaction_hashes || {};
+      const settlementHash = txHashes.settlement || txHashes.creation || txHash;
+
+      const getUserFriendlyError = (reason: string) => {
+      const errorMap: { [key: string]: string } = {
+        "Missing CheckoutRequestID in STK response.": "Invalid phone number. Please check and try again.",
+        "Rule limited.": "This payment was rejected because a similar one was just sent. Please wait a moment and try again.",
+        // Add more mappings here as needed
+      };
+      return errorMap[reason] || reason;
+    };
+
+      setTransactionReceipt({
+        orderId: orderData.order_id,
+        status,
+        reason: status === "failed" ? getUserFriendlyError(orderData.failure_reason || "") : "",
+        amount: orderData.amount_fiat,
+        amountUSDC: orderData.amount_fiat / (exchangeRate ?? 1),
+        transactionHash: settlementHash,
+        address: orderData.wallet_address,
+        phoneNumber: orderData.phone_number,
+      });
+
+      if (status === "settled" || status === "failed") {
+        setIsTransactionModalOpen(false);
+        setIsReceiptModalOpen(true);
         return;
       }
-
-      if (response.status === 200 && response.data) {
-        const orderData = response.data;
-        const status = orderData.data?.status?.toLowerCase() as OrderStatus;
-        const failureReason = orderData.data?.failure_reason || "Unknown error";
-
-        // Translate technical error messages to user-friendly messages
-        const getUserFriendlyError = (reason: string) => {
-          const errorMap: { [key: string]: string } = {
-            "Missing CheckoutRequestID in STK response.":
-              "Invalid phone number. Please check and try again.",
-            // Add more error mappings here as needed
-          };
-          return errorMap[reason] || reason;
-        };
-
-        const txHashes = orderData.data?.transaction_hashes || {};
-        const txHash =
-          status === "failed"
-            ? txHashes.creation || ""
-            : txHashes.settlement || orderData.data?.transaction_hash || "";
-
-        // Log hash status explicitly
-        if ((status === "settled" || status === "failed") && !txHash) {
-          console.warn("Terminal status reached but no tx hash found:", {
-            status,
-            orderId,
-            orderData,
-          });
-          // Retry if we expect hash to arrive soon
-          setTimeout(() => pollOrderStatus(orderId), 3000);
-          return;
-        }
-
-        // Update receipt
-        setTransactionReceipt({
-          orderId: orderData.data?.order_id,
-          status: status || "pending",
-          reason:
-            status === "failed" ? getUserFriendlyError(failureReason) : "",
-          amount: orderData.data?.amount_fiat || parseFloat(amount),
-          amountUSDC:
-            (orderData.data?.amount_fiat || parseFloat(amount)) *
-            (exchangeRate ?? 1),
-          transactionHash: txHash,
-          address: orderData.data?.wallet_address || "",
-          phoneNumber, // preserve passed phone number
-        });
-
-        // Handle final UI state
-        switch (status) {
-          case "settled":
-            console.log("Order settled with txHash:", txHash);
-            setIsTransactionModalOpen(false);
-            setIsReceiptModalOpen(true);
-            break;
-
-          case "failed":
-            console.log("Order failed:", failureReason);
-            toast.error(getUserFriendlyError(failureReason));
-            setIsTransactionModalOpen(false);
-            setIsReceiptModalOpen(true);
-            break;
-
-          case "pending":
-          case "processing":
-            setIsTransactionModalOpen(true);
-            setIsReceiptModalOpen(false);
-            setTimeout(() => pollOrderStatus(orderId), 3000);
-            break;
-
-          default:
-            console.log("Unknown status:", status);
-            setIsTransactionModalOpen(true);
-            setIsReceiptModalOpen(false);
-            break;
-        }
-      } else {
-        console.error("Unexpected response format:", response);
-        toast.error("Unable to fetch order status");
-        setIsTransactionModalOpen(false);
-      }
-    } catch (error) {
-      console.error("Error during polling:", error);
-      toast.error("Error checking order status");
     }
-  };
 
-  useContractEvents(
-    async (order: any) => {
-      console.log("Order created event:", order);
-      pollOrderStatus(order.orderId);
-    },
-    () => {
-      setTransactionReceipt((prev: any) => ({ ...prev, status: "settled" }));
-      setIsLoading(false);
-      setIsTransactionModalOpen(false);
-      setIsReceiptModalOpen(true);
-    },
-    () => {
-      setIsTransactionModalOpen(false);
-      setIsLoading(false);
-    }
-  );
+    setTimeout(() => pollOrderStatusByTxHash(txHash), 3000);
+  } catch (err) {
+    console.error("Polling order by tx failed", err);
+    toast.error("Could not verify order status. Try again.");
+  }
+};
 
   useEffect(() => {
     fetchExchangeRate();
   }, []);
-  
+
 
   const handleConfirmPayment = async () => {
     if (!address) return toast.error("Please connect your wallet first.");
@@ -264,11 +203,25 @@ const DepositCryptoModal: React.FC = () => {
         mpesaAmount
       );
       
-      console.log("Message Hash:", messageHash);
-
       if (!contract) throw new Error("Contract is not initialized.");
 
-      await createOnRampOrder({
+      // Reseting transaction state before starting a new transaction
+      setTransactionReceipt({
+        orderId: "",
+        status: "pending",
+        reason: "",
+        amount: 0,
+        amountUSDC: 0,
+        transactionHash: "",
+        address: "",
+        phoneNumber: "",
+      });
+      setIsReceiptModalOpen(false);
+      setIsTransactionModalOpen(true);
+      continuePollingRef.current = true;
+
+
+      const res = await createOnRampOrder({
         userAddress: address,
         tokenAddress: usdcTokenAddress,
         messageHash: messageHash,
@@ -276,6 +229,16 @@ const DepositCryptoModal: React.FC = () => {
       setIsConfirmModalOpen(false);
       setIsTransactionModalOpen(true);
 
+      const txHash = res?.tx_hash;
+      console.log("🔁 Starting poll for order created with tx:", txHash);
+
+      // Store tx hash immediately (optional)
+      setTransactionReceipt((prev) => ({
+        ...prev,
+        transactionHash: txHash
+      }));
+
+      pollOrderStatusByTxHash(txHash);
 
     } catch (error: any) {
       console.error("Transaction failed:", error?.message || error);
@@ -542,6 +505,8 @@ const DepositCryptoModal: React.FC = () => {
         isOpen={isReceiptModalOpen}
         onClose={() => {
           setIsReceiptModalOpen(false);
+          continuePollingRef.current = false;
+          // setContinuePolling(false); 
           // onClose(); // Remove this line as onClose is not defined in props
         }}
         transactionReciept={transactionReceipt}

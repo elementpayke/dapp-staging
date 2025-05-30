@@ -227,3 +227,14 @@ export type Tx = {
   description: string;
   amount: string;
 };
+
+export type TransactionReceipt = {
+  orderId?: string;
+  status: string;
+  reason?: string;
+  amount: number;
+  amountUSDC: number;
+  transactionHash: string;
+  address: string;
+  phoneNumber: string;
+};
