@@ -52,7 +52,15 @@ export default function DepositCryptoReceipt({ isOpen, onClose, transactionRecie
             }}
         >
             <div
-                className="flex flex-col items-center justify-center p-8 bg-white rounded-lg shadow-lg border border-[#A3A5C2] lg:w-[638px] space-y-4"
+                className="flex flex-col items-center justify-center 
+                            p-4 sm:p-8 
+                            bg-white rounded-lg shadow-lg border border-[#A3A5C2]
+                            w-full max-w-xs sm:max-w-md md:max-w-lg lg:max-w-xl
+                            space-y-4
+                            mx-2
+                            overflow-y-auto
+                            max-h-[90vh]
+                            max-w-full"
                 onClick={(e) => e.stopPropagation()} // Prevent closing when clicking inside the modal
             >
                 {/* Tick Icon */}
