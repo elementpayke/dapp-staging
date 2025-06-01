@@ -196,6 +196,10 @@ const pollOrderStatusByTxHash = async (txHash: string) => {
     const mpesaAmount = parseFloat(amount) * (exchangeRate ?? 1);
 
     try {
+      if (!isValidKenyanNumber(phoneNumber)) {
+        toast.error("Invalid phone number. Must be in format 2547XXXXXXXX and 12 digits long.");
+        return;
+      }
       const messageHash = encryptMessage(
         phoneNumber,
         "KES",
@@ -254,17 +258,22 @@ const pollOrderStatusByTxHash = async (txHash: string) => {
     const digitsOnly = number.replace(/\D/g, "");
 
     // If number starts with 0, replace it with 254
-    if (digitsOnly.startsWith("0")) {
-      return "254" + digitsOnly.substring(1);
+    if (digitsOnly.startsWith("0") && digitsOnly.length >= 10) {
+      return "254" + digitsOnly.slice(1);
     }
 
-    // If number already starts with 254, return as is
-    if (digitsOnly.startsWith("254")) {
+    if (digitsOnly.startsWith("254") && digitsOnly.length === 12) {
       return digitsOnly;
     }
 
+
     // If number doesn't start with either, assume it's a complete number
     return digitsOnly;
+  };
+
+  const isValidKenyanNumber = (number: string): boolean => {
+    const regex = /^254\d{9}$/;
+    return regex.test(number);
   };
 
   const handlePhoneNumberChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -349,6 +358,11 @@ const pollOrderStatusByTxHash = async (txHash: string) => {
                   onChange={handlePhoneNumberChange}
                   placeholder="e.g. 0712345678"
                 />
+                {phoneNumber && !isValidKenyanNumber(phoneNumber) && (
+                  <p className="text-red-500 text-sm mt-1">
+                    Phone number must start with 2547 and be 12 digits long.
+                  </p>
+                )}
               </div>
             </div>
 
