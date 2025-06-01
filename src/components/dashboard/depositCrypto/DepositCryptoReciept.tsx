@@ -18,9 +18,7 @@ interface DepositCryptoReceiptProps {
 
 export default function DepositCryptoReceipt({ isOpen, onClose, transactionReciept }: DepositCryptoReceiptProps) {
     if (!isOpen) return null; // Ensure modal is only rendered when open
-
-    console.log("Receipt modal opened with data:", transactionReciept);
-    
+    console.log("Transaction Receipt:", transactionReciept);
     const [copied, setCopied] = useState(false);
 
     const handleCopy = () => {
@@ -47,14 +45,22 @@ export default function DepositCryptoReceipt({ isOpen, onClose, transactionRecie
 
     return (
         <div
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50"
+            className="fixed inset-0 z-70 flex items-center justify-center bg-black bg-opacity-50"
             onClick={(e) => {
                 // Only close if clicking the backdrop
                 if (e.target === e.currentTarget) onClose();
             }}
         >
             <div
-                className="flex flex-col items-center justify-center p-8 bg-white rounded-lg shadow-lg border border-[#A3A5C2] lg:w-[638px] space-y-4"
+                className="flex flex-col items-center justify-center 
+                            p-4 sm:p-8 
+                            bg-white rounded-lg shadow-lg border border-[#A3A5C2]
+                            w-full max-w-xs sm:max-w-md md:max-w-lg lg:max-w-xl
+                            space-y-4
+                            mx-2
+                            overflow-y-auto
+                            max-h-[90vh]
+                            max-w-full"
                 onClick={(e) => e.stopPropagation()} // Prevent closing when clicking inside the modal
             >
                 {/* Tick Icon */}
@@ -71,7 +77,9 @@ export default function DepositCryptoReceipt({ isOpen, onClose, transactionRecie
                 </div>
 
                 <div className="flex justify-center items-center py-[30px]">
-                    <p className="text-[#02542D] text-md font-bold">{`${transactionReciept?.amount || 0} USD ≈ KES ${transactionReciept?.amountUSDC || 0}`}</p>
+                    <p className="text-[#02542D] text-md font-bold">
+                    KES {transactionReciept.amount.toFixed(2)} <span className="text-[#333] font-medium">≈  USDC {(transactionReciept.amountUSDC).toFixed(2)}</span>
+                    </p>
                 </div>
 
                 <div className="flex w-full justify-between items-center">
@@ -114,7 +122,9 @@ export default function DepositCryptoReceipt({ isOpen, onClose, transactionRecie
                         </button>
                         <div className="flex items-center space-x-2">
                             <p className="text-md text-[#1E1E1E] font-semibold truncate max-w-[250px]">
-                                {transactionReciept?.transactionHash || "Processing..."}
+                                {transactionReciept?.transactionHash
+                                ? transactionReciept.transactionHash
+                                : "Settlement pending or not available"}
                             </p>
                             {transactionReciept?.transactionHash && (
                                 <a 

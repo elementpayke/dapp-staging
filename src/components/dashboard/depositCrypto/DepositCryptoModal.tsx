@@ -1,15 +1,13 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { ArrowUpRight } from "lucide-react";
 import { toast } from "react-toastify";
-import { parseUnits } from "ethers";
 import { getUSDCAddress } from "../../../services/tokens";
 import { useContract } from "@/services/useContract";
 import { encryptMessage } from "@/services/encryption";
 import { useAccount, useSwitchChain } from "wagmi";
-import { useContractEvents } from "@/context/useContractEvents";
 import TransactionInProgressModal from "./TranactionInProgress";
 import DepositCryptoReceipt from "./DepositCryptoReciept";
-import { fetchOrderStatus } from "@/app/api/aggregator";
+import { createOnRampOrder } from "@/app/api/aggregator";
 import {
   Dialog,
   DialogContent,
@@ -18,6 +16,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { useWallet } from "@/hooks/useWallet";
+import { TransactionReceipt } from "@/types/types";
 
 type OrderStatus =
   | "pending"
@@ -34,7 +33,7 @@ const DepositCryptoModal: React.FC = () => {
   const [selectedToken, setSelectedToken] = useState("USDC");
   const [amount, setAmount] = useState("0.00");
   const [depositFrom, setDepositFrom] = useState("MPESA");
-  const [phoneNumber, setPhoneNumber] = useState("0113159363");
+  const [phoneNumber, setPhoneNumber] = useState("");
   const [reason, setReason] = useState("Transport");
   const [isLoading, setIsLoading] = useState(false);
   const [exchangeRate, setExchangeRate] = useState<number | null>(null);
@@ -45,6 +44,9 @@ const DepositCryptoModal: React.FC = () => {
   const { chain } = useAccount();
   const { switchChain } = useSwitchChain();
   const TARGET_CHAIN_ID = 8453; // Base
+  const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
+  const continuePollingRef = useRef<boolean>(true);
+
 
   const MARKUP_PERCENTAGE = 0.5;
 
@@ -83,14 +85,15 @@ const DepositCryptoModal: React.FC = () => {
     };
   }, [amount, exchangeRate, usdcBalance]);
 
-  const [transactionReceipt, setTransactionReceipt] = useState<any | null>({
-    amount: amount || "0.00",
-    amountUSDC: Number(amount) * (exchangeRate ?? 1) || 0,
-    phoneNumber: phoneNumber || "",
-    address: addressOwner || "",
+  const [transactionReceipt, setTransactionReceipt] = useState<TransactionReceipt>({
+    orderId: "",
     status: "pending",
-    reason: "", // Add reason field
+    reason: "",
+    amount: 0,
+    amountUSDC: 0,
     transactionHash: "",
+    address: "",
+    phoneNumber: "",
   });
 
   const fetchExchangeRate = async () => {
@@ -111,132 +114,64 @@ const DepositCryptoModal: React.FC = () => {
     }
   };
 
-  const pollOrderStatus = async (orderId: string) => {
-    try {
-      console.log("Polling order status for orderId:", orderId);
-      const response = await fetchOrderStatus(orderId);
+const pollOrderStatusByTxHash = async (txHash: string) => {
+  if (!txHash) return;
 
-      // Handle 404 case - order not found yet
-      if (response.status === 404) {
-        console.log("Order not found yet, will retry in 3 seconds...");
-        setTimeout(() => pollOrderStatus(orderId), 3000);
+  const normalizedHash = txHash.startsWith("0x") ? txHash.slice(2) : txHash;
+
+  try {
+    const AGGREGATOR_URL = process.env.NEXT_PUBLIC_API_URL;
+    const response = await fetch(`${AGGREGATOR_URL}/orders/tx/${normalizedHash}`, {
+      headers: {
+        "x-api-key": process.env.NEXT_PUBLIC_AGGR_API_KEY!
+      }
+    });
+
+    if (response.status === 200) {
+      const orderData = (await response.json()).data;
+
+      const status = orderData.status?.toLowerCase();
+      const txHashes = orderData.transaction_hashes || {};
+      const settlementHash = txHashes.settlement || txHashes.creation || txHash;
+
+      const getUserFriendlyError = (reason: string) => {
+      const errorMap: { [key: string]: string } = {
+        "Missing CheckoutRequestID in STK response.": "Invalid phone number. Please check and try again.",
+        "Rule limited.": "This payment was rejected because a similar one was just sent. Please wait a moment and try again.",
+        // Add more mappings here as needed
+      };
+      return errorMap[reason] || reason;
+    };
+
+      setTransactionReceipt({
+        orderId: orderData.order_id,
+        status,
+        reason: status === "failed" ? getUserFriendlyError(orderData.failure_reason || "") : "",
+        amount: orderData.amount_fiat,
+        amountUSDC: orderData.amount_fiat / (exchangeRate ?? 1),
+        transactionHash: settlementHash,
+        address: orderData.wallet_address,
+        phoneNumber: orderData.phone_number,
+      });
+
+      if (status === "settled" || status === "failed") {
+        setIsTransactionModalOpen(false);
+        setIsReceiptModalOpen(true);
         return;
       }
-
-      if (response.status === 200 && response.data) {
-        const orderData = response.data;
-        const status = orderData.data?.status?.toLowerCase() as OrderStatus;
-        const failureReason = orderData.data?.failure_reason || "Unknown error";
-
-        // Translate technical error messages to user-friendly messages
-        const getUserFriendlyError = (reason: string) => {
-          const errorMap: { [key: string]: string } = {
-            "Missing CheckoutRequestID in STK response.":
-              "Invalid phone number. Please check and try again.",
-            // Add more error mappings here as needed
-          };
-          return errorMap[reason] || reason;
-        };
-
-        // Extract transaction hash correctly based on actual API response structure
-        const transactionHash =
-          orderData.data?.transaction_hashes?.settlement ||
-          orderData.data?.transaction_hash || // Check for alternative keys
-          "";
-
-        setTransactionReceipt(
-          (prev: {
-            orderId?: string;
-            status: string;
-            reason: string;
-            amount: number;
-            amountUSDC: number;
-            transactionHash: string;
-          }) => ({
-            ...prev,
-            orderId: orderData.data?.order_id,
-            status: status || "pending",
-            reason:
-              status === "failed"
-                ? getUserFriendlyError(failureReason)
-                : prev.reason,
-            amount: orderData.data?.amount_fiat || parseFloat(amount),
-            amountUSDC:
-              (orderData.data?.amount_fiat || parseFloat(amount)) *
-              (exchangeRate ?? 1),
-            transactionHash:
-              status === "failed"
-                ? orderData.data?.transaction_hashes?.creation || ""
-                : transactionHash,
-          })
-        );
-
-        // Handle different status cases
-        switch (status) {
-          case "settled":
-            if (!transactionHash) {
-              console.log(
-                "Status is settled but hash is empty, continuing to poll..."
-              );
-              setTimeout(() => pollOrderStatus(orderId), 3000);
-              return;
-            }
-            console.log("Order settled with hash:", transactionHash);
-            setIsTransactionModalOpen(false);
-            setIsReceiptModalOpen(true);
-            break;
-
-          case "failed":
-            console.log("Order failed with reason:", failureReason);
-            toast.error(getUserFriendlyError(failureReason));
-            setIsTransactionModalOpen(false);
-            setIsReceiptModalOpen(true);
-            break;
-
-          case "pending":
-          case "processing":
-            setIsTransactionModalOpen(true);
-            setIsReceiptModalOpen(false);
-            setTimeout(() => pollOrderStatus(orderId), 3000);
-            break;
-
-          default:
-            console.log("Unknown status:", status);
-            setIsTransactionModalOpen(true);
-            setIsReceiptModalOpen(false);
-            break;
-        }
-      } else {
-        console.error("Invalid response format:", response);
-        toast.error("Unable to process order status");
-        setIsTransactionModalOpen(false);
-      }
-    } catch (error) {
-      console.error("Error fetching order status:", error);
-      toast.error("Unable to fetch order status");
     }
-  };
 
-  useContractEvents(
-    async (order: any) => {
-      console.log("Order created event:", order);
-      pollOrderStatus(order.orderId);
-    },
-    () => {
-      setTransactionReceipt((prev: any) => ({ ...prev, status: "settled" }));
-      setIsLoading(false);
-      setIsTransactionModalOpen(false);
-      setIsReceiptModalOpen(true);
-    },
-    () => {
-      setIsTransactionModalOpen(false);
-      setIsLoading(false);
-    }
-  );
+    setTimeout(() => pollOrderStatusByTxHash(txHash), 3000);
+  } catch (err) {
+    console.error("Polling order by tx failed", err);
+    toast.error("Could not verify order status. Try again.");
+  }
+};
 
   useEffect(() => {
     fetchExchangeRate();
   }, []);
+
 
   const handleConfirmPayment = async () => {
     if (!address) return toast.error("Please connect your wallet first.");
@@ -261,26 +196,59 @@ const DepositCryptoModal: React.FC = () => {
     const mpesaAmount = parseFloat(amount) * (exchangeRate ?? 1);
 
     try {
+      if (!isValidKenyanNumber(phoneNumber)) {
+        toast.error("Invalid phone number. Must be in format 2547XXXXXXXX and 12 digits long.");
+        return;
+      }
       const messageHash = encryptMessage(
         phoneNumber,
-        "USD",
+        "KES",
         exchangeRate ?? 0,
         mpesaAmount
       );
+      
       if (!contract) throw new Error("Contract is not initialized.");
 
-      await contract.createOrder(
-        address,
-        parseUnits(amount, 6),
-        usdcTokenAddress,
-        orderType,
-        messageHash
-      );
+      // Reseting transaction state before starting a new transaction
+      setTransactionReceipt({
+        orderId: "",
+        status: "pending",
+        reason: "",
+        amount: 0,
+        amountUSDC: 0,
+        transactionHash: "",
+        address: "",
+        phoneNumber: "",
+      });
+      setIsReceiptModalOpen(false);
       setIsTransactionModalOpen(true);
-    } catch (error) {
-      console.error("Transaction failed:", error);
-      toast.error("Transaction failed.");
-    } finally {
+      continuePollingRef.current = true;
+
+
+      const res = await createOnRampOrder({
+        userAddress: address,
+        tokenAddress: usdcTokenAddress,
+        messageHash: messageHash,
+      });
+      setIsConfirmModalOpen(false);
+      setIsTransactionModalOpen(true);
+
+      const txHash = res?.tx_hash;
+      console.log("🔁 Starting poll for order created with tx:", txHash);
+
+      // Store tx hash immediately (optional)
+      setTransactionReceipt((prev) => ({
+        ...prev,
+        transactionHash: txHash
+      }));
+
+      pollOrderStatusByTxHash(txHash);
+
+    } catch (error: any) {
+      console.error("Transaction failed:", error?.message || error);
+      toast.error(error?.message || "Transaction failed.");
+    }
+    finally {
       setIsLoading(false);
     }
   };
@@ -290,17 +258,22 @@ const DepositCryptoModal: React.FC = () => {
     const digitsOnly = number.replace(/\D/g, "");
 
     // If number starts with 0, replace it with 254
-    if (digitsOnly.startsWith("0")) {
-      return "254" + digitsOnly.substring(1);
+    if (digitsOnly.startsWith("0") && digitsOnly.length >= 10) {
+      return "254" + digitsOnly.slice(1);
     }
 
-    // If number already starts with 254, return as is
-    if (digitsOnly.startsWith("254")) {
+    if (digitsOnly.startsWith("254") && digitsOnly.length === 12) {
       return digitsOnly;
     }
 
+
     // If number doesn't start with either, assume it's a complete number
     return digitsOnly;
+  };
+
+  const isValidKenyanNumber = (number: string): boolean => {
+    const regex = /^254\d{9}$/;
+    return regex.test(number);
   };
 
   const handlePhoneNumberChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -309,26 +282,13 @@ const DepositCryptoModal: React.FC = () => {
   };
 
   return (
-    <Dialog>
-      <DialogTrigger className="flex items-center gap-2 bg-gradient-to-r from-green-500 to-teal-400  text-white text-sm font-medium py-3 px-4 rounded-xl hover:bg-purple-700 transition-colors">
+    <>
+    <Dialog open={isConfirmModalOpen} onOpenChange={setIsConfirmModalOpen}>
+      <DialogTrigger className="flex items-center gap-2 bg-gradient-to-r from-green-500 to-teal-400  text-white text-sm font-medium py-3 px-4 rounded-xl hover:bg-purple-700 transition-colors" onClick={() => setIsConfirmModalOpen(true)}>
         <ArrowUpRight size={24} />
         Deposit Crypto
       </DialogTrigger>
 
-      <TransactionInProgressModal
-        isOpen={isTransactionModalOpen}
-        onClose={() => setIsTransactionModalOpen(false)}
-        phone_number={phoneNumber}
-      />
-
-      <DepositCryptoReceipt
-        isOpen={isReceiptModalOpen}
-        onClose={() => {
-          setIsReceiptModalOpen(false);
-          // onClose(); // Remove this line as onClose is not defined in props
-        }}
-        transactionReciept={transactionReceipt}
-      />
 
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
@@ -398,6 +358,11 @@ const DepositCryptoModal: React.FC = () => {
                   onChange={handlePhoneNumberChange}
                   placeholder="e.g. 0712345678"
                 />
+                {phoneNumber && !isValidKenyanNumber(phoneNumber) && (
+                  <p className="text-red-500 text-sm mt-1">
+                    Phone number must start with 2547 and be 12 digits long.
+                  </p>
+                )}
               </div>
             </div>
 
@@ -544,6 +509,23 @@ const DepositCryptoModal: React.FC = () => {
         </div>
       </DialogContent>
     </Dialog>
+    <TransactionInProgressModal
+        isOpen={isTransactionModalOpen}
+        onClose={() => setIsTransactionModalOpen(false)}
+        phone_number={phoneNumber}
+      />
+
+      <DepositCryptoReceipt
+        isOpen={isReceiptModalOpen}
+        onClose={() => {
+          setIsReceiptModalOpen(false);
+          continuePollingRef.current = false;
+          // setContinuePolling(false); 
+          // onClose(); // Remove this line as onClose is not defined in props
+        }}
+        transactionReciept={transactionReceipt}
+      />
+      </>
   );
 };
 
