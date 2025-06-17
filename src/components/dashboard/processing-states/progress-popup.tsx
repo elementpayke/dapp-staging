@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import React, { RefObject } from "react";
 import { useProcessingPopupStore } from "@/lib/processingPopupStore";
+import { formatToLocal } from "@/utils/helpers";
 
 interface Branding {
   companyName?: string;
@@ -547,7 +548,7 @@ const ProgressPopup: React.FC<ProgressPopupProps> = ({
                 >
                   <span className="text-gray-600">Date:</span>
                   <span className="font-medium">
-                    {transactionDetails.date || fallbackDate}
+                    {formatToLocal(transactionDetails.date || fallbackDate)}
                   </span>
                 </motion.div>
 
@@ -687,7 +688,7 @@ const ProgressPopup: React.FC<ProgressPopupProps> = ({
                     <div>
                       <div className="text-xs text-gray-500">Date</div>
                       <div className="text-sm">
-                        {transactionDetails.date || fallbackDate}
+                        {formatToLocal(transactionDetails.date || fallbackDate)}
                       </div>
                     </div>
                     <div>
@@ -717,7 +718,8 @@ const ProgressPopup: React.FC<ProgressPopupProps> = ({
                       {transactionDetails.paymentMethod || "Mobile Money"}
                     </div>
                     <div className="text-xs text-gray-500">
-                      Processed on {transactionDetails.date || fallbackDate}
+                      Processed on{" "}
+                      {formatToLocal(transactionDetails.date || fallbackDate)}
                     </div>
                   </div>
                 </div>

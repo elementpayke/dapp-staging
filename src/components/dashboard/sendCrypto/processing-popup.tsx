@@ -331,6 +331,8 @@ const ProcessingPopup: React.FC<ProcessingPopupProps> = ({
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[2147483647] backdrop-blur-sm"
+          style={{ pointerEvents: "auto" }}
+          onClick={onClose}
         >
           {/* Custom confetti effect */}
           {showConfetti && <CustomConfetti />}
@@ -341,7 +343,8 @@ const ProcessingPopup: React.FC<ProcessingPopupProps> = ({
             exit={{ scale: 0.9, y: 20, opacity: 0 }}
             transition={{ type: "spring", damping: 25, stiffness: 300 }}
             className="bg-white rounded-2xl p-6 max-w-[95vw] w-full md:max-w-lg min-w-[340px] shadow-xl relative overflow-hidden"
-            style={{ maxHeight: "90vh", overflowY: "auto" }}
+            style={{ maxHeight: "90vh", overflowY: "auto", pointerEvents: "auto" }}
+            onClick={e => e.stopPropagation()}
           >
             {/* Animated background patterns */}
             <AnimatedStatusBackground

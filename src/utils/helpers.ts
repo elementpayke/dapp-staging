@@ -17,3 +17,23 @@ export const formatErrorMessage = (error: string) => {
   }
   return error;
 };
+
+export const formatToLocal = (dateString?: string) => {
+  if (!dateString) return "N/A";
+  try {
+    const date = new Date(dateString);
+    // Use browser's local time zone
+    return date.toLocaleString(undefined, {
+      year: "numeric",
+      month: "short",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+      hour12: false,
+      timeZoneName: "short"
+    });
+  } catch {
+    return dateString;
+  }
+};

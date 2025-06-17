@@ -1,3 +1,5 @@
+import { formatToLocal } from "@/utils/helpers";
+
 interface Branding {
   primaryColor?: string;
   companyName: string;
@@ -32,7 +34,7 @@ const generateReceiptHTML = (
   transactionDetails: TransactionDetails
 ): string => {
   const brandColor = branding?.primaryColor || "#4f46e5";
-  const fallbackDate = new Date().toLocaleDateString();
+  const fallbackDate = new Date().toISOString();
 
   return `
           <!DOCTYPE html>
@@ -301,9 +303,9 @@ const generateReceiptHTML = (
                 <div class="receipt-grid">
                   <div class="receipt-info-item">
                     <div class="receipt-info-label">Date</div>
-                    <div class="receipt-info-value">${
+                    <div class="receipt-info-value">${formatToLocal(
                       transactionDetails.date || fallbackDate
-                    }</div>
+                    )}</div>
                   </div>
                   <div class="receipt-info-item">
                     <div class="receipt-info-label">Recipient</div>
@@ -343,9 +345,9 @@ const generateReceiptHTML = (
                   <div class="payment-name">${
                     transactionDetails.paymentMethod || "Mobile Money"
                   }</div>
-                  <div class="payment-date">Processed on ${
+                  <div class="payment-date">Processed on ${formatToLocal(
                     transactionDetails.date || fallbackDate
-                  }</div>
+                  )}</div>
                 </div>
               </div>
               
