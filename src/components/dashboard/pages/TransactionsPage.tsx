@@ -1,240 +1,206 @@
-import React, { useState } from "react";
-import { Search, Filter, Copy } from "lucide-react";
+import { FC, useEffect, useState } from "react";
+import { Copy } from "lucide-react";
+import axios from "axios";
+import { Order, Tx } from "@/types/types";
+import { useWallet } from "@/hooks/useWallet";
 
-interface Transaction {
-  id: string;
-  name: string;
-  time: string;
-  date: string;
-  hash: string;
-  status: "Success" | "Pending" | "Declined";
-  description: string;
-  amount: string;
-}
+const TransactionList: FC<{ walletAddress: string | null }> = ({ walletAddress }) => {
+  if (!walletAddress) {
+    return <p className="px-4">No wallet address provided</p>;
+  }
+  const [transactions, setTransactions] = useState<Tx[]>([]);
+  const [loading, setLoading] = useState(true);
 
-const TransactionsPage = () => {
-  const [currentPage, setCurrentPage] = useState(1);
-  const [searchQuery, setSearchQuery] = useState("");
+  useEffect(() => {
+    const fetchTransactions = async () => {
+      try {
+        const res = await axios.get<Order[]>(`${process.env.NEXT_PUBLIC_API_URL}/orders/wallet`, {
+          params: { wallet_address: walletAddress },
+          headers: {
+            "x-api-key": process.env.NEXT_PUBLIC_AGGR_API_KEY, // or however you inject it
+          },
+        });
 
-  // Sample transaction data grouped by date
-  const transactions: { [key: string]: Transaction[] } = {
-    "Today, 6 Jan 2025": [
-      {
-        id: "1",
-        name: "Peter Kamau Mbuthia",
-        time: "Today, 3:43 PM",
-        date: "Today, 6 Jan 2025",
-        hash: "FTA41uY-ax6EZ3..89ScF2qF1Bfxa",
-        status: "Pending",
-        description: "0703417782",
-        amount: "KE 200.00",
-      },
-      // ... other transactions for today
-    ],
-    "Friday, 3 Jan 2025": [
-      {
-        id: "4",
-        name: "Peter Kamau Mbuthia",
-        time: "Today, 3:43 PM",
-        date: "Friday, 3 Jan 2025",
-        hash: "FTA41uY-ax6EZ3..89ScF2qF1Bfxa",
-        status: "Success",
-        description: "Pochi La Biashara",
-        amount: "KE 200.00",
-      },
-      // ... other transactions for Friday
-    ],
-    "Thursday 2 Jan 2025": Array(7)
-      .fill(null)
-      .map((_, index) => ({
-        id: `${index + 7}`,
-        name: "Peter Kamau Mbuthia",
-        time: "Today, 3:43 PM",
-        date: "Thursday 2 Jan 2025",
-        hash: "FTA41uY-ax6EZ3..89ScF2qF1Bfxa",
-        status: "Success",
-        description: "Pochi La Biashara",
-        amount: "KE 200.00",
-      })),
-  };
+        const mapped = res.data.map((order) => ({
+          id: order.order_id,
+          name: order.order_type === 0 ? "OnRamp" : "OffRamp",
+          time: new Date(order.created_at).toLocaleString(),
+          hash:
+            order.settlement_transaction_hash
+              ? `${order.settlement_transaction_hash.slice(0, 10)}...${order.settlement_transaction_hash.slice(-6)}`
+              : order.refund_transaction_hash
+                ? `${order.refund_transaction_hash.slice(0, 10)}...${order.refund_transaction_hash.slice(-6)}`
+                : "—",
 
-  const getStatusStyle = (status: Transaction["status"]) => {
-    switch (status) {
-      case "Success":
-        return "bg-green-100 text-green-800";
-      case "Pending":
-        return "bg-orange-100 text-orange-800";
-      case "Declined":
-        return "bg-red-100 text-red-800";
-      default:
-        return "bg-gray-100 text-gray-800";
-    }
-  };
+          fullHash:
+            order.settlement_transaction_hash || order.refund_transaction_hash || "—",
+          status: order.status === "refunded" ? "FAILED" : order.status.toUpperCase(),
+          description: order.phone_number
+            ? `To ${order.phone_number}`
+            : `Token: ${order.token}`,
+          amount: `${order.amount_fiat.toFixed(2)} KES`,
+        }));
+        // log refund hash
+        console.log("Refund transaction hash:", mapped);
+        setTransactions(mapped);
+      } catch (err) {
+        console.error("Failed to fetch transactions", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (walletAddress) fetchTransactions();
+  }, [walletAddress]);
+
+  if (loading) return <p className="px-4">Loading...</p>;
+  if (!loading && transactions.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center py-10 px-4 text-center text-gray-500">
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="120"
+          height="120"
+          viewBox="0 0 24 24"
+          fill="none"
+          className="mb-4"
+        >
+          <path
+            d="M3 8C3 6.34315 4.34315 5 6 5H18C19.6569 5 21 6.34315 21 8V16C21 17.6569 19.6569 19 18 19H6C4.34315 19 3 17.6569 3 16V8Z"
+            stroke="#d1d5db"
+            strokeWidth="1.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+          <path
+            d="M3 10H21"
+            stroke="#d1d5db"
+            strokeWidth="1.5"
+            strokeLinecap="round"
+          />
+          <path
+            d="M7 15H9"
+            stroke="#9ca3af"
+            strokeWidth="1.5"
+            strokeLinecap="round"
+          />
+        </svg>
+        <h3 className="text-lg font-semibold text-gray-700">
+          No transactions yet
+        </h3>
+        <p className="mt-2 text-sm text-gray-500">
+          You&apos;re connected with{" "}
+          <span className="text-black font-medium">
+            {walletAddress.slice(0, 6)}...{walletAddress.slice(-4)}
+          </span>
+          <br />
+          Once you send or receive crypto via Element Pay, your activity will appear here.
+        </p>
+        <button className="mt-4 px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition">
+          Send your first payment
+        </button>
+      </div>
+    );
+  }
+  
 
   return (
-    <div className="p-4 sm:p-8 space-y-6">
-      {/* Header with Search and Filter */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <h1 className="text-2xl font-semibold text-black">Transactions</h1>
-        <div className="flex flex-col sm:flex-row gap-4 w-full sm:w-auto">
-          {/* Search Input */}
-          <div className="relative flex-grow sm:flex-grow-0">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-            <input
-              type="text"
-              placeholder="Search transactions"
-              className="pl-10 pr-4 py-2 border rounded-lg w-full sm:w-64 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-            />
-          </div>
-          {/* Filter Button */}
-          <button className="flex items-center justify-center gap-2 px-4 py-2 border rounded-lg hover:bg-gray-50 w-full sm:w-auto">
-            <Filter className="w-4 h-4" />
-            Filter
-          </button>
-        </div>
+    <div className="space-y-4">
+      <div className="flex justify-between items-center px-4 sm:px-0">
+        <h2 className="text-lg font-medium text-black">Recent transactions</h2>
+        <button className="text-blue-600 hover:text-blue-700">View All</button>
       </div>
 
-      {/* Transactions List */}
-      <div className="bg-white rounded-lg shadow overflow-hidden">
-        {/* Desktop View */}
-        <div className="hidden sm:block">
-          {Object.entries(transactions).map(([date, dayTransactions]) => (
-            <div key={date}>
-              {/* Date Header */}
-              <div className="px-6 py-4 border-b bg-gray-50">
-                <h2 className="font-medium text-gray-900">{date}</h2>
-              </div>
-
-              {/* Transactions */}
-              {dayTransactions.map((transaction) => (
-                <div
-                  key={transaction.id}
-                  className="flex items-center px-6 py-4 border-b last:border-b-0 hover:bg-gray-50"
-                >
-                  {/* Name and Time */}
-                  <div className="w-64">
-                    <div className="font-medium text-gray-900">
-                      {transaction.name}
-                    </div>
-                    <div className="text-sm text-gray-500">
-                      {transaction.time}
-                    </div>
-                  </div>
-
-                  {/* Hash with Copy Icon */}
-                  <div className="flex items-center flex-1 text-gray-500">
-                    <button className="flex items-center gap-2 hover:text-gray-700">
-                      <Copy className="w-4 h-4" />
-                      <span className="text-sm">{transaction.hash}</span>
-                    </button>
-                  </div>
-
-                  {/* Status Badge */}
-                  <div className="w-24 flex justify-center">
-                    <span
-                      className={`px-2.5 py-0.5 text-xs font-medium rounded-full ${getStatusStyle(
-                        transaction.status
-                      )}`}
-                    >
-                      {transaction.status}
-                    </span>
-                  </div>
-
-                  {/* Description */}
-                  <div className="w-48 text-sm text-gray-600">
-                    {transaction.description}
-                  </div>
-
-                  {/* Amount */}
-                  <div className="w-32 text-right">
-                    <span className="text-sm font-medium text-gray-900">
-                      {transaction.amount}
-                    </span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          ))}
-        </div>
-
-        {/* Mobile View */}
-        <div className="sm:hidden">
-          {Object.entries(transactions).map(([date, dayTransactions]) => (
-            <div key={date}>
-              <div className="px-4 py-3 border-b bg-gray-50">
-                <h2 className="font-medium text-gray-900">{date}</h2>
-              </div>
-              {dayTransactions.map((transaction) => (
-                <div
-                  key={transaction.id}
-                  className="p-4 border-b last:border-b-0 space-y-3"
-                >
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <div className="font-medium text-gray-900">
-                        {transaction.name}
-                      </div>
-                      <div className="text-sm text-gray-500">
-                        {transaction.time}
-                      </div>
-                    </div>
-                    <span
-                      className={`px-2.5 py-0.5 text-xs font-medium rounded-full ${getStatusStyle(
-                        transaction.status
-                      )}`}
-                    >
-                      {transaction.status}
-                    </span>
-                  </div>
-
-                  <div className="flex items-center text-gray-500 bg-gray-50 p-2 rounded-lg">
-                    <Copy className="w-4 h-4 mr-2" />
-                    <span className="text-sm truncate">{transaction.hash}</span>
-                  </div>
-
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm text-gray-600">
-                      {transaction.description}
-                    </span>
-                    <span className="text-sm font-medium text-gray-900">
-                      {transaction.amount}
-                    </span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Pagination */}
-      <div className="flex justify-center gap-2 mt-6">
-        {[1, 2, 3, 4, 5].map((page) => (
-          <button
-            key={page}
-            className={`w-8 h-8 flex items-center justify-center rounded-lg ${
-              currentPage === page
-                ? "bg-blue-600 text-white"
-                : "text-gray-600 hover:bg-gray-100"
-            }`}
-            onClick={() => setCurrentPage(page)}
+      {/* Desktop View */}
+      <div className="hidden sm:block bg-white rounded-lg overflow-hidden">
+        {transactions.map((tx) => (
+          <div
+            key={tx.id}
+            className="flex items-center px-6 py-4 border-b last:border-b-0 hover:bg-gray-50"
           >
-            {page}
-          </button>
+            <div className="w-64">
+              <div className="text-sm font-medium text-gray-900">{tx.name}</div>
+              <div className="text-xs text-gray-500">{tx.time}</div>
+            </div>
+
+            <div className="flex items-center flex-1 text-gray-500">
+              <button
+              className="flex items-center gap-1 group"
+              onClick={() => navigator.clipboard.writeText(tx.fullHash)}
+              title="Click to copy transaction hash"
+            >
+              <Copy className="w-4 h-4 text-gray-400 group-hover:text-blue-500" />
+              <span className="text-sm group-hover:text-blue-600">{tx.hash}</span>
+            </button>
+            </div>
+
+            <div className="w-24 flex justify-center">
+              <span className={`px-2.5 py-0.5 text-xs font-medium rounded-full ${
+                tx.status === 'FAILED' 
+                  ? 'bg-red-100 text-red-800'
+                  : tx.status === 'PENDING'
+                  ? 'bg-yellow-100 text-yellow-800'
+                  : 'bg-green-100 text-green-800'
+              }`}>
+                {tx.status}
+              </span>
+            </div>
+
+            <div className="w-48 text-sm text-gray-600">{tx.description}</div>
+
+            <div className="w-32 text-right">
+              <span className="text-sm font-medium text-green-600">
+                {tx.amount}
+              </span>
+            </div>
+          </div>
         ))}
-        <button className="w-8 h-8 flex items-center justify-center rounded-lg text-gray-600">
-          ...
-        </button>
-        <button
-          className="w-8 h-8 flex items-center justify-center rounded-lg text-gray-600 hover:bg-gray-100"
-          onClick={() => setCurrentPage(10)}
-        >
-          10
-        </button>
+      </div>
+
+      {/* Mobile View */}
+      <div className="sm:hidden space-y-2 px-4">
+        {transactions.map((tx) => (
+          <div
+            key={tx.id}
+            className="bg-white rounded-lg p-4 space-y-3 hover:bg-gray-50"
+          >
+            <div className="flex justify-between items-start">
+              <div>
+                <div className="text-sm font-medium text-gray-900">{tx.name}</div>
+                <div className="text-xs text-gray-500">{tx.time}</div>
+              </div>
+              <span className="text-sm font-medium text-green-600">{tx.amount}</span>
+            </div>
+
+            <div className="flex items-center gap-2 text-gray-500 bg-gray-50 p-2 rounded-lg">
+              <Copy className="w-4 h-4 text-gray-400 shrink-0" />
+              <span className="text-sm truncate">{tx.hash}</span>
+            </div>
+
+            <div className="flex items-center justify-between">
+              <span className={`px-2.5 py-0.5 text-xs font-medium rounded-full ${
+                tx.status === 'FAILED' 
+                  ? 'bg-red-100 text-red-800'
+                  : tx.status === 'PENDING'
+                  ? 'bg-yellow-100 text-yellow-800'
+                  : 'bg-green-100 text-green-800'
+              }`}>
+                {tx.status}
+              </span>
+              <span className="text-sm text-gray-600">{tx.description}</span>
+            </div>
+          </div>
+        ))}
       </div>
     </div>
+  );
+};
+
+const TransactionsPage = () => {
+  const { address } = useWallet();
+
+  return (
+    <TransactionList walletAddress={address} />
   );
 };
 
