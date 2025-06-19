@@ -53,14 +53,8 @@ export const useProcessingPopupStore = create<ProcessingPopupState>((set) => ({
   fallbackDate: "",
   showTechnicalDetails: false,
 
-  setStatus: (status) => {
-    console.log("Store - Setting status to:", status);
-    set({ status });
-  },
-  setStatusMessage: (statusMessage) => {
-    console.log("Store - Setting status message to:", statusMessage);
-    set({ statusMessage });
-  },
+  setStatus: (status) => set({ status }),
+  setStatusMessage: (statusMessage) => set({ statusMessage }),
   setProgress: (progress) => set({ progress }),
   setShowConfetti: (showConfetti) => set({ showConfetti }),
   setCopied: (copied) => set({ copied }),
