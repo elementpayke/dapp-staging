@@ -77,12 +77,40 @@ const ProcessingPopup: React.FC<ProcessingPopupProps> = ({
     }
   }, [fallbackDate, setFallbackDate]);
 
+  // Check initial transaction status to avoid unnecessary processing state
+  useEffect(() => {
+    if (isVisible && initialTransactionDetails) {
+      // If we already have transaction details indicating completion
+      if (initialTransactionDetails.transactionHash && 
+          (initialTransactionDetails.status === 1 || 
+           initialTransactionDetails.paymentStatus?.toLowerCase() === "settled")) {
+        console.log("Transaction already completed based on initial details");
+        setStatus("success");
+        setStatusMessage("Payment successful!");
+        setProgress(100);
+        setShowConfetti(true);
+        return;
+      }
+      
+      if (initialTransactionDetails.status === 2 || 
+          initialTransactionDetails.paymentStatus?.toLowerCase() === "failed") {
+        console.log("Transaction already failed based on initial details");
+        setStatus("failed");
+        setStatusMessage(initialTransactionDetails.failureReason || "Payment failed");
+        setProgress(100);
+        return;
+      }
+    }
+  }, [isVisible, initialTransactionDetails, setStatus, setStatusMessage, setProgress, setShowConfetti]);
+
   // Poll for order status
   useEffect(() => {
     if (!isVisible || !orderId) return;
 
     let pollInterval: NodeJS.Timeout | null = null;
     let isPolling = true;
+    let pollAttempts = 0;
+    const maxPollAttempts = 60; // 5 minutes at 5-second intervals
 
     const cleanupOrderId = () => {
       if (orderId) {
@@ -91,8 +119,21 @@ const ProcessingPopup: React.FC<ProcessingPopupProps> = ({
       }
     };
 
-    const fetchStatus = async () => {
-      if (!isPolling) return false;
+    const fetchStatus = async (): Promise<boolean> => {
+      if (!isPolling) return true;
+
+      pollAttempts++;
+      console.log(`Poll attempt ${pollAttempts}/${maxPollAttempts} for order ${orderId}`);
+
+      // Check if we've exceeded max attempts
+      if (pollAttempts >= maxPollAttempts) {
+        console.log("Max poll attempts reached, stopping polling");
+        setStatus("failed");
+        setStatusMessage("Transaction is taking longer than expected. Please check your transaction status manually.");
+        setProgress(100);
+        cleanupOrderId();
+        return true;
+      }
 
       try {
         const response = await fetchOrderStatus(orderId);
@@ -150,9 +191,28 @@ const ProcessingPopup: React.FC<ProcessingPopupProps> = ({
         });
 
         const orderStatusValue = orderStatus.data.status.toLowerCase();
+        console.log("Processing order status:", orderStatusValue, "Full response:", orderStatus.data);
+
+        // Also check the numeric status for additional validation
+        const numericStatus = Number(
+          orderStatus.data.status === "settled"
+            ? 1
+            : orderStatus.data.status === "failed"
+            ? 2
+            : orderStatus.data.status === "refunded"
+            ? 3
+            : 0
+        );
+
+        console.log("Numeric status:", numericStatus);
 
         switch (orderStatusValue) {
           case "settled":
+          case "completed":
+          case "complete":
+          case "success":
+          case "successful":
+            console.log("Setting status to SUCCESS");
             setStatus("success");
             setStatusMessage("Payment successful!");
             setProgress(100);
@@ -162,6 +222,11 @@ const ProcessingPopup: React.FC<ProcessingPopupProps> = ({
             return true;
 
           case "failed":
+          case "failed":
+          case "rejected":
+          case "cancelled":
+          case "canceled":
+            console.log("Setting status to FAILED");
             setStatus("failed");
             setStatusMessage(
               formatErrorMessage(
@@ -185,6 +250,22 @@ const ProcessingPopup: React.FC<ProcessingPopupProps> = ({
 
           case "pending":
           case "processing":
+          case "created":
+          case "submitted":
+          case "confirming":
+          case "confirmation":
+            // If we have a settlement transaction hash, the transaction might actually be complete
+            if (orderStatus.data.transaction_hashes?.settlement) {
+              console.log("Found settlement hash but status is still processing, marking as success");
+              setStatus("success");
+              setStatusMessage("Payment successful!");
+              setProgress(100);
+              setShowConfetti(true);
+              cleanupOrderId();
+              if (pollInterval) clearInterval(pollInterval);
+              return true;
+            }
+            console.log("Status is still processing, continuing to poll");
             setStatus("processing");
             setStatusMessage("Processing your payment...");
             setProgress(90);
@@ -192,6 +273,8 @@ const ProcessingPopup: React.FC<ProcessingPopupProps> = ({
 
           default:
             console.warn(`Unknown order status: ${orderStatusValue}`);
+            // If we don't recognize the status, we should log it and continue processing
+            // but also add a longer delay before next check
             setStatus("processing");
             setStatusMessage("Processing your payment...");
             setProgress(90);
@@ -199,15 +282,33 @@ const ProcessingPopup: React.FC<ProcessingPopupProps> = ({
         }
       } catch (error) {
         console.error("Error polling order status:", error);
+        
+        // If we've made too many attempts, stop polling
+        if (pollAttempts >= maxPollAttempts) {
+          setStatus("failed");
+          setStatusMessage("Unable to check transaction status. Please contact support.");
+          setProgress(100);
+          cleanupOrderId();
+          return true;
+        }
+        
+        // On error, continue polling unless it's a critical error
+        if (error instanceof Error && error.message.includes('404')) {
+          // Order not found yet, continue polling
+          return false;
+        }
+        // For other errors, continue polling but with reduced frequency
         return false;
       }
     };
 
-    fetchStatus().then((shouldContinuePolling) => {
-      if (!shouldContinuePolling && isPolling) {
+    // Initial fetch
+    fetchStatus().then((shouldStop) => {
+      if (!shouldStop && isPolling) {
+        // If transaction is not complete, start polling
         pollInterval = setInterval(async () => {
-          const shouldStop = await fetchStatus();
-          if (shouldStop && pollInterval) {
+          const shouldStopPolling = await fetchStatus();
+          if (shouldStopPolling && pollInterval) {
             clearInterval(pollInterval);
           }
         }, 5000);

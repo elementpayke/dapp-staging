@@ -57,6 +57,11 @@ const ProgressPopup: React.FC<ProgressPopupProps> = ({
     setShowTechnicalDetails,
   } = useProcessingPopupStore();
 
+  // Debug logging for status changes
+  React.useEffect(() => {
+    console.log("ProgressPopup - Status changed to:", status, "Message:", statusMessage);
+  }, [status, statusMessage]);
+
   const containerVariants = {
     hidden: { opacity: 0 },
     visible: {
