@@ -18,8 +18,6 @@ type PageComponent =
   | "overview"
   | "transactions"
   | "wallets"
-  | "cards"
-  | "settings"
   | "support-whatsapp"
   | "support-email";
 
@@ -137,25 +135,11 @@ const Sidebar: React.FC<SidebarProps> = ({ onPageChange, currentPage }) => {
                 )}
               </SidebarLink>
               <SidebarLink
-                icon={<Wallet size={20} />}
-                label="My wallets"
-                active={currentPage === "wallets"}
-                onClick={() => handlePageChange("wallets")}
-                pageName="wallets"
-              />
-              <SidebarLink
                 icon={<Clock size={20} />}
                 label="Transactions"
                 active={currentPage === "transactions"}
                 onClick={() => handlePageChange("transactions")}
                 pageName="transactions"
-              />
-              <SidebarLink
-                icon={<CreditCard size={20} />}
-                label="Virtual Cards"
-                active={currentPage === "cards"}
-                onClick={() => handlePageChange("cards")}
-                pageName="cards"
               />
             </div>
 
@@ -191,37 +175,7 @@ const Sidebar: React.FC<SidebarProps> = ({ onPageChange, currentPage }) => {
               </SidebarLink>
 
               {/* Settings Section */}
-              <SidebarLink
-                icon={<Settings size={20} />}
-                label="Settings"
-                active={currentPage === "settings"}
-                onClick={() => handlePageChange("settings")}
-                pageName="settings"
-              />
             </div>
-
-            {/* Share link and earn */}
-            {/* <div className="mt-4 bg-gray-200 rounded-xl p-4 text-center shadow-md">
-              <img
-                src="https://cdn-icons-png.freepik.com/256/13515/13515379.png"
-                alt="Referral Icon"
-                className="w-12 h-12 mx-auto"
-              />
-              <h1 className="text-gray-800 font-semibold mt-2 text-sm">Refer to Hakiba</h1>
-              <p className="text-gray-600 text-xs mt-1">
-                Share our link and earn for every successful referral
-              </p>
-              <div className="flex justify-around items-center mt-3 text-sm">
-                <button className="text-gray-600">Dismiss</button>
-                <button
-                  className="text-blue-600"
-                  onClick={() => handlePageChange("referral")}
-                >
-                  Referral
-                </button>
-              </div>
-            </div> */}
-
           </nav>
         </div>
       </aside>

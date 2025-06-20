@@ -1,5 +1,5 @@
-// src/components/dashboard/pages/EmailPage.tsx
 import React, { useState } from "react";
+import emailjs from "emailjs-com";
 
 const EmailPage = () => {
   const [formData, setFormData] = useState({
@@ -9,11 +9,30 @@ const EmailPage = () => {
     message: "",
   });
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Handle form submission
-    console.log("Form submitted:", formData);
+
+    try {
+      const result = await emailjs.send(
+        "your_service_id",
+        "your_template_id",
+        {
+          from_name: `${formData.firstName} ${formData.lastName}`,
+          from_email: formData.email,
+          message: formData.message,
+          to_email: "elementpay.info@gmail.com",
+        },
+        "your_user_id"
+      );
+
+      console.log("Email sent successfully:", result.text);
+      alert("Message sent!");
+    } catch (error) {
+      console.error("Failed to send email:", error);
+      alert("Failed to send message.");
+    }
   };
+
 
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
