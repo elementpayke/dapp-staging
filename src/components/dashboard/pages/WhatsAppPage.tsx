@@ -1,6 +1,8 @@
 // src/components/dashboard/pages/WhatsAppPage.tsx
 import React from "react";
 import { QrCode, Phone, ArrowRight, MessageCircle } from "lucide-react";
+import QRCode from "react-qr-code";
+
 
 const WhatsAppPage = () => {
   return (
@@ -32,11 +34,22 @@ const WhatsAppPage = () => {
 
         <div className="bg-gray-50 p-8 rounded-lg flex flex-col items-center justify-center">
           <div className="w-48 h-48 bg-white p-4 rounded-lg shadow-sm flex items-center justify-center">
-            <QrCode className="w-32 h-32 text-gray-800" />
+            <QRCode
+              value="https://chat.whatsapp.com/JnE9EYgw9uM0XlhaGaBto3"
+              size={128}
+            />
           </div>
           <p className="mt-4 text-sm text-gray-500">
             Scan this code with your phone&apos;s camera
           </p>
+          <a
+            href="https://chat.whatsapp.com/JnE9EYgw9uM0XlhaGaBto3"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="mt-2 text-sm text-green-600 hover:underline"
+          >
+            Or tap here to join the WhatsApp group
+          </a>
         </div>
       </div>
 
@@ -60,7 +73,7 @@ const WhatsAppPage = () => {
           <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer">
             <div>
               <h3 className="font-medium text-gray-900">General Support</h3>
-              <p className="text-sm text-gray-500">+254 703 417 782</p>
+              <p className="text-sm text-gray-500">+254 110 919 165</p>
             </div>
             <ArrowRight className="w-5 h-5 text-gray-400" />
           </div>
@@ -68,7 +81,7 @@ const WhatsAppPage = () => {
           <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer">
             <div>
               <h3 className="font-medium text-gray-900">Technical Support</h3>
-              <p className="text-sm text-gray-500">+254 703 417 783</p>
+              <p className="text-sm text-gray-500">+254 712 531 490</p>
             </div>
             <ArrowRight className="w-5 h-5 text-gray-400" />
           </div>
@@ -76,7 +89,7 @@ const WhatsAppPage = () => {
           <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer">
             <div>
               <h3 className="font-medium text-gray-900">Business Inquiries</h3>
-              <p className="text-sm text-gray-500">+254 703 417 784</p>
+              <p className="text-sm text-gray-500">+254 720 752 314</p>
             </div>
             <ArrowRight className="w-5 h-5 text-gray-400" />
           </div>
