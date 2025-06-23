@@ -15,8 +15,6 @@ type PageComponent =
   | "overview"
   | "transactions"
   | "wallets"
-  | "cards"
-  | "settings"
   | "support-whatsapp"
   | "support-email";
 
@@ -40,9 +38,6 @@ export default function Dashboard() {
       case "support-email":
         return <EmailPage />;
       case "wallets":
-      case "cards":
-      case "settings":
-        return <div className="p-8">Page under construction</div>;
       default:
         return <OverviewPage />;
     }
@@ -99,9 +94,8 @@ export default function Dashboard() {
                       {ensName || truncateAddress(address)}
                     </span>
                     <ChevronDown
-                      className={`w-4 h-4 text-gray-600 transition-transform ${
-                        showDropdown ? "rotate-180" : ""
-                      }`}
+                      className={`w-4 h-4 text-gray-600 transition-transform ${showDropdown ? "rotate-180" : ""
+                        }`}
                     />
                   </button>
 
