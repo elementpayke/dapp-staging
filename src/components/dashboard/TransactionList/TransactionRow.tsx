@@ -11,7 +11,7 @@ interface TransactionRowProps {
 
 const Arrow = ({ direction }: { direction: 'in' | 'out' }) => (
   <span
-    className={`inline-flex items-center justify-center rounded-full p-1 mr-3 transition-transform duration-200 group-hover:scale-110 ${
+    className={`inline-flex items-center justify-center rounded-full p-1 mr-2 transition-transform duration-200 group-hover:scale-110 ${
       direction === 'in' ? 'bg-green-50' : 'bg-red-50'
     }`}
     aria-label={direction === 'in' ? 'Received' : 'Sent'}
@@ -55,8 +55,24 @@ const TransactionRow: FC<TransactionRowProps> = ({ tx }: { tx: ExtendedTx }) => 
   const amountColor = isReceive ? 'text-green-600' : 'text-red-600';
   const amountSign = isReceive ? '+' : '-';
 
-  // USD equivalent (mocked for now, replace with real if available)
-  const usdEquivalent = tx.usdAmount ? tx.usdAmount : (tx.amount_fiat_usd ? tx.amount_fiat_usd : null);
+  // Status badge color
+  const statusBadge = (
+    <span className={`px-2 py-1 text-xs rounded-full ml-2 ${
+      tx.status === 'FAILED' || tx.status === 'DECLINED'
+        ? 'bg-red-50 text-red-600 border border-red-200'
+        : 'bg-green-50 text-green-600 border border-green-200'
+    }`}>
+      {tx.status === 'SETTLED' ? 'Success' : tx.status === 'FAILED' ? 'Declined' : displayValue(tx.status)}
+    </span>
+  );
+
+  // Mobile display name logic
+  let mobileDisplayName = 'OnRamp';
+  if (!isReceive && tx.receiverDisplay) {
+    mobileDisplayName = tx.receiverDisplay;
+  } else if (isReceive && tx.receiverDisplay && tx.receiverDisplay !== 'OnRamp') {
+    mobileDisplayName = tx.receiverDisplay;
+  }
 
   return (
     <>
@@ -82,9 +98,6 @@ const TransactionRow: FC<TransactionRowProps> = ({ tx }: { tx: ExtendedTx }) => 
         {/* Amount */}
         <div className="col-span-2 text-left">
           <div className={`font-semibold ${amountColor}`}>{amountSign}KE {round2(tx.amount ? tx.amount.replace(' KES', '') : undefined)}</div>
-          {usdEquivalent && (
-            <div className="text-xs text-gray-400">${round2(usdEquivalent)} USD</div>
-          )}
         </div>
         {/* Crypto Value */}
         <div className="col-span-2 text-left">
@@ -109,11 +122,7 @@ const TransactionRow: FC<TransactionRowProps> = ({ tx }: { tx: ExtendedTx }) => 
         </div>
         {/* Status */}
         <div className="col-span-1 text-center">
-          <span className={`px-2 py-1 text-xs rounded-full ${
-            tx.status === 'FAILED' || tx.status === 'DECLINED'
-              ? 'bg-red-50 text-red-600 border border-red-200'
-              : 'bg-green-50 text-green-600 border border-green-200'
-          }`}>{tx.status === 'SETTLED' ? 'Success' : tx.status === 'FAILED' ? 'Declined' : displayValue(tx.status)}</span>
+          {statusBadge}
         </div>
         {/* Actions */}
         <div className="col-span-2 flex items-center gap-2 justify-end">
@@ -134,52 +143,25 @@ const TransactionRow: FC<TransactionRowProps> = ({ tx }: { tx: ExtendedTx }) => 
           </button>
         </div>
       </div>
-      {/* Mobile row */}
+      {/* Mobile row (user-friendly, minimal) */}
       <div className="sm:hidden flex flex-col gap-2 px-3 py-4 border-b border-gray-100 bg-white rounded-lg shadow-sm mb-2">
+        {/* Row 1: Arrow, Display Name, Status */}
         <div className="flex items-center justify-between">
           <div className="flex items-center min-w-0">
             <Arrow direction={isReceive ? 'in' : 'out'} />
-            <div className="min-w-0">
-              <div className="font-medium text-gray-900 truncate">
-                {isReceive ? 'Received from OnRamp' : `Sent to ${displayValue(tx.receiverDisplay)}`}
-              </div>
-              <div className="text-xs text-gray-500 mt-0.5">
-                {displayValue(tx.time)} • {displayValue(tx.date)}
-              </div>
-            </div>
-          </div>
-          <div className={`font-semibold text-right ml-2 ${amountColor}`}>{amountSign}KE {round2(tx.amount ? tx.amount.replace(' KES', '') : undefined)}</div>
-        </div>
-        <div className="flex flex-wrap gap-2 items-center justify-between mt-1">
-          <span className={`px-2 py-1 text-xs rounded-full ${tx.paymentMethod === 'M-Pesa' ? 'bg-green-50 text-green-600 border border-green-200' : 'bg-blue-50 text-blue-600 border border-blue-200'}`}>{displayValue(tx.paymentMethod)}</span>
-          <span className={`px-2 py-1 text-xs rounded-full ${
-            tx.status === 'FAILED' || tx.status === 'DECLINED'
-              ? 'bg-red-50 text-red-600 border border-red-200'
-              : 'bg-green-50 text-green-600 border border-green-200'
-          }`}>{tx.status === 'SETTLED' ? 'Success' : tx.status === 'FAILED' ? 'Declined' : displayValue(tx.status)}</span>
-          <div className="flex items-center gap-2 ml-auto">
-            <button
-              className="p-1 rounded hover:bg-gray-100"
-              onClick={() => copyToClipboard(tx.fullHash, 'Transaction hash')}
-              title="Copy transaction hash"
-              aria-label="Copy transaction hash"
-            >
-              <Copy className="w-5 h-5 text-gray-400 hover:text-blue-500" />
-            </button>
-            <button
-              className="p-1 rounded hover:bg-gray-100"
-              title="More actions"
-              aria-label="More actions"
-            >
-              <MoreHorizontal className="w-5 h-5 text-gray-400" />
-            </button>
+            <span className="font-medium text-gray-900 truncate">
+              {displayValue(mobileDisplayName)}
+            </span>
+            {statusBadge}
           </div>
         </div>
-        <div className="flex flex-wrap gap-2 items-center text-xs text-gray-500 mt-1">
-          <span className="font-mono">{round2(tx.cryptoAmount?.split(' ')[0])} {displayValue(tx.tokenSymbol)}</span>
-          {usdEquivalent && <span className="ml-2">${round2(usdEquivalent)} USD</span>}
+        {/* Row 2: Amount */}
+        <div className={`font-bold text-lg ${amountColor} mt-1`}>{amountSign}KE {round2(tx.amount ? tx.amount.replace(' KES', '') : undefined)}</div>
+        {/* Row 3: Date & Time, M-Pesa Ref */}
+        <div className="flex items-center gap-2 text-xs text-gray-500">
+          <span>{displayValue(tx.time)} • {displayValue(tx.date)}</span>
           {tx.paymentMethod === 'M-Pesa' && tx.receiptNumber && (
-            <span className="flex items-center gap-1 ml-2">
+            <span className="flex items-center gap-1 bg-green-50 text-green-700 px-2 py-0.5 rounded-full ml-2">
               Ref: {tx.receiptNumber}
               <button
                 className="p-0.5 rounded hover:bg-gray-100"
@@ -192,11 +174,24 @@ const TransactionRow: FC<TransactionRowProps> = ({ tx }: { tx: ExtendedTx }) => 
             </span>
           )}
         </div>
-        {tx.hash && (
-          <div className="text-xs text-blue-500 font-mono truncate cursor-pointer hover:underline mt-1" title="View on Explorer">
-            {displayValue(tx.hash)}
-          </div>
-        )}
+        {/* Row 4: Actions */}
+        <div className="flex items-center gap-2 justify-end mt-1">
+          <button
+            className="p-1 rounded hover:bg-gray-100"
+            onClick={() => copyToClipboard(tx.fullHash, 'Transaction hash')}
+            title="Copy transaction hash"
+            aria-label="Copy transaction hash"
+          >
+            <Copy className="w-5 h-5 text-gray-400 hover:text-blue-500" />
+          </button>
+          <button
+            className="p-1 rounded hover:bg-gray-100"
+            title="More actions"
+            aria-label="More actions"
+          >
+            <MoreHorizontal className="w-5 h-5 text-gray-400" />
+          </button>
+        </div>
       </div>
     </>
   );
