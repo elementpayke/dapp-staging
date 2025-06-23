@@ -1,3 +1,5 @@
+"use client";
+
 import React, { FC } from "react";
 import { Copy, MoreHorizontal } from "lucide-react";
 
@@ -8,6 +10,11 @@ interface ExtendedTx {
 interface TransactionRowProps {
   tx: ExtendedTx;
 }
+
+// Helper function to format token display
+const formatTokenDisplay = (token: string) => {
+  return token?.replace(/_/g, ' ');
+};
 
 const Arrow = ({ direction }: { direction: 'in' | 'out' }) => (
   <span
@@ -101,7 +108,7 @@ const TransactionRow: FC<TransactionRowProps> = ({ tx }: { tx: ExtendedTx }) => 
         </div>
         {/* Crypto Value */}
         <div className="col-span-2 text-left">
-          <div className="font-mono">{round2(tx.cryptoAmount?.split(' ')[0])} {displayValue(tx.tokenSymbol)}</div>
+          <div className="font-mono">{round2(tx.cryptoAmount?.split(' ')[0])} {formatTokenDisplay(displayValue(tx.tokenSymbol))}</div>
         </div>
         {/* Method & M-Pesa Ref */}
         <div className="col-span-2 text-center flex flex-col items-center gap-1">
