@@ -1,11 +1,30 @@
 import { FC, useEffect, useState } from "react";
-import { Copy, Search, Filter } from "lucide-react";
+import { Copy, Search, Filter, ChevronDown, X } from "lucide-react";
 import axios from "axios";
 import { Order, Tx } from "@/types/types";
+import TransactionFilters from "./TransactionList/TransactionFilters";
+import TransactionTable from "./TransactionList/TransactionTable";
 
 interface ExtendedTx extends Tx {
   receiverDisplay: string;
   date: string;
+  // New enhanced fields
+  tokenSymbol: string;
+  cryptoAmount: string;
+  exchangeRate: number;
+  paymentMethod: string;
+  direction: 'Send' | 'Receive';
+  processingTime?: string;
+  receiptNumber?: string;
+  invoiceId?: string;
+  orderType: string;
+}
+
+interface FilterState {
+  status: string[];
+  direction: string[];
+  paymentMethod: string[];
+  token: string[];
 }
 
 const TransactionList: FC<{ walletAddress: string | null }> = ({ walletAddress }) => {
@@ -18,6 +37,13 @@ const TransactionList: FC<{ walletAddress: string | null }> = ({ walletAddress }
   const [searchTerm, setSearchTerm] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [rowsPerPage, setRowsPerPage] = useState(20);
+  const [showFilters, setShowFilters] = useState(false);
+  const [filters, setFilters] = useState<FilterState>({
+    status: [],
+    direction: [],
+    paymentMethod: [],
+    token: []
+  });
 
   // Group transactions by date
   const groupTransactionsByDate = (transactions: ExtendedTx[]) => {
@@ -66,6 +92,12 @@ const TransactionList: FC<{ walletAddress: string | null }> = ({ walletAddress }
 
         const mapped: ExtendedTx[] = res.data.map((order) => {
           const createdDate = new Date(order.created_at);
+          const settlementDate = order.updated_at ? new Date(order.updated_at) : null;
+          
+          // Calculate processing time
+          const processingTime = settlementDate 
+            ? `${Math.round((settlementDate.getTime() - createdDate.getTime()) / 1000 / 60)}m`
+            : undefined;
           
           return {
             id: order.order_id,
@@ -80,14 +112,27 @@ const TransactionList: FC<{ walletAddress: string | null }> = ({ walletAddress }
               ? `${order.settlement_transaction_hash.slice(0, 10)}...${order.settlement_transaction_hash.slice(-6)}`
               : order.refund_transaction_hash
                 ? `${order.refund_transaction_hash.slice(0, 10)}...${order.refund_transaction_hash.slice(-6)}`
-                : "—",
-            fullHash: order.settlement_transaction_hash || order.refund_transaction_hash || "—",
+                : order.creation_transaction_hash
+                  ? `${order.creation_transaction_hash.slice(0, 10)}...${order.creation_transaction_hash.slice(-6)}`
+                  : "—",
+            fullHash: order.settlement_transaction_hash || order.refund_transaction_hash || order.creation_transaction_hash || "—",
             status: order.status === "refunded" ? "FAILED" : order.status.toUpperCase(),
             description: order.phone_number
               ? `To ${order.phone_number}`
               : `Token: ${order.token}`,
             amount: `${order.amount_fiat.toFixed(2)} KES`,
             receiverDisplay: order.receiver_name || order.phone_number || "Unknown",
+            
+            // New enhanced fields
+            tokenSymbol: order.token,
+            cryptoAmount: `${order.amount_crypto.toFixed(6)} ${order.token}`,
+            exchangeRate: order.exchange_rate,
+            paymentMethod: order.mpesa_receipt_number ? "M-Pesa" : "Crypto",
+            direction: order.order_type === 0 ? "Receive" : "Send",
+            processingTime,
+            receiptNumber: order.mpesa_receipt_number,
+            invoiceId: order.invoice_id,
+            orderType: order.order_type === 0 ? "OnRamp" : "OffRamp",
           };
         });
 
@@ -106,12 +151,43 @@ const TransactionList: FC<{ walletAddress: string | null }> = ({ walletAddress }
     if (walletAddress) fetchTransactions();
   }, [walletAddress]);
 
-  // Filter transactions based on search term
-  const filteredTransactions = transactions.filter(tx => 
-    tx.receiverDisplay.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    tx.hash.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    tx.status.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  // Get unique filter options
+  const getFilterOptions = () => {
+    const statuses = [...new Set(transactions.map(tx => tx.status))];
+    const directions = [...new Set(transactions.map(tx => tx.direction))];
+    const paymentMethods = [...new Set(transactions.map(tx => tx.paymentMethod))];
+    const tokens = [...new Set(transactions.map(tx => tx.tokenSymbol))];
+    
+    return { statuses, directions, paymentMethods, tokens };
+  };
+
+  const { statuses, directions, paymentMethods, tokens } = getFilterOptions();
+
+  // Filter transactions based on search term and filters
+  const filteredTransactions = transactions.filter(tx => {
+    // Search filter
+    const matchesSearch = searchTerm === "" || 
+      tx.receiverDisplay.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      tx.hash.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      tx.status.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      tx.receiptNumber?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      tx.tokenSymbol.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      tx.invoiceId?.toLowerCase().includes(searchTerm.toLowerCase());
+
+    // Status filter
+    const matchesStatus = filters.status.length === 0 || filters.status.includes(tx.status);
+    
+    // Direction filter
+    const matchesDirection = filters.direction.length === 0 || filters.direction.includes(tx.direction);
+    
+    // Payment method filter
+    const matchesPaymentMethod = filters.paymentMethod.length === 0 || filters.paymentMethod.includes(tx.paymentMethod);
+    
+    // Token filter
+    const matchesToken = filters.token.length === 0 || filters.token.includes(tx.tokenSymbol);
+
+    return matchesSearch && matchesStatus && matchesDirection && matchesPaymentMethod && matchesToken;
+  });
 
   // Calculate paginated transactions
   const paginatedTransactions = filteredTransactions.slice(
@@ -123,9 +199,32 @@ const TransactionList: FC<{ walletAddress: string | null }> = ({ walletAddress }
   // Reset to first page if search/filter changes
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchTerm, rowsPerPage, walletAddress]);
+  }, [searchTerm, rowsPerPage, walletAddress, filters]);
 
   const groupedTransactions = groupTransactionsByDate(paginatedTransactions);
+
+  // Handle filter changes
+  const handleFilterChange = (filterType: keyof FilterState, value: string) => {
+    setFilters(prev => ({
+      ...prev,
+      [filterType]: prev[filterType].includes(value)
+        ? prev[filterType].filter(item => item !== value)
+        : [...prev[filterType], value]
+    }));
+  };
+
+  // Clear all filters
+  const clearFilters = () => {
+    setFilters({
+      status: [],
+      direction: [],
+      paymentMethod: [],
+      token: []
+    });
+  };
+
+  // Get active filter count
+  const activeFilterCount = Object.values(filters).reduce((count, filterArray) => count + filterArray.length, 0);
 
   if (loading) return <p className="px-4">Loading...</p>;
   
@@ -179,253 +278,34 @@ const TransactionList: FC<{ walletAddress: string | null }> = ({ walletAddress }
   }
 
   return (
-    <div className="max-w-4xl p-2 sm:p-4 bg-gray-50 min-h-screen">
-      {/* Header */}
-      <div className="mb-4">
-        <h1 className="text-2xl font-semibold text-gray-900 mb-4">Transactions</h1>
-        
-        {/* Desktop Search and Filter */}
-        <div className="hidden sm:flex items-center gap-3">
-          {/* Search Bar */}
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-            <input
-              type="text"
-              placeholder="Search transactions"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none w-64"
-            />
-          </div>
-          {/* Filter Button */}
-          <button className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition">
-            <Filter className="w-4 h-4" />
-            Filter
-          </button>
-          {/* Rows per page selector */}
-          <div className="ml-auto flex items-center gap-2">
-            <label htmlFor="rowsPerPage" className="text-sm text-gray-600">Show</label>
-            <select
-              id="rowsPerPage"
-              value={rowsPerPage}
-              onChange={e => setRowsPerPage(Number(e.target.value))}
-              className="border border-gray-300 rounded-lg px-2 py-1 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-            >
-              <option value={5}>5</option>
-              <option value={20}>20</option>
-              <option value={50}>50</option>
-              <option value={100}>100</option>
-            </select>
-            <span className="text-sm text-gray-600">per page</span>
-          </div>
-        </div>
-
-        {/* Mobile Search and Filter */}
-        <div className="sm:hidden space-y-3">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-            <input
-              type="text"
-              placeholder="Search transactions"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-            />
-          </div>
-          <button className="w-full flex items-center justify-center gap-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition">
-            <Filter className="w-4 h-4" />
-            Filter
-          </button>
-          {/* Rows per page selector for mobile */}
-          <div className="flex items-center gap-2">
-            <label htmlFor="rowsPerPageMobile" className="text-sm text-gray-600">Show</label>
-            <select
-              id="rowsPerPageMobile"
-              value={rowsPerPage}
-              onChange={e => setRowsPerPage(Number(e.target.value))}
-              className="border border-gray-300 rounded-lg px-2 py-1 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-            >
-              <option value={5}>5</option>
-              <option value={20}>20</option>
-              <option value={50}>50</option>
-              <option value={100}>100</option>
-            </select>
-            <span className="text-sm text-gray-600">per page</span>
-          </div>
-        </div>
-      </div>
-
-      {/* Transaction Groups */}
-      <div className="space-y-4 sm:space-y-6">
-        {Object.entries(groupedTransactions).map(([date, dayTransactions]) => (
-          <div key={date} className="bg-white rounded-lg shadow-sm border border-gray-200">
-            {/* Date Header */}
-            <div className="px-4 sm:px-6 py-3 border-b border-gray-100 bg-gray-50 rounded-t-lg">
-              <h3 className="text-sm font-medium text-gray-700">{date}</h3>
-            </div>
-            
-            {/* Desktop Transactions */}
-            <div className="hidden sm:block divide-y divide-gray-100">
-              {dayTransactions.map((tx) => (
-                <div
-                  key={tx.id}
-                  className="flex items-center px-6 py-4 hover:bg-gray-50 transition-colors"
-                >
-                  {/* Left: Name and Time */}
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-3">
-                      <div>
-                        <div className="text-sm font-medium text-gray-900">
-                          {tx.receiverDisplay}
-                        </div>
-                        <div className="text-xs text-gray-500">
-                          Today, {tx.time}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Center: Transaction Hash with Copy */}
-                  <div className="flex-1 flex justify-center">
-                    <button
-                      className="flex items-center gap-2 group"
-                      onClick={() => navigator.clipboard.writeText(tx.fullHash)}
-                      title="Click to copy transaction hash"
-                    >
-                      <Copy className="w-4 h-4 text-gray-400 group-hover:text-blue-500 transition-colors" />
-                      <span className="text-sm text-gray-600 group-hover:text-blue-600 transition-colors">
-                        {tx.hash}
-                      </span>
-                    </button>
-                  </div>
-
-                  {/* Status Badge */}
-                  <div className="flex-shrink-0 mx-6">
-                    <span className={`px-3 py-1 text-xs font-medium rounded-full ${
-                      tx.status === 'FAILED' || tx.status === 'DECLINED'
-                        ? 'bg-red-100 text-red-700'
-                        : tx.status === 'PENDING'
-                        ? 'bg-yellow-100 text-yellow-700'
-                        : 'bg-green-100 text-green-700'
-                    }`}>
-                      {tx.status === 'SETTLED' ? 'Success' : tx.status === 'FAILED' ? 'Declined' : tx.status}
-                    </span>
-                  </div>
-
-                  {/* Right: Description/Service */}
-                  <div className="flex-1 text-center">
-                    <span className="text-sm text-gray-600">
-                      {tx.name === 'OffRamp' ? tx.receiverDisplay : 'Paybill'}
-                    </span>
-                  </div>
-
-                  {/* Far Right: Amount */}
-                  <div className="flex-shrink-0 text-right min-w-0">
-                    <span className={`text-sm font-medium ${
-                      tx.status === 'FAILED' || tx.status === 'DECLINED' 
-                        ? 'text-red-600' 
-                        : 'text-black'
-                    }`}>
-                      KE {tx.amount.replace(' KES', '')}
-                    </span>
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            {/* Mobile Transactions */}
-            <div className="sm:hidden divide-y divide-gray-100">
-              {dayTransactions.map((tx) => (
-                <div
-                  key={tx.id}
-                  className="px-4 py-4 hover:bg-gray-50 transition-colors"
-                >
-                  {/* Top Row: Name/Service and Amount */}
-                  <div className="flex justify-between items-start mb-3">
-                    <div className="flex-1 min-w-0">
-                      <div className="text-sm font-medium text-gray-900 truncate">
-                        {tx.receiverDisplay}
-                      </div>
-                      <div className="text-xs text-gray-500 mt-1">
-                        Today, {tx.time}
-                      </div>
-                    </div>
-                    <div className="flex-shrink-0 ml-4">
-                      <span className={`text-sm font-medium ${
-                        tx.status === 'FAILED' || tx.status === 'DECLINED' 
-                          ? 'text-red-600' 
-                          : 'text-black'
-                      }`}>
-                        KE {tx.amount.replace(' KES', '')}
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Second Row: Transaction Hash */}
-                  <div className="mb-3">
-                    <button
-                      className="flex items-center gap-2 w-full p-2 bg-gray-50 rounded-lg group"
-                      onClick={() => navigator.clipboard.writeText(tx.fullHash)}
-                      title="Click to copy transaction hash"
-                    >
-                      <Copy className="w-4 h-4 text-gray-400 group-hover:text-blue-500 transition-colors flex-shrink-0" />
-                      <span className="text-xs text-gray-600 group-hover:text-blue-600 transition-colors truncate">
-                        {tx.hash}
-                      </span>
-                    </button>
-                  </div>
-
-                  {/* Bottom Row: Status and Service */}
-                  <div className="flex justify-between items-center">
-                    <span className={`px-2.5 py-1 text-xs font-medium rounded-full ${
-                      tx.status === 'FAILED' || tx.status === 'DECLINED'
-                        ? 'bg-red-100 text-red-700'
-                        : tx.status === 'PENDING'
-                        ? 'bg-yellow-100 text-yellow-700'
-                        : 'bg-green-100 text-green-700'
-                    }`}>
-                      {tx.status === 'SETTLED' ? 'Success' : tx.status === 'FAILED' ? 'Declined' : tx.status}
-                    </span>
-                    <span className="text-xs text-gray-600">
-                      {tx.name === 'OffRamp' ? tx.receiverDisplay : 'Paybill'}
-                    </span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        ))}
-      </div>
-
-      {/* Pagination */}
-      {filteredTransactions.length > 0 && totalPages > 1 && (
-        <div className="flex flex-wrap justify-center items-center gap-1 sm:gap-2 mt-6 sm:mt-8 px-4">
-          <button
-            className="w-8 h-8 flex items-center justify-center rounded hover:bg-gray-100 text-gray-600 text-sm"
-            onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-            disabled={currentPage === 1}
-          >
-            &lt;
-          </button>
-          {Array.from({ length: totalPages }, (_, i) => i + 1).slice(0, 10).map(page => (
-            <button
-              key={page}
-              className={`w-8 h-8 flex items-center justify-center rounded ${currentPage === page ? "bg-blue-600 text-white" : "hover:bg-gray-100 text-gray-600"} text-sm font-medium`}
-              onClick={() => setCurrentPage(page)}
-            >
-              {page}
-            </button>
-          ))}
-          {totalPages > 10 && <span className="text-gray-400 text-sm">...</span>}
-          <button
-            className="w-8 h-8 flex items-center justify-center rounded hover:bg-gray-100 text-gray-600 text-sm"
-            onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-            disabled={currentPage === totalPages}
-          >
-            &gt;
-          </button>
-        </div>
-      )}
+    <div className="max-w-7xl p-2 sm:p-4 bg-gray-50 min-h-screen">
+      <TransactionFilters
+        searchTerm={searchTerm}
+        setSearchTerm={setSearchTerm}
+        showFilters={showFilters}
+        setShowFilters={setShowFilters}
+        filters={filters}
+        setFilters={setFilters}
+        statuses={statuses}
+        directions={directions}
+        paymentMethods={paymentMethods}
+        tokens={tokens}
+        rowsPerPage={rowsPerPage}
+        setRowsPerPage={setRowsPerPage}
+        activeFilterCount={activeFilterCount}
+        handleFilterChange={handleFilterChange}
+        clearFilters={clearFilters}
+      />
+      <TransactionTable
+        groupedTransactions={groupedTransactions}
+        filters={filters}
+        clearFilters={clearFilters}
+        filteredTransactions={filteredTransactions}
+        currentPage={currentPage}
+        setCurrentPage={setCurrentPage}
+        totalPages={totalPages}
+        rowsPerPage={rowsPerPage}
+      />
     </div>
   );
 };
