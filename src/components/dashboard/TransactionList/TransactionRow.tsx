@@ -17,10 +17,10 @@ const Arrow = ({ direction }: { direction: 'in' | 'out' }) => (
     aria-label={direction === 'in' ? 'Received' : 'Sent'}
   >
     {direction === 'in' ? (
-      // Down-left arrow (↙)
+      // Down-left arrow (↙), mirroring the up-right arrow
       <svg className="w-5 h-5 text-green-500" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" d="M7 17L17 7" />
-        <path strokeLinecap="round" strokeLinejoin="round" d="M7 7h10v10" />
+        <path strokeLinecap="round" strokeLinejoin="round" d="M7 7v10h10" />
       </svg>
     ) : (
       // Up-right arrow (↗)
