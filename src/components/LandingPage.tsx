@@ -1,3 +1,4 @@
+"use client";
 import FAQSection from "./landingPage/FAQSection";
 import FeaturesSection from "./landingPage/Features";
 import Footer from "./landingPage/Footer";

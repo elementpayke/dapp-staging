@@ -11,7 +11,6 @@ import {
 } from "lucide-react";
 import React, { RefObject } from "react";
 import { useProcessingPopupStore } from "@/lib/processingPopupStore";
-import { formatToLocal } from "@/utils/helpers";
 import StatusIcon from "./progress-popup/StatusIcon";
 import StatusMessage from "./progress-popup/StatusMessage";
 import ProgressBar from "./progress-popup/ProgressBar";

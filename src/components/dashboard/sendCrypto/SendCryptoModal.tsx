@@ -478,17 +478,6 @@ const SendCryptoModal: React.FC = () => {
                 </div>
               </div>
 
-              {/* Credit Opt-in Warning */}
-              {amount &&
-                Math.abs(
-                  Number.parseFloat(amount) - transactionSummary.totalKES
-                ) <= 0.9 && (
-                  <div className="bg-red-50 border border-red-200 rounded-lg p-3 mb-4">
-                    <p className="text-red-600 text-xs">
-                      Opt-In to Hakiba to gain credit
-                    </p>
-                  </div>
-                )}
 
               {/* Desktop Confirm Button */}
               <div className="hidden lg:block mb-4">
