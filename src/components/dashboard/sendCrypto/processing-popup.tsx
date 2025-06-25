@@ -1,7 +1,7 @@
 "use client";
 
 import type React from "react";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { toPng } from "html-to-image";
 import { fetchOrderStatus } from "@/app/api/aggregator";
@@ -43,6 +43,8 @@ const ProcessingPopup: React.FC<ProcessingPopupProps> = ({
 }) => {
   const {
     status,
+    progress,
+    statusMessage,
     showConfetti,
     emailInput,
     transactionDetails,
@@ -62,6 +64,7 @@ const ProcessingPopup: React.FC<ProcessingPopupProps> = ({
   } = useProcessingPopupStore();
 
   const receiptRef = useRef<HTMLDivElement>(null);
+  const [_, forceRerender] = useState(0); // Dummy state for forced rerender
 
   // Reset state when popup becomes invisible
   useEffect(() => {
@@ -77,24 +80,46 @@ const ProcessingPopup: React.FC<ProcessingPopupProps> = ({
     }
   }, [fallbackDate, setFallbackDate]);
 
+  // Show processing state immediately when popup opens
+  useEffect(() => {
+    if (isVisible) {
+      // If transaction is already successful, show success immediately
+      if (
+        initialTransactionDetails &&
+        initialTransactionDetails.transactionHash &&
+        (initialTransactionDetails.status === 1 ||
+          initialTransactionDetails.paymentStatus?.toLowerCase() === "settled")
+      ) {
+        setStatus("success");
+        setStatusMessage("Payment successful!");
+        setProgress(100);
+        setShowConfetti(true);
+      } else {
+        setStatus("processing");
+        setStatusMessage("Processing your payment...");
+        setProgress(90);
+      }
+    }
+  }, [isVisible, initialTransactionDetails, setStatus, setStatusMessage, setProgress, setShowConfetti]);
+
   // Check initial transaction status to avoid unnecessary processing state
   useEffect(() => {
     if (isVisible && initialTransactionDetails) {
-      // If we already have transaction details indicating completion
-      if (initialTransactionDetails.transactionHash && 
-          (initialTransactionDetails.status === 1 || 
-           initialTransactionDetails.paymentStatus?.toLowerCase() === "settled")) {
-        console.log("Transaction already completed based on initial details");
+      if (
+        initialTransactionDetails.transactionHash &&
+        (initialTransactionDetails.status === 1 ||
+          initialTransactionDetails.paymentStatus?.toLowerCase() === "settled")
+      ) {
         setStatus("success");
         setStatusMessage("Payment successful!");
         setProgress(100);
         setShowConfetti(true);
         return;
       }
-      
-      if (initialTransactionDetails.status === 2 || 
-          initialTransactionDetails.paymentStatus?.toLowerCase() === "failed") {
-        console.log("Transaction already failed based on initial details");
+      if (
+        initialTransactionDetails.status === 2 ||
+        initialTransactionDetails.paymentStatus?.toLowerCase() === "failed"
+      ) {
         setStatus("failed");
         setStatusMessage(initialTransactionDetails.failureReason || "Payment failed");
         setProgress(100);
@@ -102,6 +127,11 @@ const ProcessingPopup: React.FC<ProcessingPopupProps> = ({
       }
     }
   }, [isVisible, initialTransactionDetails, setStatus, setStatusMessage, setProgress, setShowConfetti]);
+
+  // DEBUG: Log status and transactionDetails on every render
+  useEffect(() => {
+    console.log("[ProcessingPopup RENDER] status:", status, "transactionDetails:", transactionDetails);
+  });
 
   // Poll for order status
   useEffect(() => {
@@ -139,6 +169,7 @@ const ProcessingPopup: React.FC<ProcessingPopupProps> = ({
         const response = await fetchOrderStatus(orderId);
         const orderStatus = response.data;
 
+        // Always use the latest transactionDetails from the store
         setTransactionDetails({
           ...transactionDetails,
           amount: orderStatus.data.amount_fiat?.toString() || "N/A",
@@ -190,7 +221,21 @@ const ProcessingPopup: React.FC<ProcessingPopupProps> = ({
           notes: orderStatus.data.failure_reason || "N/A",
         });
 
-        const orderStatusValue = orderStatus.data.status.toLowerCase();
+        // DEBUG: Log the full API response and all relevant fields
+        console.log("[DEBUG] Full orderStatus.data:", JSON.stringify(orderStatus.data, null, 2));
+        console.log("[DEBUG] Checking completion indicators:", {
+          settlementHash: orderStatus.data.transaction_hashes?.settlement,
+          receiptNumber: orderStatus.data.receipt_number,
+          mpesaReceiptNumber: orderStatus.data.mpesa_receipt_number,
+          status: orderStatus.data.status,
+          statusType: typeof orderStatus.data.status,
+        });
+
+        // Defensive: handle both string and number status values
+        let orderStatusValue = orderStatus.data.status;
+        if (typeof orderStatusValue === "string") {
+          orderStatusValue = orderStatusValue.toLowerCase();
+        }
         console.log("Processing order status:", orderStatusValue, "Full response:", orderStatus.data);
 
         // Also check the numeric status for additional validation
@@ -206,12 +251,34 @@ const ProcessingPopup: React.FC<ProcessingPopupProps> = ({
 
         console.log("Numeric status:", numericStatus);
 
+        // Enhanced completion detection: move to success if any completion indicator is present
+        if (
+          orderStatus.data.transaction_hashes?.settlement ||
+          orderStatus.data.receipt_number ||
+          orderStatus.data.mpesa_receipt_number ||
+          orderStatus.data.status === 1 ||
+          orderStatusValue === "settled" ||
+          orderStatusValue === "completed" ||
+          orderStatusValue === "success" ||
+          orderStatusValue === "successful"
+        ) {
+          setStatus("success");
+          setStatusMessage("Payment successful!");
+          setProgress(100);
+          setShowConfetti(true);
+          forceRerender((n) => n + 1); // Force a rerender
+          cleanupOrderId();
+          if (pollInterval) clearInterval(pollInterval);
+          return true;
+        }
+
         switch (orderStatusValue) {
           case "settled":
           case "completed":
           case "complete":
           case "success":
           case "successful":
+          case 1:
             console.log("Setting status to SUCCESS");
             setStatus("success");
             setStatusMessage("Payment successful!");
@@ -330,7 +397,7 @@ const ProcessingPopup: React.FC<ProcessingPopupProps> = ({
     setProgress,
     setShowConfetti,
     setTransactionDetails,
-    transactionDetails,
+    // Remove transactionDetails from deps to avoid closure issues
   ]);
 
   // Copy to clipboard

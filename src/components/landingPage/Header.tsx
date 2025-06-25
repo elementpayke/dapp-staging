@@ -23,7 +23,7 @@ const Header = () => {
             </div>
             <span className="text-lg font-semibold text-gray-900">
               ElementPay
-            </span>
+            </span> 
           </Link>
 
           {/* Desktop Navigation */}

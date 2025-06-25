@@ -10,7 +10,7 @@ interface DownloadOptionsProps {
 export const DownloadOptions: React.FC<PropsWithChildren<DownloadOptionsProps>> = ({ printReceipt, downloadReceiptAsImage, children }) => (
   <div className="mt-6 space-y-2">
     <div className="text-sm text-gray-600 mb-2">Export Receipt:</div>
-    <div className="flex flex-wrap gap-2 justify-center">
+    {/* <div className="flex flex-wrap gap-2 justify-center">
       <motion.button
         onClick={printReceipt}
         className="flex items-center gap-2 px-3 py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 transition-colors text-sm"
@@ -30,6 +30,6 @@ export const DownloadOptions: React.FC<PropsWithChildren<DownloadOptionsProps>> 
         <span>Image</span>
       </motion.button>
       {children}
-    </div>
+    </div> */}
   </div>
 );

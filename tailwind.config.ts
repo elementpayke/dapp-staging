@@ -1,6 +1,7 @@
 import type { Config } from "tailwindcss";
 
 export default {
+	safelist: ['hidden', 'block', 'flex', 'grid', 'md:block', 'md:flex'],
     darkMode: ["class"],
     content: [
     "./src/pages/**/*.{js,ts,jsx,tsx,mdx}",

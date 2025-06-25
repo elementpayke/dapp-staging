@@ -94,7 +94,7 @@ const WalletConnection = ({
           )}
         </div>
       ) : (
-        <div className="hidden md:block">
+        <div className={`hidden md:block`}>
           {isConnected ? (
             <Wallet>
               <ConnectWallet>
