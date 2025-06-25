@@ -11,7 +11,7 @@ interface ExtendedTx extends Tx {
   // New enhanced fields
   tokenSymbol: string;
   cryptoAmount: string;
-  exchangeRate: number;
+  exchangeRate?: number;
   paymentMethod: string;
   direction: 'Send' | 'Receive';
   processingTime?: string;
@@ -121,16 +121,16 @@ const TransactionList: FC<{ walletAddress: string | null }> = ({ walletAddress }
               ? `To ${order.phone_number}`
               : `Token: ${order.token}`,
             amount: `${order.amount_fiat.toFixed(2)} KES`,
-            receiverDisplay: order.receiver_name || order.phone_number || "Unknown",
+            receiverDisplay: order.phone_number || "Unknown",
             
             // New enhanced fields
             tokenSymbol: order.token,
             cryptoAmount: `${order.amount_crypto.toFixed(6)} ${order.token}`,
             exchangeRate: order.exchange_rate,
-            paymentMethod: order.mpesa_receipt_number ? "M-Pesa" : "Crypto",
+            paymentMethod: "M-pesa",
             direction: order.order_type === 0 ? "Receive" : "Send",
             processingTime,
-            receiptNumber: order.mpesa_receipt_number,
+            receiptNumber: undefined,
             invoiceId: order.invoice_id,
             orderType: order.order_type === 0 ? "OnRamp" : "OffRamp",
           };

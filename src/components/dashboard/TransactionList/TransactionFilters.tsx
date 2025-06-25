@@ -329,7 +329,7 @@ const TransactionFilters: FC<TransactionFiltersProps> = ({
                 {activeFilterCount > 0 && (
                   <div className="flex flex-wrap gap-2 mt-3">
                     {Object.entries(filters).map(([filterType, filterValues]) =>
-                      filterValues.map(value => (
+                      filterValues.map((value: string) => (
                         <span
                           key={`${filterType}-${value}`}
                           className="inline-flex items-center gap-1 px-2 py-1 bg-blue-50 text-blue-700 text-sm rounded-lg"
@@ -381,7 +381,7 @@ const TransactionFilters: FC<TransactionFiltersProps> = ({
         <div className="hidden sm:flex mt-3 flex-wrap gap-2 items-center">
           <span className="text-sm text-gray-600">Active filters:</span>
           {Object.entries(filters).map(([filterType, filterValues]) =>
-            filterValues.map(value => (
+            filterValues.map((value: string) => (
               <span
                 key={`${filterType}-${value}`}
                 className="inline-flex items-center gap-1 px-2 py-1 bg-blue-100 text-blue-700 text-xs rounded-full"
