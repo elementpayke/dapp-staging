@@ -63,7 +63,7 @@ const DashboardHeader = () => {
         </div>
 
         <p className="mt-2 text-sm text-gray-500 max-w-md">
-          Spend and deposit crypto into your ElementPay wallet instantly with
+          Spend and deposit crypto into your ElementPay wallet instantly with upto
           zero fees
         </p>
       </CardContent>

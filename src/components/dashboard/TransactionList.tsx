@@ -1,14 +1,84 @@
 import { FC, useEffect, useState } from "react";
-import { Copy } from "lucide-react";
+import { Copy, Search, Filter, ChevronDown, X } from "lucide-react";
 import axios from "axios";
 import { Order, Tx } from "@/types/types";
+import TransactionFilters from "./TransactionList/TransactionFilters";
+import TransactionTable from "./TransactionList/TransactionTable";
+
+interface ExtendedTx extends Tx {
+  receiverDisplay: string;
+  date: string;
+  // New enhanced fields
+  tokenSymbol: string;
+  cryptoAmount: string;
+  exchangeRate: number;
+  paymentMethod: string;
+  direction: 'Send' | 'Receive';
+  processingTime?: string;
+  receiptNumber?: string;
+  invoiceId?: string;
+  orderType: string;
+}
+
+interface FilterState {
+  status: string[];
+  direction: string[];
+  paymentMethod: string[];
+  token: string[];
+}
 
 const TransactionList: FC<{ walletAddress: string | null }> = ({ walletAddress }) => {
   if (!walletAddress) {
     return <p className="px-4">No wallet address provided</p>;
   }
-  const [transactions, setTransactions] = useState<Tx[]>([]);
+  
+  const [transactions, setTransactions] = useState<ExtendedTx[]>([]);
   const [loading, setLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [rowsPerPage, setRowsPerPage] = useState(20);
+  const [showFilters, setShowFilters] = useState(false);
+  const [filters, setFilters] = useState<FilterState>({
+    status: [],
+    direction: [],
+    paymentMethod: [],
+    token: []
+  });
+
+  // Group transactions by date
+  const groupTransactionsByDate = (transactions: ExtendedTx[]) => {
+    const grouped: { [key: string]: ExtendedTx[] } = {};
+    
+    transactions.forEach((tx) => {
+      const date = tx.date;
+      if (!grouped[date]) {
+        grouped[date] = [];
+      }
+      grouped[date].push(tx);
+    });
+    
+    return grouped;
+  };
+
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString);
+    const today = new Date();
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+    
+    if (date.toDateString() === today.toDateString()) {
+      return "Today, " + date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+    } else if (date.toDateString() === yesterday.toDateString()) {
+      return "Yesterday, " + date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+    } else {
+      return date.toLocaleDateString('en-GB', { 
+        weekday: 'long', 
+        day: 'numeric', 
+        month: 'short', 
+        year: 'numeric' 
+      });
+    }
+  };
 
   useEffect(() => {
     const fetchTransactions = async () => {
@@ -16,31 +86,60 @@ const TransactionList: FC<{ walletAddress: string | null }> = ({ walletAddress }
         const res = await axios.get<Order[]>(`${process.env.NEXT_PUBLIC_API_URL}/orders/wallet`, {
           params: { wallet_address: walletAddress },
           headers: {
-            "x-api-key": process.env.NEXT_PUBLIC_AGGR_API_KEY, // or however you inject it
+            "x-api-key": process.env.NEXT_PUBLIC_AGGR_API_KEY,
           },
         });
 
-        const mapped = res.data.map((order) => ({
-          id: order.order_id,
-          name: order.order_type === 0 ? "OnRamp" : "OffRamp",
-          time: new Date(order.created_at).toLocaleString(),
-          hash:
-            order.settlement_transaction_hash
+        const mapped: ExtendedTx[] = res.data.map((order) => {
+          const createdDate = new Date(order.created_at);
+          const settlementDate = order.updated_at ? new Date(order.updated_at) : null;
+          
+          // Calculate processing time
+          const processingTime = settlementDate 
+            ? `${Math.round((settlementDate.getTime() - createdDate.getTime()) / 1000 / 60)}m`
+            : undefined;
+          
+          return {
+            id: order.order_id,
+            name: order.order_type === 0 ? "OnRamp" : "OffRamp",
+            time: createdDate.toLocaleTimeString('en-US', { 
+              hour: 'numeric', 
+              minute: '2-digit',
+              hour12: true 
+            }),
+            date: formatDate(order.created_at),
+            hash: order.settlement_transaction_hash
               ? `${order.settlement_transaction_hash.slice(0, 10)}...${order.settlement_transaction_hash.slice(-6)}`
               : order.refund_transaction_hash
                 ? `${order.refund_transaction_hash.slice(0, 10)}...${order.refund_transaction_hash.slice(-6)}`
-                : "—",
+                : order.creation_transaction_hash
+                  ? `${order.creation_transaction_hash.slice(0, 10)}...${order.creation_transaction_hash.slice(-6)}`
+                  : "—",
+            fullHash: order.settlement_transaction_hash || order.refund_transaction_hash || order.creation_transaction_hash || "—",
+            status: order.status === "refunded" ? "FAILED" : order.status.toUpperCase(),
+            description: order.phone_number
+              ? `To ${order.phone_number}`
+              : `Token: ${order.token}`,
+            amount: `${order.amount_fiat.toFixed(2)} KES`,
+            receiverDisplay: order.receiver_name || order.phone_number || "Unknown",
+            
+            // New enhanced fields
+            tokenSymbol: order.token,
+            cryptoAmount: `${order.amount_crypto.toFixed(6)} ${order.token}`,
+            exchangeRate: order.exchange_rate,
+            paymentMethod: order.mpesa_receipt_number ? "M-Pesa" : "Crypto",
+            direction: order.order_type === 0 ? "Receive" : "Send",
+            processingTime,
+            receiptNumber: order.mpesa_receipt_number,
+            invoiceId: order.invoice_id,
+            orderType: order.order_type === 0 ? "OnRamp" : "OffRamp",
+          };
+        });
 
-          fullHash:
-            order.settlement_transaction_hash || order.refund_transaction_hash || "—",
-          status: order.status === "refunded" ? "FAILED" : order.status.toUpperCase(),
-          description: order.phone_number
-            ? `To ${order.phone_number}`
-            : `Token: ${order.token}`,
-          amount: `${order.amount_fiat.toFixed(2)} KES`,
-        }));
-        // log refund hash
-        console.log("Refund transaction hash:", mapped);
+        // Sort by created_at in descending order (newest first)
+        mapped.sort((a, b) => new Date(res.data.find(o => o.order_id === b.id)?.created_at || 0).getTime() - 
+                            new Date(res.data.find(o => o.order_id === a.id)?.created_at || 0).getTime());
+        
         setTransactions(mapped);
       } catch (err) {
         console.error("Failed to fetch transactions", err);
@@ -52,7 +151,83 @@ const TransactionList: FC<{ walletAddress: string | null }> = ({ walletAddress }
     if (walletAddress) fetchTransactions();
   }, [walletAddress]);
 
+  // Get unique filter options
+  const getFilterOptions = () => {
+    const statuses = [...new Set(transactions.map(tx => tx.status))];
+    const directions = [...new Set(transactions.map(tx => tx.direction))];
+    const paymentMethods = [...new Set(transactions.map(tx => tx.paymentMethod))];
+    const tokens = [...new Set(transactions.map(tx => tx.tokenSymbol))];
+    
+    return { statuses, directions, paymentMethods, tokens };
+  };
+
+  const { statuses, directions, paymentMethods, tokens } = getFilterOptions();
+
+  // Filter transactions based on search term and filters
+  const filteredTransactions = transactions.filter(tx => {
+    // Search filter
+    const matchesSearch = searchTerm === "" || 
+      tx.receiverDisplay.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      tx.hash.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      tx.status.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      tx.receiptNumber?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      tx.tokenSymbol.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      tx.invoiceId?.toLowerCase().includes(searchTerm.toLowerCase());
+
+    // Status filter
+    const matchesStatus = filters.status.length === 0 || filters.status.includes(tx.status);
+    
+    // Direction filter
+    const matchesDirection = filters.direction.length === 0 || filters.direction.includes(tx.direction);
+    
+    // Payment method filter
+    const matchesPaymentMethod = filters.paymentMethod.length === 0 || filters.paymentMethod.includes(tx.paymentMethod);
+    
+    // Token filter
+    const matchesToken = filters.token.length === 0 || filters.token.includes(tx.tokenSymbol);
+
+    return matchesSearch && matchesStatus && matchesDirection && matchesPaymentMethod && matchesToken;
+  });
+
+  // Calculate paginated transactions
+  const paginatedTransactions = filteredTransactions.slice(
+    (currentPage - 1) * rowsPerPage,
+    currentPage * rowsPerPage
+  );
+  const totalPages = Math.ceil(filteredTransactions.length / rowsPerPage);
+
+  // Reset to first page if search/filter changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, rowsPerPage, walletAddress, filters]);
+
+  const groupedTransactions = groupTransactionsByDate(paginatedTransactions);
+
+  // Handle filter changes
+  const handleFilterChange = (filterType: keyof FilterState, value: string) => {
+    setFilters(prev => ({
+      ...prev,
+      [filterType]: prev[filterType].includes(value)
+        ? prev[filterType].filter(item => item !== value)
+        : [...prev[filterType], value]
+    }));
+  };
+
+  // Clear all filters
+  const clearFilters = () => {
+    setFilters({
+      status: [],
+      direction: [],
+      paymentMethod: [],
+      token: []
+    });
+  };
+
+  // Get active filter count
+  const activeFilterCount = Object.values(filters).reduce((count, filterArray) => count + filterArray.length, 0);
+
   if (loading) return <p className="px-4">Loading...</p>;
+  
   if (!loading && transactions.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-10 px-4 text-center text-gray-500">
@@ -101,96 +276,36 @@ const TransactionList: FC<{ walletAddress: string | null }> = ({ walletAddress }
       </div>
     );
   }
-  
 
   return (
-    <div className="space-y-4">
-      <div className="flex justify-between items-center px-4 sm:px-0">
-        <h2 className="text-lg font-medium text-black">Recent transactions</h2>
-        <button className="text-blue-600 hover:text-blue-700">View All</button>
-      </div>
-
-      {/* Desktop View */}
-      <div className="hidden sm:block bg-white rounded-lg overflow-hidden">
-        {transactions.map((tx) => (
-          <div
-            key={tx.id}
-            className="flex items-center px-6 py-4 border-b last:border-b-0 hover:bg-gray-50"
-          >
-            <div className="w-64">
-              <div className="text-sm font-medium text-gray-900">{tx.name}</div>
-              <div className="text-xs text-gray-500">{tx.time}</div>
-            </div>
-
-            <div className="flex items-center flex-1 text-gray-500">
-              <button
-              className="flex items-center gap-1 group"
-              onClick={() => navigator.clipboard.writeText(tx.fullHash)}
-              title="Click to copy transaction hash"
-            >
-              <Copy className="w-4 h-4 text-gray-400 group-hover:text-blue-500" />
-              <span className="text-sm group-hover:text-blue-600">{tx.hash}</span>
-            </button>
-            </div>
-
-            <div className="w-24 flex justify-center">
-              <span className={`px-2.5 py-0.5 text-xs font-medium rounded-full ${
-                tx.status === 'FAILED' 
-                  ? 'bg-red-100 text-red-800'
-                  : tx.status === 'PENDING'
-                  ? 'bg-yellow-100 text-yellow-800'
-                  : 'bg-green-100 text-green-800'
-              }`}>
-                {tx.status}
-              </span>
-            </div>
-
-            <div className="w-48 text-sm text-gray-600">{tx.description}</div>
-
-            <div className="w-32 text-right">
-              <span className="text-sm font-medium text-green-600">
-                {tx.amount}
-              </span>
-            </div>
-          </div>
-        ))}
-      </div>
-
-      {/* Mobile View */}
-      <div className="sm:hidden space-y-2 px-4">
-        {transactions.map((tx) => (
-          <div
-            key={tx.id}
-            className="bg-white rounded-lg p-4 space-y-3 hover:bg-gray-50"
-          >
-            <div className="flex justify-between items-start">
-              <div>
-                <div className="text-sm font-medium text-gray-900">{tx.name}</div>
-                <div className="text-xs text-gray-500">{tx.time}</div>
-              </div>
-              <span className="text-sm font-medium text-green-600">{tx.amount}</span>
-            </div>
-
-            <div className="flex items-center gap-2 text-gray-500 bg-gray-50 p-2 rounded-lg">
-              <Copy className="w-4 h-4 text-gray-400 shrink-0" />
-              <span className="text-sm truncate">{tx.hash}</span>
-            </div>
-
-            <div className="flex items-center justify-between">
-              <span className={`px-2.5 py-0.5 text-xs font-medium rounded-full ${
-                tx.status === 'FAILED' 
-                  ? 'bg-red-100 text-red-800'
-                  : tx.status === 'PENDING'
-                  ? 'bg-yellow-100 text-yellow-800'
-                  : 'bg-green-100 text-green-800'
-              }`}>
-                {tx.status}
-              </span>
-              <span className="text-sm text-gray-600">{tx.description}</span>
-            </div>
-          </div>
-        ))}
-      </div>
+    <div className="max-w-7xl p-2 sm:p-4 bg-gray-50 min-h-screen">
+      <TransactionFilters
+        searchTerm={searchTerm}
+        setSearchTerm={setSearchTerm}
+        showFilters={showFilters}
+        setShowFilters={setShowFilters}
+        filters={filters}
+        setFilters={setFilters}
+        statuses={statuses}
+        directions={directions}
+        paymentMethods={paymentMethods}
+        tokens={tokens}
+        rowsPerPage={rowsPerPage}
+        setRowsPerPage={setRowsPerPage}
+        activeFilterCount={activeFilterCount}
+        handleFilterChange={handleFilterChange}
+        clearFilters={clearFilters}
+      />
+      <TransactionTable
+        groupedTransactions={groupedTransactions}
+        filters={filters}
+        clearFilters={clearFilters}
+        filteredTransactions={filteredTransactions}
+        currentPage={currentPage}
+        setCurrentPage={setCurrentPage}
+        totalPages={totalPages}
+        rowsPerPage={rowsPerPage}
+      />
     </div>
   );
 };
