@@ -19,6 +19,7 @@
         "axios": "^1.9.0",
         "class-variance-authority": "^0.7.1",
         "clsx": "^2.1.1",
+        "emailjs-com": "^3.2.0",
         "ethers": "^6.13.5",
         "fernet": "^0.3.2",
         "framer-motion": "^12.4.11",

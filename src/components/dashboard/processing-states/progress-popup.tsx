@@ -18,6 +18,7 @@ import Tabs from "./progress-popup/Tabs";
 import TransactionDetailsTab from "./progress-popup/TransactionDetailsTab";
 import ReceiptTab from "./progress-popup/ReceiptTab";
 import CloseButton from "./progress-popup/CloseButton";
+import { formatToLocal } from "@/utils/helpers";
 
 interface Branding {
   companyName?: string;
