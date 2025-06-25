@@ -71,7 +71,7 @@ const TransactionTable: FC<TransactionTableProps> = ({
         <div className="flex flex-wrap justify-center items-center gap-1 sm:gap-2 mt-6 sm:mt-8 px-4">
           <button
             className="w-8 h-8 flex items-center justify-center rounded hover:bg-gray-100 text-gray-600 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
-            onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+            onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
             disabled={currentPage === 1}
           >
             &lt;
@@ -88,7 +88,7 @@ const TransactionTable: FC<TransactionTableProps> = ({
           {totalPages > 10 && <span className="text-gray-400 text-sm">...</span>}
           <button
             className="w-8 h-8 flex items-center justify-center rounded hover:bg-gray-100 text-gray-600 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
-            onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+            onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
             disabled={currentPage === totalPages}
           >
             &gt;
