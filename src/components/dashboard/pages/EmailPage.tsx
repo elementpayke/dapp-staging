@@ -8,30 +8,34 @@ const EmailPage = () => {
     email: "",
     message: "",
   });
+  const [status, setStatus] = useState<"idle" | "success" | "error">("idle");
+
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setStatus("idle");
 
     try {
-      const result = await emailjs.send(
-        "your_service_id",
-        "your_template_id",
+      await emailjs.send(
+        "service_dhiqw4n",
+        "template_ee1hpvr",
         {
           from_name: `${formData.firstName} ${formData.lastName}`,
           from_email: formData.email,
           message: formData.message,
           to_email: "elementpay.info@gmail.com",
         },
-        "your_user_id"
+        "sXplFeRZc_SrSPHUL"
       );
 
-      console.log("Email sent successfully:", result.text);
-      alert("Message sent!");
+      setStatus("success");
+      setFormData({ firstName: "", lastName: "", email: "", message: "" }); // reset form
     } catch (error) {
       console.error("Failed to send email:", error);
-      alert("Failed to send message.");
+      setStatus("error");
     }
   };
+
 
 
   const handleChange = (
@@ -48,6 +52,18 @@ const EmailPage = () => {
       <h1 className="text-2xl font-semibold text-black">Email</h1>
 
       <div className="bg-white rounded-3xl p-8 shadow-sm">
+        {status === "success" && (
+          <div className="p-4 rounded-lg bg-green-50 text-green-700 border border-green-200">
+            Your message has been sent successfully.
+          </div>
+        )}
+
+        {status === "error" && (
+          <div className="p-4 rounded-lg bg-red-50 text-red-700 border border-red-200">
+            Failed to send message. Please try again or contact support directly.
+          </div>
+        )}
+
         <form onSubmit={handleSubmit} className="space-y-6">
           {/* Name Fields */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
