@@ -333,28 +333,6 @@ const PayToMobileMoney: React.FC<PayToMobileMoneyProps> = ({
         </div>
       </div>
 
-      {/* Payment Reason */}
-      <div>
-        <label className="block text-gray-600 mb-2">
-          {paymentMethod === "Pay Bill"
-            ? "Payment Reference (Optional)"
-            : "Payment Reason (Optional)"}
-        </label>
-        <input
-          type="text"
-          value={reason}
-          onChange={(e) => setReason(e.target.value)}
-          className="w-full p-3 bg-gray-50 rounded-lg border-0 text-gray-900"
-          placeholder={
-            paymentMethod === "Pay Bill"
-              ? "Enter payment reference"
-              : paymentMethod === "Buy Goods"
-              ? "Enter store name or item purchased"
-              : "Enter payment reason"
-          }
-        />
-      </div>
-
       {/* Balance & Fee Information */}
       <div className="bg-gray-50 p-3 rounded-lg">
         <div className="flex justify-between text-sm mb-2">
