@@ -97,9 +97,14 @@ const Sidebar: React.FC<SidebarProps> = ({ onPageChange, currentPage }) => {
         <div className="flex flex-col h-full">
           {/* Logo and Close Button Container */}
           <div className="h-16 px-6 border-b flex items-center justify-between">
-            <Link href="/" className="text-2xl font-bold text-black">
+            <Link href="/" className="flex items-center space-x-2">
+            <div className="w-8 h-8 rounded-lg bg-[#4339CA] flex items-center justify-center">
+              <div className="w-4 h-4 rounded-sm bg-white"></div>
+            </div>
+            <span className="text-lg font-semibold text-gray-900">
               ElementPay
-            </Link>
+            </span> 
+          </Link>
             {isOpen && (
               <button
                 onClick={toggleSidebar}
