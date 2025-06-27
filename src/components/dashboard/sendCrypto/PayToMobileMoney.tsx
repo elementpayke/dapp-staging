@@ -50,11 +50,6 @@ const PayToMobileMoney: React.FC<PayToMobileMoneyProps> = ({
     useState<PaymentMethod>("Send Money");
   const [showRecipientName, setShowRecipientName] = useState(false);
   const [recipientName, setRecipientName] = useState("");
-  const [recentRecipients] = useState([
-    { name: "John Doe", number: "254712345678", type: "Send Money" },
-    { name: "Supermarket", number: "567890", type: "Buy Goods" },
-    { name: "KPLC", number: "888888", type: "Pay Bill", account: "12345" },
-  ]);
 
   useEffect(() => {
     switch (paymentMethod) {
@@ -89,20 +84,15 @@ const PayToMobileMoney: React.FC<PayToMobileMoneyProps> = ({
   // Simulate recipient name lookup after entering mobile number
   useEffect(() => {
     if (paymentMethod === "Send Money" && mobileNumber.length >= 10) {
-      // This would be an API call in a real app
+      // Simple name simulation without dependencies on recipients list
       setTimeout(() => {
-        const found = recentRecipients.find((r) => r.number === mobileNumber);
-        if (found) {
-          setRecipientName(found.name);
-        } else {
-          setRecipientName("Unknown User");
-        }
+        setRecipientName("Unknown User");
         setShowRecipientName(true);
       }, 500);
     } else {
       setShowRecipientName(false);
     }
-  }, [mobileNumber, paymentMethod, recentRecipients]); // Added 'recentRecipients' to the dependency array
+  }, [mobileNumber, paymentMethod]);
 
   // Validate input based on payment method
   const validateInput = () => {
@@ -293,48 +283,6 @@ const PayToMobileMoney: React.FC<PayToMobileMoneyProps> = ({
               </button>
             );
           })}
-        </div>
-      </div>
-
-      {/* Recent Recipients */}
-      <div>
-        <label className="block text-gray-600 mb-2">Recent</label>
-        <div className="flex overflow-x-auto space-x-3 pb-2">
-          {recentRecipients
-            .filter((r) => {
-              if (paymentMethod === "Send Money")
-                return r.type === "Send Money";
-              if (paymentMethod === "Buy Goods") return r.type === "Buy Goods";
-              if (paymentMethod === "Pay Bill") return r.type === "Pay Bill";
-              if (paymentMethod === "Pochi La Biashara")
-                return r.type === "Pochi La Biashara";
-              return false;
-            })
-            .map((recipient, index) => (
-              <div
-                key={index}
-                onClick={() => {
-                  setMobileNumber(recipient.number);
-                  if (recipient.type === "Pay Bill") {
-                    setPaybillNumber(recipient.number);
-                    setAccountNumber(recipient.account || "");
-                  } else if (recipient.type === "Buy Goods") {
-                    setPaybillNumber(recipient.number);
-                    setAccountNumber(recipient.account || "");
-                  }
-                }}
-                className="flex-shrink-0 cursor-pointer text-center"
-              >
-                <div className="w-12 h-12 mx-auto rounded-full bg-gray-200 flex items-center justify-center mb-1">
-                  <span className="text-gray-700 font-bold">
-                    {recipient.name.charAt(0)}
-                  </span>
-                </div>
-                <span className="text-xs text-gray-600 block truncate w-16">
-                  {recipient.name}
-                </span>
-              </div>
-            ))}
         </div>
       </div>
 
