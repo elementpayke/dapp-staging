@@ -66,7 +66,7 @@ const SendCryptoModal: React.FC = () => {
   const [validatedAccountInfo, setValidatedAccountInfo] = useState("");
   const [proceedAfterValidation, setProceedAfterValidation] = useState<
     () => void
-  >(() => () => {});
+  >(() => () => { });
   const [modalMode, setModalMode] = useState<"confirm" | "error">("confirm");
 
   // Keep but don't directly use this state to preserve the component structure
@@ -410,19 +410,6 @@ const SendCryptoModal: React.FC = () => {
               setCashoutType={setCashoutType}
             />
 
-            {/* Favorite Option */}
-            <div className="flex items-center gap-2 pt-2">
-              <input
-                id="favorite"
-                type="checkbox"
-                checked={favorite}
-                onChange={(e) => setFavorite(e.target.checked)}
-                className="w-4 h-4 rounded border-gray-300 text-blue-600"
-              />
-              <label htmlFor="favorite" className="text-gray-600 text-sm">
-                Favorite this payment details for future transactions
-              </label>
-            </div>
 
             {/* Mobile Confirm Button - Only shown on small screens */}
             <div className="lg:hidden pt-4">
