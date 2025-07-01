@@ -2,7 +2,107 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Ensure responsive classes work in production */
+@layer utilities {
+  .hidden {
+    display: none !important;
+  }
+  
+  .block {
+    display: block !important;
+  }
+  
+  .flex {
+    display: flex !important;
+  }
+  
+  .flex-col {
+    flex-direction: column !important;
+  }
+  
+  .flex-row {
+    flex-direction: row !important;
+  }
+  
+  @media (min-width: 640px) {
+    .sm\:flex-row {
+      flex-direction: row !important;
+    }
+    
+    .sm\:block {
+      display: block !important;
+    }
+    
+    .sm\:hidden {
+      display: none !important;
+    }
+  }
+  
+  @media (min-width: 768px) {
+    .md\:block {
+      display: block !important;
+    }
+    
+    .md\:hidden {
+      display: none !important;
+    }
+  }
+  
+  @media (min-width: 1024px) {
+    .lg\:block {
+      display: block !important;
+    }
+    
+    .lg\:hidden {
+      display: none !important;
+    }
+  }
+}
 
+/* Ensure responsive grid classes work properly in production */
+@media (min-width: 640px) {
+  .sm\:grid {
+    display: grid !important;
+  }
+  
+  .sm\:grid-cols-12 {
+    grid-template-columns: repeat(12, minmax(0, 1fr)) !important;
+  }
+  
+  .sm\:hidden {
+    display: none !important;
+  }
+}
+
+@media (max-width: 639px) {
+  .hidden.sm\:grid {
+    display: none !important;
+  }
+  
+  .sm\:hidden {
+    display: flex !important;
+  }
+}
+
+/* Force visibility for transaction components */
+.transaction-desktop {
+  display: none;
+}
+
+.transaction-mobile {
+  display: flex;
+}
+
+@media (min-width: 640px) {
+  .transaction-desktop {
+    display: grid !important;
+    grid-template-columns: repeat(12, minmax(0, 1fr));
+  }
+  
+  .transaction-mobile {
+    display: none !important;
+  }
+}
 
 @layer base {
   :root {

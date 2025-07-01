@@ -6,6 +6,7 @@ import { ArrowUpRight } from "lucide-react";
 import { toast } from "react-toastify";
 import PayToMobileMoney from "./PayToMobileMoney";
 import ProcessingPopup from "./processing-popup";
+import { formatReceiverName } from "@/utils/helpers";
 
 import { parseUnits } from "viem";
 import {
@@ -55,6 +56,12 @@ const SendCryptoModal: React.FC = () => {
   const [orderId, setOrderId] = useState("");
   const [showProcessingPopup, setShowProcessingPopup] = useState(false);
   const [apiKey, setApiKey] = useState("");
+
+  // Debug orderId changes
+  useEffect(() => {
+    console.log("[ORDER ID CHANGE] orderId changed to:", orderId);
+    console.log("[ORDER ID CHANGE] showProcessingPopup is:", showProcessingPopup);
+  }, [orderId, showProcessingPopup]);
   const [messageHash, setMessageHash] = useState("");
   const [isBrowser, setIsBrowser] = useState(false);
 
@@ -237,11 +244,18 @@ const SendCryptoModal: React.FC = () => {
 
   useContractEvents(
     (order: any) => {
+      console.log("[CONTRACT EVENT] Order created event received:", order);
       setOrderId(order.orderId);
+      console.log("[CONTRACT EVENT] Setting orderId to:", order.orderId);
     },
     (order: any) => {
       // Handle order settled event
       console.log("Order settled:", order);
+      // If we get a settled event, we should update the popup to show success
+      if (showProcessingPopup && order.orderId) {
+        console.log("[CONTRACT EVENT] Order settled, updating popup state");
+        // The processing popup should detect this through polling
+      }
     },
     (orderId: any) => {
       // Handle order refunded event
@@ -302,13 +316,19 @@ const SendCryptoModal: React.FC = () => {
         messageHash
       );
 
+      console.log("[TRANSACTION] Order creation transaction submitted");
+      
+      // Clear any existing states and show processing popup immediately
       cleanupOrderStates();
       setShowProcessingPopup(true);
+      
+      console.log("[TRANSACTION] Processing popup should now be visible");
     } catch (err: any) {
+      console.error("[TRANSACTION ERROR]", err);
       toast.error(err?.message || "Transaction failed");
     } finally {
       setIsApproving(false);
-      setIsProcessing(true);
+      setIsProcessing(false); // Changed from true to false since we're done processing the approval
     }
   };
 
@@ -412,7 +432,7 @@ const SendCryptoModal: React.FC = () => {
 
 
             {/* Mobile Confirm Button - Only shown on small screens */}
-            <div className="lg:hidden pt-4">
+            <div className="block lg:hidden pt-4">
               <button
                 onClick={
                   Number.parseFloat(amount) >= 10
@@ -523,13 +543,16 @@ const SendCryptoModal: React.FC = () => {
         <ProcessingPopup
           isVisible={showProcessingPopup}
           onClose={() => {
+            // Only allow closing when transaction is complete (success or failure)
+            // The popup itself should handle this logic
+            console.log("[POPUP CLOSE] Processing popup closing, orderId was:", orderId);
             cleanupOrderStates();
           }}
           orderId={orderId}
           transactionDetails={{
             amount: amount,
             currency: "KES",
-            recipient: mobileNumber,
+            recipient: formatReceiverName(mobileNumber),
             paymentMethod: "Mobile Money",
             transactionHash: "",
             date: new Date().toISOString(),

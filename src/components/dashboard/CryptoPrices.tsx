@@ -1,6 +1,7 @@
 "use client";
 import React, { useState, useEffect } from "react";
 import { Loader2 } from "lucide-react";
+import ClientOnly from "@/components/shared/ClientOnly";
 
 const COIN_IDS = {
   BTC: "bitcoin",
@@ -133,20 +134,29 @@ const CryptoPrices: React.FC = () => {
   }
 
   return (
-    <div className="flex flex-col sm:flex-row sm:gap-8 py-2 sm:py-4 overflow-x-auto items-start sm:items-center">
-      {loading ? (
-        <div className="flex items-center gap-2 text-gray-500 px-4 sm:px-0">
+    <ClientOnly
+      fallback={
+        <div className="flex items-center gap-2 text-gray-500 py-2 sm:py-4 px-4 sm:px-0">
           <Loader2 className="w-4 h-4 animate-spin" />
           Loading prices...
         </div>
-      ) : (
-        <div className="flex flex-col sm:flex-row sm:gap-8 w-full">
-          {prices.map((price) => (
-            <CryptoPrice key={price.symbol} {...price} />
-          ))}
-        </div>
-      )}
-    </div>
+      }
+    >
+      <div className="py-2 sm:py-4 overflow-x-auto">
+        {loading ? (
+          <div className="flex items-center gap-2 text-gray-500 px-4 sm:px-0">
+            <Loader2 className="w-4 h-4 animate-spin" />
+            Loading prices...
+          </div>
+        ) : (
+          <div className="flex flex-col space-y-3 sm:space-y-0 sm:flex-row sm:gap-8 w-full">
+            {prices.map((price) => (
+              <CryptoPrice key={price.symbol} {...price} />
+            ))}
+          </div>
+        )}
+      </div>
+    </ClientOnly>
   );
 };
 

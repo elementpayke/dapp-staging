@@ -1,7 +1,7 @@
 import { motion } from "framer-motion";
 import { CreditCard, Download, Printer } from "lucide-react";
 import React, { RefObject } from "react";
-import { formatToLocal } from "@/utils/helpers";
+import { formatToLocal, formatReceiverName } from "@/utils/helpers";
 
 interface ReceiptTabProps {
   transactionDetails: any;
@@ -24,13 +24,13 @@ const ReceiptTab: React.FC<ReceiptTabProps> = ({
   const date = tx.date || fallbackDate;
   const amount = tx.amount || tx.value;
   const currency = tx.currency || tx.tokenSymbol || tx.assetSymbol;
-  const to = tx.to || tx.recipient;
+  const to = formatReceiverName(tx.to || tx.recipient);
   const from = tx.from || tx.sender;
   const txHash = tx.txHash || tx.hash || tx.transactionHash;
   const status = tx.paymentStatus || tx.status || "Success";
   const paymentMethod = tx.paymentMethod || tx.method || "Mobile Money";
   const receiptNumber = tx.receiptNumber || tx.mpesa_receipt_number || "N/A";
-  const customerName = tx.customerName || to || "N/A";
+  const customerName = formatReceiverName(tx.customerName || to) || "N/A";
   const customerEmail = tx.customerEmail || "N/A";
   const items = tx.items || [];
   const subtotal = tx.subtotal || amount || "N/A";

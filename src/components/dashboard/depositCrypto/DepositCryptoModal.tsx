@@ -398,7 +398,7 @@ const pollOrderStatusByTxHash = async (txHash: string) => {
             </div>
 
             {/* Mobile Confirm Button - Only shown on small screens */}
-            <div className="lg:hidden pt-4">
+            <div className="block lg:hidden pt-4">
               <button
                 className="w-full py-3 bg-gradient-to-r from-green-500 to-teal-400 text-white rounded-full font-medium hover:opacity-90 transition-opacity disabled:opacity-50"
                 onClick={handleConfirmPayment}

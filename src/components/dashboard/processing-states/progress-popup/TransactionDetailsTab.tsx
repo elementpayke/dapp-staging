@@ -1,7 +1,7 @@
 import { motion } from "framer-motion";
 import { CheckCheck, Copy, FileText, Mail, Printer, Loader2 } from "lucide-react";
 import React from "react";
-import { formatToLocal } from "@/utils/helpers";
+import { formatToLocal, formatReceiverName } from "@/utils/helpers";
 
 interface TransactionDetailsTabProps {
   transactionDetails: any;
@@ -36,7 +36,7 @@ const TransactionDetailsTab: React.FC<TransactionDetailsTabProps> = ({
   const date = tx.date || fallbackDate;
   const amount = tx.amount || tx.value;
   const currency = tx.currency || tx.tokenSymbol || tx.assetSymbol;
-  const to = tx.to || tx.recipient;
+  const to = formatReceiverName(tx.to || tx.recipient);
   const from = tx.from || tx.sender;
   const txHash = tx.txHash || tx.hash || tx.transactionHash;
   const status = tx.status || "Success";
