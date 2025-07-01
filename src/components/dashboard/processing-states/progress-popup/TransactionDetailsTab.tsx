@@ -36,7 +36,7 @@ const TransactionDetailsTab: React.FC<TransactionDetailsTabProps> = ({
   const date = tx.date || fallbackDate;
   const amount = tx.amount || tx.value;
   const currency = tx.currency || tx.tokenSymbol || tx.assetSymbol;
-  const to = formatReceiverName(tx.to || tx.recipient);
+  const to = tx.to || tx.recipient;
   const from = tx.from || tx.sender;
   const txHash = tx.txHash || tx.hash || tx.transactionHash;
   const status = tx.status || "Success";
@@ -106,24 +106,6 @@ const TransactionDetailsTab: React.FC<TransactionDetailsTabProps> = ({
           Export Receipt
         </div>
         <div className="flex flex-wrap gap-3 justify-center">
-          <motion.button
-            onClick={printReceipt}
-            className="flex items-center gap-2 px-4 py-2.5 bg-white text-gray-700 rounded-lg hover:bg-gray-50 transition-all duration-200 shadow-sm border border-gray-200 font-medium"
-            whileHover={{ scale: 1.05, y: -1 }}
-            whileTap={{ scale: 0.95 }}
-          >
-            <Printer size={16} />
-            <span>Print</span>
-          </motion.button>
-          <motion.button
-            onClick={downloadReceiptAsImage}
-            className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-lg hover:from-blue-600 hover:to-blue-700 transition-all duration-200 shadow-md font-medium"
-            whileHover={{ scale: 1.05, y: -1 }}
-            whileTap={{ scale: 0.95 }}
-          >
-            <FileText size={16} />
-            <span>Download</span>
-          </motion.button>
           {sendReceiptEmail && (
             <div className="mt-4 p-3 bg-white rounded-lg border border-gray-200">
               <div className="flex items-center mb-2">
