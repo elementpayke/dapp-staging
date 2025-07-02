@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useEffect } from "react";
 import {
   ConnectWallet,
   Wallet,
@@ -19,6 +19,7 @@ import {
 import { twMerge } from "tailwind-merge";
 import { redirect, usePathname } from "next/navigation";
 import { useWallet } from "@/hooks/useWallet";
+import ClientOnly from "@/components/shared/ClientOnly";
 
 const buttonStyles = {
   default:
@@ -41,17 +42,12 @@ const WalletConnection = ({
 }) => {
   const { connectWallet, isConnected } = useWallet();
   const pathname = usePathname();
-  const [isClient, setIsClient] = useState(false);
 
   useEffect(() => {
-    setIsClient(true);
-  }, []);
-
-  useEffect(() => {
-    if (isClient && isConnected && pathname === "/") {
+    if (isConnected && pathname === "/") {
       redirect("/dashboard");
     }
-  }, [isClient, isConnected, pathname]);
+  }, [isConnected, pathname]);
 
   const getButtonClassName = () => {
     let style;
@@ -63,72 +59,74 @@ const WalletConnection = ({
     return twMerge(style, buttonClassName);
   };
 
-  if (!isClient) {
-    return (
-      <div className={isMobile ? "mt-8 space-y-4" : "hidden md:block"}>
-        <button className={getButtonClassName()} disabled>
-          Loading...
-        </button>
-      </div>
-    );
-  }
+  const MobileWalletComponent = () => (
+    <div className="mt-8 space-y-4">
+      {isConnected ? (
+        <Wallet>
+          <ConnectWallet>
+            <Avatar className="h-6 w-6" />
+            <Name />
+          </ConnectWallet>
+        </Wallet>
+      ) : (
+        <ConnectWallet
+          className={getButtonClassName()}
+          onConnect={connectWallet}
+        >
+          Connect Wallet
+        </ConnectWallet>
+      )}
+    </div>
+  );
+
+  const DesktopWalletComponent = () => (
+    <div className="hidden md:block">
+      {isConnected ? (
+        <Wallet>
+          <ConnectWallet>
+            <Avatar className="h-6 w-6" />
+            <Name />
+          </ConnectWallet>
+          <WalletDropdown>
+            <Identity className="px-4 pt-3 pb-2" hasCopyAddressOnClick>
+              <Avatar />
+              <Name />
+              <Address />
+              <EthBalance />
+            </Identity>
+            <WalletDropdownBasename />
+            <WalletDropdownLink
+              icon="wallet"
+              href="https://keys.coinbase.com"
+            >
+              Wallet
+            </WalletDropdownLink>
+            <WalletDropdownDisconnect />
+          </WalletDropdown>
+        </Wallet>
+      ) : (
+        <ConnectWallet
+          className={getButtonClassName()}
+          onConnect={connectWallet}
+        >
+          Connect Wallet
+        </ConnectWallet>
+      )}
+    </div>
+  );
 
   return (
-    <>
-      {isMobile ? (
-        <div className="mt-8 space-y-4">
-          {isConnected ? (
-            <Wallet>
-              <ConnectWallet>
-                <Avatar className="h-6 w-6" />
-                <Name />
-              </ConnectWallet>
-            </Wallet>
-          ) : (
-            <ConnectWallet
-              className={getButtonClassName()}
-              onConnect={connectWallet}
-            >
-              Connect Wallet
-            </ConnectWallet>
-          )}
+    <ClientOnly
+      fallback={
+        <div className={isMobile ? "mt-8 space-y-4" : "hidden md:block"}>
+          <button className={getButtonClassName()} disabled>
+            Loading...
+          </button>
         </div>
-      ) : (
-        <div className={`hidden md:block`}>
-          {isConnected ? (
-            <Wallet>
-              <ConnectWallet>
-                <Avatar className="h-6 w-6" />
-                <Name />
-              </ConnectWallet>
-              <WalletDropdown>
-                <Identity className="px-4 pt-3 pb-2" hasCopyAddressOnClick>
-                  <Avatar />
-                  <Name />
-                  <Address />
-                  <EthBalance />
-                </Identity>
-                <WalletDropdownBasename />
-                <WalletDropdownLink
-                  icon="wallet"
-                  href="https://keys.coinbase.com"
-                >
-                  Wallet
-                </WalletDropdownLink>
-                <WalletDropdownDisconnect />
-              </WalletDropdown>
-            </Wallet>
-          ) : (
-            <ConnectWallet
-              className={getButtonClassName()}
-              onConnect={connectWallet}
-            >
-              Connect Wallet
-            </ConnectWallet>
-          )}
-        </div>
-      )}
-    </>
+      }
+    >
+      {isMobile ? <MobileWalletComponent /> : <DesktopWalletComponent />}
+    </ClientOnly>
   );
 };
 

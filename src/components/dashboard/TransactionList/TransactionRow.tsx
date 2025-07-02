@@ -2,6 +2,7 @@
 
 import React, { FC } from "react";
 import { Copy, MoreHorizontal } from "lucide-react";
+import ClientOnly from "@/components/shared/ClientOnly";
 
 interface ExtendedTx {
   [key: string]: any;
@@ -82,9 +83,9 @@ const TransactionRow: FC<TransactionRowProps> = ({ tx }: { tx: ExtendedTx }) => 
   }
 
   return (
-    <>
+    <ClientOnly>
       {/* Desktop/tablet row */}
-      <div className="hidden sm:grid grid-cols-12 gap-4 items-center px-6 py-4 hover:bg-gray-50 transition-colors text-sm border-b border-gray-100">
+      <div className="transaction-desktop hidden sm:grid sm:grid-cols-12 gap-4 items-center px-6 py-4 hover:bg-gray-50 transition-colors text-sm border-b border-gray-100">
         {/* Transaction (arrow, description, date) */}
         <div className="col-span-3 flex items-center min-w-0">
           <Arrow direction={isReceive ? 'in' : 'out'} />
@@ -151,7 +152,7 @@ const TransactionRow: FC<TransactionRowProps> = ({ tx }: { tx: ExtendedTx }) => 
         </div>
       </div>
       {/* Mobile row (user-friendly, minimal) */}
-      <div className="sm:hidden flex flex-col gap-2 px-3 py-4 border-b border-gray-100 bg-white rounded-lg shadow-sm mb-2">
+      <div className="transaction-mobile flex sm:hidden flex-col gap-2 px-3 py-4 border-b border-gray-100 bg-white rounded-lg shadow-sm mb-2">
         {/* Row 1: Arrow, Display Name, Status */}
         <div className="flex items-center justify-between">
           <div className="flex items-center min-w-0">
@@ -200,7 +201,7 @@ const TransactionRow: FC<TransactionRowProps> = ({ tx }: { tx: ExtendedTx }) => 
           </button>
         </div>
       </div>
-    </>
+    </ClientOnly>
   );
 };
 

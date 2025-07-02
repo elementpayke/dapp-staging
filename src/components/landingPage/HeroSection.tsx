@@ -7,6 +7,7 @@ import ethereumLogo from "@/assets/ethereum-logo.svg";
 import bitcoinLogo from "@/assets/bitcoin-logo.svg";
 import WalletConnection from "../wallet-connection/wallet-connection";
 import { useIsMobile } from "@/hooks/useIsMobile";
+import ClientOnly from "@/components/shared/ClientOnly";
 
 const IMAGES = {
   heroMain: {
@@ -31,6 +32,7 @@ const IMAGES = {
 
 const Hero = () => {
   const isMobile = useIsMobile();
+  
   return (
     <div className="bg-gradient-to-r from-white to-[#c7c7ff] min-h-[calc(100vh-64px)] overflow-x-hidden">
       <div className="max-w-[2000px] mx-auto h-full px-4 sm:px-6 lg:px-8 xl:px-12 py-6 md:py-8 relative">
@@ -59,8 +61,21 @@ const Hero = () => {
               instantly, easily.
             </p>
 
-            <div className="flex flex-col md:flex-row md:items-center  gap-4 sm:gap-6 lg:gap-8 mb-8 sm:mb-12 md:mb-16 px-4 sm:px-6 lg:p-0">
-              <WalletConnection isMobile={isMobile} isHero />
+            <div className="flex flex-col md:flex-row md:items-center gap-4 sm:gap-6 lg:gap-8 mb-8 sm:mb-12 md:mb-16 px-4 sm:px-6 lg:p-0">
+              <ClientOnly
+                fallback={
+                  <div className="w-full">
+                    <button 
+                      className="w-full bg-gradient-to-r from-[#0514eb] to-[#de0413] text-white px-8 py-4 rounded-full text-base sm:text-lg font-medium"
+                      disabled
+                    >
+                      Loading...
+                    </button>
+                  </div>
+                }
+              >
+                <WalletConnection isMobile={isMobile} isHero />
+              </ClientOnly>
               <div className="flex items-center gap-2 sm:gap-3 text-gray-600">
                 <CircleCheckIcon
                   color="#0514eb"

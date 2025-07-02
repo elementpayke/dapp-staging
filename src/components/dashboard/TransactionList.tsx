@@ -4,6 +4,7 @@ import axios from "axios";
 import { Order, Tx } from "@/types/types";
 import TransactionFilters from "./TransactionList/TransactionFilters";
 import TransactionTable from "./TransactionList/TransactionTable";
+import ClientOnly from "@/components/shared/ClientOnly";
 
 interface ExtendedTx extends Tx {
   receiverDisplay: string;
@@ -278,35 +279,37 @@ const TransactionList: FC<{ walletAddress: string | null }> = ({ walletAddress }
   }
 
   return (
-    <div className="max-w-7xl p-2 sm:p-4 bg-gray-50 min-h-screen">
-      <TransactionFilters
-        searchTerm={searchTerm}
-        setSearchTerm={setSearchTerm}
-        showFilters={showFilters}
-        setShowFilters={setShowFilters}
-        filters={filters}
-        setFilters={setFilters}
-        statuses={statuses}
-        directions={directions}
-        paymentMethods={paymentMethods}
-        tokens={tokens}
-        rowsPerPage={rowsPerPage}
-        setRowsPerPage={setRowsPerPage}
-        activeFilterCount={activeFilterCount}
-        handleFilterChange={handleFilterChange}
-        clearFilters={clearFilters}
-      />
-      <TransactionTable
-        groupedTransactions={groupedTransactions}
-        filters={filters}
-        clearFilters={clearFilters}
-        filteredTransactions={filteredTransactions}
-        currentPage={currentPage}
-        setCurrentPage={setCurrentPage}
-        totalPages={totalPages}
-        rowsPerPage={rowsPerPage}
-      />
-    </div>
+    <ClientOnly fallback={<div className="p-4">Loading transactions...</div>}>
+      <div className="max-w-7xl p-2 sm:p-4 bg-gray-50 min-h-screen">
+        <TransactionFilters
+          searchTerm={searchTerm}
+          setSearchTerm={setSearchTerm}
+          showFilters={showFilters}
+          setShowFilters={setShowFilters}
+          filters={filters}
+          setFilters={setFilters}
+          statuses={statuses}
+          directions={directions}
+          paymentMethods={paymentMethods}
+          tokens={tokens}
+          rowsPerPage={rowsPerPage}
+          setRowsPerPage={setRowsPerPage}
+          activeFilterCount={activeFilterCount}
+          handleFilterChange={handleFilterChange}
+          clearFilters={clearFilters}
+        />
+        <TransactionTable
+          groupedTransactions={groupedTransactions}
+          filters={filters}
+          clearFilters={clearFilters}
+          filteredTransactions={filteredTransactions}
+          currentPage={currentPage}
+          setCurrentPage={setCurrentPage}
+          totalPages={totalPages}
+          rowsPerPage={rowsPerPage}
+        />
+      </div>
+    </ClientOnly>
   );
 };
 

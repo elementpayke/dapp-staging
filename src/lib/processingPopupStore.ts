@@ -14,6 +14,7 @@ interface ProcessingPopupState {
   transactionDetails: TransactionDetails;
   fallbackDate: string;
   showTechnicalDetails: boolean;
+  popupLocked: boolean;
   setStatus: (status: "processing" | "success" | "failed") => void;
   setStatusMessage: (message: string) => void;
   setProgress: (progress: number) => void;
@@ -26,6 +27,7 @@ interface ProcessingPopupState {
   setTransactionDetails: (details: TransactionDetails) => void;
   setFallbackDate: (date: string) => void;
   setShowTechnicalDetails: (show: boolean) => void;
+  setPopupLocked: (locked: boolean) => void;
   reset: (initialTransactionDetails: TransactionDetails) => void;
 }
 
@@ -52,6 +54,7 @@ export const useProcessingPopupStore = create<ProcessingPopupState>((set) => ({
   },
   fallbackDate: "",
   showTechnicalDetails: false,
+  popupLocked: false,
 
   setStatus: (status) => {
     console.log("Store - Setting status to:", status);
@@ -72,6 +75,10 @@ export const useProcessingPopupStore = create<ProcessingPopupState>((set) => ({
   setFallbackDate: (fallbackDate) => set({ fallbackDate }),
   setShowTechnicalDetails: (showTechnicalDetails) =>
     set({ showTechnicalDetails }),
+  setPopupLocked: (popupLocked) => {
+    console.log("Store - Setting popup locked to:", popupLocked);
+    set({ popupLocked });
+  },
 
   reset: (initialTransactionDetails) =>
     set({
@@ -85,6 +92,7 @@ export const useProcessingPopupStore = create<ProcessingPopupState>((set) => ({
       emailSent: false,
       activeTab: "details",
       showTechnicalDetails: false,
+      popupLocked: false,
       transactionDetails: initialTransactionDetails,
     }),
 }));

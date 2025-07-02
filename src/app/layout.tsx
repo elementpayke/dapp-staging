@@ -5,6 +5,7 @@ import { Providers } from "./providers";
 import "@coinbase/onchainkit/styles.css";
 import { ThemeProvider } from "@/components/theme-provider";
 import { Toaster } from "@/components/ui/sonner";
+import Web3ErrorBoundary from "@/components/shared/Web3ErrorBoundary";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -69,15 +70,19 @@ export default function RootLayout({
     <html lang="en" suppressHydrationWarning>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+        suppressHydrationWarning
       >
-        <ThemeProvider
-          attribute="class"
-          defaultTheme="light"
-          enableSystem={false}
-        >
-          <Providers>{children}</Providers>
-          <Toaster />
-        </ThemeProvider>
+        <Web3ErrorBoundary>
+          <ThemeProvider
+            attribute="class"
+            defaultTheme="light"
+            enableSystem={false}
+            disableTransitionOnChange
+          >
+            <Providers>{children}</Providers>
+            <Toaster />
+          </ThemeProvider>
+        </Web3ErrorBoundary>
       </body>
     </html>
   );

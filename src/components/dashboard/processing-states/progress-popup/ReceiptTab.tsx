@@ -1,7 +1,7 @@
 import { motion } from "framer-motion";
 import { CreditCard, Download, Printer } from "lucide-react";
 import React, { RefObject } from "react";
-import { formatToLocal } from "@/utils/helpers";
+import { formatToLocal} from "@/utils/helpers";
 
 interface ReceiptTabProps {
   transactionDetails: any;
@@ -24,17 +24,15 @@ const ReceiptTab: React.FC<ReceiptTabProps> = ({
   const date = tx.date || fallbackDate;
   const amount = tx.amount || tx.value;
   const currency = tx.currency || tx.tokenSymbol || tx.assetSymbol;
-  const to = tx.to || tx.recipient;
+  const to =  tx.to || tx.recipient;
   const from = tx.from || tx.sender;
   const txHash = tx.txHash || tx.hash || tx.transactionHash;
   const status = tx.paymentStatus || tx.status || "Success";
   const paymentMethod = tx.paymentMethod || tx.method || "Mobile Money";
   const receiptNumber = tx.receiptNumber || tx.mpesa_receipt_number || "N/A";
   const customerName = tx.customerName || to || "N/A";
-  const customerEmail = tx.customerEmail || "N/A";
   const items = tx.items || [];
   const subtotal = tx.subtotal || amount || "N/A";
-  const tax = tx.tax || "0";
   const total = amount || subtotal;
 
   return (
@@ -78,10 +76,7 @@ const ReceiptTab: React.FC<ReceiptTabProps> = ({
               <div className="text-xs text-gray-500">Customer</div>
               <div className="font-medium text-gray-800">{customerName}</div>
             </div>
-            <div>
-              <div className="text-xs text-gray-500">Email</div>
-              <div className="font-medium text-gray-800">{customerEmail}</div>
-            </div>
+      
             <div>
               <div className="text-xs text-gray-500">Payment Method</div>
               <div className="font-medium text-gray-800">{paymentMethod}</div>
@@ -124,10 +119,7 @@ const ReceiptTab: React.FC<ReceiptTabProps> = ({
             <span className="text-gray-600">Subtotal</span>
             <span className="font-medium">{subtotal} {currency}</span>
           </div>
-          <div className="flex justify-between text-sm">
-            <span className="text-gray-600">Tax</span>
-            <span className="font-medium">{tax} {currency}</span>
-          </div>
+        
           <div className="flex justify-between text-base font-bold border-t pt-2 mt-2">
             <span>Total</span>
             <span>{total} {currency}</span>

@@ -1,7 +1,7 @@
 import { motion } from "framer-motion";
 import { CheckCheck, Copy, FileText, Mail, Printer, Loader2 } from "lucide-react";
 import React from "react";
-import { formatToLocal } from "@/utils/helpers";
+import { formatToLocal, formatReceiverName } from "@/utils/helpers";
 
 interface TransactionDetailsTabProps {
   transactionDetails: any;
@@ -106,24 +106,6 @@ const TransactionDetailsTab: React.FC<TransactionDetailsTabProps> = ({
           Export Receipt
         </div>
         <div className="flex flex-wrap gap-3 justify-center">
-          <motion.button
-            onClick={printReceipt}
-            className="flex items-center gap-2 px-4 py-2.5 bg-white text-gray-700 rounded-lg hover:bg-gray-50 transition-all duration-200 shadow-sm border border-gray-200 font-medium"
-            whileHover={{ scale: 1.05, y: -1 }}
-            whileTap={{ scale: 0.95 }}
-          >
-            <Printer size={16} />
-            <span>Print</span>
-          </motion.button>
-          <motion.button
-            onClick={downloadReceiptAsImage}
-            className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-lg hover:from-blue-600 hover:to-blue-700 transition-all duration-200 shadow-md font-medium"
-            whileHover={{ scale: 1.05, y: -1 }}
-            whileTap={{ scale: 0.95 }}
-          >
-            <FileText size={16} />
-            <span>Download</span>
-          </motion.button>
           {sendReceiptEmail && (
             <div className="mt-4 p-3 bg-white rounded-lg border border-gray-200">
               <div className="flex items-center mb-2">
