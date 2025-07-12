@@ -1,18 +1,26 @@
 import { http, createConfig } from 'wagmi';
-import { base } from 'wagmi/chains';
+import { base, arbitrum } from 'wagmi/chains';
 import { coinbaseWallet, metaMask } from 'wagmi/connectors';
 
 // Multiple RPC endpoints for fallback
-const rpcUrls = [
+const baseRpcUrls = [
   process.env.NEXT_PUBLIC_BASE_RPC_URL || 'https://mainnet.base.org',
   process.env.NEXT_PUBLIC_FALLBACK_RPC_URL || 'https://base-rpc.publicnode.com',
   'https://base.gateway.tenderly.co',
   'https://base.drpc.org',
 ];
 
+// Arbitrum RPC endpoints (CORS-friendly)
+const arbitrumRpcUrls = [
+  process.env.NEXT_PUBLIC_ARBITRUM_RPC_URL || 'https://arbitrum-one.publicnode.com',
+  'https://arbitrum.drpc.org',
+  'https://arbitrum-one.public.blastapi.io',
+  'https://arbitrum.blockpi.network/v1/rpc/public',
+];
+
 // Create HTTP transport with retry and fallback logic
-const createTransportWithFallback = () => {
-  return http(rpcUrls[0], {
+const createTransportWithFallback = (urls: string[]) => {
+  return http(urls[0], {
     batch: true,
     retryCount: 3,
     retryDelay: 1000,
@@ -27,9 +35,40 @@ const createTransportWithFallback = () => {
   });
 };
 
+// Add Lisk and Scroll chain definitions
+const lisk = {
+  id: 1135,
+  name: 'Lisk',
+  network: 'lisk',
+  nativeCurrency: { name: 'Lisk', symbol: 'LSK', decimals: 18 },
+  rpcUrls: {
+    default: { http: ['https://rpc.api.lisk.com'] },
+    public: { http: ['https://rpc.api.lisk.com'] },
+  },
+  blockExplorers: {
+    default: { name: 'Blockscout', url: 'https://blockscout.lisk.com' },
+  },
+  testnet: false,
+};
+
+const scroll = {
+  id: 534352,
+  name: 'Scroll',
+  network: 'scroll',
+  nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
+  rpcUrls: {
+    default: { http: ['https://rpc.scroll.io/'] },
+    public: { http: ['https://rpc.scroll.io/'] },
+  },
+  blockExplorers: {
+    default: { name: 'Blockscout', url: 'https://blockscout.scroll.io' },
+  },
+  testnet: false,
+};
+
 // Wagmi configuration with proper error handling
 export const wagmiConfig = createConfig({
-  chains: [base],
+  chains: [base, lisk, scroll, arbitrum],
   connectors: [
     coinbaseWallet({
       appName: 'ElementPay',
@@ -44,7 +83,10 @@ export const wagmiConfig = createConfig({
     }),
   ],
   transports: {
-    [base.id]: createTransportWithFallback(),
+    [base.id]: createTransportWithFallback(baseRpcUrls),
+    [lisk.id]: http('https://rpc.api.lisk.com'),
+    [scroll.id]: http('https://rpc.scroll.io/'),
+    [arbitrum.id]: http('https://arb1.arbitrum.io/rpc'),
   },
   ssr: true,
   storage: null, // Disable storage to prevent hydration issues

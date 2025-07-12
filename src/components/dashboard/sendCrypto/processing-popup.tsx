@@ -68,28 +68,11 @@ const ProcessingPopup: React.FC<ProcessingPopupProps> = ({
   const receiptRef = useRef<HTMLDivElement>(null);
   const [_, forceRerender] = useState(0); // Dummy state for forced rerender
 
-  // Emergency success trigger for debugging
+  // Emergency success trigger for debugging - removed mock data
   const triggerSuccessState = () => {
-    console.log("🚀 EMERGENCY SUCCESS TRIGGER ACTIVATED");
-    const mockSuccessDetails = {
-      ...transactionDetails,
-      amount: "100",
-      currency: "KES",
-      recipient: "Test User",
-      paymentMethod: "Mobile Money",
-      transactionHash: "0x123...abc",
-      date: new Date().toISOString(),
-      receiptNumber: "TEST123456",
-      paymentStatus: "settled",
-      status: 1,
-    };
-    
-    setTransactionDetails(mockSuccessDetails);
-    setStatus("success");
-    setStatusMessage("Payment successful!");
-    setProgress(100);
-    setShowConfetti(true);
-    setPopupLocked(true);
+    console.log("🚀 EMERGENCY SUCCESS TRIGGER ACTIVATED - This should not be used in production");
+    // This is only for development debugging - real data should come from API
+    console.warn("Using emergency trigger - ensure real transaction data is available");
   };
 
   // Log orderId changes
@@ -111,10 +94,11 @@ const ProcessingPopup: React.FC<ProcessingPopupProps> = ({
   // Reset state when popup becomes invisible (but only if not locked)
   useEffect(() => {
     if (!isVisible && !popupLocked) {
+      console.log("[RESET] Popup closed, resetting state");
       reset(initialTransactionDetails);
       setPopupLocked(false);
     }
-  }, [isVisible, popupLocked, initialTransactionDetails, reset]);
+  }, [isVisible, popupLocked]); // Removed initialTransactionDetails and reset from dependencies
 
   // Single initialization effect to prevent conflicts
   useEffect(() => {
@@ -135,7 +119,7 @@ const ProcessingPopup: React.FC<ProcessingPopupProps> = ({
     }
     
     // Only reset if we're starting a new transaction and not already successful
-    if (orderId) {
+    if (orderId && currentStoreStatus !== "processing") {
       console.log("[INIT] Resetting state for new transaction");
       reset(initialTransactionDetails);
     }
@@ -144,7 +128,7 @@ const ProcessingPopup: React.FC<ProcessingPopupProps> = ({
     const isAlreadySuccessful = initialTransactionDetails && (
       initialTransactionDetails.transactionHash ||
       initialTransactionDetails.receiptNumber ||
-      initialTransactionDetails.status === 1 ||
+      initialTransactionDetails.status === 2 || // Success status
       initialTransactionDetails.paymentStatus?.toLowerCase() === "settled" ||
       initialTransactionDetails.paymentStatus?.toLowerCase() === "successful" ||
       initialTransactionDetails.paymentStatus?.toLowerCase() === "completed"
@@ -163,7 +147,7 @@ const ProcessingPopup: React.FC<ProcessingPopupProps> = ({
       if (initialTransactionDetails) {
         setTransactionDetails(initialTransactionDetails);
       }
-    } else if (orderId) {
+    } else if (orderId && currentStoreStatus !== "processing") {
       console.log("[INIT] Starting processing state for orderId:", orderId);
       setStatus("processing");
       setStatusMessage("Processing your payment...");
@@ -175,14 +159,14 @@ const ProcessingPopup: React.FC<ProcessingPopupProps> = ({
     if (!fallbackDate) {
       setFallbackDate(new Date().toISOString());
     }
-  }, [isVisible, orderId, initialTransactionDetails, fallbackDate, setStatus, setStatusMessage, setProgress, setShowConfetti, setTransactionDetails, setFallbackDate, setPopupLocked, reset]);
+  }, [isVisible, orderId]); // Simplified dependencies to prevent infinite loops
 
-  // DEBUG: Log status and transactionDetails on every render
-  useEffect(() => {
-    console.log("[ProcessingPopup RENDER] status:", status, "transactionDetails:", transactionDetails);
-    console.log("[ProcessingPopup RENDER] orderId:", orderId, "isVisible:", isVisible);
-    console.log("[ProcessingPopup RENDER] popupLocked:", popupLocked, "progress:", progress);
-  });
+  // DEBUG: Log status and transactionDetails on every render (commented out to prevent performance issues)
+  // useEffect(() => {
+  //   console.log("[ProcessingPopup RENDER] status:", status, "transactionDetails:", transactionDetails);
+  //   console.log("[ProcessingPopup RENDER] orderId:", orderId, "isVisible:", isVisible);
+  //   console.log("[ProcessingPopup RENDER] popupLocked:", popupLocked, "progress:", progress);
+  // });
 
   // Poll for order status - restart when orderId changes
   useEffect(() => {
@@ -274,57 +258,68 @@ const ProcessingPopup: React.FC<ProcessingPopupProps> = ({
         console.log(`[POLLING] MPESA receipt:`, orderData.mpesa_receipt_number);
         console.log(`[POLLING] File ID:`, orderData.file_id);
 
-        // Always use the latest transactionDetails from the store
-        setTransactionDetails({
-          ...transactionDetails,
-          amount: orderData.amount_fiat?.toString() || "N/A",
-          currency: orderData.currency || "N/A",
-          recipient: formatReceiverName(orderData.receiver_name),
-          paymentMethod:
-            orderData.order_type === "offramp" ? "Mobile Money" : "N/A",
-          transactionHash:
-            orderData.transaction_hashes?.settlement ||
-            orderData.transaction_hashes?.creation ||
-            "N/A",
-          date: orderData.created_at || "N/A",
-          receiptNumber:
-            orderData.receipt_number ||
-            orderData.mpesa_receipt_number ||
-            orderData.file_id ||
-            "N/A",
-          paymentStatus:
-            orderData.status === "settled"
-              ? "settled"
-              : orderData.status === "failed"
-              ? "Failed"
-              : orderData.status === "refunded"
-              ? "Refunded"
-              : "Processing",
+        // Enhanced validation to ensure we have actual transaction data, not placeholders
+        const hasRealTransactionHash = (
+          (orderData.transaction_hashes?.settlement && orderData.transaction_hashes.settlement !== "N/A") ||
+          (orderData.transaction_hashes?.creation && orderData.transaction_hashes.creation !== "N/A")
+        );
+
+        const hasRealMpesaReceipt = (
+          (orderData.receipt_number && orderData.receipt_number !== "N/A") ||
+          (orderData.mpesa_receipt_number && orderData.mpesa_receipt_number !== "N/A") ||
+          (orderData.file_id && orderData.file_id !== "N/A")
+        );
+
+        const hasRealReceiverName = (
+          orderData.receiver_name && 
+          orderData.receiver_name !== "N/A" && 
+          orderData.receiver_name.trim() !== ""
+        );
+
+        // Always update transaction details with REAL data only (no fallbacks to old data)
+        const updateWithRealDataOnly = {
+          amount: orderData.amount_fiat?.toString(),
+          currency: orderData.currency,
+          recipient: hasRealReceiverName ? formatReceiverName(orderData.receiver_name) : undefined,
+          paymentMethod: orderData.order_type === "offramp" ? "Mobile Money" : "Crypto Transfer",
+          transactionHash: hasRealTransactionHash ? 
+            (orderData.transaction_hashes?.settlement || orderData.transaction_hashes?.creation) : 
+            undefined,
+          date: orderData.created_at,
+          receiptNumber: hasRealMpesaReceipt ? 
+            (orderData.receipt_number || orderData.mpesa_receipt_number || orderData.file_id) : 
+            undefined,
+          paymentStatus: orderData.status === "settled" ? "settled" : 
+                        orderData.status === "failed" ? "Failed" : 
+                        orderData.status === "refunded" ? "Refunded" : 
+                        "Processing",
           status: Number(
-            orderData.status === "settled"
-              ? 1
-              : orderData.status === "failed"
-              ? 2
-              : orderData.status === "refunded"
-              ? 3
-              : 0
+            orderData.status === "settled" ? 1 : 
+            orderData.status === "failed" ? 2 : 
+            orderData.status === "refunded" ? 3 : 0
           ),
-          failureReason: orderData.failure_reason || "N/A",
-          orderId: orderData.order_id || "N/A",
-          customerName: formatReceiverName(orderData.receiver_name),
-          customerEmail: "N/A",
-          items: [
+          failureReason: orderData.failure_reason || "",
+          orderId: orderData.order_id,
+          customerName: hasRealReceiverName ? formatReceiverName(orderData.receiver_name) : undefined,
+          items: orderData.token ? [
             {
-              name: orderData.token || "N/A",
-              price: orderData.amount_fiat?.toString() || "N/A",
+              name: orderData.token,
+              price: orderData.amount_fiat?.toString(),
               quantity: 1,
             },
-          ],
-          subtotal: orderData.amount_fiat?.toString() || "N/A",
-          tax: "N/A",
-          merchantLogo: "N/A",
-          notes: orderData.failure_reason || "N/A",
+          ] : undefined,
+          subtotal: orderData.amount_fiat?.toString(),
+        };
+
+        // Only update fields that have real data
+        const updatedDetails = { ...transactionDetails };
+        Object.entries(updateWithRealDataOnly).forEach(([key, value]) => {
+          if (value !== undefined && value !== null && value !== "") {
+            (updatedDetails as any)[key] = value;
+          }
         });
+
+        setTransactionDetails(updatedDetails);
 
         // DEBUG: Log the full API response and all relevant fields
         console.log("[DEBUG] Full orderData:", JSON.stringify(orderData, null, 2));
@@ -358,24 +353,26 @@ const ProcessingPopup: React.FC<ProcessingPopupProps> = ({
 
         console.log("Numeric status:", numericStatus);
 
-        // Enhanced completion detection with better logging
+        // Enhanced completion detection with stricter M-PESA validation
         console.log("[DEBUG] Checking completion conditions:", {
           settlement_hash: orderData.transaction_hashes?.settlement,
           creation_hash: orderData.transaction_hashes?.creation,
           receipt_number: orderData.receipt_number,
           mpesa_receipt: orderData.mpesa_receipt_number,
           file_id: orderData.file_id,
+          receiver_name: orderData.receiver_name,
           status_string: orderStatusValue,
           status_numeric: orderData.status,
           raw_status: orderData.status
         });
 
-        // Primary success conditions - if ANY of these are true, transaction is successful
+        // Check for complete M-PESA transaction data
         const hasSettlementHash = !!orderData.transaction_hashes?.settlement;
         const hasCreationHash = !!orderData.transaction_hashes?.creation;
         const hasReceiptNumber = !!orderData.receipt_number;
         const hasMpesaReceipt = !!orderData.mpesa_receipt_number;
         const hasFileId = !!orderData.file_id;
+        const hasReceiverName = !!orderData.receiver_name;
         const statusIsSettled = orderStatusValue === "settled" || orderStatusValue === "completed" || orderStatusValue === "complete";
         const statusIsNumericSuccess = orderData.status === 1 || orderData.status === "1";
         
@@ -385,78 +382,222 @@ const ProcessingPopup: React.FC<ProcessingPopupProps> = ({
           hasReceiptNumber,
           hasMpesaReceipt,
           hasFileId,
+          hasReceiverName,
           statusIsSettled,
           statusIsNumericSuccess
         });
 
-        // More aggressive success detection - if we have ANY success indicator
-        const isSuccessful = (
-          hasSettlementHash ||
-          hasCreationHash ||
-          hasReceiptNumber ||
-          hasMpesaReceipt ||
-          hasFileId ||
-          statusIsNumericSuccess ||
-          statusIsSettled ||
-          orderStatusValue === "success" ||
-          orderStatusValue === "successful" ||
-          orderStatusValue === "1" ||
-          // Additional checks for variations
-          orderStatusValue === "completed" ||
-          orderStatusValue === "done" ||
-          orderStatusValue === "finished"
+        // STRICT SUCCESS VALIDATION - Only show success when we have REAL M-PESA and blockchain data
+        const hasCompleteTransactionData = (
+          (hasSettlementHash || hasCreationHash) && // Must have REAL blockchain transaction hash
+          (hasReceiptNumber || hasMpesaReceipt || hasFileId) && // Must have REAL M-PESA receipt
+          hasReceiverName && // Must have REAL receiver name from M-PESA
+          (statusIsSettled || statusIsNumericSuccess) // Must have confirmed success status
         );
 
-        console.log("[DEBUG] FINAL SUCCESS DECISION:", isSuccessful);
-        console.log("[DEBUG] If this should be successful but isn't, check the API response structure above");
+        // Update validation to use real data checks
+        const hasCompleteRealData = (
+          hasRealTransactionHash &&
+          hasRealMpesaReceipt &&
+          hasRealReceiverName &&
+          (statusIsSettled || statusIsNumericSuccess)
+        );
 
-        console.log("[DEBUG] Is transaction successful?", isSuccessful);
+        console.log("[DEBUG] Real data validation:", {
+          hasRealTransactionHash,
+          hasRealMpesaReceipt,
+          hasRealReceiverName,
+          hasCompleteRealData,
+          transactionHashes: orderData.transaction_hashes,
+          receiptNumber: orderData.receipt_number,
+          mpesaReceipt: orderData.mpesa_receipt_number,
+          fileId: orderData.file_id,
+          receiverName: orderData.receiver_name
+        });
 
-        if (isSuccessful) {
-          console.log("✅ TRANSACTION SUCCESSFUL - Setting success state and locking popup");
+        // Basic success indicators without complete M-PESA data
+        const hasBasicSuccess = (statusIsSettled || statusIsNumericSuccess);
+        const hasTransactionHash = (hasSettlementHash || hasCreationHash);
+        const hasMpesaReceiptData = (hasReceiptNumber || hasMpesaReceipt || hasFileId);
+        
+        console.log("[DEBUG] Validation results:", {
+          hasCompleteTransactionData,
+          hasBasicSuccess,
+          hasTransactionHash,
+          hasMpesaReceiptData,
+          hasReceiverName,
+          pollAttempts
+        });
+
+        // PRIORITY 1: Complete transaction with all REAL M-PESA and blockchain data
+        if (hasCompleteRealData) {
+          console.log("✅ TRANSACTION FULLY COMPLETE - All REAL M-PESA and blockchain details received");
           
-          // Create a complete transaction details object with the latest data
-          const updatedTransactionDetails = {
+          // Get real transaction hash from blockchain
+          const realTransactionHash = orderData.transaction_hashes?.settlement || 
+                                    orderData.transaction_hashes?.creation;
+          
+          // Get real M-PESA receipt number
+          const realReceiptNumber = orderData.receipt_number || 
+                                  orderData.mpesa_receipt_number || 
+                                  orderData.file_id;
+          
+          // Get real receiver name from M-PESA
+          const realReceiverName = formatReceiverName(orderData.receiver_name);
+          
+          console.log("✅ REAL DATA CONFIRMED:", {
+            realTransactionHash,
+            realReceiptNumber,
+            realReceiverName,
+            amount: orderData.amount_fiat,
+            currency: orderData.currency,
+            token: orderData.token,
+            orderType: orderData.order_type,
+            createdAt: orderData.created_at
+          });
+          
+          // Create complete transaction details with ONLY real data
+          const completeTransactionDetails = {
             ...transactionDetails,
-            amount: orderData.amount_fiat?.toString() || transactionDetails.amount,
-            currency: orderData.currency || transactionDetails.currency,
-            recipient: formatReceiverName(orderData.receiver_name) || transactionDetails.recipient,
-            paymentMethod: orderData.order_type === "offramp" ? "Mobile Money" : transactionDetails.paymentMethod,
-            transactionHash: orderData.transaction_hashes?.settlement || 
-                           orderData.transaction_hashes?.creation || 
-                           transactionDetails.transactionHash || "N/A",
-            date: orderData.created_at || transactionDetails.date,
-            receiptNumber: orderData.receipt_number || 
-                          orderData.mpesa_receipt_number || 
-                          orderData.file_id || 
-                          transactionDetails.receiptNumber || "N/A",
+            amount: orderData.amount_fiat?.toString(),
+            currency: orderData.currency,
+            recipient: realReceiverName,
+            paymentMethod: orderData.order_type === "offramp" ? "Mobile Money" : "Crypto Transfer",
+            transactionHash: realTransactionHash,
+            date: orderData.created_at,
+            receiptNumber: realReceiptNumber,
             paymentStatus: "settled",
             status: 1,
-            failureReason: orderData.failure_reason || "N/A",
-            orderId: orderData.order_id || transactionDetails.orderId || "N/A",
-            customerName: formatReceiverName(orderData.receiver_name) || transactionDetails.customerName,
-            customerEmail: transactionDetails.customerEmail || "N/A",
+            failureReason: orderData.failure_reason || "",
+            orderId: orderData.order_id,
+            customerName: realReceiverName,
+            customerEmail: transactionDetails.customerEmail || "",
             items: [
               {
-                name: orderData.token || "N/A",
-                price: orderData.amount_fiat?.toString() || "N/A",
+                name: orderData.token || "Crypto Token",
+                price: orderData.amount_fiat?.toString(),
                 quantity: 1,
               },
             ],
-            subtotal: orderData.amount_fiat?.toString() || transactionDetails.amount || "N/A",
-            tax: "N/A",
-            merchantLogo: "N/A",
-            notes: orderData.failure_reason || "N/A",
+            subtotal: orderData.amount_fiat?.toString(),
+            tax: "",
+            merchantLogo: "",
+            notes: orderData.failure_reason || "",
           };
           
-          // Set all success states
-          setTransactionDetails(updatedTransactionDetails);
+          setTransactionDetails(completeTransactionDetails);
           setStatus("success");
           setStatusMessage("Payment successful!");
           setProgress(100);
           setShowConfetti(true);
-          setPopupLocked(true); // Lock the popup to prevent it from closing
+          setPopupLocked(true);
           forceRerender((n) => n + 1);
+          cleanupOrderId();
+          if (pollInterval) clearInterval(pollInterval);
+          return true;
+        }
+
+        // PRIORITY 2: Show specific loading states for missing data components
+        if (hasBasicSuccess && hasRealTransactionHash && pollAttempts <= 40) {
+          if (!hasRealReceiverName) {
+            console.log("🔄 WAITING FOR M-PESA: Transaction confirmed on blockchain, waiting for M-PESA receiver name");
+            setStatus("processing");
+            setStatusMessage("Transaction confirmed! Waiting for M-PESA to provide recipient details...");
+            setProgress(75);
+            
+            // Update transaction details with available real data
+            setTransactionDetails({
+              ...transactionDetails,
+              amount: orderData.amount_fiat?.toString() || transactionDetails.amount,
+              currency: orderData.currency || transactionDetails.currency,
+              transactionHash: orderData.transaction_hashes?.settlement || 
+                             orderData.transaction_hashes?.creation,
+              date: orderData.created_at || transactionDetails.date,
+              paymentStatus: "processing",
+              orderId: orderData.order_id || transactionDetails.orderId,
+            });
+            return false; // Continue polling
+          }
+          
+          if (!hasRealMpesaReceipt) {
+            console.log("🔄 WAITING FOR M-PESA: Transaction confirmed, waiting for M-PESA receipt number");
+            setStatus("processing");
+            setStatusMessage("Transaction confirmed! Waiting for M-PESA receipt number...");
+            setProgress(85);
+            
+            // Update with available data including receiver name
+            setTransactionDetails({
+              ...transactionDetails,
+              amount: orderData.amount_fiat?.toString() || transactionDetails.amount,
+              currency: orderData.currency || transactionDetails.currency,
+              recipient: formatReceiverName(orderData.receiver_name),
+              transactionHash: orderData.transaction_hashes?.settlement || 
+                             orderData.transaction_hashes?.creation,
+              date: orderData.created_at || transactionDetails.date,
+              paymentStatus: "processing",
+              orderId: orderData.order_id || transactionDetails.orderId,
+              customerName: formatReceiverName(orderData.receiver_name),
+            });
+            return false; // Continue polling
+          }
+        }
+
+        // PRIORITY 2.5: Show blockchain confirmation waiting state
+        if (hasBasicSuccess && !hasRealTransactionHash && pollAttempts <= 30) {
+          console.log("🔄 WAITING FOR BLOCKCHAIN: Payment initiated, waiting for blockchain confirmation");
+          setStatus("processing");
+          setStatusMessage("Payment initiated! Waiting for blockchain confirmation...");
+          setProgress(60);
+          
+          // Update with basic payment info
+          setTransactionDetails({
+            ...transactionDetails,
+            amount: orderData.amount_fiat?.toString() || transactionDetails.amount,
+            currency: orderData.currency || transactionDetails.currency,
+            paymentStatus: "processing",
+            orderId: orderData.order_id || transactionDetails.orderId,
+          });
+          return false; // Continue polling
+        }
+
+        // PRIORITY 3: Fallback for partial data after extended polling (with real data only)
+        if (pollAttempts > 40 && (hasRealTransactionHash || hasBasicSuccess)) {
+          console.log("⚠️ PARTIAL SUCCESS: Showing success with available REAL data after extended polling");
+          
+          // Only use real data, show "Processing..." for missing real data
+          const partialTransactionDetails = {
+            ...transactionDetails,
+            amount: orderData.amount_fiat?.toString() || transactionDetails.amount,
+            currency: orderData.currency || transactionDetails.currency,
+            recipient: hasRealReceiverName ? formatReceiverName(orderData.receiver_name) : "Still processing...",
+            paymentMethod: orderData.order_type === "offramp" ? "Mobile Money" : "Crypto Transfer",
+            transactionHash: hasRealTransactionHash ? 
+              (orderData.transaction_hashes?.settlement || orderData.transaction_hashes?.creation) : 
+              "Confirming...",
+            date: orderData.created_at || transactionDetails.date,
+            receiptNumber: hasRealMpesaReceipt ? 
+              (orderData.receipt_number || orderData.mpesa_receipt_number || orderData.file_id) : 
+              "Still processing...",
+            paymentStatus: "settled",
+            status: 1,
+            orderId: orderData.order_id || transactionDetails.orderId,
+            customerName: hasRealReceiverName ? formatReceiverName(orderData.receiver_name) : "Processing...",
+            items: [
+              {
+                name: orderData.token || "Crypto Token",
+                price: orderData.amount_fiat?.toString() || transactionDetails.amount,
+                quantity: 1,
+              },
+            ],
+            subtotal: orderData.amount_fiat?.toString() || transactionDetails.amount,
+          };
+          
+          setTransactionDetails(partialTransactionDetails);
+          setStatus("success");
+          setStatusMessage("Payment successful! Some details may still be processing.");
+          setProgress(100);
+          setShowConfetti(true);
+          setPopupLocked(true);
           cleanupOrderId();
           if (pollInterval) clearInterval(pollInterval);
           return true;
@@ -507,73 +648,39 @@ const ProcessingPopup: React.FC<ProcessingPopupProps> = ({
           return true; // Stop polling, transaction is already successful
         }
         
-        // Additional safeguard: if we've been polling for a while and there's any settlement hash,
-        // consider it successful even if status isn't explicitly set
-        if (pollAttempts > 10 && (
-          orderData.transaction_hashes?.settlement ||
-          orderData.transaction_hashes?.creation ||
-          orderData.receipt_number ||
-          orderData.mpesa_receipt_number ||
-          orderData.file_id
-        )) {
-          console.log("🔄 FALLBACK SUCCESS: Detected success indicators after extended polling");
-          // Trigger success state
-          const fallbackTransactionDetails = {
+        // PRIORITY 4: Final fallback only for extreme edge cases (should rarely be used)
+        if (pollAttempts > 80 && (hasRealTransactionHash || hasBasicSuccess)) {
+          console.log("🔄 FINAL FALLBACK: Extreme long polling, showing success with confirmed data only");
+          const finalFallbackDetails = {
             ...transactionDetails,
             amount: orderData.amount_fiat?.toString() || transactionDetails.amount,
             currency: orderData.currency || transactionDetails.currency,
-            recipient: formatReceiverName(orderData.receiver_name) || transactionDetails.recipient,
-            paymentMethod: "Mobile Money",
-            transactionHash: orderData.transaction_hashes?.settlement || 
-                           orderData.transaction_hashes?.creation || 
-                           "N/A",
+            recipient: hasRealReceiverName ? formatReceiverName(orderData.receiver_name) : "Contact support for details",
+            paymentMethod: orderData.order_type === "offramp" ? "Mobile Money" : "Crypto Transfer",
+            transactionHash: hasRealTransactionHash ? 
+              (orderData.transaction_hashes?.settlement || orderData.transaction_hashes?.creation) : 
+              "Contact support for details",
             date: orderData.created_at || transactionDetails.date,
-            receiptNumber: orderData.receipt_number || 
-                          orderData.mpesa_receipt_number || 
-                          orderData.file_id ||
-                          "N/A",
+            receiptNumber: hasRealMpesaReceipt ? 
+              (orderData.receipt_number || orderData.mpesa_receipt_number || orderData.file_id) : 
+              "Contact support for details",
             paymentStatus: "settled",
             status: 1,
+            orderId: orderData.order_id || transactionDetails.orderId,
+            customerName: hasRealReceiverName ? formatReceiverName(orderData.receiver_name) : "Contact support",
+            items: [
+              {
+                name: orderData.token || "Crypto Token",
+                price: orderData.amount_fiat?.toString() || transactionDetails.amount,
+                quantity: 1,
+              },
+            ],
+            subtotal: orderData.amount_fiat?.toString() || transactionDetails.amount,
           };
           
-          setTransactionDetails(fallbackTransactionDetails);
+          setTransactionDetails(finalFallbackDetails);
           setStatus("success");
-          setStatusMessage("Payment successful!");
-          setProgress(100);
-          setShowConfetti(true);
-          setPopupLocked(true);
-          cleanupOrderId();
-          if (pollInterval) clearInterval(pollInterval);
-          return true;
-        }
-        
-        // Even more aggressive fallback - if we have transaction hashes but ambiguous status
-        if (pollAttempts > 5 && (
-          orderData.transaction_hashes?.settlement ||
-          (orderData.transaction_hashes?.creation && orderData.receipt_number)
-        )) {
-          console.log("🚀 EARLY SUCCESS: Strong success indicators detected");
-          const earlySuccessDetails = {
-            ...transactionDetails,
-            amount: orderData.amount_fiat?.toString() || transactionDetails.amount,
-            currency: orderData.currency || transactionDetails.currency,
-            recipient: formatReceiverName(orderData.receiver_name) || transactionDetails.recipient,
-            paymentMethod: "Mobile Money",
-            transactionHash: orderData.transaction_hashes?.settlement || 
-                           orderData.transaction_hashes?.creation || 
-                           "N/A",
-            date: orderData.created_at || transactionDetails.date,
-            receiptNumber: orderData.receipt_number || 
-                          orderData.mpesa_receipt_number || 
-                          orderData.file_id ||
-                          "N/A",
-            paymentStatus: "settled",
-            status: 1,
-          };
-          
-          setTransactionDetails(earlySuccessDetails);
-          setStatus("success");
-          setStatusMessage("Payment successful!");
+          setStatusMessage("Payment confirmed! Some details may require support assistance.");
           setProgress(100);
           setShowConfetti(true);
           setPopupLocked(true);
@@ -803,18 +910,14 @@ const ProcessingPopup: React.FC<ProcessingPopupProps> = ({
               receiptRef={receiptRef}
             />
             
-            {/* Emergency debug controls - only in development */}
+            {/* Debug controls - only in development */}
             {process.env.NODE_ENV === "development" && status === "processing" && (
-              <div className="absolute top-2 right-2 space-y-2">
-                <button
-                  onClick={triggerSuccessState}
-                  className="px-3 py-1 bg-green-500 text-white text-xs rounded hover:bg-green-600"
-                  title="Emergency success trigger for debugging"
-                >
-                  🚀 Success
-                </button>
-                <div className="text-xs text-gray-500 bg-white p-1 rounded">
+              <div className="absolute top-2 right-2 space-y-1">
+                <div className="text-xs text-gray-500 bg-white/90 p-1 rounded shadow">
                   Order: {orderId || "MISSING!"}
+                </div>
+                <div className="text-xs text-gray-500 bg-white/90 p-1 rounded shadow">
+                  Status: {status}
                 </div>
               </div>
             )}

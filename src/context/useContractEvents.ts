@@ -1,18 +1,20 @@
 import { useEffect, useState, useCallback } from "react";
 import { ethers, BigNumberish } from "ethers";
-import { CONTRACT_ABI, CONTRACT_ADDRESS } from "@/app/api/abi";
+import { CONTRACT_ABI } from "@/app/api/abi";
 
 const NODE_URL = process.env.NEXT_PUBLIC_BASE_WS_URL || "wss://base-mainnet.infura.io/ws/v3/079a8513fe4e46829490d949e078e4c1";
 const provider = new ethers.WebSocketProvider(NODE_URL);
-const contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, provider);
 
 // Hook for Listening to Contract Events
 export const useContractEvents = (
+    contractAddress: string,
     onOrderCreated: (order: any) => void,
     onOrderSettled: (order: any) => void,
     onOrderRefunded: (orderId: any) => void
 ) => {
     useEffect(() => {
+        if (!contractAddress) return;
+        const contract = new ethers.Contract(contractAddress, CONTRACT_ABI, provider);
         const orderCreatedListener = (
             orderId: string,
             token: string,
@@ -47,7 +49,6 @@ export const useContractEvents = (
             onOrderRefunded(orderId);
         };
 
-
         contract.on("OrderCreated", orderCreatedListener);
         contract.on("OrderSettled", orderSettledListener);
         contract.on("OrderRefunded", orderRefundedListener);
@@ -57,7 +58,7 @@ export const useContractEvents = (
             contract.off("OrderSettled", orderSettledListener);
             contract.off("OrderRefunded", orderRefundedListener);
         };
-    }, [onOrderCreated, onOrderSettled, onOrderRefunded]);
+    }, [contractAddress, onOrderCreated, onOrderSettled, onOrderRefunded]);
 };
 
 // Hook for Handling Order Status

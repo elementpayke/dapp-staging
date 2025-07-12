@@ -19,56 +19,38 @@ import { CONTRACT_ABI, CONTRACT_ADDRESS } from '../app/api/abi';
  */
 
 //@TODO maybe check and confirm if we realy need this hook
-export const useContract = () => {
-  // Get the connected wallet address and connection status from wagmi.
+export const useContract = (contractAddress: string) => {
   const { address, isConnected } = useAccount();
-  
-  // Get the wallet client from wagmi; it provides methods for sending transactions.
-  // In our setup, the wallet client is assumed to behave as an ethers.Signer.
   const { data: walletClient } = useWalletClient();
 
-  // Hard-code the contract address for now. 
-  // TODO: Replace this with a dynamic contract address from the env
-  // You can alternatively import this from an environment variable or config file.
-  const contractAddress = CONTRACT_ADDRESS;
-
-  // Derive the signer from the wallet client.
-  // If walletClient exists, we assume it acts as a signer.
   const signer = useMemo(() => {
     return walletClient ? (walletClient as unknown as ethers.Signer) : null;
   }, [walletClient]);
 
-  // provider based contract for event subscription
   const provider = useMemo(() => {
-    if ( typeof window !== "undefined" && (window as any).ethereum ) {
+    if (typeof window !== "undefined" && (window as any).ethereum) {
       return new ethers.BrowserProvider((window as any).ethereum);
     }
     return null;
   }, []);
 
-  // Create an ethers.js Contract instance.
-  // This contract instance can be used to call smart contract methods.
   const contract = useMemo(() => {
-    if (!isConnected || !address || !signer) return null;
-    // Instantiating the contract with the testnet contract address, ABI, and signer.
+    if (!isConnected || !address || !signer || !contractAddress) return null;
     return new ethers.Contract(
-      contractAddress,  // The deployed contract address (testnet for now)
-      CONTRACT_ABI,     // The contract's ABI
-      signer            // The signer for sending transactions
+      contractAddress,
+      CONTRACT_ABI,
+      signer
     );
-  }, [isConnected, address, signer, contractAddress]); // Added contractAddress to the dependency array
+  }, [isConnected, address, signer, contractAddress]);
 
   const contractWithProvider = useMemo(() => {
-    if (!provider) return null;
-    // Instantiating the contract with the testnet contract address, ABI, and signer.
+    if (!provider || !contractAddress) return null;
     return new ethers.Contract(
-      contractAddress,  // The deployed contract address (testnet for now)
-      CONTRACT_ABI,     // The contract's ABI
-      provider          // The signer for sending transactions
+      contractAddress,
+      CONTRACT_ABI,
+      provider
     );
-  }, [provider, contractAddress]); // Added contractAddress to the dependency array
+  }, [provider, contractAddress]);
 
-
-  // Return the contract instance and the connected wallet address.
-  return { contract, contractWithProvider, address, CONTRACT_ABI, CONTRACT_ADDRESS }; 
+  return { contract, contractWithProvider, address, CONTRACT_ABI, CONTRACT_ADDRESS: contractAddress };
 };

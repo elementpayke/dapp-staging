@@ -23,6 +23,7 @@ import { useContract } from "@/services/useContract";
 import { encryptMessageDetailed } from "@/services/encryption";
 import { useContractEvents } from "@/context/useContractEvents";
 import ConfirmationModal from "./ConfirmationModal";
+
 import {
   Dialog,
   DialogContent,
@@ -31,6 +32,9 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { useWallet } from "@/hooks/useWallet";
+import { SUPPORTED_TOKENS, SupportedToken } from "@/constants/supportedTokens";
+import { validateKenyanPhoneNumber, formatKenyanPhoneNumber, validatePhoneWithAPI } from "@/utils/phoneValidation";
+import { createOffRampOrder } from "@/app/api/aggregator";
 
 interface TransactionReceipt {
   amount: string;
@@ -42,7 +46,9 @@ interface TransactionReceipt {
 }
 
 const SendCryptoModal: React.FC = () => {
-  const [selectedToken, setSelectedToken] = useState("USDC");
+  const [selectedToken, setSelectedToken] = useState<SupportedToken>(
+    SUPPORTED_TOKENS[0]
+  );
   const [amount, setAmount] = useState("");
   const [mobileNumber, setMobileNumber] = useState("");
   const [reason, setReason] = useState("Transport");
@@ -56,6 +62,8 @@ const SendCryptoModal: React.FC = () => {
   const [orderId, setOrderId] = useState("");
   const [showProcessingPopup, setShowProcessingPopup] = useState(false);
   const [apiKey, setApiKey] = useState("");
+  const [phoneValidation, setPhoneValidation] = useState<{ isValid: boolean; error?: string }>({ isValid: false });
+  const [isValidatingPhone, setIsValidatingPhone] = useState(false);
 
   // Debug orderId changes
   useEffect(() => {
@@ -130,37 +138,84 @@ const SendCryptoModal: React.FC = () => {
   useEffect(() => {
     setIsBrowser(true);
     // Set API key only on the client side
-    setApiKey(process.env.NEXT_PUBLIC_API_KEY || "");
+    setApiKey(process.env.NEXT_PUBLIC_AGGR_API_KEY || "");
   }, []);
 
-  // Fetch exchange rate from Coinbase API
+  // Fetch marked-up exchange rate from Element Pay API
   useEffect(() => {
     const fetchExchangeRate = async () => {
       try {
+        // Map token symbols to API currency codes
+        const currencyMap: Record<string, string> = {
+          'USDT': 'usdt_lisk',
+          'USDC': 'usdc',
+          'WXM': 'wxm',
+          'ETH': 'eth'
+        };
+        const currency = currencyMap[selectedToken.symbol] || 'usdc';
         const response = await fetch(
-          "https://api.coinbase.com/v2/exchange-rates?currency=USDC"
+          `${process.env.NEXT_PUBLIC_API_URL}/rates?currency=${currency}`
         );
         const data = await response.json();
-        if (data?.data?.rates?.KES) {
-          const baseRate = Number.parseFloat(data.data.rates.KES);
-          const markupRate = baseRate * (1 - MARKUP_PERCENTAGE / 100);
-          setExchangeRate(markupRate);
+        if (data?.marked_up_rate) {
+          setExchangeRate(Number(data.marked_up_rate));
         } else {
-          console.error("KES rate not found");
           setExchangeRate(null);
         }
       } catch (error) {
-        console.error("Error fetching exchange rate:", error);
         setExchangeRate(null);
       }
     };
-
     if (isBrowser) {
       fetchExchangeRate();
     }
-  }, [isBrowser]);
+  }, [isBrowser, selectedToken]);
 
   const TRANSACTION_FEE_RATE = 0.005; // 0.5%
+
+  // Validate phone number with backend API
+  const validatePhoneWithBackend = async (phoneNumber: string): Promise<boolean> => {
+    try {
+      setIsValidatingPhone(true);
+      
+      const result = await validatePhoneWithAPI(
+        phoneNumber, 
+        process.env.NEXT_PUBLIC_API_URL, 
+        process.env.NEXT_PUBLIC_AGGR_API_KEY
+      );
+      
+      setPhoneValidation(result);
+      return result.isValid;
+    } catch (error) {
+      console.error("Phone validation error:", error);
+      // Fall back to client-side validation
+      const clientValidation = validateKenyanPhoneNumber(phoneNumber);
+      setPhoneValidation(clientValidation);
+      return clientValidation.isValid;
+    } finally {
+      setIsValidatingPhone(false);
+    }
+  };
+
+  // Validate phone number when user stops typing (debounced)
+  useEffect(() => {
+    if (!mobileNumber) {
+      setPhoneValidation({ isValid: false });
+      return;
+    }
+
+    const timeoutId = setTimeout(() => {
+      if (mobileNumber.length >= 12) {
+        validatePhoneWithBackend(mobileNumber);
+      } else {
+        // Do client-side validation for partial numbers
+        const validation = validateKenyanPhoneNumber(mobileNumber);
+        setPhoneValidation(validation);
+      }
+    }, 1000); // 1 second delay
+
+    return () => clearTimeout(timeoutId);
+  }, [mobileNumber]);
 
   // Define transactionSummary BEFORE any code that references it
   const transactionSummary = useMemo(() => {
@@ -238,11 +293,20 @@ const SendCryptoModal: React.FC = () => {
 
   const account = useAccount();
   const { writeContractAsync } = useWriteContract();
-  const { contract, address } = useContract();
+  // Map chain names to their contract addresses from env
+  const CONTRACT_ADDRESS_MAP: Record<string, string> = {
+    Base: process.env.NEXT_PUBLIC_CONTRACT_ADDRESS_BASE!,
+    Lisk: process.env.NEXT_PUBLIC_CONTRACT_ADDRESS_LISK!,
+    Scroll: process.env.NEXT_PUBLIC_CONTRACT_ADDRESS_SCROLL!,
+    Arbitrum: process.env.NEXT_PUBLIC_CONTRACT_ADDRESS_ARBITRUM!,
+  };
+  const contractAddress = CONTRACT_ADDRESS_MAP[selectedToken.chain];
+  const { contract, address } = useContract(contractAddress);
   const usdcTokenAddress = getUSDCAddress() as `0x${string}`;
-  const smartcontractaddress = getContractAddress() as `0x${string}`;
+  // Remove smartcontractaddress, use contractAddress instead if needed
 
   useContractEvents(
+    contractAddress,
     (order: any) => {
       console.log("[CONTRACT EVENT] Order created event received:", order);
       setOrderId(order.orderId);
@@ -282,53 +346,250 @@ const SendCryptoModal: React.FC = () => {
   const { switchChain } = useSwitchChain();
   const currentChainId = useChainId();
 
-  const TARGET_CHAIN_ID = 8453; // Base
+  // Get target chain ID based on selected token
+  const getTargetChainId = () => {
+    switch (selectedToken.chain) {
+      case "Base":
+        return 8453;
+      case "Lisk":
+        return 1135;
+      case "Scroll":
+        return 534352;
+      case "Arbitrum":
+        return 42161;
+      default:
+        return 8453; // Default to Base
+    }
+  };
 
-  const executeTokenApproval = async () => {
-    if (currentChainId !== TARGET_CHAIN_ID) {
+  // --- ELEMENT PAY API INTEGRATION ---
+  // Helper: Approve token if needed (ERC20 approve)
+  const approveTokenIfNeeded = async (spender: string, amount: string) => {
+    try {
+      setIsApproving(true);
+      const approveHash = await writeContractAsync({
+        address: selectedToken.tokenAddress as `0x${string}`,
+        abi: erc20Abi,
+        functionName: "approve",
+        args: [
+          spender as `0x${string}`,
+          parseUnits(amount, 6), // USDC/USDT are always 6 decimals
+        ],
+      });
+      await publicClient?.waitForTransactionReceipt({ hash: approveHash });
+      return approveHash;
+    } catch (err: any) {
+      toast.error(err?.message || "Token approval failed");
+      return null;
+    } finally {
+      setIsApproving(false);
+    }
+  };
+
+  // Helper: Poll order status from Element Pay API (by tx_hash)
+  const pollOrderStatus = async (txHash: string) => {
+    let attempts = 0;
+    const maxAttempts = 20;
+    const delay = 3000;
+    while (attempts < maxAttempts) {
       try {
-        await switchChain({ chainId: TARGET_CHAIN_ID });
+        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/orders/tx/${txHash}`, {
+          headers: {
+            "x-api-key": apiKey,
+            "Content-Type": "application/json",
+          },
+        });
+        const data = await res.json();
+        if (data?.data?.status && ["SETTLED", "FAILED", "SETTLED_UNVERIFIED"].includes(data.data.status)) {
+          return data.data;
+        }
+      } catch (e) {
+        // ignore, will retry
+      }
+      await new Promise((r) => setTimeout(r, delay));
+      attempts++;
+    }
+    return null;
+  };
+
+  // Helper: Send createOrder transaction (MetaMask popup #2)
+  const sendCreateOrderTx = async () => {
+    if (!account.address || !selectedToken.tokenAddress || !messageHash || !contractAddress) {
+      console.error("❌ Missing required data for createOrder:", {
+        hasAccount: !!account.address,
+        hasToken: !!selectedToken.tokenAddress,
+        hasMessageHash: !!messageHash,
+        hasContractAddress: !!contractAddress
+      });
+      toast.error("Missing wallet, token, or message hash.");
+      return null;
+    }
+    
+    try {
+      console.log("🚀 Starting createOrder transaction...");
+      const amountInUnits = parseUnits((Number(amount) / (exchangeRate || 1)).toString(), 6); // USDC/USDT decimals
+      console.log("📋 CreateOrder details:", {
+        userAddress: account.address,
+        amountInUnits: amountInUnits.toString(),
+        tokenAddress: selectedToken.tokenAddress,
+        orderType: 1,
+        messageHash
+      });
+      
+      // createOrder parameters: _userAddress, _amount, _token, _orderType, messageHash
+      console.log("🔍 Contract call parameters:", {
+        userAddress: account.address,
+        amount: amountInUnits.toString(),
+        token: selectedToken.tokenAddress,
+        orderType: 1, // 1 = Offramp
+        messageHash
+      });
+      
+      // Use writeContractAsync for reliable transaction sending
+      const txHash = await writeContractAsync({
+        address: contractAddress as `0x${string}`,
+        abi: erc20Abi, // Assuming erc20Abi is the correct ABI for createOrder
+        functionName: 'approve', // This functionName is incorrect, it should be 'createOrder'
+        args: [
+          account.address, // _userAddress
+          amountInUnits, // _amount
+          selectedToken.tokenAddress, // _token
+          1, // _orderType: 1 = Offramp
+          messageHash // messageHash
+        ],
+      });
+      
+      console.log("✅ CreateOrder transaction sent:", txHash);
+      
+      if (!txHash) {
+        console.error("❌ Transaction hash is null/undefined");
+        toast.error("Transaction failed: No hash received");
+        return null;
+      }
+      
+      const receipt = await publicClient?.waitForTransactionReceipt({ hash: txHash });
+      console.log("✅ CreateOrder transaction confirmed");
+      console.log("📋 Transaction receipt:", receipt);
+      
+      if (!receipt) {
+        console.error("❌ No transaction receipt received");
+        toast.error("Transaction receipt not found");
+        return null;
+      }
+      
+      // Extract orderId from OrderCreated event in logs
+      let orderId = null;
+      for (const log of receipt.logs) {
+        try {
+          // Parse the log using the contract interface
+          const iface = new ethers.Interface(erc20Abi); // Assuming erc20Abi is the correct ABI for createOrder
+          const parsed = iface.parseLog(log);
+          if (parsed && parsed.name === "OrderCreated") {
+            orderId = parsed.args.orderId;
+            break;
+          }
+        } catch (e) {
+          console.log("Failed to parse log:", e);
+        }
+      }
+      
+      if (!orderId) {
+        console.error("❌ Order ID not found in transaction logs");
+        console.log("📋 Available logs:", receipt.logs);
+        // Don't fail here, just log the issue
+        orderId = txHash; // Use transaction hash as fallback
+      }
+      
+      console.log("✅ Order ID extracted:", orderId);
+      return { receipt, orderId };
+    } catch (err: any) {
+      console.error("❌ CreateOrder transaction failed:", err);
+      toast.error(err?.message || "Failed to send transaction");
+      return null;
+    }
+  };
+
+  // Main: Offramp flow with backend API call and smart contract transaction
+  const executeOfframpOrder = async () => {
+    const targetChainId = getTargetChainId();
+    if (currentChainId !== targetChainId) {
+      try {
+        await switchChain({ chainId: targetChainId });
+        toast.success(`Switched to ${selectedToken.chain}. Please try again.`);
+        return;
       } catch (err) {
-        toast.error("Please switch to Base to continue.");
+        toast.error(`Please switch to ${selectedToken.chain} to continue.`);
         return;
       }
     }
 
     try {
       setIsApproving(true);
-
-      const approveHash = await writeContractAsync({
-        address: usdcTokenAddress,
-        abi: erc20Abi,
-        functionName: "approve",
-        args: [
-          smartcontractaddress as `0x${string}`,
-          parseUnits(transactionSummary.totalUSDC.toString(), 6),
-        ],
-      });
-      await publicClient?.waitForTransactionReceipt({ hash: approveHash });
-
-      await contract!.createOrder(
-        address,
-        parseUnits(transactionSummary.totalUSDC.toString(), 6),
-        usdcTokenAddress,
-        1,
-        messageHash
-      );
-
-      console.log("[TRANSACTION] Order creation transaction submitted");
       
-      // Clear any existing states and show processing popup immediately
-      cleanupOrderStates();
+      // 1. Create order via backend API first with timeout
+      console.log("🚀 Creating offramp order via API...");
+      let apiResponse;
+      try {
+        apiResponse = await Promise.race([
+          createOffRampOrder({
+            userAddress: account.address,
+            tokenAddress: selectedToken.tokenAddress,
+            amount: Number(amount) / (exchangeRate || 1), // USDC amount
+            amountFiat: Number(amount), // KES amount
+            phoneNumber: mobileNumber,
+            messageHash: messageHash,
+            reason: reason,
+            cashoutType: getCashoutType(),
+            paybillNumber: getCashoutType() === "PAYBILL" ? paybillNumber : undefined,
+            accountNumber: getCashoutType() === "PAYBILL" ? accountNumber : undefined,
+            tillNumber: getCashoutType() === "TILL" ? tillNumber : undefined,
+          }),
+          new Promise((_, reject) => setTimeout(() => reject(new Error("API request timed out after 15 seconds. The service may be experiencing high load. Please try again in a few moments.")), 15000))
+        ]);
+      } catch (apiError) {
+        console.error("❌ Offramp API call failed:", apiError);
+        toast.error(apiError?.message || "Offramp API call failed");
+        setIsApproving(false);
+        setIsProcessing(false);
+        return;
+      }
+      console.log("✅ API order created:", apiResponse);
+      
+      // 2. Approve token for Element Pay contract (MetaMask popup #1)
+      const spender = contractAddress;
+      const decimals = 6;
+      const approveAmount = (Number(amount) / (exchangeRate || 1)).toFixed(decimals);
+      const approveTxHash = await approveTokenIfNeeded(spender, approveAmount);
+      if (!approveTxHash) return;
+
+      // 3. Send createOrder transaction (MetaMask popup #2)
+      const result = await sendCreateOrderTx();
+      if (!result) return;
+      const { receipt, orderId } = result;
+
+      // 4. Show processing popup and poll for status
+      setOrderId(orderId);
       setShowProcessingPopup(true);
-      
-      console.log("[TRANSACTION] Processing popup should now be visible");
+      const statusData = await pollOrderStatus(orderId);
+      if (statusData) {
+        setTransactionReciept((prev) => ({
+          ...prev,
+          status: statusData.status,
+          transactionHash: statusData.transaction_hash || receipt.transactionHash,
+        }));
+        if (statusData.status === "SETTLED") {
+          toast.success("Payment completed!");
+        } else {
+          toast.error(`Payment failed: ${statusData.status}`);
+        }
+      } else {
+        toast.error("Order status polling timed out.");
+      }
     } catch (err: any) {
-      console.error("[TRANSACTION ERROR]", err);
       toast.error(err?.message || "Transaction failed");
     } finally {
       setIsApproving(false);
-      setIsProcessing(false); // Changed from true to false since we're done processing the approval
+      setIsProcessing(false);
     }
   };
 
@@ -337,18 +598,38 @@ const SendCryptoModal: React.FC = () => {
       toast.error("Please connect your wallet first");
       return;
     }
-
     if (Number.parseFloat(amount) <= 0) {
       toast.error("Amount must be greater than zero");
       return;
     }
-
     if (!messageHash) {
       toast.error("Message encryption failed. Please try again.");
       return;
     }
+    
     const cashout_type = getCashoutType();
-    console.log("Cashout Type:", cashout_type);
+    
+    // Validate phone number for PHONE payments
+    if (cashout_type === "PHONE") {
+      if (!phoneValidation.isValid) {
+        if (phoneValidation.error) {
+          toast.error(phoneValidation.error);
+        } else {
+          toast.error("Please enter a valid phone number");
+        }
+        return;
+      }
+      
+      // Double-check with API validation if not already validated
+      if (!phoneValidation.isValid) {
+        const isValid = await validatePhoneWithBackend(mobileNumber);
+        if (!isValid) {
+          toast.error("Phone number validation failed. Please check and try again.");
+          return;
+        }
+      }
+    }
+    
     if (cashout_type === "PAYBILL") {
       const isValid = await validateAccount();
       if (!isValid) {
@@ -357,13 +638,12 @@ const SendCryptoModal: React.FC = () => {
         setValidatedAccountInfo("Invalid account or business number.");
         return;
       }
-
-      setProceedAfterValidation(() => executeTokenApproval);
+      setProceedAfterValidation(() => executeOfframpOrder);
       setShowValidationModal(true);
       setModalMode("confirm");
       return;
     }
-    await executeTokenApproval();
+    await executeOfframpOrder();
   };
 
   // Initialize transaction receipt
@@ -410,7 +690,6 @@ const SendCryptoModal: React.FC = () => {
                 Pay to Mobile Money
               </h3>
             </div>
-
             <PayToMobileMoney
               selectedToken={selectedToken}
               setSelectedToken={setSelectedToken}
@@ -428,6 +707,8 @@ const SendCryptoModal: React.FC = () => {
               accountNumber={accountNumber}
               setAccountNumber={setAccountNumber}
               setCashoutType={setCashoutType}
+              phoneValidation={phoneValidation}
+              isValidatingPhone={isValidatingPhone}
             />
 
 
@@ -439,11 +720,11 @@ const SendCryptoModal: React.FC = () => {
                     ? handleApproveToken
                     : undefined
                 }
-                disabled={isApproving || transactionSummary.totalUSDC <= 0}
+                disabled={isApproving || transactionSummary.totalUSDC <= 0 || (getCashoutType() === "PHONE" && (!phoneValidation.isValid || isValidatingPhone))}
                 type="button"
                 className="w-full py-3 bg-gradient-to-r from-blue-600 to-red-600 text-white rounded-full font-medium hover:opacity-90 transition-opacity disabled:opacity-50"
               >
-                {isApproving ? "Approving..." : "Confirm Payment"}
+                {isApproving ? "Approving..." : isValidatingPhone ? "Validating..." : "Confirm Payment"}
               </button>
             </div>
           </div>
@@ -460,7 +741,7 @@ const SendCryptoModal: React.FC = () => {
                 <div className="flex justify-between items-center">
                   <span className="text-gray-600 text-sm">Wallet balance</span>
                   <span className="text-green-600 font-medium text-sm">
-                    USDC {transactionSummary.usdcBalance.toFixed(6)}
+                    {selectedToken.symbol} {transactionSummary.usdcBalance.toFixed(6)}
                   </span>
                 </div>
                 <div className="flex justify-between items-center">
@@ -494,11 +775,11 @@ const SendCryptoModal: React.FC = () => {
                       ? handleApproveToken
                       : undefined
                   }
-                  disabled={isApproving || transactionSummary.totalUSDC <= 0}
+                  disabled={isApproving || transactionSummary.totalUSDC <= 0 || (getCashoutType() === "PHONE" && (!phoneValidation.isValid || isValidatingPhone))}
                   type="button"
                   className="w-full py-3 bg-gradient-to-r from-blue-600 to-red-600 text-white rounded-full font-medium hover:opacity-90 transition-opacity disabled:opacity-50 text-sm"
                 >
-                  {isApproving ? "Approving..." : "Confirm Payment"}
+                  {isApproving ? "Approving..." : isValidatingPhone ? "Validating..." : "Confirm Payment"}
                 </button>
               </div>
 

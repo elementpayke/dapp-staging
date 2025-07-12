@@ -1,10 +1,12 @@
 "use client";
 import type React from "react";
 import { useState, useEffect } from "react";
+import { SupportedToken } from "@/constants/supportedTokens";
+import TokenDropdown from "@/components/ui/TokenDropdown";
 
 interface PayToMobileMoneyProps {
-  selectedToken: string;
-  setSelectedToken: (value: string) => void;
+  selectedToken: SupportedToken;
+  setSelectedToken: (value: SupportedToken) => void;
   amount: string;
   setAmount: (value: string) => void;
   mobileNumber: string;
@@ -19,6 +21,8 @@ interface PayToMobileMoneyProps {
   accountNumber: string;
   setAccountNumber: (value: string) => void;
   setCashoutType: (type: "PHONE" | "TILL" | "PAYBILL") => void;
+  phoneValidation?: { isValid: boolean; error?: string };
+  isValidatingPhone?: boolean;
 }
 
 type PaymentMethod =
@@ -44,6 +48,8 @@ const PayToMobileMoney: React.FC<PayToMobileMoneyProps> = ({
   accountNumber,
   setAccountNumber,
   setCashoutType,
+  phoneValidation = { isValid: false },
+  isValidatingPhone = false,
 }) => {
   const [paymentMethod, setPaymentMethod] =
     useState<PaymentMethod>("Send Money");
@@ -125,21 +131,44 @@ const PayToMobileMoney: React.FC<PayToMobileMoneyProps> = ({
                     }
                     setMobileNumber(input);
                   }}
-                  className={`w-full p-3 bg-gray-50 rounded-lg border-0 text-gray-900 ${paymentMethod === "Send Money" &&
-                    mobileNumber.length > 0 &&
-                    mobileNumber.length !== 12
-                    ? "border border-red-500"
-                    : ""
-                    }`}
+                  className={`w-full p-3 bg-gray-50 rounded-lg border-0 text-gray-900 focus:outline-none focus:ring-2 transition-colors ${
+                    phoneValidation.isValid 
+                      ? 'focus:ring-green-500 border-green-200' 
+                      : mobileNumber && !phoneValidation.isValid 
+                      ? 'focus:ring-red-500 border-red-200' 
+                      : 'focus:ring-blue-500'
+                  }`}
                   placeholder="e.g., 254712345678"
                 />
-
-                {/* {paymentMethod === "Send Money" && mobileNumber.length > 0 && mobileNumber.length !== 14 && (
-                  <div className="mt-1 text-sm text-red-500">
-                    Please enter a valid 12-digit phone number starting with 254
+                {isValidatingPhone && (
+                  <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-500"></div>
                   </div>
-                )} */}
+                )}
+                {phoneValidation.isValid && !isValidatingPhone && (
+                  <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+                    <svg className="h-5 w-5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                  </div>
+                )}
               </div>
+              {mobileNumber && !phoneValidation.isValid && phoneValidation.error && (
+                <p className="text-red-500 text-sm mt-1 flex items-center gap-1">
+                  <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  {phoneValidation.error}
+                </p>
+              )}
+              {phoneValidation.isValid && (
+                <p className="text-green-600 text-sm mt-1 flex items-center gap-1">
+                  <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  Valid Safaricom number
+                </p>
+              )}
             </div>
           </>
         );
@@ -270,15 +299,10 @@ const PayToMobileMoney: React.FC<PayToMobileMoneyProps> = ({
       <div className="grid grid-cols-2 gap-4">
         <div>
           <label className="block text-gray-600 mb-2">Token</label>
-          <select
-            value={selectedToken}
-            onChange={(e) => setSelectedToken(e.target.value)}
-            className="w-full p-3 bg-gray-50 rounded-lg border-0 text-gray-900"
-          >
-            <option value="USDC">USDC</option>
-            <option value="ETH">ETH</option>
-            <option value="DAI">DAI</option>
-          </select>
+          <TokenDropdown
+            selected={selectedToken}
+            onSelect={setSelectedToken}
+          />
         </div>
         <div>
           <label className="block text-gray-600 mb-2">Amount in KES</label>
@@ -286,22 +310,9 @@ const PayToMobileMoney: React.FC<PayToMobileMoneyProps> = ({
             type="text"
             value={amount}
             onChange={(e) => {
+              // Allow only numbers and decimal point
               const newValue = e.target.value.replace(/[^\d.]/g, "");
-
-              if (newValue === "") {
-                setAmount("");
-                return;
-              }
-
-              const parsedValue = Number.parseFloat(newValue);
-
-              if (!isNaN(parsedValue)) {
-                if (!totalKES || parsedValue <= totalKES) {
-                  setAmount(newValue);
-                } else {
-                  setAmount(totalKES.toFixed(0).toString());
-                }
-              }
+              setAmount(newValue);
             }}
             className="w-full p-3 bg-gray-50 rounded-lg border-0 text-gray-900"
             placeholder="Enter amount"
