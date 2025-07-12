@@ -62,13 +62,16 @@ export const useContractEvents = (
 };
 
 // Hook for Handling Order Status
-export const useContractHandleOrderStatus = () => {
+export const useContractHandleOrderStatus = (contractAddress: string) => {
     const [isProcessing, setIsProcessing] = useState(false);
 
     const handleOrderStatus = useCallback(async (orderId: string, setIsTransactionModalOpen: any, setDepositCryptoReciept: any, transactionReciept: any) => {
-        if (!orderId) return;
+        if (!orderId || !contractAddress) return;
 
         setIsProcessing(true);
+
+        // Create contract instance here
+        const contract = new ethers.Contract(contractAddress, CONTRACT_ABI, provider);
 
         try {
             let orderStatus = await contract.getOrder(orderId);
@@ -113,7 +116,7 @@ export const useContractHandleOrderStatus = () => {
             setIsProcessing(false);
             return { orderId, status: 0 };
         }
-    }, []);
+    }, [contractAddress]);
 
     return { handleOrderStatus, isProcessing };
 };

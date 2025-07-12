@@ -35,6 +35,7 @@ import { useWallet } from "@/hooks/useWallet";
 import { SUPPORTED_TOKENS, SupportedToken } from "@/constants/supportedTokens";
 import { validateKenyanPhoneNumber, formatKenyanPhoneNumber, validatePhoneWithAPI } from "@/utils/phoneValidation";
 import { createOffRampOrder } from "@/app/api/aggregator";
+import { ethers } from "ethers";
 
 interface TransactionReceipt {
   amount: string;
@@ -532,8 +533,8 @@ const SendCryptoModal: React.FC = () => {
       try {
         apiResponse = await Promise.race([
           createOffRampOrder({
-            userAddress: account.address,
-            tokenAddress: selectedToken.tokenAddress,
+            userAddress: account.address || "",
+            tokenAddress: selectedToken.tokenAddress || "",
             amount: Number(amount) / (exchangeRate || 1), // USDC amount
             amountFiat: Number(amount), // KES amount
             phoneNumber: mobileNumber,
@@ -548,7 +549,7 @@ const SendCryptoModal: React.FC = () => {
         ]);
       } catch (apiError) {
         console.error("❌ Offramp API call failed:", apiError);
-        toast.error(apiError?.message || "Offramp API call failed");
+        toast.error((apiError as any)?.message || "Offramp API call failed");
         setIsApproving(false);
         setIsProcessing(false);
         return;
