@@ -450,7 +450,7 @@ const SendCryptoModal: React.FC = () => {
       const txHash = await writeContractAsync({
         address: contractAddress as `0x${string}`,
         abi: erc20Abi, // Assuming erc20Abi is the correct ABI for createOrder
-        functionName: 'approve', // This functionName is incorrect, it should be 'createOrder'
+        functionName: 'createOrder', // FIXED: was 'approve', should be 'createOrder'
         args: [
           account.address, // _userAddress
           amountInUnits, // _amount
@@ -526,24 +526,99 @@ const SendCryptoModal: React.FC = () => {
 
     try {
       setIsApproving(true);
-      
-      // 1. Create order via backend API first with timeout
-      console.log("🚀 Creating offramp order via API...");
+
+      // Validate all required fields before proceeding
+      if (!account.address || !selectedToken.tokenAddress || !amount || !messageHash || !getCashoutType() || (getCashoutType() === "PHONE" && !mobileNumber)) {
+        console.error('Missing required order details:', {
+          user_address: account.address,
+          token: selectedToken.tokenAddress,
+          amount,
+          mobileNumber,
+          messageHash,
+          cashoutType: getCashoutType(),
+          paybillNumber,
+          accountNumber,
+          tillNumber
+        });
+        toast.error('Missing required order details. Please fill all fields and connect your wallet.');
+        setIsApproving(false);
+        setIsProcessing(false);
+        return;
+      }
+
+      // 1. Approve token for Element Pay contract (MetaMask popup #1)
+      const spender = contractAddress;
+      const decimals = 6;
+      const approveAmount = (Number(amount) / (exchangeRate || 1)).toFixed(decimals);
+      const approveTxHash = await approveTokenIfNeeded(spender, approveAmount);
+      if (!approveTxHash) {
+        setIsApproving(false);
+        setIsProcessing(false);
+        return;
+      }
+
+      // Debug log all order details before signing
+      console.log('DEBUG orderDetails:', {
+        user_address: account.address,
+        token: selectedToken.tokenAddress,
+        amount,
+        mobileNumber,
+        messageHash,
+        cashoutType: getCashoutType(),
+        paybillNumber,
+        accountNumber,
+        tillNumber
+      });
+
+      // 2. Prompt user to sign a message (MetaMask popup #2)
+      const orderDetails = {
+        user_address: account.address,
+        token: selectedToken.tokenAddress,
+        order_type: 1,
+        fiat_payload: {
+          amount_fiat: Number(amount),
+          cashout_type: getCashoutType(),
+          currency: "KES",
+          phone_number: getCashoutType() === "PHONE" ? mobileNumber : undefined,
+          paybill_number: getCashoutType() === "PAYBILL" ? paybillNumber : undefined,
+          account_number: getCashoutType() === "PAYBILL" ? accountNumber : undefined,
+          till_number: getCashoutType() === "TILL" ? tillNumber : undefined,
+        },
+        message_hash: messageHash,
+        reason: reason,
+      };
+      let signature;
+      try {
+        if (!window.ethereum) throw new Error("Wallet not found");
+        const provider = new ethers.BrowserProvider(window.ethereum);
+        const signer = await provider.getSigner();
+        const message = JSON.stringify(orderDetails);
+        signature = await signer.signMessage(message);
+      } catch (signError) {
+        toast.error("Signature rejected or failed");
+        setIsApproving(false);
+        setIsProcessing(false);
+        return;
+      }
+
+      // 3. Send order details + signature to backend (map fields to expected names)
       let apiResponse;
       try {
+        const fiatPayload = orderDetails.fiat_payload;
         apiResponse = await Promise.race([
           createOffRampOrder({
-            userAddress: account.address || "",
-            tokenAddress: selectedToken.tokenAddress || "",
-            amount: Number(amount) / (exchangeRate || 1), // USDC amount
-            amountFiat: Number(amount), // KES amount
-            phoneNumber: mobileNumber,
-            messageHash: messageHash,
-            reason: reason,
-            cashoutType: getCashoutType(),
-            paybillNumber: getCashoutType() === "PAYBILL" ? paybillNumber : undefined,
-            accountNumber: getCashoutType() === "PAYBILL" ? accountNumber : undefined,
-            tillNumber: getCashoutType() === "TILL" ? tillNumber : undefined,
+            userAddress: orderDetails.user_address,
+            tokenAddress: orderDetails.token,
+            amount: Number(fiatPayload.amount_fiat), // token amount
+            amountFiat: Number(fiatPayload.amount_fiat), // KES amount
+            phoneNumber: fiatPayload.phone_number,
+            messageHash: orderDetails.message_hash,
+            reason: orderDetails.reason,
+            cashoutType: fiatPayload.cashout_type,
+            paybillNumber: fiatPayload.paybill_number,
+            accountNumber: fiatPayload.account_number,
+            tillNumber: fiatPayload.till_number,
+            signature
           }),
           new Promise((_, reject) => setTimeout(() => reject(new Error("API request timed out after 15 seconds. The service may be experiencing high load. Please try again in a few moments.")), 15000))
         ]);
@@ -555,20 +630,9 @@ const SendCryptoModal: React.FC = () => {
         return;
       }
       console.log("✅ API order created:", apiResponse);
-      
-      // 2. Approve token for Element Pay contract (MetaMask popup #1)
-      const spender = contractAddress;
-      const decimals = 6;
-      const approveAmount = (Number(amount) / (exchangeRate || 1)).toFixed(decimals);
-      const approveTxHash = await approveTokenIfNeeded(spender, approveAmount);
-      if (!approveTxHash) return;
 
-      // 3. Send createOrder transaction (MetaMask popup #2)
-      const result = await sendCreateOrderTx();
-      if (!result) return;
-      const { receipt, orderId } = result;
-
-      // 4. Show processing popup and poll for status
+      // 4. Show processing popup and poll for status using API response (orderId/tx_hash)
+      const orderId = apiResponse?.tx_hash || apiResponse?.order_id;
       setOrderId(orderId);
       setShowProcessingPopup(true);
       const statusData = await pollOrderStatus(orderId);
@@ -576,7 +640,7 @@ const SendCryptoModal: React.FC = () => {
         setTransactionReciept((prev) => ({
           ...prev,
           status: statusData.status,
-          transactionHash: statusData.transaction_hash || receipt.transactionHash,
+          transactionHash: statusData.transaction_hash || orderId,
         }));
         if (statusData.status === "SETTLED") {
           toast.success("Payment completed!");

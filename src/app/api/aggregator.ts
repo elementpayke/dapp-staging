@@ -148,11 +148,11 @@ const api = axios.create({
     'Content-Type': 'application/json',
     'x-api-key': API_KEY || '',
   },
-  timeout: 10000, // 10 seconds timeout
+  timeout: 30000, // Increased to 30 seconds timeout for WXM orders
 });
 
-// Retry logic for API calls
-const retryRequest = async <T>(fn: () => Promise<T>, maxRetries = 2, delay = 1000): Promise<T> => {
+// Retry logic for API calls with improved timeout handling
+const retryRequest = async <T>(fn: () => Promise<T>, maxRetries = 3, delay = 2000): Promise<T> => {
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
       return await fn();
@@ -170,9 +170,9 @@ const retryRequest = async <T>(fn: () => Promise<T>, maxRetries = 2, delay = 100
         throw error;
       }
       
-      // Wait before retrying (exponential backoff)
-      const waitTime = delay * Math.pow(2, attempt - 1);
-      console.log(`Retrying in ${waitTime}ms...`);
+      // Wait before retrying (exponential backoff with jitter)
+      const waitTime = delay * Math.pow(2, attempt - 1) + Math.random() * 1000;
+      console.log(`Retrying in ${Math.round(waitTime)}ms...`);
       await new Promise(resolve => setTimeout(resolve, waitTime));
     }
   }
@@ -183,19 +183,62 @@ const retryRequest = async <T>(fn: () => Promise<T>, maxRetries = 2, delay = 100
 export const checkApiHealth = async (): Promise<boolean> => {
   try {
     console.log("🏥 Checking API health...");
-    // Try the pubkey endpoint instead since health endpoint doesn't exist
-    const response = await retryRequest(async () => {
-      return await api.get('/pubkey', { timeout: 10000 });
-    }, 2, 1000); // 2 retries with 1s delay
+    // Try a simple GET request to the base URL
+    const response = await fetch(`${AGGREGATOR_URL}`, {
+      method: 'GET',
+      headers: {
+        'x-api-key': API_KEY || '',
+        'Content-Type': 'application/json',
+      },
+      signal: AbortSignal.timeout(10000) // 10 second timeout
+    });
     console.log("✅ API health check passed:", response.status);
-    return true;
+    return response.ok;
   } catch (error: any) {
     console.error("❌ API health check failed:", {
       status: error?.response?.status,
       message: error?.message,
-      url: `${AGGREGATOR_URL}/pubkey`
+      url: AGGREGATOR_URL
     });
     return false;
+  }
+};
+
+// Simple API status check for debugging
+export const checkApiStatus = async (): Promise<{
+  isOnline: boolean;
+  responseTime: number;
+  status: string;
+  error?: string;
+}> => {
+  const startTime = Date.now();
+  try {
+    const response = await fetch(`${AGGREGATOR_URL}`, {
+      method: 'GET',
+      headers: {
+        'x-api-key': API_KEY || '',
+        'Content-Type': 'application/json',
+      },
+      signal: AbortSignal.timeout(15000) // 15 second timeout
+    });
+    const endTime = Date.now();
+    const responseTime = endTime - startTime;
+    
+    return {
+      isOnline: response.ok,
+      responseTime,
+      status: response.statusText,
+    };
+  } catch (error: any) {
+    const endTime = Date.now();
+    const responseTime = endTime - startTime;
+    
+    return {
+      isOnline: false,
+      responseTime,
+      status: 'ERROR',
+      error: error?.message || 'Unknown error'
+    };
   }
 };
 
@@ -230,6 +273,22 @@ export const createOnRampOrder = async ({
   console.log("🌐 API URL:", AGGREGATOR_URL);
   console.log("🔑 API Key present:", !!API_KEY);
   
+  // Quick connectivity check before proceeding
+  try {
+    const connectivityTest = await fetch(`${AGGREGATOR_URL}/orders/create`, {
+      method: 'HEAD',
+      headers: {
+        'x-api-key': API_KEY || '',
+        'Content-Type': 'application/json',
+      },
+      signal: AbortSignal.timeout(5000) // 5 second timeout for connectivity test
+    });
+    console.log("✅ API connectivity test passed:", connectivityTest.status);
+  } catch (error: any) {
+    console.warn("⚠️ API connectivity test failed:", error?.message);
+    // Continue anyway, the main request might still work
+  }
+  
   try {
     const startTime = Date.now();
     const response = await retryRequest(async () => {
@@ -254,9 +313,26 @@ export const createOnRampOrder = async ({
       }
     });
     
-    // Provide more specific error messages
+    // Provide more specific error messages for WXM orders
     if (error.code === 'ECONNABORTED' || error.message?.includes('timeout')) {
-      throw new Error("API request timed out. The service may be experiencing high load. Please try again in a few moments.");
+      console.error("⏰ Request timeout - API may be down or slow");
+      
+      // Check if it's a complete API failure
+      if (error.code === 'ECONNABORTED' && !error.response) {
+        throw new Error("The Element Pay API is currently unreachable. This appears to be a server-side issue. Please try again later or contact Element Pay support for assistance.");
+      }
+      
+      throw new Error("API request timed out after 30 seconds. The Element Pay service may be experiencing high load. Please try again in a few moments or contact support if the issue persists.");
+    }
+    
+    if (error.code === 'ERR_NETWORK' || error.message?.includes('Network Error')) {
+      console.error("🌐 Network error - possible CORS or connectivity issue");
+      throw new Error("Network error. Please check your internet connection and try again.");
+    }
+    
+    if (error.code === 'ERR_INTERNET_DISCONNECTED' || error.message?.includes('Failed to fetch')) {
+      console.error("🌐 Internet disconnected or API completely down");
+      throw new Error("Unable to reach the Element Pay service. Please check your internet connection and try again.");
     }
     
     if (error.response?.status === 504) {
@@ -276,7 +352,13 @@ export const createOnRampOrder = async ({
       throw new Error("Authentication failed. Please check your API key.");
     }
     
-    throw new Error(error.response?.data?.message || error.message || "Failed to create order");
+    if (error.response?.status === 0) {
+      console.error("🚫 CORS or network issue - no response received");
+      throw new Error("Network issue. The API may be unavailable or there's a CORS problem.");
+    }
+    
+    console.error("❌ Unknown error:", error);
+    throw new Error(error.response?.data?.message || error.message || "Failed to create onramp order");
   }
 };
 

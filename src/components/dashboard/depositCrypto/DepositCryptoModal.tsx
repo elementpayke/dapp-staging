@@ -18,6 +18,12 @@ import { TransactionReceipt } from "@/types/types";
 import TokenDropdown from "@/components/ui/TokenDropdown";
 import { SUPPORTED_TOKENS, SupportedToken } from "@/constants/supportedTokens";
 
+// Import the CreateOrderResponse type
+interface CreateOrderResponse {
+  tx_hash: string;
+  status: string;
+}
+
 type OrderStatus =
   | "pending"
   | "processing"
@@ -236,16 +242,36 @@ const pollOrderStatusByTxHash = async (txHash: string) => {
           throw new Error("Wallet address is not available");
         }
 
-        const res = await createOnRampOrder({
+        // Log token and chain details for debugging
+        console.log("🔍 Token details:", {
+          symbol: selectedToken.symbol,
+          chain: selectedToken.chain,
+          tokenAddress: selectedToken.tokenAddress,
           userAddress: addressOwner.address,
-          tokenAddress: String(selectedToken.tokenAddress),
           amount: parseFloat(amount),
           phoneNumber,
-          reason,
+          reason
         });
 
+        // Add specific timeout for WXM orders
+        const res = await Promise.race([
+          createOnRampOrder({
+            userAddress: addressOwner.address,
+            tokenAddress: String(selectedToken.tokenAddress),
+            amount: parseFloat(amount),
+            phoneNumber,
+            reason,
+          }),
+          new Promise((_, reject) => 
+            setTimeout(() => 
+              reject(new Error(`API request timed out after 45 seconds. The Element Pay service may be experiencing high load. Please try again in a few moments or contact support if the issue persists.`)), 
+              45000
+            )
+          )
+        ]);
+
         console.log("📡 API Response:", res);
-        const txHash = res?.tx_hash;
+        const txHash = (res as CreateOrderResponse)?.tx_hash;
         console.log("🔁 Starting poll for order created with tx:", txHash);
 
         if (!txHash) {
@@ -279,13 +305,21 @@ const pollOrderStatusByTxHash = async (txHash: string) => {
         // Reset loading state
         setIsLoading(false);
         
-        // Provide more specific error messages based on error type
+        // Provide more specific error messages based on error type and token
         if (error.message?.includes("timeout") || error.message?.includes("504")) {
-          toast.error("The Element Pay service is currently unavailable. This appears to be a server-side issue. Please try again in a few minutes or contact Element Pay support.");
+          if (selectedToken.symbol === "WXM") {
+            toast.error("WXM onramp service is currently experiencing delays. This may be due to high network congestion on Arbitrum. Please try again in a few minutes or contact Element Pay support.");
+          } else {
+            toast.error("The Element Pay service is currently unavailable. This appears to be a server-side issue. Please try again in a few minutes or contact Element Pay support.");
+          }
         } else if (error.message?.includes("temporarily unavailable")) {
           toast.error("Service is temporarily unavailable. Please try again later.");
         } else if (error.message?.includes("Too many requests")) {
           toast.error("Too many requests. Please wait a moment and try again.");
+        } else if (error.message?.includes("Network error")) {
+          toast.error("Network connectivity issue. Please check your internet connection and try again.");
+        } else if (error.message?.includes("Authentication failed")) {
+          toast.error("API authentication failed. Please contact support.");
         } else {
           toast.error(error?.message || "Transaction failed. Please try again.");
         }

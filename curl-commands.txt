@@ -1,0 +1,75 @@
+# Element Pay API Test Commands
+# Copy and paste these commands to test the API endpoints
+
+# Test 1: Rates endpoint (should work)
+curl -X GET "https://staging.elementpay.net/api/v1/rates" \
+  -H "x-api-key: 5U93R5U93R53CR3T" \
+  -H "Content-Type: application/json" \
+  --max-time 10
+
+# Test 2: Orders endpoint with HEAD (should return 405)
+curl -X HEAD "https://staging.elementpay.net/api/v1/orders/create" \
+  -H "x-api-key: 5U93R5U93R53CR3T" \
+  -H "Content-Type: application/json" \
+  --max-time 10
+
+# Test 3: Orders endpoint with POST - WXM (will timeout)
+curl -X POST "https://staging.elementpay.net/api/v1/orders/create" \
+  -H "x-api-key: 5U93R5U93R53CR3T" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "user_address": "0xC63ABe092aeaB15102c3d6A4879A8BF77a21f8A8",
+    "token": "0xB6093B61544572Ab42A0E43AF08aBaFD41bf25A6",
+    "order_type": 0,
+    "fiat_payload": {
+      "amount_fiat": 10,
+      "cashout_type": "PHONE",
+      "phone_number": "254718677978",
+      "currency": "KES"
+    },
+    "reason": "Transport"
+  }' \
+  --max-time 30
+
+# Test 4: Minimal POST test (will timeout)
+curl -X POST "https://staging.elementpay.net/api/v1/orders/create" \
+  -H "x-api-key: 5U93R5U93R53CR3T" \
+  -H "Content-Type: application/json" \
+  -d '{"test": "data"}' \
+  --max-time 10
+
+# Test 5: USDC Onramp Order (Base)
+curl -X POST "https://staging.elementpay.net/api/v1/orders/create" \
+  -H "x-api-key: 5U93R5U93R53CR3T" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "user_address": "0xC63ABe092aeaB15102c3d6A4879A8BF77a21f8A8",
+    "token": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+    "order_type": 0,
+    "fiat_payload": {
+      "amount_fiat": 10,
+      "cashout_type": "PHONE",
+      "phone_number": "254718677978",
+      "currency": "KES"
+    },
+    "reason": "Transport"
+  }' \
+  --max-time 30
+
+# Test 6: USDT Onramp Order (Lisk)
+curl -X POST "https://staging.elementpay.net/api/v1/orders/create" \
+  -H "x-api-key: 5U93R5U93R53CR3T" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "user_address": "0xC63ABe092aeaB15102c3d6A4879A8BF77a21f8A8",
+    "token": "0x05D032ac25d322df992303dCa074EE7392C117b9",
+    "order_type": 0,
+    "fiat_payload": {
+      "amount_fiat": 10,
+      "cashout_type": "PHONE",
+      "phone_number": "254718677978",
+      "currency": "KES"
+    },
+    "reason": "Transport"
+  }' \
+  --max-time 30 
