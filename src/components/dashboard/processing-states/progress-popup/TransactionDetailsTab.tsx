@@ -41,8 +41,18 @@ const TransactionDetailsTab: React.FC<TransactionDetailsTabProps> = ({
   const txHash = tx.txHash || tx.hash || tx.transactionHash;
   const status = tx.status || "Success";
   const paymentMethod = tx.paymentMethod || tx.method;
-  const receiptNumber = tx.receiptNumber || tx.mpesa_receipt_number;
+  const receiptNumber = tx.mpesa_receipt_number || tx.receiptNumber;
   const paymentStatus = tx.paymentStatus || status;
+
+  // Debug logging to track receipt number values
+  React.useEffect(() => {
+    console.log("🧾 TransactionDetailsTab - Receipt number tracking:", {
+      receiptNumber,
+      txReceiptNumber: tx.receiptNumber,
+      txMpesaReceiptNumber: tx.mpesa_receipt_number,
+      fullTransactionDetails: tx
+    });
+  }, [receiptNumber, tx.receiptNumber, tx.mpesa_receipt_number, tx]);
 
   return (
     <motion.div
@@ -70,6 +80,24 @@ const TransactionDetailsTab: React.FC<TransactionDetailsTabProps> = ({
           <span className="text-gray-600">Date:</span>
           <span className="font-medium">{formatToLocal(date)}</span>
         </div>
+        {receiptNumber && receiptNumber !== "N/A" && (
+          <div className="flex justify-between items-center mb-2">
+            <span className="text-gray-600">M-Pesa Receipt:</span>
+            <div className="flex items-center">
+              <span className="font-medium text-xs truncate max-w-[120px] md:max-w-[180px]">
+                {receiptNumber}
+              </span>
+              <motion.button
+                onClick={() => copyToClipboard(receiptNumber)}
+                className="ml-2 text-blue-500 hover:text-blue-700 focus:outline-none"
+                whileHover={{ scale: 1.1 }}
+                whileTap={{ scale: 0.95 }}
+              >
+                {copied ? <CheckCheck size={16} /> : <Copy size={16} />}
+              </motion.button>
+            </div>
+          </div>
+        )}
         <div className="flex justify-between items-center">
           <span className="text-gray-600">Transaction ID:</span>
           <div className="flex items-center">

@@ -65,6 +65,8 @@ const SendCryptoModal: React.FC = () => {
   const [apiKey, setApiKey] = useState("");
   const [phoneValidation, setPhoneValidation] = useState<{ isValid: boolean; error?: string }>({ isValid: false });
   const [isValidatingPhone, setIsValidatingPhone] = useState(false);
+  const [finalTransactionData, setFinalTransactionData] = useState<any>(null); // Store complete transaction data from API
+  const [isPollingComplete, setIsPollingComplete] = useState(false); // Flag to indicate polling is done
 
   // Debug orderId changes
   useEffect(() => {
@@ -332,6 +334,8 @@ const SendCryptoModal: React.FC = () => {
   const cleanupOrderStates = useCallback(() => {
     setOrderId("");
     setShowProcessingPopup(false);
+    setFinalTransactionData(null);
+    setIsPollingComplete(false);
     setTransactionReciept({
       amount: "0.00",
       amountUSDC: 0,
@@ -390,8 +394,10 @@ const SendCryptoModal: React.FC = () => {
   // Helper: Poll order status from Element Pay API (by tx_hash)
   const pollOrderStatus = async (txHash: string) => {
     let attempts = 0;
-    const maxAttempts = 20;
+    const maxAttempts = 30; // Increased from 20 to give more time for M-Pesa receipt
     const delay = 3000;
+    console.log("🔄 Starting order status polling for:", txHash);
+    
     while (attempts < maxAttempts) {
       try {
         const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/orders/tx/${txHash}`, {
@@ -401,15 +407,79 @@ const SendCryptoModal: React.FC = () => {
           },
         });
         const data = await res.json();
-        if (data?.data?.status && ["SETTLED", "FAILED", "SETTLED_UNVERIFIED"].includes(data.data.status)) {
-          return data.data;
+        console.log(`📋 Poll attempt ${attempts + 1}/${maxAttempts} - Order status response:`, data);
+        
+        // Check if we have order data
+        if (data?.data) {
+          const orderData = data.data;
+          console.log("📋 Order data found:", orderData);
+          
+          // Check for final states (settled or failed)
+          const isFinalState = orderData.status && ["SETTLED", "FAILED", "SETTLED_UNVERIFIED", "COMPLETED"].includes(orderData.status);
+          
+          // Also consider it successful if we have important receipt indicators
+          const hasReceiptNumber = !!(orderData.receipt_number || orderData.mpesa_receipt_number || orderData.file_id);
+          const hasTransactionHash = !!(orderData.transaction_hashes?.settlement || orderData.transaction_hashes?.creation);
+          
+          console.log("📋 Status check:", {
+            status: orderData.status,
+            isFinalState,
+            hasReceiptNumber,
+            hasTransactionHash,
+            receiptNumber: orderData.receipt_number,
+            mpesaReceiptNumber: orderData.mpesa_receipt_number,
+            fileId: orderData.file_id
+          });
+          
+          if (isFinalState || (attempts > 10 && (hasReceiptNumber || hasTransactionHash))) {
+            console.log("✅ Final order status received:", orderData);
+            
+            // More intelligent status determination
+            let normalizedStatus = "SETTLED"; // Default to settled if we have receipts/hashes
+            
+            // Only mark as failed if explicitly failed
+            if (orderData.status === "FAILED" || orderData.status === "REJECTED" || orderData.status === "CANCELLED") {
+              normalizedStatus = "FAILED";
+            }
+            // Consider it settled if we have receipt indicators or success statuses
+            else if (
+              orderData.status === "SETTLED" || 
+              orderData.status === "COMPLETED" || 
+              orderData.status === "SETTLED_UNVERIFIED" ||
+              hasReceiptNumber || 
+              hasTransactionHash
+            ) {
+              normalizedStatus = "SETTLED";
+            }
+            
+            console.log("📋 Status normalization:", {
+              originalStatus: orderData.status,
+              normalizedStatus,
+              hasReceiptNumber,
+              hasTransactionHash
+            });
+            
+            return {
+              ...orderData,
+              // Use the more intelligent status determination
+              status: normalizedStatus,
+              transaction_hash: orderData.transaction_hashes?.settlement || orderData.transaction_hashes?.creation || txHash,
+              receipt_number: orderData.mpesa_receipt_number || orderData.receipt_number || orderData.file_id || "",
+              receiver_name: orderData.receiver_name || "",
+              mpesa_receipt_number: orderData.mpesa_receipt_number || "",
+              created_at: orderData.created_at || new Date().toISOString(),
+              amount_fiat: orderData.amount_fiat
+            };
+          }
         }
       } catch (e) {
+        console.log(`⚠️ Poll attempt ${attempts + 1} failed:`, e);
         // ignore, will retry
       }
       await new Promise((r) => setTimeout(r, delay));
       attempts++;
     }
+    console.log("❌ Order status polling timed out after", maxAttempts, "attempts");
     return null;
   };
 
@@ -546,12 +616,33 @@ const SendCryptoModal: React.FC = () => {
         return;
       }
 
+      // Show processing popup immediately when we start processing
+      setShowProcessingPopup(true);
+      
+      // Update initial transaction receipt data
+      const initialReceiptData = {
+        amount: amount,
+        amountUSDC: transactionSummary.usdcAmount,
+        phoneNumber: getCashoutType() === "PHONE" ? mobileNumber : (getCashoutType() === "PAYBILL" ? `${paybillNumber} - ${accountNumber}` : tillNumber),
+        address: account.address || "",
+        transactionHash: "",
+        status: 0, // Processing initially
+      };
+      
+      console.log("📋 Initial transaction receipt data:", initialReceiptData);
+      setTransactionReciept((prev) => ({
+        ...prev,
+        ...initialReceiptData
+      }));
+
       // 1. Approve token for Element Pay contract (MetaMask popup #1)
       const spender = contractAddress;
       const decimals = 6;
       const approveAmount = (Number(amount) / (exchangeRate || 1)).toFixed(decimals);
       const approveTxHash = await approveTokenIfNeeded(spender, approveAmount);
       if (!approveTxHash) {
+        // Handle approval error - close popup and show error
+        setShowProcessingPopup(false);
         setIsApproving(false);
         setIsProcessing(false);
         return;
@@ -595,7 +686,9 @@ const SendCryptoModal: React.FC = () => {
         const message = JSON.stringify(orderDetails);
         signature = await signer.signMessage(message);
       } catch (signError) {
-        toast.error("Signature rejected or failed");
+        console.error("❌ Signature rejected or failed:", signError);
+        setShowProcessingPopup(false);
+        toast.error("Signature rejected or failed. Please try again.");
         setIsApproving(false);
         setIsProcessing(false);
         return;
@@ -611,47 +704,77 @@ const SendCryptoModal: React.FC = () => {
             tokenAddress: orderDetails.token,
             amount: Number(fiatPayload.amount_fiat), // token amount
             amountFiat: Number(fiatPayload.amount_fiat), // KES amount
-            phoneNumber: fiatPayload.phone_number,
+            phoneNumber: fiatPayload.phone_number || "",
             messageHash: orderDetails.message_hash,
             reason: orderDetails.reason,
             cashoutType: fiatPayload.cashout_type,
-            paybillNumber: fiatPayload.paybill_number,
-            accountNumber: fiatPayload.account_number,
-            tillNumber: fiatPayload.till_number,
-            signature
+            paybillNumber: fiatPayload.paybill_number || "",
+            accountNumber: fiatPayload.account_number || "",
+            tillNumber: fiatPayload.till_number || ""
           }),
           new Promise((_, reject) => setTimeout(() => reject(new Error("API request timed out after 15 seconds. The service may be experiencing high load. Please try again in a few moments.")), 15000))
         ]);
       } catch (apiError) {
         console.error("❌ Offramp API call failed:", apiError);
-        toast.error((apiError as any)?.message || "Offramp API call failed");
+        setShowProcessingPopup(false);
+        toast.error((apiError as any)?.message || "Payment processing failed. Please try again.");
         setIsApproving(false);
         setIsProcessing(false);
         return;
       }
       console.log("✅ API order created:", apiResponse);
 
-      // 4. Show processing popup and poll for status using API response (orderId/tx_hash)
-      const orderId = apiResponse?.tx_hash || apiResponse?.order_id;
+      // 4. Extract order ID and update transaction receipt with orderId
+      const orderId = (apiResponse as any)?.tx_hash || (apiResponse as any)?.order_id || "";
+      console.log("📋 Order ID extracted:", orderId);
       setOrderId(orderId);
-      setShowProcessingPopup(true);
+      
+      // Update transaction receipt with orderId
+      setTransactionReciept((prev) => ({
+        ...prev,
+        transactionHash: orderId
+      }));
+      
       const statusData = await pollOrderStatus(orderId);
       if (statusData) {
+        console.log("📋 Final status data received:", statusData);
+        const isSettled = statusData.status === "SETTLED";
+        const isFailed = statusData.status === "FAILED";
+        
+        // Store complete transaction data for ProcessingPopup
+        setFinalTransactionData(statusData);
+        setIsPollingComplete(true); // Mark polling as complete
+        
+        const finalReceiptData = {
+          status: isSettled ? 1 : (isFailed ? 2 : 0),
+          transactionHash: statusData.transaction_hash || orderId,
+        };
+        
+        console.log("📋 Final transaction receipt data:", finalReceiptData);
         setTransactionReciept((prev) => ({
           ...prev,
-          status: statusData.status,
-          transactionHash: statusData.transaction_hash || orderId,
+          ...finalReceiptData
         }));
-        if (statusData.status === "SETTLED") {
-          toast.success("Payment completed!");
-        } else {
-          toast.error(`Payment failed: ${statusData.status}`);
+        
+        if (isSettled) {
+          toast.success(`Payment completed! ${statusData.mpesa_receipt_number ? `M-Pesa Receipt: ${statusData.mpesa_receipt_number}` : ''}`);
+        } else if (isFailed) {
+          toast.error(`Payment failed: ${statusData.failure_reason || 'Transaction was not completed successfully'}`);
         }
       } else {
-        toast.error("Order status polling timed out.");
+        // Handle polling timeout - update UI to show timeout state
+        console.log("⏰ Order status polling timed out");
+        setIsPollingComplete(true); // Mark polling as complete even on timeout
+        setTransactionReciept((prev) => ({
+          ...prev,
+          status: 2 // Mark as failed due to timeout
+        }));
+        toast.error("Payment is taking longer than expected. Please check your transaction history or contact support.");
       }
     } catch (err: any) {
-      toast.error(err?.message || "Transaction failed");
+      console.error("❌ Transaction process failed:", err);
+      setShowProcessingPopup(false);
+      toast.error(err?.message || "Transaction failed. Please try again.");
     } finally {
       setIsApproving(false);
       setIsProcessing(false);
@@ -721,6 +844,14 @@ const SendCryptoModal: React.FC = () => {
       status: 0,
       transactionHash: "",
     });
+
+  // Debug final transaction data changes
+  useEffect(() => {
+    console.log("[FINAL TRANSACTION DATA] finalTransactionData changed to:", finalTransactionData);
+    console.log("[FINAL TRANSACTION DATA] transactionReciept status:", transactionReciept.status);
+    console.log("[FINAL TRANSACTION DATA] isPollingComplete:", isPollingComplete);
+    console.log("[FINAL TRANSACTION DATA] paymentStatus would be:", transactionReciept.status === 1 ? "Settled" : transactionReciept.status === 2 ? "Failed" : "Processing");
+  }, [finalTransactionData, transactionReciept.status, isPollingComplete]);
 
   // Update transaction receipt when relevant values change
   useEffect(() => {
@@ -895,16 +1026,24 @@ const SendCryptoModal: React.FC = () => {
             cleanupOrderStates();
           }}
           orderId={orderId}
+          disableInternalPolling={true} // Disable ProcessingPopup's own polling
           transactionDetails={{
-            amount: amount,
+            amount: transactionReciept.amount || amount,
             currency: "KES",
-            recipient: formatReceiverName(mobileNumber),
-            paymentMethod: "Mobile Money",
-            transactionHash: "",
-            date: new Date().toISOString(),
-            receiptNumber: "",
-            paymentStatus: "Processing",
-            status: 0,
+            recipient: getCashoutType() === "PHONE" 
+              ? (mobileNumber ? formatReceiverName(mobileNumber) : "Mobile Money Recipient")
+              : getCashoutType() === "PAYBILL" 
+                ? `PayBill: ${paybillNumber}${accountNumber ? ` - ${accountNumber}` : ""}` 
+                : `Till: ${tillNumber}`,
+            paymentMethod: getCashoutType() === "PHONE" ? "Mobile Money" : getCashoutType() === "PAYBILL" ? "PayBill" : "Till Number",
+            transactionHash: transactionReciept.transactionHash || orderId || "",
+            date: finalTransactionData?.created_at || new Date().toISOString(),
+            receiptNumber: finalTransactionData?.mpesa_receipt_number || finalTransactionData?.receipt_number || finalTransactionData?.file_id || "",
+            mpesa_receipt_number: finalTransactionData?.mpesa_receipt_number || "",
+            paymentStatus: transactionReciept.status === 1 ? "Settled" : transactionReciept.status === 2 ? "Failed" : "Processing",
+            status: transactionReciept.status,
+            // Add orderId to help with debugging
+            orderId: orderId
           }}
         />
       )}

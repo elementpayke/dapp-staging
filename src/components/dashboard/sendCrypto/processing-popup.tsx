@@ -18,6 +18,7 @@ interface ProcessingPopupProps {
   onClose: () => void;
   orderId: string;
   transactionDetails: TransactionDetails;
+  disableInternalPolling?: boolean; // Flag to disable ProcessingPopup's own polling
   branding?: {
     primaryColor: string;
     logo?: string;
@@ -33,6 +34,7 @@ const ProcessingPopup: React.FC<ProcessingPopupProps> = ({
   onClose,
   orderId,
   transactionDetails: initialTransactionDetails,
+  disableInternalPolling = false,
   branding = {
     primaryColor: "#4f46e5",
     companyName: "Element Pay",
@@ -68,69 +70,88 @@ const ProcessingPopup: React.FC<ProcessingPopupProps> = ({
   const receiptRef = useRef<HTMLDivElement>(null);
   const [_, forceRerender] = useState(0); // Dummy state for forced rerender
 
-  // Emergency success trigger for debugging - removed mock data
-  const triggerSuccessState = () => {
-    console.log("🚀 EMERGENCY SUCCESS TRIGGER ACTIVATED - This should not be used in production");
-    // This is only for development debugging - real data should come from API
-    console.warn("Using emergency trigger - ensure real transaction data is available");
-  };
-
-  // Log orderId changes
+  // Monitor transaction details changes for success state
   useEffect(() => {
-    console.log("🔄 OrderId changed to:", orderId);
-    if (!orderId) {
-      console.log("⚠️ Empty orderId - this might be the issue!");
-    }
-  }, [orderId]);
-
-  // Prevent popup auto-closing when successful
-  useEffect(() => {
-    if (status === "success" && isVisible) {
-      console.log("SUCCESS STATE - Locking popup to prevent auto-close");
-      setPopupLocked(true);
-    }
-  }, [status, isVisible]);
-
-  // Reset state when popup becomes invisible (but only if not locked)
-  useEffect(() => {
-    if (!isVisible && !popupLocked) {
-      console.log("[RESET] Popup closed, resetting state");
-      reset(initialTransactionDetails);
-      setPopupLocked(false);
-    }
-  }, [isVisible, popupLocked]); // Removed initialTransactionDetails and reset from dependencies
-
-  // --- SUCCESS POP-UP LOGIC ---
-  // Immediate success on initialization
-  useEffect(() => {
-    if (!isVisible) return;
-    const isAlreadySuccessful = initialTransactionDetails && (
-      initialTransactionDetails.transactionHash ||
-      initialTransactionDetails.receiptNumber ||
+    if (!isVisible || !initialTransactionDetails) return;
+    
+    console.log("🔍 ProcessingPopup: Checking transaction details:", JSON.stringify(initialTransactionDetails, null, 2));
+    
+    // Check if we have real success indicators from SendCryptoModal
+    const hasRealReceiptData = (
+      (initialTransactionDetails.receiptNumber && initialTransactionDetails.receiptNumber !== "N/A" && initialTransactionDetails.receiptNumber !== "") ||
+      (initialTransactionDetails.transactionHash && initialTransactionDetails.transactionHash !== "N/A" && initialTransactionDetails.transactionHash !== "") ||
+      (initialTransactionDetails.mpesa_receipt_number && initialTransactionDetails.mpesa_receipt_number !== "")
+    );
+    
+    const isDefinitelySuccessful = hasRealReceiptData && (
       initialTransactionDetails.status === 1 ||
       initialTransactionDetails.paymentStatus?.toLowerCase() === "settled" ||
       initialTransactionDetails.paymentStatus?.toLowerCase() === "successful" ||
       initialTransactionDetails.paymentStatus?.toLowerCase() === "completed"
     );
-    if (isAlreadySuccessful) {
+    
+    console.log("🔍 ProcessingPopup: Analysis:", {
+      hasRealReceiptData,
+      isDefinitelySuccessful,
+      receiptNumber: initialTransactionDetails.receiptNumber,
+      transactionHash: initialTransactionDetails.transactionHash,
+      mpesa_receipt_number: initialTransactionDetails.mpesa_receipt_number,
+      status: initialTransactionDetails.status,
+      paymentStatus: initialTransactionDetails.paymentStatus
+    });
+    
+    if (isDefinitelySuccessful) {
+      console.log("✅ ProcessingPopup: Detected successful transaction, showing success state");
       setStatus("success");
       setStatusMessage("Payment successful!");
       setProgress(100);
       setShowConfetti(true);
       setPopupLocked(true);
-      if (initialTransactionDetails) {
-        setTransactionDetails(initialTransactionDetails);
-      }
-      return;
+      setTransactionDetails(initialTransactionDetails);
     }
   }, [isVisible, initialTransactionDetails, setStatus, setStatusMessage, setProgress, setShowConfetti, setPopupLocked, setTransactionDetails]);
+
+  // Log orderId changes - but don't override success state
+  useEffect(() => {
+    if (!orderId) {
+      console.warn("ProcessingPopup: No orderId provided");
+    } else if (isVisible && status !== "success") {
+      // Only reset to processing if we're not already in success state
+      console.log("🔄 ProcessingPopup: New orderId, initializing...");
+      setStatus("processing");
+      setStatusMessage("Initializing payment...");
+      setProgress(20);
+      setPopupLocked(false);
+      setShowConfetti(false);
+    }
+  }, [orderId, isVisible, status, setStatus, setStatusMessage, setProgress, setPopupLocked, setShowConfetti]);
+
+  // Prevent popup auto-closing when successful
+  useEffect(() => {
+    if (status === "success" && isVisible) {
+      setPopupLocked(true);
+    }
+  }, [status, isVisible]);
+
+  // Reset state when popup becomes invisible
+  useEffect(() => {
+    if (!isVisible) {
+      // Always reset when popup closes, regardless of lock state
+      reset(initialTransactionDetails);
+      setPopupLocked(false);
+      setShowConfetti(false);
+    }
+  }, [isVisible, reset, setPopupLocked, setShowConfetti]);
 
   // Poll for order status - restart when orderId changes
   useEffect(() => {
     if (!isVisible || status === "success" || status === "failed") return;
     if (!orderId) return;
     if (popupLocked) return;
-    let pollInterval = null;
+    if (disableInternalPolling) {
+      return;
+    }
+    let pollInterval: NodeJS.Timeout | null = null;
     let isPolling = true;
     let pollAttempts = 0;
     const maxPollAttempts = 120;
@@ -266,13 +287,6 @@ const ProcessingPopup: React.FC<ProcessingPopupProps> = ({
     };
   }, [isVisible, orderId, popupLocked, status, setStatus, setStatusMessage, setProgress, setShowConfetti, setTransactionDetails, transactionDetails]);
 
-  // DEBUG: Log status and transactionDetails on every render (commented out to prevent performance issues)
-  // useEffect(() => {
-  //   console.log("[ProcessingPopup RENDER] status:", status, "transactionDetails:", transactionDetails);
-  //   console.log("[ProcessingPopup RENDER] orderId:", orderId, "isVisible:", isVisible);
-  //   console.log("[ProcessingPopup RENDER] popupLocked:", popupLocked, "progress:", progress);
-  // });
-
   // Copy to clipboard
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text).then(() => {
@@ -380,20 +394,7 @@ const ProcessingPopup: React.FC<ProcessingPopupProps> = ({
             }
           }}
         >
-          {isVisible && process.env.NODE_ENV === "development" && (
-            <button
-              style={{ position: "absolute", top: 10, left: 10, zIndex: 9999, background: "#4f46e5", color: "white", padding: "6px 12px", borderRadius: 6, fontWeight: 600, border: "none", cursor: "pointer" }}
-              onClick={() => {
-                setStatus("success");
-                setStatusMessage("Payment successful! (Debug)");
-                setProgress(100);
-                setShowConfetti(true);
-                setPopupLocked(true);
-              }}
-            >
-              Trigger Success (Debug)
-            </button>
-          )}
+
           {/* Custom confetti effect */}
           {showConfetti && <CustomConfetti />}
 
@@ -424,18 +425,6 @@ const ProcessingPopup: React.FC<ProcessingPopupProps> = ({
               branding={branding}
               receiptRef={receiptRef}
             />
-            
-            {/* Debug controls - only in development */}
-            {process.env.NODE_ENV === "development" && status === "processing" && (
-              <div className="absolute top-2 right-2 space-y-1">
-                <div className="text-xs text-gray-500 bg-white/90 p-1 rounded shadow">
-                  Order: {orderId || "MISSING!"}
-                </div>
-                <div className="text-xs text-gray-500 bg-white/90 p-1 rounded shadow">
-                  Status: {status}
-                </div>
-              </div>
-            )}
           </motion.div>
         </motion.div>
       )}

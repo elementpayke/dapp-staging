@@ -49,6 +49,7 @@ export const useProcessingPopupStore = create<ProcessingPopupState>((set) => ({
     transactionHash: "",
     date: "",
     receiptNumber: "",
+    mpesa_receipt_number: "", // Initialize M-Pesa receipt field
     paymentStatus: "",
     status: 0,
   },
@@ -71,7 +72,14 @@ export const useProcessingPopupStore = create<ProcessingPopupState>((set) => ({
   setSendingEmail: (sendingEmail) => set({ sendingEmail }),
   setEmailSent: (emailSent) => set({ emailSent }),
   setActiveTab: (activeTab) => set({ activeTab }),
-  setTransactionDetails: (transactionDetails) => set({ transactionDetails }),
+  setTransactionDetails: (transactionDetails) => {
+    console.log("🏪 Store - Setting transaction details:", {
+      receiptNumber: transactionDetails.receiptNumber,
+      mpesa_receipt_number: transactionDetails.mpesa_receipt_number,
+      details: transactionDetails
+    });
+    set({ transactionDetails });
+  },
   setFallbackDate: (fallbackDate) => set({ fallbackDate }),
   setShowTechnicalDetails: (showTechnicalDetails) =>
     set({ showTechnicalDetails }),
