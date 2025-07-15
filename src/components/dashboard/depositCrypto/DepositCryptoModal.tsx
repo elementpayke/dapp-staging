@@ -111,7 +111,7 @@ const DepositCryptoModal: React.FC = () => {
     status: "pending",
     reason: "",
     amount: 0,
-    amountUSDC: 0,
+    amountCrypto: 0, // Renamed from amountUSDC
     transactionHash: "",
     address: "",
     phoneNumber: "",
@@ -169,7 +169,7 @@ const pollOrderStatusByTxHash = async (txHash: string) => {
         status,
         reason: status === "failed" ? getUserFriendlyError(orderData.failure_reason || "") : "",
         amount: orderData.amount_fiat,
-        amountUSDC: orderData.amount_fiat / (exchangeRate ?? 1),
+        amountCrypto: orderData.amount_fiat / (exchangeRate ?? 1), // Renamed from amountUSDC
         transactionHash: settlementHash,
         address: orderData.wallet_address,
         phoneNumber: orderData.phone_number,
@@ -289,7 +289,7 @@ const pollOrderStatusByTxHash = async (txHash: string) => {
           status: "pending",
           reason: "",
           amount: 0,
-          amountUSDC: 0,
+          amountCrypto: 0, // Renamed from amountUSDC
           transactionHash: txHash,
           address: addressOwner.address || "",
           phoneNumber: phoneNumber,
@@ -630,6 +630,7 @@ const pollOrderStatusByTxHash = async (txHash: string) => {
           // setContinuePolling(false); 
           // onClose(); // Remove this line as onClose is not defined in props
         }}
+        selectedToken={selectedToken}
         transactionReciept={transactionReceipt}
       />
       </>
