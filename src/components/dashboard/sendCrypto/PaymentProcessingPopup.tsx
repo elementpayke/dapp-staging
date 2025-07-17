@@ -20,7 +20,7 @@ const PaymentProcessing: React.FC<PaymentProcessingProps> = ({ amount, recipient
   }, [])
 
   return (
-    <div className="fixed z-50 inset-0 overflow-y-auto">
+    <div className="fixed z-overlay inset-0 overflow-y-auto">
       <div className="flex items-center justify-center min-h-screen">
         <div className="bg-white shadow-lg rounded-lg p-8 w-full max-w-md">
           <div className="flex justify-between items-center mb-4">

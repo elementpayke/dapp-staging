@@ -32,6 +32,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { useWallet } from "@/hooks/useWallet";
+import { useTokenBalance } from "@/hooks/useTokenBalance";
 import { SUPPORTED_TOKENS, SupportedToken } from "@/constants/supportedTokens";
 import { validateKenyanPhoneNumber, formatKenyanPhoneNumber, validatePhoneWithAPI } from "@/utils/phoneValidation";
 import { createOffRampOrder } from "@/app/api/aggregator";
@@ -57,7 +58,12 @@ const SendCryptoModal: React.FC = () => {
   // Keep but don't use these variables to preserve the component's state structure
   const [isApproving, setIsApproving] = useState(false);
   const [, setIsProcessing] = useState(false);
-  const { usdcBalance } = useWallet();
+  
+  // Get balance for the selected token dynamically
+  const { balance: selectedTokenBalance, isCorrectNetwork, requiredChainId } = useTokenBalance({ 
+    token: selectedToken 
+  });
+  
   const [exchangeRate, setExchangeRate] = useState<number | null>(null);
   const MARKUP_PERCENTAGE = 1.5; // 1.5% markup
   const [orderId, setOrderId] = useState("");
@@ -240,8 +246,8 @@ const SendCryptoModal: React.FC = () => {
     const usdcAmount = kesAmount / exchangeRate;
     const transactionCharge = usdcAmount * TRANSACTION_FEE_RATE;
     const totalUSDC = usdcAmount + transactionCharge;
-    const remainingBalance = usdcBalance - totalUSDC;
-    const totalKES = usdcBalance * exchangeRate;
+    const remainingBalance = selectedTokenBalance - totalUSDC;
+    const totalKES = selectedTokenBalance * exchangeRate;
     const totalKESBalance = totalKES - kesAmount;
 
     return {
@@ -253,9 +259,9 @@ const SendCryptoModal: React.FC = () => {
       totalKESBalance: totalKESBalance,
       walletBalance: Number.parseFloat(amount) || 0,
       remainingBalance: Math.max(remainingBalance, 0),
-      usdcBalance: usdcBalance,
+      usdcBalance: selectedTokenBalance,
     };
-  }, [amount, exchangeRate, usdcBalance]);
+  }, [amount, exchangeRate, selectedTokenBalance]);
 
   // Now we can safely reference transactionSummary in useEffect
   useEffect(() => {

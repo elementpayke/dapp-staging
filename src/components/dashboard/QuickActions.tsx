@@ -7,7 +7,7 @@ import { useAccount } from "wagmi";
 import SendCryptoModal from "./sendCrypto/SendCryptoModal";
 import DepositCryptoModal from "./depositCrypto/DepositCryptoModal";
 import { SUPPORTED_TOKENS, SupportedToken } from "@/constants/supportedTokens";
-import { useExchangeRate } from "@/lib/useExchangeRate";
+import { useState, useEffect } from "react";
 
 const QuickActions: FC = () => {
   const { address } = useAccount();
@@ -48,18 +48,63 @@ const QuickActions: FC = () => {
     },
   });
 
-  const { exchangeRate, isLoading } = useExchangeRate();
+  // Map token symbol to CoinGecko API ID
+  const getCoinGeckoId = (symbol: string): string => {
+    switch (symbol.toLowerCase()) {
+      case 'usdc':
+        return 'usd-coin';
+      case 'wxm':
+        return 'weatherxm-network';
+      case 'usdt':
+        return 'tether';
+      case 'eth':
+        return 'ethereum';
+      default:
+        return 'usd-coin'; // fallback to USDC
+    }
+  };
+
+  // Custom hook for CoinGecko exchange rates
+  const [coinGeckoRate, setCoinGeckoRate] = useState<number | null>(null);
+  const [isLoadingRate, setIsLoadingRate] = useState<boolean>(true);
+
+  useEffect(() => {
+    const fetchCoinGeckoRate = async () => {
+      setIsLoadingRate(true);
+      try {
+        const coinId = getCoinGeckoId(currentToken.symbol);
+        const response = await fetch(
+          `/api/coingecko?coinId=${coinId}&currency=kes`
+        );
+        const data = await response.json();
+        
+        if (data[coinId] && data[coinId].kes) {
+          setCoinGeckoRate(data[coinId].kes);
+        } else {
+          setCoinGeckoRate(null);
+        }
+      } catch (error) {
+        console.error("Error fetching CoinGecko rate:", error);
+        setCoinGeckoRate(null);
+      } finally {
+        setIsLoadingRate(false);
+      }
+    };
+
+    fetchCoinGeckoRate();
+    // Refresh every 2 minutes
+    const intervalId = setInterval(fetchCoinGeckoRate, 2 * 60 * 1000);
+
+    return () => clearInterval(intervalId);
+  }, [currentToken.symbol]);
   
   const tokenBalance = parseFloat(tokenBalanceData?.formatted || "0");
   
-  const formattedKesBalance = () => {
-    if (isLoading || !exchangeRate || !tokenBalance) return "Loading...";
+  const rawKesBalance = () => {
+    if (isLoadingRate || !coinGeckoRate) return "Loading...";
 
-    const kesAmount = tokenBalance * exchangeRate;
-    return new Intl.NumberFormat("en-KE", {
-      maximumFractionDigits: 2,
-      minimumFractionDigits: 2,
-    }).format(kesAmount);
+    const kesAmount = tokenBalance * coinGeckoRate;
+    return kesAmount.toFixed(2);
   };
 
   return (
@@ -67,11 +112,11 @@ const QuickActions: FC = () => {
       <div className="flex items-center justify-between mb-6">
         <div>
           <p className="text-sm text-gray-600 mb-1">
-            Fiat Balance ({currentToken.symbol} on {currentToken.chain})
+            Wallet Balance ({currentToken.symbol} on {currentToken.chain})
           </p>
           <p className="text-3xl font-bold text-gray-900">
-            KES{" "}
-            <span className="text-emerald-600">{formattedKesBalance()}</span>
+            <span>KES </span>
+            <span className="text-emerald-600">{rawKesBalance()}</span>
           </p>
           <p className="text-sm text-gray-500 mt-1">
             {tokenBalance.toFixed(6)} {currentToken.symbol}

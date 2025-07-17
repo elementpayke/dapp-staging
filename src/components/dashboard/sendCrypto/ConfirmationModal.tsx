@@ -29,7 +29,7 @@ const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
   if (!isOpen) return null
 
   return (
-    <div className="fixed inset-0 z-50 bg-black bg-opacity-40 flex justify-center items-center p-4">
+    <div className="fixed inset-0 z-overlay bg-black bg-opacity-40 flex justify-center items-center p-4">
       <div className="bg-white rounded-xl p-6 w-full max-w-md shadow-xl">
         <h2 className="text-lg font-semibold text-gray-900 mb-2">
           {mode === "confirm" ? "Confirm Payment" : "Account Validation Failed"}

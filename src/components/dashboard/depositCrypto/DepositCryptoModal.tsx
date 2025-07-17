@@ -14,6 +14,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { useWallet } from "@/hooks/useWallet";
+import { useTokenBalance } from "@/hooks/useTokenBalance";
 import { TransactionReceipt } from "@/types/types";
 import TokenDropdown from "@/components/ui/TokenDropdown";
 import { SUPPORTED_TOKENS, SupportedToken } from "@/constants/supportedTokens";
@@ -33,10 +34,15 @@ type OrderStatus =
   | "failed";
 
 const DepositCryptoModal: React.FC = () => {
-  const { usdcBalance } = useWallet();
   const [isTransactionModalOpen, setIsTransactionModalOpen] = useState(false);
   const [isReceiptModalOpen, setIsReceiptModalOpen] = useState(false);
   const [selectedToken, setSelectedToken] = useState<SupportedToken>(SUPPORTED_TOKENS[0]);
+  
+  // Get balance for the selected token dynamically
+  const { balance: selectedTokenBalance, isCorrectNetwork, requiredChainId } = useTokenBalance({ 
+    token: selectedToken 
+  });
+  
   const [amount, setAmount] = useState("0.00");
   const [depositFrom, setDepositFrom] = useState("MPESA");
   const [phoneNumber, setPhoneNumber] = useState("");
@@ -80,17 +86,17 @@ const DepositCryptoModal: React.FC = () => {
         totalUSDC: 0,
         totalKES: 0,
         totalKESBalance: 0,
-        walletBalance: usdcBalance ?? 0,
+        walletBalance: selectedTokenBalance ?? 0,
         remainingBalance: 0,
-        usdcBalance: usdcBalance ?? 0,
+        usdcBalance: selectedTokenBalance ?? 0,
       };
 
     const kesAmount = parseFloat(amount) * exchangeRate || 0;
     const usdcAmount = parseFloat(amount) || 0;
     const transactionCharge = usdcAmount * TRANSACTION_FEE_RATE;
     const totalUSDC = usdcAmount;
-    const remainingBalance = (usdcBalance ?? 0) + totalUSDC;
-    const totalKES = (usdcBalance ?? 0) * exchangeRate;
+    const remainingBalance = (selectedTokenBalance ?? 0) + totalUSDC;
+    const totalKES = (selectedTokenBalance ?? 0) * exchangeRate;
     const totalKESBalance = totalKES + kesAmount;
 
     return {
@@ -100,11 +106,11 @@ const DepositCryptoModal: React.FC = () => {
       totalUSDC,
       totalKES,
       totalKESBalance,
-      walletBalance: usdcBalance ?? 0,
+      walletBalance: selectedTokenBalance ?? 0,
       remainingBalance: Math.max(remainingBalance, 0),
-      usdcBalance: usdcBalance ?? 0,
+      usdcBalance: selectedTokenBalance ?? 0,
     };
-  }, [amount, exchangeRate, usdcBalance]);
+  }, [amount, exchangeRate, selectedTokenBalance]);
 
   const [transactionReceipt, setTransactionReceipt] = useState<TransactionReceipt>({
     orderId: "",

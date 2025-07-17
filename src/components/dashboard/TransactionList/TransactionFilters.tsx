@@ -1,6 +1,7 @@
 "use client";
 
 import React, { FC } from "react";
+import { useModalOverlay } from "@/hooks/useModalOverlay";
 
 interface FilterState {
   status: string[];
@@ -43,6 +44,9 @@ const TransactionFilters: FC<TransactionFiltersProps> = ({
   handleFilterChange,
   clearFilters,
 }: TransactionFiltersProps) => {
+  // Use modal overlay hook to manage dropdown hiding
+  useModalOverlay(showFilters);
+  
   // Helper function to format token display
   const formatTokenDisplay = (token: string) => {
     return token.replace(/_/g, ' ');
@@ -244,7 +248,7 @@ const TransactionFilters: FC<TransactionFiltersProps> = ({
           </button>
           {/* Desktop Filter Dropdown */}
           {showFilters && (
-            <div className="absolute top-full left-0 mt-2 w-80 bg-white border border-gray-200 rounded-lg shadow-lg z-10 p-4">
+            <div className="absolute top-full left-0 mt-2 w-80 bg-white border border-gray-200 rounded-lg shadow-lg z-dropdown p-4">
               <div className="flex justify-between items-center mb-3">
                 <h3 className="font-medium text-gray-900">Filters</h3>
                 <button
@@ -304,8 +308,8 @@ const TransactionFilters: FC<TransactionFiltersProps> = ({
 
         {/* Mobile Filter Sheet */}
         {showFilters && (
-          <div className="fixed inset-0 bg-gray-500 bg-opacity-75 z-50">
-            <div className="fixed inset-x-0 bottom-0 transform transition-transform duration-300 ease-in-out bg-white rounded-t-2xl">
+          <div className="fixed inset-0 bg-gray-500 bg-opacity-75 z-overlay">
+            <div className="fixed inset-x-0 bottom-0 transform transition-transform duration-300 ease-in-out bg-white rounded-t-2xl z-overlay">
               {/* Header */}
               <div className="sticky top-0 bg-white px-4 py-3 border-b border-gray-200">
                 <div className="flex justify-between items-center">
