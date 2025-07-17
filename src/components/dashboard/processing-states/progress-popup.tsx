@@ -1,13 +1,7 @@
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  Loader2,
   CreditCard,
-  CheckCheck,
-  Copy,
-  FileText,
-  Printer,
-  Download,
-  Mail,
+ 
 } from "lucide-react";
 import React, { RefObject } from "react";
 import { useProcessingPopupStore } from "@/lib/processingPopupStore";
@@ -18,7 +12,6 @@ import Tabs from "./progress-popup/Tabs";
 import TransactionDetailsTab from "./progress-popup/TransactionDetailsTab";
 import ReceiptTab from "./progress-popup/ReceiptTab";
 import CloseButton from "./progress-popup/CloseButton";
-import { formatToLocal } from "@/utils/helpers";
 
 interface Branding {
   companyName?: string;
@@ -69,28 +62,7 @@ const ProgressPopup: React.FC<ProgressPopupProps> = ({
     console.log("ProgressPopup - Status changed to:", status, "Message:", statusMessage);
   }, [status, statusMessage]);
 
-  // Temporary debug function to test success state
-  const forceSuccessState = () => {
-    if (status === "processing") {
-      console.log("FORCE SUCCESS: Manually triggering success state for testing");
-      const { setStatus, setStatusMessage, setProgress, setShowConfetti, setPopupLocked, setTransactionDetails } = useProcessingPopupStore.getState();
-      
-      const mockSuccessDetails = {
-        ...transactionDetails,
-        receiptNumber: "TEST123456",
-        transactionHash: "0x123...abc",
-        paymentStatus: "settled",
-        status: 1,
-      };
-      
-      setTransactionDetails(mockSuccessDetails);
-      setStatus("success");
-      setStatusMessage("Payment successful!");
-      setProgress(100);
-      setShowConfetti(true);
-      setPopupLocked(true);
-    }
-  };
+
 
   const containerVariants = {
     hidden: { opacity: 0 },
@@ -129,19 +101,6 @@ const ProgressPopup: React.FC<ProgressPopupProps> = ({
         >
           <CreditCard className="w-6 h-6 text-gray-500" />
         </motion.div>
-      )}
-
-      {/* Debug button for testing - only show during processing */}
-      {status === "processing" && process.env.NODE_ENV === "development" && (
-        <motion.button
-          onClick={forceSuccessState}
-          className="mb-4 px-4 py-2 bg-red-500 text-white text-sm rounded hover:bg-red-600"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 1 }}
-        >
-          🔥 Force Success (Debug)
-        </motion.button>
       )}
 
       {/* Transaction details tabs - only show on success */}

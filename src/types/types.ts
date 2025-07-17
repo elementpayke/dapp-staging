@@ -233,7 +233,7 @@ export type TransactionReceipt = {
   status: string;
   reason?: string;
   amount: number;
-  amountUSDC: number;
+  amountCrypto: number; // Renamed from amountUSDC to be generic for all tokens
   transactionHash: string;
   address: string;
   phoneNumber: string;

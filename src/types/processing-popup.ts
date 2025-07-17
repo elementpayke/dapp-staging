@@ -6,6 +6,7 @@ export interface TransactionDetails {
   transactionHash: string;
   date: string;
   receiptNumber: string;
+  mpesa_receipt_number?: string; // Add M-Pesa specific receipt number
   paymentStatus: string;
   customerName?: string;
   customerEmail?: string;

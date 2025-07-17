@@ -1,13 +1,11 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { ArrowUpRight } from "lucide-react";
 import { toast } from "react-toastify";
-import { getUSDCAddress } from "../../../services/tokens";
-import { useContract } from "@/services/useContract";
-import { encryptMessage } from "@/services/encryption";
 import { useAccount, useSwitchChain } from "wagmi";
 import TransactionInProgressModal from "./TranactionInProgress";
 import DepositCryptoReceipt from "./DepositCryptoReciept";
 import { createOnRampOrder } from "@/app/api/aggregator";
+import { validateKenyanPhoneNumber, formatKenyanPhoneNumber } from "@/utils/phoneValidation";
 import {
   Dialog,
   DialogContent,
@@ -16,7 +14,16 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { useWallet } from "@/hooks/useWallet";
+import { useTokenBalance } from "@/hooks/useTokenBalance";
 import { TransactionReceipt } from "@/types/types";
+import TokenDropdown from "@/components/ui/TokenDropdown";
+import { SUPPORTED_TOKENS, SupportedToken } from "@/constants/supportedTokens";
+
+// Import the CreateOrderResponse type
+interface CreateOrderResponse {
+  tx_hash: string;
+  status: string;
+}
 
 type OrderStatus =
   | "pending"
@@ -27,10 +34,15 @@ type OrderStatus =
   | "failed";
 
 const DepositCryptoModal: React.FC = () => {
-  const { usdcBalance } = useWallet();
   const [isTransactionModalOpen, setIsTransactionModalOpen] = useState(false);
   const [isReceiptModalOpen, setIsReceiptModalOpen] = useState(false);
-  const [selectedToken, setSelectedToken] = useState("USDC");
+  const [selectedToken, setSelectedToken] = useState<SupportedToken>(SUPPORTED_TOKENS[0]);
+  
+  // Get balance for the selected token dynamically
+  const { balance: selectedTokenBalance, isCorrectNetwork, requiredChainId } = useTokenBalance({ 
+    token: selectedToken 
+  });
+  
   const [amount, setAmount] = useState("0.00");
   const [depositFrom, setDepositFrom] = useState("MPESA");
   const [phoneNumber, setPhoneNumber] = useState("");
@@ -38,15 +50,30 @@ const DepositCryptoModal: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [exchangeRate, setExchangeRate] = useState<number | null>(null);
   const [isFavorite, setIsFavorite] = useState(false);
+  const [phoneValidation, setPhoneValidation] = useState<{ isValid: boolean; error?: string }>({ isValid: false });
+  const [isValidatingPhone, setIsValidatingPhone] = useState(false);
   const TRANSACTION_FEE_RATE = 0.005;
-  const { contract, address } = useContract();
   const addressOwner = useAccount();
-  const { chain } = useAccount();
+  const { chain } = addressOwner;
   const { switchChain } = useSwitchChain();
-  const TARGET_CHAIN_ID = 8453; // Base
   const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
   const continuePollingRef = useRef<boolean>(true);
 
+  // Get target chain ID based on selected token
+  const getTargetChainId = () => {
+    switch (selectedToken.chain) {
+      case "Base":
+        return 8453;
+      case "Lisk":
+        return 1135;
+      case "Scroll":
+        return 534352;
+      case "Arbitrum":
+        return 42161;
+      default:
+        return 8453; // Default to Base
+    }
+  };
 
   const MARKUP_PERCENTAGE = 0.5;
 
@@ -59,17 +86,17 @@ const DepositCryptoModal: React.FC = () => {
         totalUSDC: 0,
         totalKES: 0,
         totalKESBalance: 0,
-        walletBalance: usdcBalance ?? 0,
+        walletBalance: selectedTokenBalance ?? 0,
         remainingBalance: 0,
-        usdcBalance: usdcBalance ?? 0,
+        usdcBalance: selectedTokenBalance ?? 0,
       };
 
     const kesAmount = parseFloat(amount) * exchangeRate || 0;
     const usdcAmount = parseFloat(amount) || 0;
     const transactionCharge = usdcAmount * TRANSACTION_FEE_RATE;
     const totalUSDC = usdcAmount;
-    const remainingBalance = (usdcBalance ?? 0) + totalUSDC;
-    const totalKES = (usdcBalance ?? 0) * exchangeRate;
+    const remainingBalance = (selectedTokenBalance ?? 0) + totalUSDC;
+    const totalKES = (selectedTokenBalance ?? 0) * exchangeRate;
     const totalKESBalance = totalKES + kesAmount;
 
     return {
@@ -79,18 +106,18 @@ const DepositCryptoModal: React.FC = () => {
       totalUSDC,
       totalKES,
       totalKESBalance,
-      walletBalance: usdcBalance ?? 0,
+      walletBalance: selectedTokenBalance ?? 0,
       remainingBalance: Math.max(remainingBalance, 0),
-      usdcBalance: usdcBalance ?? 0,
+      usdcBalance: selectedTokenBalance ?? 0,
     };
-  }, [amount, exchangeRate, usdcBalance]);
+  }, [amount, exchangeRate, selectedTokenBalance]);
 
   const [transactionReceipt, setTransactionReceipt] = useState<TransactionReceipt>({
     orderId: "",
     status: "pending",
     reason: "",
     amount: 0,
-    amountUSDC: 0,
+    amountCrypto: 0, // Renamed from amountUSDC
     transactionHash: "",
     address: "",
     phoneNumber: "",
@@ -148,7 +175,7 @@ const pollOrderStatusByTxHash = async (txHash: string) => {
         status,
         reason: status === "failed" ? getUserFriendlyError(orderData.failure_reason || "") : "",
         amount: orderData.amount_fiat,
-        amountUSDC: orderData.amount_fiat / (exchangeRate ?? 1),
+        amountCrypto: orderData.amount_fiat / (exchangeRate ?? 1), // Renamed from amountUSDC
         transactionHash: settlementHash,
         address: orderData.wallet_address,
         phoneNumber: orderData.phone_number,
@@ -174,112 +201,179 @@ const pollOrderStatusByTxHash = async (txHash: string) => {
 
 
   const handleConfirmPayment = async () => {
-    if (!address) return toast.error("Please connect your wallet first.");
+    if (!addressOwner.address) return toast.error("Please connect your wallet first.");
     if (parseFloat(amount) <= 0)
       return toast.error("Amount must be greater than zero.");
 
-    // Check if connected to Base chain
-    if (chain?.id !== TARGET_CHAIN_ID) {
+    // Check if connected to the correct chain for the selected token
+    const targetChainId = getTargetChainId();
+    if (chain?.id !== targetChainId) {
       try {
-        await switchChain({ chainId: TARGET_CHAIN_ID });
-        toast.success("Switched to Base. Please click Confirm again.");
+        await switchChain({ chainId: targetChainId });
+        toast.success(`Switched to ${selectedToken.chain}. Please click Confirm again.`);
         return; // Exit so user can retry after chain switch
       } catch (error) {
-        toast.error("Please switch to Base network to proceed.");
+        toast.error(`Please switch to ${selectedToken.chain} network to proceed.`);
         return;
       }
     }
 
+    // Validate phone number before proceeding
+    if (!phoneValidation.isValid) {
+      if (phoneValidation.error) {
+        toast.error(phoneValidation.error);
+      } else {
+        toast.error("Please enter a valid phone number");
+      }
+      return;
+    }
+    
+    // Double-check with API validation if not already validated
+    if (!phoneValidation.isValid) {
+      const isValid = await validatePhoneWithBackend(phoneNumber);
+      if (!isValid) {
+        toast.error("Phone number validation failed. Please check and try again.");
+        return;
+      }
+    }
+
+    // Show processing state first
     setIsLoading(true);
-    const orderType = depositFrom === "MPESA" ? 0 : 1;
-    const usdcTokenAddress = getUSDCAddress() as `0x${string}`;
-    const mpesaAmount = parseFloat(amount) * (exchangeRate ?? 1);
 
-    try {
-      if (!isValidKenyanNumber(phoneNumber)) {
-        toast.error("Invalid phone number. Must be in format 2547XXXXXXXX and 12 digits long.");
-        return;
+    // Handle API call first, then show STK message
+    const processOrder = async () => {
+      try {
+        console.log("🚀 Creating onramp order...");
+        if (!addressOwner.address) {
+          throw new Error("Wallet address is not available");
+        }
+
+        // Log token and chain details for debugging
+        console.log("🔍 Token details:", {
+          symbol: selectedToken.symbol,
+          chain: selectedToken.chain,
+          tokenAddress: selectedToken.tokenAddress,
+          userAddress: addressOwner.address,
+          amount: parseFloat(amount),
+          phoneNumber,
+          reason
+        });
+
+        // Add specific timeout for WXM orders
+        const res = await Promise.race([
+          createOnRampOrder({
+            userAddress: addressOwner.address,
+            tokenAddress: String(selectedToken.tokenAddress),
+            amount: parseFloat(amount),
+            phoneNumber,
+            reason,
+          }),
+          new Promise((_, reject) => 
+            setTimeout(() => 
+              reject(new Error(`API request timed out after 45 seconds. The Element Pay service may be experiencing high load. Please try again in a few moments or contact support if the issue persists.`)), 
+              45000
+            )
+          )
+        ]);
+
+        console.log("📡 API Response:", res);
+        const txHash = (res as CreateOrderResponse)?.tx_hash;
+        console.log("🔁 Starting poll for order created with tx:", txHash);
+
+        if (!txHash) {
+          throw new Error("No transaction hash received from API");
+        }
+
+        // Now show STK push message
+        setIsConfirmModalOpen(false);
+        setIsTransactionModalOpen(true);
+        setIsLoading(false);
+
+        // Reset transaction state
+        setTransactionReceipt({
+          orderId: "",
+          status: "pending",
+          reason: "",
+          amount: 0,
+          amountCrypto: 0, // Renamed from amountUSDC
+          transactionHash: txHash,
+          address: addressOwner.address || "",
+          phoneNumber: phoneNumber,
+        });
+        continuePollingRef.current = true;
+
+        // Start polling for status
+        pollOrderStatusByTxHash(txHash);
+
+      } catch (error: any) {
+        console.error("Transaction failed:", error?.message || error);
+        
+        // Reset loading state
+        setIsLoading(false);
+        
+        // Provide more specific error messages based on error type and token
+        if (error.message?.includes("timeout") || error.message?.includes("504")) {
+          if (selectedToken.symbol === "WXM") {
+            toast.error("WXM onramp service is currently experiencing delays. This may be due to high network congestion on Arbitrum. Please try again in a few minutes or contact Element Pay support.");
+          } else {
+            toast.error("The Element Pay service is currently unavailable. This appears to be a server-side issue. Please try again in a few minutes or contact Element Pay support.");
+          }
+        } else if (error.message?.includes("temporarily unavailable")) {
+          toast.error("Service is temporarily unavailable. Please try again later.");
+        } else if (error.message?.includes("Too many requests")) {
+          toast.error("Too many requests. Please wait a moment and try again.");
+        } else if (error.message?.includes("Network error")) {
+          toast.error("Network connectivity issue. Please check your internet connection and try again.");
+        } else if (error.message?.includes("Authentication failed")) {
+          toast.error("API authentication failed. Please contact support.");
+        } else {
+          toast.error(error?.message || "Transaction failed. Please try again.");
+        }
       }
-      const messageHash = encryptMessage(
-        phoneNumber,
-        "KES",
-        exchangeRate ?? 0,
-        mpesaAmount
-      );
-      
-      if (!contract) throw new Error("Contract is not initialized.");
+    };
 
-      // Reseting transaction state before starting a new transaction
-      setTransactionReceipt({
-        orderId: "",
-        status: "pending",
-        reason: "",
-        amount: 0,
-        amountUSDC: 0,
-        transactionHash: "",
-        address: "",
-        phoneNumber: "",
-      });
-      setIsReceiptModalOpen(false);
-      setIsTransactionModalOpen(true);
-      continuePollingRef.current = true;
-
-
-      const res = await createOnRampOrder({
-        userAddress: address,
-        tokenAddress: usdcTokenAddress,
-        messageHash: messageHash,
-      });
-      setIsConfirmModalOpen(false);
-      setIsTransactionModalOpen(true);
-
-      const txHash = res?.tx_hash;
-      console.log("🔁 Starting poll for order created with tx:", txHash);
-
-      // Store tx hash immediately (optional)
-      setTransactionReceipt((prev) => ({
-        ...prev,
-        transactionHash: txHash
-      }));
-
-      pollOrderStatusByTxHash(txHash);
-
-    } catch (error: any) {
-      console.error("Transaction failed:", error?.message || error);
-      toast.error(error?.message || "Transaction failed.");
-    }
-    finally {
-      setIsLoading(false);
-    }
+    // Start the background process
+    processOrder();
   };
 
-  const formatPhoneNumber = (number: string) => {
-    // Remove any non-digit characters
-    const digitsOnly = number.replace(/\D/g, "");
-
-    // If number starts with 0, replace it with 254
-    if (digitsOnly.startsWith("0") && digitsOnly.length >= 10) {
-      return "254" + digitsOnly.slice(1);
+  // Validate phone number (client-side only)
+  const validatePhoneWithBackend = async (phoneNumber: string): Promise<boolean> => {
+    setIsValidatingPhone(true);
+    
+    try {
+      const result = validateKenyanPhoneNumber(phoneNumber);
+      setPhoneValidation(result);
+      return result.isValid;
+    } finally {
+      setIsValidatingPhone(false);
     }
-
-    if (digitsOnly.startsWith("254") && digitsOnly.length === 12) {
-      return digitsOnly;
-    }
-
-
-    // If number doesn't start with either, assume it's a complete number
-    return digitsOnly;
-  };
-
-  const isValidKenyanNumber = (number: string): boolean => {
-    const regex = /^254\d{9}$/;
-    return regex.test(number);
   };
 
   const handlePhoneNumberChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const formattedNumber = formatPhoneNumber(e.target.value);
+    const formattedNumber = formatKenyanPhoneNumber(e.target.value);
     setPhoneNumber(formattedNumber);
+    
+    // Clear validation when user starts typing
+    if (formattedNumber !== phoneNumber) {
+      setPhoneValidation({ isValid: false });
+    }
   };
+
+  // Validate phone number when user stops typing (debounced)
+  useEffect(() => {
+    if (!phoneNumber) {
+      setPhoneValidation({ isValid: false });
+      return;
+    }
+
+    const timeoutId = setTimeout(() => {
+      // Use only client-side validation
+      const validation = validateKenyanPhoneNumber(phoneNumber);
+      setPhoneValidation(validation);
+    }, 1000); // 1 second delay
+
+    return () => clearTimeout(timeoutId);
+  }, [phoneNumber]);
 
   return (
     <>
@@ -306,26 +400,27 @@ const pollOrderStatusByTxHash = async (txHash: string) => {
                   Token
                 </label>
                 <div className="relative">
-                  <select
-                    className="w-full p-3 bg-gray-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    value={selectedToken}
-                    onChange={(e) => setSelectedToken(e.target.value)}
-                  >
-                    <option value="USDC">USDC</option>
-                  </select>
+                  <TokenDropdown
+                    selected={selectedToken}
+                    onSelect={setSelectedToken}
+                  />
                 </div>
               </div>
 
               {/* Amount */}
               <div>
                 <label className="block text-sm text-gray-600 mb-2">
-                  Amount in USDC
+                  Amount in KES
                 </label>
                 <input
-                  type="number"
+                  type="text"
                   className="w-full p-3 bg-gray-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                   value={amount}
-                  onChange={(e) => setAmount(e.target.value)}
+                  onChange={(e) => {
+                    // Allow only numbers and decimal point
+                    const newValue = e.target.value.replace(/[^\d.]/g, "");
+                    setAmount(newValue);
+                  }}
                   placeholder="0.00"
                 />
               </div>
@@ -351,16 +446,47 @@ const pollOrderStatusByTxHash = async (txHash: string) => {
                 <label className="block text-sm text-gray-600 mb-2">
                   Phone number
                 </label>
-                <input
-                  type="tel"
-                  className="w-full p-3 bg-gray-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  value={phoneNumber}
-                  onChange={handlePhoneNumberChange}
-                  placeholder="e.g. 0712345678"
-                />
-                {phoneNumber && !isValidKenyanNumber(phoneNumber) && (
-                  <p className="text-red-500 text-sm mt-1">
-                    Phone number must start with 2547 and be 12 digits long.
+                <div className="relative">
+                  <input
+                    type="tel"
+                    className={`w-full p-3 bg-gray-100 rounded-lg focus:outline-none focus:ring-2 transition-colors ${
+                      phoneValidation.isValid 
+                        ? 'focus:ring-green-500 border-green-200' 
+                        : phoneNumber && !phoneValidation.isValid 
+                        ? 'focus:ring-red-500 border-red-200' 
+                        : 'focus:ring-blue-500'
+                    }`}
+                    value={phoneNumber}
+                    onChange={handlePhoneNumberChange}
+                    placeholder="e.g. 0712345678"
+                  />
+                  {isValidatingPhone && (
+                    <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-500"></div>
+                    </div>
+                  )}
+                  {phoneValidation.isValid && !isValidatingPhone && (
+                    <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+                      <svg className="h-5 w-5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                      </svg>
+                    </div>
+                  )}
+                </div>
+                {phoneNumber && !phoneValidation.isValid && phoneValidation.error && (
+                  <p className="text-red-500 text-sm mt-1 flex items-center gap-1">
+                    <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    {phoneValidation.error}
+                  </p>
+                )}
+                {phoneValidation.isValid && (
+                  <p className="text-green-600 text-sm mt-1 flex items-center gap-1">
+                    <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    Valid phone number
                   </p>
                 )}
               </div>
@@ -402,9 +528,9 @@ const pollOrderStatusByTxHash = async (txHash: string) => {
               <button
                 className="w-full py-3 bg-gradient-to-r from-green-500 to-teal-400 text-white rounded-full font-medium hover:opacity-90 transition-opacity disabled:opacity-50"
                 onClick={handleConfirmPayment}
-                disabled={isLoading || parseFloat(amount) <= 0}
+                disabled={isLoading || parseFloat(amount) <= 0 || !phoneValidation.isValid || isValidatingPhone}
               >
-                {isLoading ? "Processing..." : "Confirm Payment"}
+                {isLoading ? "Processing..." : isValidatingPhone ? "Validating..." : "Confirm Payment"}
               </button>
             </div>
           </div>
@@ -419,21 +545,18 @@ const pollOrderStatusByTxHash = async (txHash: string) => {
               {/* Main Summary */}
               <div className="space-y-3 mb-4">
                 <div className="flex justify-between items-center">
-                  <span className="text-gray-600 text-sm">KES Equivalent</span>
+                  <span className="text-gray-600 text-sm">Amount to send</span>
                   <span className="font-medium text-sm">
-                    KES{" "}
-                    {(
-                      parseFloat(amount || "0") * (exchangeRate || 127.3)
-                    ).toFixed(2)}
+                    KES {parseFloat(amount || "0").toFixed(2)}
                   </span>
                 </div>
 
                 <div className="flex justify-between items-center">
                   <span className="text-gray-600 text-sm">
-                    Amount to receive
+                    {selectedToken.symbol} to receive
                   </span>
                   <span className="font-medium">
-                    USDC {parseFloat(amount || "0").toFixed(2)}
+                    {selectedToken.symbol} {(parseFloat(amount || "0") / (exchangeRate || 127.3)).toFixed(6)}
                   </span>
                 </div>
 
@@ -442,29 +565,21 @@ const pollOrderStatusByTxHash = async (txHash: string) => {
                     Transaction charge
                   </span>
                   <span className="text-orange-600 text-sm">
-                    KE{" "}
-                    {(
-                      parseFloat(amount || "0") *
-                      TRANSACTION_FEE_RATE *
-                      (exchangeRate || 127.3)
-                    ).toFixed(2)}
+                    KES {(parseFloat(amount || "0") * TRANSACTION_FEE_RATE).toFixed(2)}
                   </span>
                 </div>
 
                 <div className="flex justify-between items-center">
                   <span className="text-gray-600 text-sm">Wallet balance</span>
                   <span className="text-green-600 font-medium text-sm">
-                    USDC {transactionSummary.walletBalance.toFixed(2)}
+                    {selectedToken.symbol} {transactionSummary.walletBalance.toFixed(2)}
                   </span>
                 </div>
 
                 <div className="border-t pt-3 flex justify-between items-center font-semibold">
                   <span className="text-gray-900">Total:</span>
                   <span className="text-gray-900">
-                    KE{" "}
-                    {(
-                      parseFloat(amount || "0") * (exchangeRate || 127.3)
-                    ).toFixed(2)}
+                    KES {parseFloat(amount || "0").toFixed(2)}
                   </span>
                 </div>
               </div>
@@ -474,9 +589,9 @@ const pollOrderStatusByTxHash = async (txHash: string) => {
                 <button
                   className="w-full py-3 bg-gradient-to-r from-green-500 to-teal-400 text-white rounded-full font-medium hover:opacity-90 transition-opacity disabled:opacity-50 text-sm"
                   onClick={handleConfirmPayment}
-                  disabled={isLoading || parseFloat(amount) <= 0}
+                  disabled={isLoading || parseFloat(amount) <= 0 || !phoneValidation.isValid || isValidatingPhone}
                 >
-                  {isLoading ? "Processing..." : "Confirm Payment"}
+                  {isLoading ? "Processing..." : isValidatingPhone ? "Validating..." : "Confirm Payment"}
                 </button>
               </div>
 
@@ -487,7 +602,7 @@ const pollOrderStatusByTxHash = async (txHash: string) => {
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="text-gray-600 text-sm">
-                    USDC: {transactionSummary.walletBalance.toFixed(2)}
+                    {selectedToken.symbol}: {transactionSummary.walletBalance.toFixed(2)}
                   </span>
                   <span className="text-gray-900 font-medium text-sm">
                     KE{" "}
@@ -500,9 +615,7 @@ const pollOrderStatusByTxHash = async (txHash: string) => {
 
               {/* Information text */}
               <div className="text-gray-500 text-xs leading-relaxed">
-                At the moment, ElementsPay only allows users to deposit USDC to
-                the wallet used at registration. However, we will soon allow the
-                deposit of other tokens.
+                ElementsPay allows you to deposit supported stablecoins on multiple chains. Select your preferred token and chain above.
               </div>
             </div>
           </div>
@@ -523,6 +636,7 @@ const pollOrderStatusByTxHash = async (txHash: string) => {
           // setContinuePolling(false); 
           // onClose(); // Remove this line as onClose is not defined in props
         }}
+        selectedToken={selectedToken}
         transactionReciept={transactionReceipt}
       />
       </>

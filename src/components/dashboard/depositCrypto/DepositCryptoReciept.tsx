@@ -1,24 +1,27 @@
 "use client";
 import { CopyIcon, CheckCircle, CircleAlert } from 'lucide-react';
 import { useState } from 'react';
+import { SupportedToken } from '@/constants/supportedTokens';
 
 interface DepositCryptoReceiptProps {
     isOpen: boolean;
     onClose: () => void;
+    selectedToken: SupportedToken; // Remove optional modifier to ensure it's always passed
     transactionReciept: {
         status: string;
         reason?: string;
         amount: number;
-        amountUSDC: number;
+        amountCrypto: number; // Renamed from amountUSDC to be generic
         address: string;
         phoneNumber: string;
         transactionHash: string;
     };
 }
 
-export default function DepositCryptoReceipt({ isOpen, onClose, transactionReciept }: DepositCryptoReceiptProps) {
+export default function DepositCryptoReceipt({ isOpen, onClose, selectedToken, transactionReciept }: DepositCryptoReceiptProps) {
     if (!isOpen) return null; // Ensure modal is only rendered when open
     console.log("Transaction Receipt:", transactionReciept);
+    console.log("Selected Token:", selectedToken); // Debug log to check token
     const [copied, setCopied] = useState(false);
 
     const handleCopy = () => {
@@ -78,7 +81,7 @@ export default function DepositCryptoReceipt({ isOpen, onClose, transactionRecie
 
                 <div className="flex justify-center items-center py-[30px]">
                     <p className="text-[#02542D] text-md font-bold">
-                    KES {transactionReciept.amount.toFixed(2)} <span className="text-[#333] font-medium">≈  USDC {(transactionReciept.amountUSDC).toFixed(2)}</span>
+                    KES {transactionReciept.amount.toFixed(2)} <span className="text-[#333] font-medium">≈ {selectedToken.symbol} {(transactionReciept.amountCrypto).toFixed(6)}</span>
                     </p>
                 </div>
 
@@ -128,12 +131,18 @@ export default function DepositCryptoReceipt({ isOpen, onClose, transactionRecie
                             </p>
                             {transactionReciept?.transactionHash && (
                                 <a 
-                                    href={`${process.env.NEXT_PUBLIC_BASESCAN_URL}/tx/0x${transactionReciept.transactionHash}`}
+                                    href={`${selectedToken.explorerUrl}/tx/0x${transactionReciept.transactionHash}`}
                                     target="_blank"
                                     rel="noopener noreferrer"
                                     className="text-blue-600 hover:text-blue-800 text-sm flex items-center"
                                 >
-                                    <span>View on Basescan</span>
+                                    <span>View on {
+                                        selectedToken.chain === 'Base' ? 'Basescan' :
+                                        selectedToken.chain === 'Lisk' ? 'Lisk Explorer' :
+                                        selectedToken.chain === 'Scroll' ? 'Scrollscan' :
+                                        selectedToken.chain === 'Arbitrum' ? 'Arbiscan' :
+                                        `${selectedToken.chain} Explorer`
+                                    }</span>
                                     <svg 
                                         className="w-4 h-4 ml-1" 
                                         fill="none" 

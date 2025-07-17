@@ -2,6 +2,53 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Z-index hierarchy to prevent modal overlay issues */
+@layer utilities {
+  /* Base content and dropdowns - very low priority */
+  .z-dropdown {
+    z-index: 5;
+  }
+  
+  /* Small overlays like tooltips */
+  .z-tooltip {
+    z-index: 10;
+  }
+  
+  /* Modal backgrounds - high priority */
+  .z-modal-bg {
+    z-index: 50;
+  }
+  
+  /* Modal content */
+  .z-modal {
+    z-index: 51;
+  }
+  
+  /* Critical overlays (processing, receipts) */
+  .z-overlay {
+    z-index: 60;
+  }
+  
+  /* Top level alerts and notifications */
+  .z-top {
+    z-index: 70;
+  }
+}
+
+/* Hide all dropdowns when modal overlays are present */
+@layer utilities {
+  /* Only hide dropdowns when Radix dialog overlays are actually open and visible */
+  [data-radix-dialog-overlay][data-state="open"] ~ * .z-dropdown,
+  [data-radix-dialog-content][data-state="open"] ~ * .z-dropdown {
+    display: none !important;
+  }
+  
+  /* Hide dropdowns when processing overlays are present */
+  .z-overlay:not([hidden]) ~ * .z-dropdown {
+    display: none !important;
+  }
+}
+
 /* Ensure responsive classes work in production */
 @layer utilities {
   .hidden {

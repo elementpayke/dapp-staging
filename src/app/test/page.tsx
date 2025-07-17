@@ -15,7 +15,16 @@ export default function Page() {
   const [phoneNumber, setPhoneNumber] = useState("");
   const [exchangeRate, setExchangeRate] = useState<number | null>(null);
   const { isConnected, disconnectWallet, usdcBalance } = useWallet();
-  const { contract, address } = useContract();
+  // Map chain names to their contract addresses from env
+  const CONTRACT_ADDRESS_MAP: Record<string, string> = {
+    Base: process.env.NEXT_PUBLIC_CONTRACT_ADDRESS_BASE!,
+    Lisk: process.env.NEXT_PUBLIC_CONTRACT_ADDRESS_LISK!,
+    Scroll: process.env.NEXT_PUBLIC_CONTRACT_ADDRESS_SCROLL!,
+    Arbitrum: process.env.NEXT_PUBLIC_CONTRACT_ADDRESS_ARBITRUM!,
+  };
+  // Default to Base if no chain selection is present
+  const contractAddress = CONTRACT_ADDRESS_MAP.Base;
+  const { contract, address } = useContract(contractAddress);
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
@@ -48,6 +57,7 @@ export default function Page() {
   };
 
   useContractEvents(
+    contractAddress,
     (order: any) => console.log("OrderCreated", order),
     (order: any) => console.log("OrderSettled", order),
     () => console.log("OrderRefunded")
