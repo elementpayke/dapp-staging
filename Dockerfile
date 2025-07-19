@@ -9,7 +9,7 @@ FROM node:18-alpine AS builder
 WORKDIR /app
 COPY . .
 COPY --from=deps /app/node_modules ./node_modules
-ENV NODE_OPTIONS=--max_old_space_size=512
+ENV NODE_OPTIONS=--max_old_space_size=1024
 RUN npm run build
 
 # Production image
