@@ -1,27 +1,24 @@
-# Install dependencies only when needed
+# Install dependencies
 FROM node:18-alpine AS deps
 WORKDIR /app
 COPY package.json package-lock.json* ./
 RUN npm install
 
-# Rebuild the source code only when needed
+# Build the app
 FROM node:18-alpine AS builder
 WORKDIR /app
 COPY . .
 COPY --from=deps /app/node_modules ./node_modules
+ENV NODE_OPTIONS=--max_old_space_size=512
 RUN npm run build
 
 # Production image
 FROM node:18-alpine AS runner
 WORKDIR /app
-
 ENV NODE_ENV=production
-
-# Copy only the build output
 COPY --from=builder /app/public ./public
 COPY --from=builder /app/.next ./.next
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/package.json ./package.json
-
 EXPOSE 3000
-CMD ["npm", "start"]
+CMD ["npx", "next", "start"]
