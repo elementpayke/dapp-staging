@@ -6,6 +6,7 @@ import { ArrowUpRight } from "lucide-react";
 import { toast } from "react-toastify";
 import PayToMobileMoney from "./PayToMobileMoney";
 import ProcessingPopup from "./processing-popup";
+import NetworkSwitchNotification from "@/components/ui/NetworkSwitchNotification";
 import { formatReceiverName } from "@/utils/helpers";
 
 import { parseUnits } from "viem";
@@ -74,6 +75,13 @@ const SendCryptoModal: React.FC = () => {
   const [finalTransactionData, setFinalTransactionData] = useState<any>(null); // Store complete transaction data from API
   const [isPollingComplete, setIsPollingComplete] = useState(false); // Flag to indicate polling is done
 
+  // Network switch notification state
+  const [networkSwitchNotification, setNetworkSwitchNotification] = useState({
+    isVisible: false,
+    networkName: '',
+    status: 'switching' as 'switching' | 'success' | 'error'
+  });
+
   // Debug orderId changes
   useEffect(() => {
     console.log("[ORDER ID CHANGE] orderId changed to:", orderId);
@@ -95,6 +103,23 @@ const SendCryptoModal: React.FC = () => {
 
   // Keep but don't directly use this state to preserve the component structure
   const [, setCashoutType] = useState<"PHONE" | "PAYBILL" | "TILL">("PHONE");
+
+  // Network switch notification helper functions
+  const showNetworkSwitchNotification = (networkName: string, status: 'switching' | 'success' | 'error') => {
+    console.log(`🔔 Network notification: ${status} for ${networkName}`);
+    setNetworkSwitchNotification({
+      isVisible: true,
+      networkName,
+      status
+    });
+  };
+
+  const hideNetworkSwitchNotification = () => {
+    setNetworkSwitchNotification(prev => ({
+      ...prev,
+      isVisible: false
+    }));
+  };
 
   const getCashoutType = useCallback((): "PHONE" | "PAYBILL" | "TILL" => {
     if (paybillNumber && accountNumber) return "PAYBILL";
@@ -590,11 +615,29 @@ const SendCryptoModal: React.FC = () => {
   const executeOfframpOrder = async () => {
     const targetChainId = getTargetChainId();
     if (currentChainId !== targetChainId) {
+      console.log(`🔄 Network switch needed: ${currentChainId} -> ${targetChainId} (${selectedToken.chain})`);
+      
+      // Show switching notification
+      showNetworkSwitchNotification(selectedToken.chain, 'switching');
+      
       try {
         await switchChain({ chainId: targetChainId });
+        
+        // Wait a moment for the network to switch
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        
+        // Show success notification
+        showNetworkSwitchNotification(selectedToken.chain, 'success');
+        
+        console.log(`✅ Successfully switched to ${selectedToken.chain} network`);
         toast.success(`Switched to ${selectedToken.chain}. Please try again.`);
         return;
       } catch (err) {
+        console.error("❌ Network switch failed:", err);
+        
+        // Show error notification
+        showNetworkSwitchNotification(selectedToken.chain, 'error');
+        
         toast.error(`Please switch to ${selectedToken.chain} to continue.`);
         return;
       }
@@ -750,6 +793,14 @@ const SendCryptoModal: React.FC = () => {
         // Store complete transaction data for ProcessingPopup
         setFinalTransactionData(statusData);
         setIsPollingComplete(true); // Mark polling as complete
+        
+        console.log("🔍 SendCryptoModal: Final transaction data set:", {
+          receiver_name: statusData.receiver_name,
+          amount_fiat: statusData.amount_fiat,
+          transaction_hash: statusData.transaction_hash,
+          receipt_number: statusData.receipt_number || statusData.mpesa_receipt_number,
+          fullStatusData: statusData
+        });
         
         const finalReceiptData = {
           status: isSettled ? 1 : (isFailed ? 2 : 0),
@@ -1034,15 +1085,16 @@ const SendCryptoModal: React.FC = () => {
           orderId={orderId}
           disableInternalPolling={true} // Disable ProcessingPopup's own polling
           transactionDetails={{
-            amount: transactionReciept.amount || amount,
+            amount: finalTransactionData?.amount_fiat?.toString() || transactionReciept.amount || amount,
             currency: "KES",
-            recipient: getCashoutType() === "PHONE" 
-              ? (mobileNumber ? formatReceiverName(mobileNumber) : "Mobile Money Recipient")
-              : getCashoutType() === "PAYBILL" 
-                ? `PayBill: ${paybillNumber}${accountNumber ? ` - ${accountNumber}` : ""}` 
-                : `Till: ${tillNumber}`,
+            recipient: finalTransactionData?.receiver_name || 
+              (getCashoutType() === "PHONE" 
+                ? (mobileNumber ? formatReceiverName(mobileNumber) : "Mobile Money Recipient")
+                : getCashoutType() === "PAYBILL" 
+                  ? `PayBill: ${paybillNumber}${accountNumber ? ` - ${accountNumber}` : ""}` 
+                  : `Till: ${tillNumber}`),
             paymentMethod: getCashoutType() === "PHONE" ? "Mobile Money" : getCashoutType() === "PAYBILL" ? "PayBill" : "Till Number",
-            transactionHash: transactionReciept.transactionHash || orderId || "",
+            transactionHash: finalTransactionData?.transaction_hash || transactionReciept.transactionHash || orderId || "",
             date: finalTransactionData?.created_at || new Date().toISOString(),
             receiptNumber: finalTransactionData?.mpesa_receipt_number || finalTransactionData?.receipt_number || finalTransactionData?.file_id || "",
             mpesa_receipt_number: finalTransactionData?.mpesa_receipt_number || "",
@@ -1053,6 +1105,14 @@ const SendCryptoModal: React.FC = () => {
           }}
         />
       )}
+
+      {/* Network Switch Notification */}
+      <NetworkSwitchNotification
+        isVisible={networkSwitchNotification.isVisible}
+        networkName={networkSwitchNotification.networkName}
+        status={networkSwitchNotification.status}
+        onClose={hideNetworkSwitchNotification}
+      />
     </Dialog>
   );
 };

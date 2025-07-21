@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/dialog";
 import { useWallet } from "@/hooks/useWallet";
 import { useTokenBalance } from "@/hooks/useTokenBalance";
+import { useModalOverlay } from "@/hooks/useModalOverlay";
 import { TransactionReceipt } from "@/types/types";
 import TokenDropdown from "@/components/ui/TokenDropdown";
 import { SUPPORTED_TOKENS, SupportedToken } from "@/constants/supportedTokens";
@@ -58,6 +59,9 @@ const DepositCryptoModal: React.FC = () => {
   const { switchChain } = useSwitchChain();
   const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
   const continuePollingRef = useRef<boolean>(true);
+
+  // Hide dropdowns when any modal is open
+  useModalOverlay(isConfirmModalOpen || isTransactionModalOpen || isReceiptModalOpen);
 
   // Get target chain ID based on selected token
   const getTargetChainId = () => {

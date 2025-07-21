@@ -1,4 +1,5 @@
 "use client";
+import { useModalOverlay } from '@/hooks/useModalOverlay';
 
 interface TransactionInProgressModalProps {
     isOpen: boolean;
@@ -7,6 +8,9 @@ interface TransactionInProgressModalProps {
 }
 
 export default function TransactionInProgressModal({ isOpen, phone_number }: TransactionInProgressModalProps) {
+    // Hide dropdowns when modal is open
+    useModalOverlay(isOpen);
+    
     if (!isOpen) return null; // Ensure modal is only rendered when open
 
     const getPhoneNumberLastAndFirstFourDigits = (phone_number: string) => {
@@ -17,7 +21,7 @@ export default function TransactionInProgressModal({ isOpen, phone_number }: Tra
 
     return (
         <div 
-            className="fixed inset-0 z-60 flex items-center justify-center bg-black bg-opacity-50"
+            className="fixed inset-0 z-overlay flex items-center justify-center bg-black bg-opacity-50"
         >
             <div 
                 className="flex flex-col items-center justify-center p-8 bg-white rounded-lg shadow-lg border border-[#A3A5C2] max-w-sm"

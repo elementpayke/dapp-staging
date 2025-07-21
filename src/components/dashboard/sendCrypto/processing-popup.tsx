@@ -102,11 +102,27 @@ const ProcessingPopup: React.FC<ProcessingPopupProps> = ({
     
     if (isDefinitelySuccessful) {
       console.log("✅ ProcessingPopup: Detected successful transaction, showing success state");
+      console.log("🔍 ProcessingPopup: Current transactionDetails:", JSON.stringify(transactionDetails, null, 2));
+      console.log("🔍 ProcessingPopup: Initial transactionDetails:", JSON.stringify(initialTransactionDetails, null, 2));
+      
       setStatus("success");
       setStatusMessage("Payment successful!");
       setProgress(100);
       setShowConfetti(true);
       setPopupLocked(true);
+      
+      // Always use the initial transaction details from SendCryptoModal when successful
+      // since SendCryptoModal has the most up-to-date API data
+      console.log("📝 ProcessingPopup: Using initial transaction details from SendCryptoModal");
+      console.log("🔄 ProcessingPopup: Updating store with API data:", {
+        currentRecipient: transactionDetails.recipient,
+        newRecipient: initialTransactionDetails.recipient,
+        currentAmount: transactionDetails.amount,
+        newAmount: initialTransactionDetails.amount,
+        currentReceiptNumber: transactionDetails.receiptNumber,
+        newReceiptNumber: initialTransactionDetails.receiptNumber
+      });
+      
       setTransactionDetails(initialTransactionDetails);
     }
   }, [isVisible, initialTransactionDetails, setStatus, setStatusMessage, setProgress, setShowConfetti, setPopupLocked, setTransactionDetails]);
@@ -180,6 +196,16 @@ const ProcessingPopup: React.FC<ProcessingPopupProps> = ({
         if (!orderStatus) return false;
         const orderData = orderStatus.data || orderStatus;
         if (!orderData) return false;
+        
+        // Debug the complete API response structure
+        console.log("🔍 ProcessingPopup: Full API response:", {
+          response,
+          orderStatus,
+          orderData,
+          orderDataKeys: Object.keys(orderData),
+          receiver_name: orderData.receiver_name,
+          phone_number: orderData.phone_number
+        });
         // --- SUCCESS CONDITIONS ---
         const hasSettlementHash = !!orderData.transaction_hashes?.settlement;
         const hasCreationHash = !!orderData.transaction_hashes?.creation;
@@ -206,18 +232,51 @@ const ProcessingPopup: React.FC<ProcessingPopupProps> = ({
           orderStatusValue === "finished"
         );
         if (isSuccessful || (pollAttempts > 10 && (hasSettlementHash || hasCreationHash || hasReceiptNumber || hasMpesaReceipt || hasFileId))) {
-          setTransactionDetails({
+          // Debug logging to understand the recipient data
+          console.log("🔍 ProcessingPopup: Processing success state with orderData:", {
+            receiver_name: orderData.receiver_name,
+            phone_number: orderData.phone_number,
+            hasReceiverName: !!orderData.receiver_name,
+            hasPhoneNumber: !!orderData.phone_number,
+            fullOrderData: orderData
+          });
+
+          // Prioritize receiver_name, fallback to phone_number, then to existing recipient
+          let recipientName;
+          
+          // First try receiver_name from API
+          if (orderData.receiver_name && orderData.receiver_name.trim() !== '') {
+            recipientName = orderData.receiver_name.trim();
+            console.log("✅ Using receiver_name from API:", recipientName);
+          }
+          // Then try phone_number from API  
+          else if (orderData.phone_number && orderData.phone_number.trim() !== '') {
+            recipientName = orderData.phone_number.trim();
+            console.log("📞 Using phone_number from API:", recipientName);
+          }
+          // Finally fallback to existing recipient
+          else {
+            recipientName = transactionDetails.recipient || "Unknown";
+            console.log("🔄 Using existing recipient:", recipientName);
+          }
+
+          console.log("🎯 ProcessingPopup: Final recipient name:", recipientName);
+
+          const newTransactionDetails = {
             ...transactionDetails,
             amount: orderData.amount_fiat?.toString() || transactionDetails.amount,
             currency: orderData.currency || transactionDetails.currency,
-            recipient: formatReceiverName(orderData.receiver_name) || transactionDetails.recipient,
+            recipient: recipientName,
             paymentMethod: orderData.order_type === "offramp" ? "Mobile Money" : transactionDetails.paymentMethod,
             transactionHash: orderData.transaction_hashes?.settlement || orderData.transaction_hashes?.creation || transactionDetails.transactionHash || "N/A",
             date: orderData.created_at || transactionDetails.date,
             receiptNumber: orderData.receipt_number || orderData.mpesa_receipt_number || orderData.file_id || transactionDetails.receiptNumber || "N/A",
             paymentStatus: "settled",
             status: 1,
-          });
+          };
+
+          console.log("📤 ProcessingPopup: Setting transaction details:", newTransactionDetails);
+          setTransactionDetails(newTransactionDetails);
           setStatus("success");
           setStatusMessage("Payment successful!");
           setProgress(100);

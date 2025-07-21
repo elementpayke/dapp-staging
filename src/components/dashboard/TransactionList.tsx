@@ -118,11 +118,11 @@ const TransactionList: FC<{ walletAddress: string | null }> = ({ walletAddress }
                   : "—",
             fullHash: order.settlement_transaction_hash || order.refund_transaction_hash || order.creation_transaction_hash || "—",
             status: order.status === "refunded" ? "FAILED" : order.status.toUpperCase(),
-            description: order.phone_number
-              ? `To ${order.phone_number}`
+            description: order.receiver_name || order.phone_number
+              ? `To ${order.receiver_name || order.phone_number}`
               : `Token: ${order.token}`,
             amount: `${order.amount_fiat.toFixed(2)} KES`,
-            receiverDisplay: order.phone_number || "Unknown",
+            receiverDisplay: order.receiver_name || order.phone_number || "Unknown",
             
             // New enhanced fields
             tokenSymbol: order.token,

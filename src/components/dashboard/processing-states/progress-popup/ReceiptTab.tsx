@@ -24,7 +24,7 @@ const ReceiptTab: React.FC<ReceiptTabProps> = ({
   const date = tx.date || fallbackDate;
   const amount = tx.amount || tx.value;
   const currency = tx.currency || tx.tokenSymbol || tx.assetSymbol;
-  const to =  tx.to || tx.recipient;
+  const to = tx.recipient || tx.to; // Prioritize recipient (receiver_name) over to (phone number)
   const from = tx.from || tx.sender;
   const txHash = tx.txHash || tx.hash || tx.transactionHash;
   const status = tx.paymentStatus || tx.status || "Success";
@@ -34,6 +34,18 @@ const ReceiptTab: React.FC<ReceiptTabProps> = ({
   const items = tx.items || [];
   const subtotal = tx.subtotal || amount || "N/A";
   const total = amount || subtotal;
+
+  // Debug logging to track recipient display
+  React.useEffect(() => {
+    console.log("🧾 ReceiptTab - Recipient display logic:", {
+      recipient: tx.recipient,
+      to: tx.to,
+      finalDisplayedRecipient: to,
+      customerName,
+      hasRecipient: !!tx.recipient,
+      hasTo: !!tx.to
+    });
+  }, [tx.recipient, tx.to, to, customerName]);
 
   return (
     <motion.div

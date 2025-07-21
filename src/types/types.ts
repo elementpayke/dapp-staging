@@ -106,6 +106,10 @@ export interface OrderStatusAPIData {
   order_id: string;
   status: OrderStatus;
   receipt_number?: string;
+  receiver_name?: string;
+  phone_number?: string;
+  mpesa_receipt_number?: string;
+  file_id?: string;
   transaction_hashes?: {
     settlement?: string;
     creation?: string;
@@ -114,6 +118,9 @@ export interface OrderStatusAPIData {
   failure_reason?: string;
   amount_fiat?: number;
   currency?: string;
+  token?: string;
+  order_type?: string;
+  wallet_address?: string;
   created_at?: string;
 }
 
@@ -208,6 +215,7 @@ export type Order = {
   invoice_id?: string;
   file_id?: string;
   phone_number?: string;
+  receiver_name?: string;
   creation_transaction_hash?: string;
   settlement_transaction_hash?: string;
   refund_transaction_hash?: string;
