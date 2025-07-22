@@ -1,0 +1,36 @@
+name: Deploy to Dev
+
+on:
+  push:
+    branches:
+      - dev
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      - name: Setup SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan -H 159.89.34.162 >> ~/.ssh/known_hosts
+
+      - name: Deploy to Dev Server
+        run: |
+          ssh root@159.89.34.162 << 'EOF'
+            cd ~/FRONTEND/element_dapp
+            git pull origin dev
+            docker build -t nextjs-app .
+            docker stop elementpay-frontend || true
+            docker rm elementpay-frontend || true
+            docker run -d \
+              --name elementpay-frontend \
+              --restart=always \
+              -p 3000:3000 \
+              nextjs-app
+          EOF
