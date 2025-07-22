@@ -1,6 +1,7 @@
 "use client";
 import { CopyIcon, CheckCircle, CircleAlert } from 'lucide-react';
 import { useState } from 'react';
+import { useModalOverlay } from '@/hooks/useModalOverlay';
 import { SupportedToken } from '@/constants/supportedTokens';
 
 interface DepositCryptoReceiptProps {
@@ -19,10 +20,15 @@ interface DepositCryptoReceiptProps {
 }
 
 export default function DepositCryptoReceipt({ isOpen, onClose, selectedToken, transactionReciept }: DepositCryptoReceiptProps) {
+    // All hooks must be called before any conditional logic
+    const [copied, setCopied] = useState(false);
+    
+    // Hide dropdowns when modal is open
+    useModalOverlay(isOpen);
+    
     if (!isOpen) return null; // Ensure modal is only rendered when open
     console.log("Transaction Receipt:", transactionReciept);
     console.log("Selected Token:", selectedToken); // Debug log to check token
-    const [copied, setCopied] = useState(false);
 
     const handleCopy = () => {
         const textToCopy = transactionReciept?.transactionHash || "";
@@ -48,7 +54,7 @@ export default function DepositCryptoReceipt({ isOpen, onClose, selectedToken, t
 
     return (
         <div
-            className="fixed inset-0 z-70 flex items-center justify-center bg-black bg-opacity-50"
+            className="fixed inset-0 z-overlay flex items-center justify-center bg-black bg-opacity-50"
             onClick={(e) => {
                 // Only close if clicking the backdrop
                 if (e.target === e.currentTarget) onClose();
@@ -62,8 +68,7 @@ export default function DepositCryptoReceipt({ isOpen, onClose, selectedToken, t
                             space-y-4
                             mx-2
                             overflow-y-auto
-                            max-h-[90vh]
-                            max-w-full"
+                            max-h-[90vh]"
                 onClick={(e) => e.stopPropagation()} // Prevent closing when clicking inside the modal
             >
                 {/* Tick Icon */}
@@ -100,7 +105,7 @@ export default function DepositCryptoReceipt({ isOpen, onClose, selectedToken, t
                 <div className="flex w-full justify-between items-center">
                     <p className="text-lg text-[#767676] font-semibold">Status</p>
                     <p className="text-sm text-[#1E1E1E] font-semibold">
-                        <span className={`px-5 py-1 px-2 rounded-full
+                        <span className={`px-3 py-1 rounded-full
                             ${!isSuccessful() ? "text-red-700 bg-red-400" : "text-[#077A3D] bg-green-400"}`}>
                             {isSuccessful() ? "Success" : "Failed"}
                         </span>

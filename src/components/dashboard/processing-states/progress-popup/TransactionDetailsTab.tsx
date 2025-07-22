@@ -36,7 +36,7 @@ const TransactionDetailsTab: React.FC<TransactionDetailsTabProps> = ({
   const date = tx.date || fallbackDate;
   const amount = tx.amount || tx.value;
   const currency = tx.currency || tx.tokenSymbol || tx.assetSymbol;
-  const to = tx.to || tx.recipient;
+  const to = tx.recipient || tx.to; // Prioritize recipient (receiver_name) over to (phone number)
   const from = tx.from || tx.sender;
   const txHash = tx.txHash || tx.hash || tx.transactionHash;
   const status = tx.status || "Success";
@@ -52,7 +52,16 @@ const TransactionDetailsTab: React.FC<TransactionDetailsTabProps> = ({
       txMpesaReceiptNumber: tx.mpesa_receipt_number,
       fullTransactionDetails: tx
     });
-  }, [receiptNumber, tx.receiptNumber, tx.mpesa_receipt_number, tx]);
+    
+    // Debug recipient display logic
+    console.log("👤 TransactionDetailsTab - Recipient display logic:", {
+      recipient: tx.recipient,
+      to: tx.to,
+      finalDisplayedRecipient: to,
+      hasRecipient: !!tx.recipient,
+      hasTo: !!tx.to
+    });
+  }, [receiptNumber, tx.receiptNumber, tx.mpesa_receipt_number, tx, to]);
 
   return (
     <motion.div
