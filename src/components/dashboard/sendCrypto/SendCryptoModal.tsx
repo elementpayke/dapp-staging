@@ -100,6 +100,7 @@ const SendCryptoModal: React.FC = () => {
     () => void
   >(() => () => { });
   const [modalMode, setModalMode] = useState<"confirm" | "error">("confirm");
+  const [isMainDialogOpen, setIsMainDialogOpen] = useState(false);
 
   // Keep but don't directly use this state to preserve the component structure
   const [, setCashoutType] = useState<"PHONE" | "PAYBILL" | "TILL">("PHONE");
@@ -127,45 +128,20 @@ const SendCryptoModal: React.FC = () => {
     return "PHONE";
   }, [paybillNumber, accountNumber, tillNumber]);
 
-  const getAccountTypeForIntaSend = (): "TillNumber" | "PayBill" => {
-    const type = getCashoutType();
-    // if (type === "TILL") return "TillNumber";
-    if (type === "PAYBILL") return "PayBill";
-    return "TillNumber";
-  };
-
   const validateAccount = async () => {
-    try {
-      const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/orders/validate-account`,
-        {
-          method: "POST",
-          headers: {
-            "x-api-key": process.env.NEXT_PUBLIC_AGGR_API_KEY!,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            account: tillNumber || paybillNumber,
-            provider: "MPESA-B2B",
-            account_type: getAccountTypeForIntaSend(),
-          }),
-        }
-      );
-
-      const result = await response.json();
-
-      if (!response.ok) {
-        const message =
-          result?.errors?.[0]?.detail || "Account validation failed";
-        throw new Error(message);
-      }
-
-      setValidatedAccountInfo(result.name || "Unknown Payee");
-      return true;
-    } catch (error: any) {
-      toast.error(error.message || "Failed to validate account.");
-      return false;
+    // Element Pay API doesn't have a separate validation endpoint
+    // Validation will happen during order creation
+    console.log("� Skipping pre-validation - Element Pay will validate during order creation");
+    
+    const cashoutType = getCashoutType();
+    if (cashoutType === "PAYBILL") {
+      // Just set a placeholder name since we can't pre-validate
+      setValidatedAccountInfo(`PayBill ${paybillNumber}`);
+    } else if (cashoutType === "TILL") {
+      setValidatedAccountInfo(`Till ${tillNumber}`);
     }
+    
+    return true; // Always return true since we can't pre-validate
   };
 
   // Set isBrowser to true once component mounts (client-side only)
@@ -947,16 +923,22 @@ const SendCryptoModal: React.FC = () => {
         toast.error("Please enter both business number and account number");
         return;
       }
-      const isValid = await validateAccount();
-      if (!isValid) {
+      // Skip validation and proceed directly since Element Pay API doesn't have a validation endpoint
+      const isValid = await validateAccount(); // This will always return true now
+      console.log("📋 PayBill validation complete, setting up modal");
+      setProceedAfterValidation(() => () => {
+        console.log("📋 Proceed button clicked, executing offramp order");
+        executeOfframpOrder();
+      });
+      
+      // Close main dialog to prevent backdrop interference
+      setIsMainDialogOpen(false);
+      
+      // Small delay to ensure dialog closes before showing confirmation modal
+      setTimeout(() => {
         setShowValidationModal(true);
-        setModalMode("error");
-        setValidatedAccountInfo("Invalid account or business number.");
-        return;
-      }
-      setProceedAfterValidation(() => executeOfframpOrder);
-      setShowValidationModal(true);
-      setModalMode("confirm");
+        setModalMode("confirm");
+      }, 100);
       return;
     }
     
@@ -1012,104 +994,53 @@ const SendCryptoModal: React.FC = () => {
   }, [isBrowser, amount, transactionSummary.usdcAmount, mobileNumber, paybillNumber, accountNumber, tillNumber, getCashoutType, account.address]);
 
   return (
-    <Dialog>
-      <DialogTrigger className="flex items-center gap-2 bg-gradient-to-r from-blue-600 to-red-600 text-white text-sm font-medium py-3 px-4 rounded-xl hover:opacity-90 transition-opacity disabled:opacity-50">
-        <ArrowUpRight size={24} />
-        Spend Crypto
-      </DialogTrigger>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>Spend Crypto</DialogTitle>
-        </DialogHeader>
+    <>
+      <Dialog open={isMainDialogOpen} onOpenChange={setIsMainDialogOpen}>
+        <DialogTrigger 
+          className="flex items-center gap-2 bg-gradient-to-r from-blue-600 to-red-600 text-white text-sm font-medium py-3 px-4 rounded-xl hover:opacity-90 transition-opacity disabled:opacity-50"
+          onClick={() => setIsMainDialogOpen(true)}
+        >
+          <ArrowUpRight size={24} />
+          Spend Crypto
+        </DialogTrigger>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Spend Crypto</DialogTitle>
+          </DialogHeader>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Left Column - Payment Form */}
-          <div className="lg:col-span-2 space-y-4">
-            {/* Payment Type Header */}
-            <div>
-              <h3 className="text-lg font-medium text-gray-900 mb-4">
-                Pay to Mobile Money
-              </h3>
-            </div>
-            <PayToMobileMoney
-              selectedToken={selectedToken}
-              setSelectedToken={setSelectedToken}
-              amount={amount}
-              setAmount={setAmount}
-              mobileNumber={mobileNumber}
-              setMobileNumber={setMobileNumber}
-              reason={reason}
-              setReason={setReason}
-              totalKES={transactionSummary.totalKES}
-              tillNumber={tillNumber}
-              setTillNumber={setTillNumber}
-              paybillNumber={paybillNumber}
-              setPaybillNumber={setPaybillNumber}
-              accountNumber={accountNumber}
-              setAccountNumber={setAccountNumber}
-              setCashoutType={setCashoutType}
-              phoneValidation={phoneValidation}
-              isValidatingPhone={isValidatingPhone}
-            />
-
-
-            {/* Mobile Confirm Button - Only shown on small screens */}
-            <div className="block lg:hidden pt-4">
-              <button
-                onClick={
-                  Number.parseFloat(amount) >= 10
-                    ? handleApproveToken
-                    : undefined
-                }
-                disabled={isApproving || !isFormValid()}
-                type="button"
-                className="w-full py-3 bg-gradient-to-r from-blue-600 to-red-600 text-white rounded-full font-medium hover:opacity-90 transition-opacity disabled:opacity-50"
-              >
-                {isApproving ? "Approving..." : isValidatingPhone ? "Validating..." : "Confirm Payment"}
-              </button>
-            </div>
-          </div>
-
-          {/* Right Column - Transaction Summary */}
-          <div className="lg:col-span-1">
-            <div className="bg-gray-50 p-4 rounded-xl h-fit sticky top-4">
-              <h3 className="text-lg font-semibold mb-4 text-gray-900">
-                Transaction Summary
-              </h3>
-
-              {/* Main Summary */}
-              <div className="space-y-3 mb-4">
-                <div className="flex justify-between items-center">
-                  <span className="text-gray-600 text-sm">Wallet balance</span>
-                  <span className="text-green-600 font-medium text-sm">
-                    {selectedToken.symbol} {transactionSummary.usdcBalance.toFixed(6)}
-                  </span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-gray-600 text-sm">Amount to send</span>
-                  <span className="text-gray-900 font-medium">
-                    KE {transactionSummary.kesAmount.toFixed(2)}
-                  </span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-gray-600 text-sm">
-                    Transaction charge (0.5%)
-                  </span>
-                  <span className="text-orange-600 text-sm">
-                    KE {(transactionSummary.transactionCharge * (exchangeRate || 1)).toFixed(2)}
-                  </span>
-                </div>
-                <div className="border-t pt-3 flex justify-between items-center font-semibold">
-                  <span className="text-gray-900">Total:</span>
-                  <span className="text-gray-900">
-                    KE {transactionSummary.kesAmount.toFixed(2)}
-                  </span>
-                </div>
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {/* Left Column - Payment Form */}
+            <div className="lg:col-span-2 space-y-4">
+              {/* Payment Type Header */}
+              <div>
+                <h3 className="text-lg font-medium text-gray-900 mb-4">
+                  Pay to Mobile Money
+                </h3>
               </div>
+              <PayToMobileMoney
+                selectedToken={selectedToken}
+                setSelectedToken={setSelectedToken}
+                amount={amount}
+                setAmount={setAmount}
+                mobileNumber={mobileNumber}
+                setMobileNumber={setMobileNumber}
+                reason={reason}
+                setReason={setReason}
+                totalKES={transactionSummary.totalKES}
+                tillNumber={tillNumber}
+                setTillNumber={setTillNumber}
+                paybillNumber={paybillNumber}
+                setPaybillNumber={setPaybillNumber}
+                accountNumber={accountNumber}
+                setAccountNumber={setAccountNumber}
+                setCashoutType={setCashoutType}
+                phoneValidation={phoneValidation}
+                isValidatingPhone={isValidatingPhone}
+              />
 
 
-              {/* Desktop Confirm Button */}
-              <div className="hidden lg:block mb-4">
+              {/* Mobile Confirm Button - Only shown on small screens */}
+              <div className="block lg:hidden pt-4">
                 <button
                   onClick={
                     Number.parseFloat(amount) >= 10
@@ -1118,41 +1049,117 @@ const SendCryptoModal: React.FC = () => {
                   }
                   disabled={isApproving || !isFormValid()}
                   type="button"
-                  className="w-full py-3 bg-gradient-to-r from-blue-600 to-red-600 text-white rounded-full font-medium hover:opacity-90 transition-opacity disabled:opacity-50 text-sm"
+                  className="w-full py-3 bg-gradient-to-r from-blue-600 to-red-600 text-white rounded-full font-medium hover:opacity-90 transition-opacity disabled:opacity-50"
                 >
                   {isApproving ? "Approving..." : isValidatingPhone ? "Validating..." : "Confirm Payment"}
                 </button>
               </div>
+            </div>
 
-              {/* Balance after transaction */}
-              <div className="bg-white border border-gray-200 p-3 rounded-lg">
-                <div className="text-gray-600 mb-2 text-xs font-medium uppercase tracking-wider">
-                  Balance After Transaction
-                </div>
-                <div className="space-y-2">
+            {/* Right Column - Transaction Summary */}
+            <div className="lg:col-span-1">
+              <div className="bg-gray-50 p-4 rounded-xl h-fit sticky top-4">
+                <h3 className="text-lg font-semibold mb-4 text-gray-900">
+                  Transaction Summary
+                </h3>
+
+                {/* Main Summary */}
+                <div className="space-y-3 mb-4">
                   <div className="flex justify-between items-center">
-                    <span className="text-gray-600 text-sm">Remaining KES</span>
-                    <span className="text-gray-900 font-medium text-sm">
-                      KE {transactionSummary.totalKESBalance.toFixed(2)}
+                    <span className="text-gray-600 text-sm">Wallet balance</span>
+                    <span className="text-green-600 font-medium text-sm">
+                      {selectedToken.symbol} {transactionSummary.usdcBalance.toFixed(6)}
                     </span>
                   </div>
                   <div className="flex justify-between items-center">
-                    <span className="text-gray-600 text-sm">USDC Balance</span>
-                    <span className="text-gray-900 font-medium text-sm">
-                      {transactionSummary.remainingBalance.toFixed(6)}
+                    <span className="text-gray-600 text-sm">Amount to send</span>
+                    <span className="text-gray-900 font-medium">
+                      KE {transactionSummary.kesAmount.toFixed(2)}
                     </span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-600 text-sm">
+                      Transaction charge (0.5%)
+                    </span>
+                    <span className="text-orange-600 text-sm">
+                      KE {(transactionSummary.transactionCharge * (exchangeRate || 1)).toFixed(2)}
+                    </span>
+                  </div>
+                  <div className="border-t pt-3 flex justify-between items-center font-semibold">
+                    <span className="text-gray-900">Total:</span>
+                    <span className="text-gray-900">
+                      KE {transactionSummary.kesAmount.toFixed(2)}
+                    </span>
+                  </div>
+                </div>
+
+
+                {/* Desktop Confirm Button */}
+                <div className="hidden lg:block mb-4">
+                  <button
+                    onClick={
+                      Number.parseFloat(amount) >= 10
+                        ? handleApproveToken
+                        : undefined
+                    }
+                    disabled={isApproving || !isFormValid()}
+                    type="button"
+                    className="w-full py-3 bg-gradient-to-r from-blue-600 to-red-600 text-white rounded-full font-medium hover:opacity-90 transition-opacity disabled:opacity-50 text-sm"
+                  >
+                    {isApproving ? "Approving..." : isValidatingPhone ? "Validating..." : "Confirm Payment"}
+                  </button>
+                </div>
+
+                {/* Balance after transaction */}
+                <div className="bg-white border border-gray-200 p-3 rounded-lg">
+                  <div className="text-gray-600 mb-2 text-xs font-medium uppercase tracking-wider">
+                    Balance After Transaction
+                  </div>
+                  <div className="space-y-2">
+                    <div className="flex justify-between items-center">
+                      <span className="text-gray-600 text-sm">Remaining KES</span>
+                      <span className="text-gray-900 font-medium text-sm">
+                        KE {transactionSummary.totalKESBalance.toFixed(2)}
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-gray-600 text-sm">USDC Balance</span>
+                      <span className="text-gray-900 font-medium text-sm">
+                        {transactionSummary.remainingBalance.toFixed(6)}
+                      </span>
+                    </div>
                   </div>
                 </div>
               </div>
             </div>
           </div>
-        </div>
-      </DialogContent>
+        </DialogContent>
 
+        {/* Network Switch Notification */}
+        <NetworkSwitchNotification
+          isVisible={networkSwitchNotification.isVisible}
+          networkName={networkSwitchNotification.networkName}
+          status={networkSwitchNotification.status}
+          onClose={hideNetworkSwitchNotification}
+        />
+      </Dialog>
+
+      {/* Render modals outside of Dialog to prevent click interference */}
       <ConfirmationModal
         isOpen={showValidationModal}
-        onClose={() => setShowValidationModal(false)}
-        onConfirm={proceedAfterValidation}
+        onClose={() => {
+          setShowValidationModal(false);
+          // Reopen main dialog when confirmation modal is cancelled
+          setTimeout(() => {
+            setIsMainDialogOpen(true);
+          }, 100);
+        }}
+        onConfirm={() => {
+          // Execute the proceed function and close confirmation modal
+          proceedAfterValidation();
+          setShowValidationModal(false);
+          // Don't reopen main dialog since we're proceeding with the transaction
+        }}
         accountInfo={validatedAccountInfo}
         amountKES={transactionSummary.kesAmount}
         accountNumber={accountNumber}
@@ -1214,15 +1221,7 @@ const SendCryptoModal: React.FC = () => {
           }}
         />
       )}
-
-      {/* Network Switch Notification */}
-      <NetworkSwitchNotification
-        isVisible={networkSwitchNotification.isVisible}
-        networkName={networkSwitchNotification.networkName}
-        status={networkSwitchNotification.status}
-        onClose={hideNetworkSwitchNotification}
-      />
-    </Dialog>
+    </>
   );
 };
 

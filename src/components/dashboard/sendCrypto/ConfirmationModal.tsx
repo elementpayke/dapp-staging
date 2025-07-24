@@ -1,5 +1,6 @@
 "use client"
 import React from "react"
+import { createPortal } from "react-dom"
 
 type ModalMode = "confirm" | "error"
 
@@ -28,9 +29,27 @@ const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
 }) => {
   if (!isOpen) return null
 
-  return (
-    <div className="fixed inset-0 z-overlay bg-black bg-opacity-40 flex justify-center items-center p-4">
-      <div className="bg-white rounded-xl p-6 w-full max-w-md shadow-xl">
+  // Use portal to render outside the Dialog's DOM tree
+  const modalContent = (
+    <div 
+      className="fixed inset-0 z-top bg-black bg-opacity-50 flex justify-center items-center p-4" 
+      style={{ zIndex: 9999 }}
+      onClick={(e) => {
+        // Only close if clicking the backdrop, not the modal content
+        if (e.target === e.currentTarget) {
+          console.log("🔘 Backdrop clicked in ConfirmationModal");
+          onClose();
+        }
+      }}
+    >
+      <div 
+        className="bg-white rounded-xl p-6 w-full max-w-md shadow-xl relative"
+        onClick={(e) => {
+          // Prevent backdrop click when clicking inside modal
+          e.stopPropagation();
+          console.log("🔘 Modal content clicked in ConfirmationModal");
+        }}
+      >
         <h2 className="text-lg font-semibold text-gray-900 mb-2">
           {mode === "confirm" ? "Confirm Payment" : "Account Validation Failed"}
         </h2>
@@ -52,15 +71,29 @@ const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
 
         <div className="flex justify-end gap-3">
           <button
-            onClick={onClose}
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              console.log("🔘 Close button clicked in ConfirmationModal");
+              onClose();
+            }}
             className="px-4 py-2 text-gray-600 bg-gray-200 rounded-md hover:bg-gray-300 text-sm"
           >
             Close
           </button>
           {mode === "confirm" && (
             <button
-              onClick={() => {
-                onConfirm?.();
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                console.log("🔘 Proceed button clicked in ConfirmationModal");
+                console.log("🔘 onConfirm function:", typeof onConfirm);
+                try {
+                  onConfirm?.();
+                  console.log("🔘 onConfirm executed successfully");
+                } catch (error) {
+                  console.error("🔘 Error executing onConfirm:", error);
+                }
                 onClose();
               }}
               className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 text-sm"
@@ -72,6 +105,9 @@ const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
       </div>
     </div>
   );
+
+  // Render using portal to document.body to escape any parent DOM constraints
+  return typeof window !== 'undefined' ? createPortal(modalContent, document.body) : null;
 };
 
 export default ConfirmationModal
