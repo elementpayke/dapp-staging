@@ -288,29 +288,71 @@ const SendCryptoModal: React.FC = () => {
     };
   }, [amount, exchangeRate, selectedTokenBalance]);
 
+  // Helper function to check if the form is valid for the current payment method
+  const isFormValid = useCallback(() => {
+    const cashoutType = getCashoutType();
+    
+    // Common validations
+    if (!amount || Number.parseFloat(amount) < 10) return false;
+    if (transactionSummary.totalUSDC <= 0) return false;
+    
+    // Payment method specific validations
+    switch (cashoutType) {
+      case "PHONE":
+        return phoneValidation.isValid && !isValidatingPhone && mobileNumber;
+      case "PAYBILL":
+        return paybillNumber && accountNumber;
+      case "TILL":
+        return tillNumber;
+      default:
+        return false;
+    }
+  }, [getCashoutType, amount, transactionSummary.totalUSDC, phoneValidation.isValid, isValidatingPhone, mobileNumber, paybillNumber, accountNumber, tillNumber]);
+
   // Now we can safely reference transactionSummary in useEffect
   useEffect(() => {
     if (
       isBrowser &&
-      mobileNumber &&
       exchangeRate &&
-      transactionSummary.totalUSDC
+      transactionSummary.totalUSDC &&
+      amount
     ) {
-      try {
-        const hash = encryptMessageDetailed({
-          cashout_type: getCashoutType(),
-          amount_fiat: Number.parseFloat(amount),
-          currency: "KES",
-          rate: exchangeRate ?? 0,
-          phone_number: getCashoutType() === "PHONE" ? mobileNumber : "",
-          paybill_number: getCashoutType() === "PAYBILL" ? paybillNumber : "",
-          account_number: getCashoutType() === "PAYBILL" ? accountNumber : "",
-          till_number: getCashoutType() === "TILL" ? tillNumber : "",
-        });
+      const cashoutType = getCashoutType();
+      
+      // Check if we have the required fields for the current payment method
+      let hasRequiredFields = false;
+      switch (cashoutType) {
+        case "PHONE":
+          hasRequiredFields = !!mobileNumber;
+          break;
+        case "PAYBILL":
+          hasRequiredFields = !!paybillNumber && !!accountNumber;
+          break;
+        case "TILL":
+          hasRequiredFields = !!tillNumber;
+          break;
+      }
+      
+      if (hasRequiredFields) {
+        try {
+          const hash = encryptMessageDetailed({
+            cashout_type: cashoutType,
+            amount_fiat: Number.parseFloat(amount),
+            currency: "KES",
+            rate: exchangeRate ?? 0,
+            phone_number: cashoutType === "PHONE" ? mobileNumber : "",
+            paybill_number: cashoutType === "PAYBILL" ? paybillNumber : "",
+            account_number: cashoutType === "PAYBILL" ? accountNumber : "",
+            till_number: cashoutType === "TILL" ? tillNumber : "",
+          });
 
-        setMessageHash(hash);
-      } catch (error) {
-        console.error("Error encrypting message:", error);
+          setMessageHash(hash);
+        } catch (error) {
+          console.error("Error encrypting message:", error);
+        }
+      } else {
+        // Clear message hash if required fields are missing
+        setMessageHash("");
       }
     }
   }, [
@@ -647,19 +689,33 @@ const SendCryptoModal: React.FC = () => {
       setIsApproving(true);
 
       // Validate all required fields before proceeding
-      if (!account.address || !selectedToken.tokenAddress || !amount || !messageHash || !getCashoutType() || (getCashoutType() === "PHONE" && !mobileNumber)) {
+      const cashoutType = getCashoutType();
+      let validationError = '';
+      
+      if (!account.address || !selectedToken.tokenAddress || !amount || !messageHash) {
+        validationError = 'Missing required order details. Please fill all fields and connect your wallet.';
+      } else if (cashoutType === "PHONE" && !mobileNumber) {
+        validationError = 'Phone number is required for Send Money.';
+      } else if (cashoutType === "PAYBILL" && (!paybillNumber || !accountNumber)) {
+        validationError = 'Business number and account number are required for Pay Bill.';
+      } else if (cashoutType === "TILL" && !tillNumber) {
+        validationError = 'Till number is required for Buy Goods.';
+      }
+      
+      if (validationError) {
         console.error('Missing required order details:', {
           user_address: account.address,
           token: selectedToken.tokenAddress,
           amount,
           mobileNumber,
           messageHash,
-          cashoutType: getCashoutType(),
+          cashoutType,
           paybillNumber,
           accountNumber,
-          tillNumber
+          tillNumber,
+          error: validationError
         });
-        toast.error('Missing required order details. Please fill all fields and connect your wallet.');
+        toast.error(validationError);
         setIsApproving(false);
         setIsProcessing(false);
         return;
@@ -712,7 +768,7 @@ const SendCryptoModal: React.FC = () => {
 
       // 2. Prompt user to sign a message (MetaMask popup #2)
       const orderDetails = {
-        user_address: account.address,
+        user_address: account.address as string, // We already validated this above
         token: selectedToken.tokenAddress,
         order_type: 1,
         fiat_payload: {
@@ -875,7 +931,22 @@ const SendCryptoModal: React.FC = () => {
       }
     }
     
+    // Validate till number for TILL payments
+    if (cashout_type === "TILL") {
+      if (!tillNumber) {
+        toast.error("Please enter a till number");
+        return;
+      }
+      // You can add till number validation here if needed
+      await executeOfframpOrder();
+      return;
+    }
+    
     if (cashout_type === "PAYBILL") {
+      if (!paybillNumber || !accountNumber) {
+        toast.error("Please enter both business number and account number");
+        return;
+      }
       const isValid = await validateAccount();
       if (!isValid) {
         setShowValidationModal(true);
@@ -888,6 +959,7 @@ const SendCryptoModal: React.FC = () => {
       setModalMode("confirm");
       return;
     }
+    
     await executeOfframpOrder();
   };
 
@@ -913,15 +985,31 @@ const SendCryptoModal: React.FC = () => {
   // Update transaction receipt when relevant values change
   useEffect(() => {
     if (isBrowser) {
+      const cashoutType = getCashoutType();
+      let recipientInfo = "";
+      
+      // Generate recipient info based on payment method
+      switch (cashoutType) {
+        case "PHONE":
+          recipientInfo = mobileNumber || "";
+          break;
+        case "PAYBILL":
+          recipientInfo = paybillNumber && accountNumber ? `${paybillNumber} - ${accountNumber}` : "";
+          break;
+        case "TILL":
+          recipientInfo = tillNumber || "";
+          break;
+      }
+      
       setTransactionReciept((prev) => ({
         ...prev,
         amount: amount || "0.00",
-        amountUSDC: Number(amount) * (exchangeRate ?? 1) || 0,
-        phoneNumber: mobileNumber || "",
+        amountUSDC: transactionSummary.usdcAmount || 0,
+        phoneNumber: recipientInfo,
         address: account.address || "",
       }));
     }
-  }, [isBrowser, amount, exchangeRate, mobileNumber, account.address]);
+  }, [isBrowser, amount, transactionSummary.usdcAmount, mobileNumber, paybillNumber, accountNumber, tillNumber, getCashoutType, account.address]);
 
   return (
     <Dialog>
@@ -973,7 +1061,7 @@ const SendCryptoModal: React.FC = () => {
                     ? handleApproveToken
                     : undefined
                 }
-                disabled={isApproving || transactionSummary.totalUSDC <= 0 || (getCashoutType() === "PHONE" && (!phoneValidation.isValid || isValidatingPhone))}
+                disabled={isApproving || !isFormValid()}
                 type="button"
                 className="w-full py-3 bg-gradient-to-r from-blue-600 to-red-600 text-white rounded-full font-medium hover:opacity-90 transition-opacity disabled:opacity-50"
               >
@@ -1008,7 +1096,7 @@ const SendCryptoModal: React.FC = () => {
                     Transaction charge (0.5%)
                   </span>
                   <span className="text-orange-600 text-sm">
-                    KE {transactionSummary.transactionCharge.toFixed(2)}
+                    KE {(transactionSummary.transactionCharge * (exchangeRate || 1)).toFixed(2)}
                   </span>
                 </div>
                 <div className="border-t pt-3 flex justify-between items-center font-semibold">
@@ -1028,7 +1116,7 @@ const SendCryptoModal: React.FC = () => {
                       ? handleApproveToken
                       : undefined
                   }
-                  disabled={isApproving || transactionSummary.totalUSDC <= 0 || (getCashoutType() === "PHONE" && (!phoneValidation.isValid || isValidatingPhone))}
+                  disabled={isApproving || !isFormValid()}
                   type="button"
                   className="w-full py-3 bg-gradient-to-r from-blue-600 to-red-600 text-white rounded-full font-medium hover:opacity-90 transition-opacity disabled:opacity-50 text-sm"
                 >
@@ -1087,13 +1175,34 @@ const SendCryptoModal: React.FC = () => {
           transactionDetails={{
             amount: finalTransactionData?.amount_fiat?.toString() || transactionReciept.amount || amount,
             currency: "KES",
-            recipient: finalTransactionData?.receiver_name || 
-              (getCashoutType() === "PHONE" 
-                ? (mobileNumber ? formatReceiverName(mobileNumber) : "Mobile Money Recipient")
-                : getCashoutType() === "PAYBILL" 
-                  ? `PayBill: ${paybillNumber}${accountNumber ? ` - ${accountNumber}` : ""}` 
-                  : `Till: ${tillNumber}`),
-            paymentMethod: getCashoutType() === "PHONE" ? "Mobile Money" : getCashoutType() === "PAYBILL" ? "PayBill" : "Till Number",
+            recipient: finalTransactionData?.receiver_name || (() => {
+              const cashoutType = getCashoutType();
+              switch (cashoutType) {
+                case "PHONE":
+                  return mobileNumber ? formatReceiverName(mobileNumber) : "Mobile Money Recipient";
+                case "PAYBILL":
+                  return paybillNumber && accountNumber 
+                    ? `PayBill: ${paybillNumber} - ${accountNumber}` 
+                    : "PayBill Payment";
+                case "TILL":
+                  return tillNumber ? `Till: ${tillNumber}` : "Till Payment";
+                default:
+                  return "Mobile Money Recipient";
+              }
+            })(),
+            paymentMethod: (() => {
+              const cashoutType = getCashoutType();
+              switch (cashoutType) {
+                case "PHONE":
+                  return "Mobile Money";
+                case "PAYBILL":
+                  return "PayBill";
+                case "TILL":
+                  return "Buy Goods";
+                default:
+                  return "Mobile Money";
+              }
+            })(),
             transactionHash: finalTransactionData?.transaction_hash || transactionReciept.transactionHash || orderId || "",
             date: finalTransactionData?.created_at || new Date().toISOString(),
             receiptNumber: finalTransactionData?.mpesa_receipt_number || finalTransactionData?.receipt_number || finalTransactionData?.file_id || "",

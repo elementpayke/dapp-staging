@@ -28,8 +28,7 @@ interface PayToMobileMoneyProps {
 type PaymentMethod =
   | "Send Money"
   | "Pay Bill"
-  | "Buy Goods"
-  | "Pochi La Biashara";
+  | "Buy Goods";
 
 const PayToMobileMoney: React.FC<PayToMobileMoneyProps> = ({
   selectedToken,
@@ -66,7 +65,6 @@ const PayToMobileMoney: React.FC<PayToMobileMoneyProps> = ({
         setCashoutType("TILL");
         break;
       case "Send Money":
-      case "Pochi La Biashara":
         setPaybillNumber("");
         setAccountNumber("");
         setTillNumber("");
@@ -90,8 +88,21 @@ const PayToMobileMoney: React.FC<PayToMobileMoneyProps> = ({
       return "Minimum amount is 10 KES";
     }
 
-    if (paymentMethod === "Pay Bill" && !paybillNumber) {
-      return "Business number is required";
+    if (paymentMethod === "Pay Bill") {
+      if (!paybillNumber) {
+        return "Business number is required";
+      }
+      if (!accountNumber) {
+        return "Account number is required";
+      }
+    }
+
+    if (paymentMethod === "Buy Goods" && !tillNumber) {
+      return "Till number is required";
+    }
+
+    if (paymentMethod === "Send Money" && !mobileNumber) {
+      return "Phone number is required";
     }
 
     return null;
@@ -221,29 +232,6 @@ const PayToMobileMoney: React.FC<PayToMobileMoneyProps> = ({
           </>
         );
 
-      case "Pochi La Biashara":
-        return (
-          <>
-            <div>
-              <label className="block text-gray-600 mb-2">Phone Number</label>
-              <div className="relative">
-                <input
-                  type="tel"
-                  value={mobileNumber}
-                  onChange={(e) =>
-                    setMobileNumber(
-                      e.target.value.replace(/[^\d]/g, "").substring(0, 12)
-                    )
-                  }
-                  className="w-full p-3 bg-gray-50 rounded-lg border-0 text-gray-900"
-                  placeholder="Business owner's number"
-                />
-
-              </div>
-            </div>
-          </>
-        );
-
       default:
         return null;
     }
@@ -256,36 +244,25 @@ const PayToMobileMoney: React.FC<PayToMobileMoneyProps> = ({
       {/* M-PESA Payment Method Selector */}
       <div>
         <label className="block text-gray-600 mb-2">Payment Method</label>
-        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+        <div className="grid grid-cols-3 gap-2">
           {(
             [
               "Send Money",
               "Pay Bill",
               "Buy Goods",
-              "Pochi La Biashara",
             ] as PaymentMethod[]
           ).map((method) => {
-            const isSendMoney = method === "Send Money";
             return (
               <button
                 key={method}
                 type="button"
-                onClick={() => isSendMoney && setPaymentMethod(method)}
-                disabled={!isSendMoney}
-                className={`relative p-3 rounded-lg text-center text-sm font-medium transition-colors ${paymentMethod === method && isSendMoney
+                onClick={() => setPaymentMethod(method)}
+                className={`relative p-3 rounded-lg text-center text-sm font-medium transition-colors ${paymentMethod === method
                   ? "bg-green-100 text-green-800 border-2 border-green-600"
-                  : "bg-gray-50 text-gray-700 border border-gray-200"
-                  } ${!isSendMoney
-                    ? "opacity-60 cursor-not-allowed"
-                    : "hover:bg-gray-100"
-                  }`}
+                  : "bg-gray-50 text-gray-700 border border-gray-200 hover:bg-gray-100"
+                }`}
               >
                 {method}
-                {!isSendMoney && (
-                  <span className="absolute top-1 right-1 bg-yellow-200 text-yellow-800 text-xs px-2 py-0.5 rounded">
-                    Coming Soon
-                  </span>
-                )}
               </button>
             );
           })}
