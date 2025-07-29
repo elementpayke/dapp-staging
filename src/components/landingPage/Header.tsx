@@ -26,28 +26,8 @@ const Header = () => {
             </span> 
           </Link>
 
-          {/* Desktop Navigation */}
-          <div className="hidden md:flex flex-1 items-center justify-center space-x-12">
-            <Link
-              href="/payments"
-              className="text-gray-600 hover:text-gray-900 text-sm font-medium transition-colors"
-            >
-              Payments
-            </Link>
-            <Link
-              href="/virtual-cards"
-              className="text-gray-600 hover:text-gray-900 text-sm font-medium transition-colors"
-            >
-              Virtual Cards
-            </Link>
-
-            <Link
-              href="/dashboard"
-              className="text-gray-600 hover:text-gray-900 text-sm font-medium transition-colors"
-            >
-              FAQs
-            </Link>
-          </div>
+          {/* Spacer to push wallet connection to the right */}
+          <div className="flex-1"></div>
           <WalletConnection />
 
           {/* Mobile Menu Button */}

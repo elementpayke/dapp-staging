@@ -36,18 +36,6 @@ const Hero = () => {
   return (
     <div className="bg-gradient-to-r from-white to-[#c7c7ff] min-h-[calc(100vh-64px)] overflow-x-hidden">
       <div className="max-w-[2000px] mx-auto h-full px-4 sm:px-6 lg:px-8 xl:px-12 py-6 md:py-8 relative">
-        {/* Top Navigation Pills - Updated Design */}
-        <div className="inline-flex items-center bg-white/90 backdrop-blur-md rounded-full px-3 py-2 gap-2 sm:gap-4 shadow-sm text-sm sm:text-base">
-          <div className="flex items-center gap-1 bg-[#d1c6bc] rounded-full px-2 sm:px-3 py-1.5">
-            <Sparkles className="w-3 h-3 sm:w-4 sm:h-4 text-[#0514eb]" />
-            <span className="text-gray-800 font-medium">New</span>
-          </div>
-          <span className="bg-gradient-to-r from-[#0514eb] to-[#de0413] bg-clip-text text-transparent font-semibold whitespace-nowrap">
-            Join our Waitlist
-          </span>
-          <span className="text-gray-400">→</span>
-        </div>
-
         {/* Main Content Grid */}
         <div className="grid lg:grid-cols-2 gap-8 xl:gap-12 mt-6 sm:mt-8">
           {/* Left Column */}
@@ -82,7 +70,7 @@ const Hero = () => {
                   className="w-5 h-5 sm:w-6 sm:h-6"
                 />
                 <span className="text-sm sm:text-base lg:text-lg font-medium">
-                  Fast sign-up. KYC only when needed.
+                  Fast sign-up.
                 </span>
               </div>
             </div>
