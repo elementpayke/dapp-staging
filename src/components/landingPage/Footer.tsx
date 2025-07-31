@@ -1,6 +1,6 @@
 import React from "react";
 import Link from "next/link";
-import { X, Linkedin, Instagram, Send, Mail, MapPin, Phone } from "lucide-react";
+import { X, Linkedin, Instagram, Mail, MapPin } from "lucide-react";
 
 const Footer = () => {
   return (
@@ -37,29 +37,37 @@ const Footer = () => {
 
             {/* Social Links */}
             <div className="flex space-x-4">
+              {/* X (Twitter) */}
               <Link
-                href="https://x.com/elementpayhq"
+                href="https://x.com/element_pay?t=t6989wEzZq2L7APr8A3-hA&s=09"
                 className="w-10 h-10 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center transition-colors group"
+                target="_blank" rel="noopener noreferrer"
               >
-                <X className="w-5 h-5 text-gray-600 group-hover:text-gray-900" />
+                <img src="/twitter.png" alt="X (Twitter)" className="w-5 h-5 object-contain" />
               </Link>
+              {/* LinkedIn */}
               <Link
-                href="https://linkedin.com"
+                href="https://www.linkedin.com/company/elementpayhq/"
                 className="w-10 h-10 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center transition-colors group"
+                target="_blank" rel="noopener noreferrer"
               >
                 <Linkedin className="w-5 h-5 text-gray-600 group-hover:text-gray-900" />
               </Link>
+              {/* Instagram */}
               <Link
-                href=""
+                href="https://www.instagram.com/elementpayhq?igsh=MTE4Y3ZzcHZ1NHg2MA=="
                 className="w-10 h-10 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center transition-colors group"
+                target="_blank" rel="noopener noreferrer"
               >
                 <Instagram className="w-5 h-5 text-gray-600 group-hover:text-gray-900" />
               </Link>
+              {/* TikTok */}
               <Link
-                href=""
+                href="https://www.tiktok.com/@elementpay?_t=ZM-8yQXB3kb5Hy&_r=1"
                 className="w-10 h-10 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center transition-colors group"
+                target="_blank" rel="noopener noreferrer"
               >
-                <Send className="w-5 h-5 text-gray-600 group-hover:text-gray-900" />
+                <img src="/tik-tok.png" alt="TikTok" className="w-5 h-5 object-contain" />
               </Link>
             </div>
           </div>
@@ -105,14 +113,6 @@ const Footer = () => {
                   className="text-gray-600 hover:text-gray-900 transition-colors flex items-center group"
                 >
                   <span className="group-hover:translate-x-1 transition-transform">Customer Support</span>
-                </Link>
-              </li>
-              <li>
-                <Link
-                  href="/dashboard"
-                  className="text-gray-600 hover:text-gray-900 transition-colors flex items-center group"
-                >
-                  <span className="group-hover:translate-x-1 transition-transform">Help Center</span>
                 </Link>
               </li>
             </ul>

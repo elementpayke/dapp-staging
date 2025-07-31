@@ -68,6 +68,14 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
+      <head>
+        {/* Standard favicon for all browsers */}
+        <link rel="icon" href="/favicon.ico" sizes="any" />
+        {/* High-res PNG for modern browsers and pinned tabs */}
+        <link rel="icon" type="image/png" href="/elementpay.png" sizes="256x256" />
+        {/* Optional: Apple Touch Icon for iOS */}
+        <link rel="apple-touch-icon" href="/elementpay.png" sizes="180x180" />
+      </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
         suppressHydrationWarning
