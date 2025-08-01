@@ -1,0 +1,15 @@
+{
+  "name": "ElementPay",
+  "short_name": "ElementPay",
+  "icons": [
+    {
+      "src": "/elementpay.png",
+      "sizes": "256x256",
+      "type": "image/png"
+    }
+  ],
+  "start_url": ".",
+  "display": "standalone",
+  "theme_color": "#4339CA",
+  "background_color": "#ffffff"
+}

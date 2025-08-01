@@ -119,7 +119,7 @@ const QuickActions: FC = () => {
             <span className="text-emerald-600">{rawKesBalance()}</span>
           </p>
           <p className="text-sm text-gray-500 mt-1">
-            {tokenBalance.toFixed(6)} {currentToken.symbol}
+            {tokenBalance.toFixed(16)} {currentToken.symbol}
           </p>
         </div>
         <div className="flex gap-2">

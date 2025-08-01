@@ -1,149 +1,131 @@
 import React from "react";
 import Link from "next/link";
-import { X, Linkedin, Instagram,Send } from "lucide-react";
+import { X, Linkedin, Instagram, Mail, MapPin } from "lucide-react";
 
 const Footer = () => {
   return (
-    <footer className="bg-white">
-      <div className="max-w-[2000px] mx-auto px-4 sm:px-6 lg:px-8 xl:px-12 py-12">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-8 md:gap-12 mb-8">
-          {/* Logo and Social Links */}
-          <div className="space-y-4">
-            <Link href="/" className="flex items-center space-x-2">
-              <div className="w-8 h-8 rounded-lg bg-[#4339CA] flex items-center justify-center">
-                <div className="w-4 h-4 rounded-sm bg-white"></div>
+    <footer className="bg-white border-t border-gray-200">
+      <div className="max-w-[2000px] mx-auto px-4 sm:px-6 lg:px-8 xl:px-12 py-16">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 lg:gap-12 mb-12">
+          {/* Company Info */}
+          <div className="space-y-6 lg:col-span-2">
+            <Link href="/" className="flex items-center space-x-3">
+              <div className="w-10 h-10 rounded-xl bg-[#4339CA] flex items-center justify-center shadow-lg">
+                <div className="w-5 h-5 rounded-md bg-white"></div>
               </div>
-              <span className="text-lg font-semibold text-gray-900">
+              <span className="text-2xl font-bold text-gray-900">
                 ElementPay
               </span>
             </Link>
-            <div className="flex gap-8 mt-6">
+            <p className="text-gray-600 leading-relaxed max-w-md">
+              Bridging the gap between cryptocurrency and everyday payments. 
+            </p>
+            
+            {/* Contact Info */}
+            <div className="space-y-3">
+              <div className="flex items-center space-x-3 text-gray-600">
+                <Mail className="w-5 h-5 text-blue-600" />
+                <a href="mailto:elementpay.info@gmail.com" className="hover:text-gray-900 transition-colors">
+                  elementpay.info@gmail.com
+                </a>
+              </div>
+              <div className="flex items-center space-x-3 text-gray-600">
+                <MapPin className="w-5 h-5 text-blue-600" />
+                <span>Nairobi, Kenya</span>
+              </div>
+            </div>
+
+            {/* Social Links */}
+            <div className="flex space-x-4">
+              {/* X (Twitter) */}
               <Link
-                href="https://x.cohttps://x.com/elementpayhq"
-                className="text-gray-900 hover:text-gray-600"
+                href="https://x.com/element_pay?t=t6989wEzZq2L7APr8A3-hA&s=09"
+                className="w-10 h-10 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center transition-colors group"
+                target="_blank" rel="noopener noreferrer"
               >
-                <X size={26} />
+                <img src="/twitter.png" alt="X (Twitter)" className="w-5 h-5 object-contain" />
               </Link>
+              {/* LinkedIn */}
               <Link
-                href="https://linkedin.com"
-                className="text-gray-900 hover:text-gray-600"
+                href="https://www.linkedin.com/company/elementpayhq/"
+                className="w-10 h-10 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center transition-colors group"
+                target="_blank" rel="noopener noreferrer"
               >
-                <Linkedin size={26} />
+                <Linkedin className="w-5 h-5 text-gray-600 group-hover:text-gray-900" />
               </Link>
+              {/* Instagram */}
               <Link
-                href=""
-                className="text-gray-900 hover:text-gray-600"
+                href="https://www.instagram.com/elementpayhq?igsh=MTE4Y3ZzcHZ1NHg2MA=="
+                className="w-10 h-10 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center transition-colors group"
+                target="_blank" rel="noopener noreferrer"
               >
-                <Instagram size={26} />
+                <Instagram className="w-5 h-5 text-gray-600 group-hover:text-gray-900" />
               </Link>
+              {/* TikTok */}
               <Link
-                href=""
-                className="text-gray-900 hover:text-gray-600"
+                href="https://www.tiktok.com/@elementpay?_t=ZM-8yQXB3kb5Hy&_r=1"
+                className="w-10 h-10 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center transition-colors group"
+                target="_blank" rel="noopener noreferrer"
               >
-                <Send size={26} />
+                <img src="/tik-tok.png" alt="TikTok" className="w-5 h-5 object-contain" />
               </Link>
             </div>
           </div>
 
-          {/* About Us */}
-          <div className="space-y-4">
-            <h3 className="text-gray-900 font-semibold">About Us</h3>
-            <ul className="space-y-2">
+          {/* Legal */}
+          <div className="space-y-6">
+            <h3 className="text-lg font-semibold text-gray-900">Legal</h3>
+            <ul className="space-y-3">
               <li>
                 <Link
-                  href=""
-                  className="text-gray-600 hover:text-gray-900"
+                  href="/privacy-policy"
+                  className="text-gray-600 hover:text-gray-900 transition-colors flex items-center group"
                 >
-                  Our story
+                  <span className="group-hover:translate-x-1 transition-transform">Privacy Policy</span>
                 </Link>
               </li>
               <li>
                 <Link
-                  href=""
-                  className="text-gray-600 hover:text-gray-900"
+                  href="/terms-and-conditions"
+                  className="text-gray-600 hover:text-gray-900 transition-colors flex items-center group"
                 >
-                  Careers
+                  <span className="group-hover:translate-x-1 transition-transform">Terms & Conditions</span>
+                </Link>
+              </li>
+              <li>
+                <Link
+                  href="/code-of-conduct"
+                  className="text-gray-600 hover:text-gray-900 transition-colors flex items-center group"
+                >
+                  <span className="group-hover:translate-x-1 transition-transform">Code of Conduct</span>
                 </Link>
               </li>
             </ul>
           </div>
 
-          {/* Services */}
-          <div className="space-y-4">
-            <h3 className="text-gray-900 font-semibold">Services</h3>
-            <ul className="space-y-2">
+          {/* Support */}
+          <div className="space-y-6">
+            <h3 className="text-lg font-semibold text-gray-900">Support</h3>
+            <ul className="space-y-3">
               <li>
                 <Link
-                  href=""
-                  className="text-gray-600 hover:text-gray-900"
+                  href="mailto:elementpay.info@gmail.com"
+                  className="text-gray-600 hover:text-gray-900 transition-colors flex items-center group"
                 >
-                  Payments
-                </Link>
-              </li>
-              <li>
-                <Link
-                  href=""
-                  className="text-gray-600 hover:text-gray-900"
-                >
-                  Virtual cards
+                  <span className="group-hover:translate-x-1 transition-transform">Customer Support</span>
                 </Link>
               </li>
             </ul>
-          </div>
-
-          {/* Legal and Support */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-            <div className="space-y-4">
-              <h3 className="text-gray-900 font-semibold">Legal</h3>
-              <ul className="space-y-2">
-                <li>
-                  <Link
-                    href=""
-                    className="text-gray-600 hover:text-gray-900"
-                  >
-                    Privacy Policy
-                  </Link>
-                </li>
-                <li>
-                  <Link
-                    href=""
-                    className="text-gray-600 hover:text-gray-900"
-                  >
-                    Terms and Conditions
-                  </Link>
-                </li>
-                <li>
-                  <Link
-                    href=""
-                    className="text-gray-600 hover:text-gray-900"
-                  >
-                    Cookies Policy
-                  </Link>
-                </li>
-              </ul>
-            </div>
-            <div className="space-y-4">
-              <h3 className="text-gray-900 font-semibold">Support</h3>
-              <ul className="space-y-2">
-                <li>
-                  <Link
-                    href=""
-                    className="text-gray-600 hover:text-gray-900"
-                  >
-                    Customer support
-                  </Link>
-                </li>
-              </ul>
-            </div>
           </div>
         </div>
 
-        {/* Copyright */}
-        {/* Copyright */}
-        <div className="pt-8 border-t border-gray-200">
-          <p className="text-center text-gray-600">
-            © {new Date().getFullYear()} Elementpay. All rights reserved.
-          </p>
+        {/* Bottom Section */}
+        <div className="border-t border-gray-200 pt-8">
+          <div className="flex flex-col  justify-between items-center space-y-4 md:space-y-0">
+            <div className="flex flex-col md:flex-row items-center space-y-2 md:space-y-0 md:space-x-6 text-gray-500 text-sm">
+              <p>© {new Date().getFullYear()} ElementPay. All rights reserved.</p>
+            </div>
+          </div>
         </div>
       </div>
     </footer>
