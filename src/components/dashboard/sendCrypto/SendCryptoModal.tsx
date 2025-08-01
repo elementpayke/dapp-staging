@@ -18,7 +18,7 @@ import {
   usePublicClient,
 } from "wagmi";
 import { erc20Abi } from "@/app/api/abi";
-import { getUSDCAddress, getContractAddress } from "../../../services/tokens";
+import { getUSDCAddress } from "../../../services/tokens";
 import { useContract } from "@/services/useContract";
 
 import { encryptMessageDetailed } from "@/services/encryption";
@@ -32,10 +32,9 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { useWallet } from "@/hooks/useWallet";
 import { useTokenBalance } from "@/hooks/useTokenBalance";
 import { SUPPORTED_TOKENS, SupportedToken } from "@/constants/supportedTokens";
-import { validateKenyanPhoneNumber, formatKenyanPhoneNumber, validatePhoneWithAPI } from "@/utils/phoneValidation";
+import { validateKenyanPhoneNumber, validatePhoneWithAPI } from "@/utils/phoneValidation";
 import { createOffRampOrder } from "@/app/api/aggregator";
 import { ethers } from "ethers";
 
@@ -55,18 +54,16 @@ const SendCryptoModal: React.FC = () => {
   const [amount, setAmount] = useState("");
   const [mobileNumber, setMobileNumber] = useState("");
   const [reason, setReason] = useState("Transport");
-  const [favorite, setFavorite] = useState(true);
   // Keep but don't use these variables to preserve the component's state structure
   const [isApproving, setIsApproving] = useState(false);
   const [, setIsProcessing] = useState(false);
   
   // Get balance for the selected token dynamically
-  const { balance: selectedTokenBalance, isCorrectNetwork, requiredChainId } = useTokenBalance({ 
+  const { balance: selectedTokenBalance } = useTokenBalance({ 
     token: selectedToken 
   });
   
   const [exchangeRate, setExchangeRate] = useState<number | null>(null);
-  const MARKUP_PERCENTAGE = 1.5; // 1.5% markup
   const [orderId, setOrderId] = useState("");
   const [showProcessingPopup, setShowProcessingPopup] = useState(false);
   const [apiKey, setApiKey] = useState("");
@@ -172,7 +169,7 @@ const SendCryptoModal: React.FC = () => {
         } else {
           setExchangeRate(null);
         }
-      } catch (error) {
+      } catch {
         setExchangeRate(null);
       }
     };
@@ -353,9 +350,9 @@ const SendCryptoModal: React.FC = () => {
     Arbitrum: process.env.NEXT_PUBLIC_CONTRACT_ADDRESS_ARBITRUM!,
   };
   const contractAddress = CONTRACT_ADDRESS_MAP[selectedToken.chain];
-  const { contract, address } = useContract(contractAddress);
-  const usdcTokenAddress = getUSDCAddress() as `0x${string}`;
-  // Remove smartcontractaddress, use contractAddress instead if needed
+  // Remove unused contract variables
+  // const { contract, address } = useContract(contractAddress);
+  // const usdcTokenAddress = getUSDCAddress() as `0x${string}`;
 
   useContractEvents(
     contractAddress,
@@ -532,103 +529,6 @@ const SendCryptoModal: React.FC = () => {
     return null;
   };
 
-  // Helper: Send createOrder transaction (MetaMask popup #2)
-  const sendCreateOrderTx = async () => {
-    if (!account.address || !selectedToken.tokenAddress || !messageHash || !contractAddress) {
-      console.error("❌ Missing required data for createOrder:", {
-        hasAccount: !!account.address,
-        hasToken: !!selectedToken.tokenAddress,
-        hasMessageHash: !!messageHash,
-        hasContractAddress: !!contractAddress
-      });
-      toast.error("Missing wallet, token, or message hash.");
-      return null;
-    }
-    
-    try {
-      console.log("🚀 Starting createOrder transaction...");
-      const amountInUnits = parseUnits((Number(amount) / (exchangeRate || 1)).toString(), 6); // USDC/USDT decimals
-      console.log("📋 CreateOrder details:", {
-        userAddress: account.address,
-        amountInUnits: amountInUnits.toString(),
-        tokenAddress: selectedToken.tokenAddress,
-        orderType: 1,
-        messageHash
-      });
-      
-      // createOrder parameters: _userAddress, _amount, _token, _orderType, messageHash
-      console.log("🔍 Contract call parameters:", {
-        userAddress: account.address,
-        amount: amountInUnits.toString(),
-        token: selectedToken.tokenAddress,
-        orderType: 1, // 1 = Offramp
-        messageHash
-      });
-      
-      // Use writeContractAsync for reliable transaction sending
-      const txHash = await writeContractAsync({
-        address: contractAddress as `0x${string}`,
-        abi: erc20Abi, // Assuming erc20Abi is the correct ABI for createOrder
-        functionName: 'createOrder', // FIXED: was 'approve', should be 'createOrder'
-        args: [
-          account.address, // _userAddress
-          amountInUnits, // _amount
-          selectedToken.tokenAddress, // _token
-          1, // _orderType: 1 = Offramp
-          messageHash // messageHash
-        ],
-      });
-      
-      console.log("✅ CreateOrder transaction sent:", txHash);
-      
-      if (!txHash) {
-        console.error("❌ Transaction hash is null/undefined");
-        toast.error("Transaction failed: No hash received");
-        return null;
-      }
-      
-      const receipt = await publicClient?.waitForTransactionReceipt({ hash: txHash });
-      console.log("✅ CreateOrder transaction confirmed");
-      console.log("📋 Transaction receipt:", receipt);
-      
-      if (!receipt) {
-        console.error("❌ No transaction receipt received");
-        toast.error("Transaction receipt not found");
-        return null;
-      }
-      
-      // Extract orderId from OrderCreated event in logs
-      let orderId = null;
-      for (const log of receipt.logs) {
-        try {
-          // Parse the log using the contract interface
-          const iface = new ethers.Interface(erc20Abi); // Assuming erc20Abi is the correct ABI for createOrder
-          const parsed = iface.parseLog(log);
-          if (parsed && parsed.name === "OrderCreated") {
-            orderId = parsed.args.orderId;
-            break;
-          }
-        } catch (e) {
-          console.log("Failed to parse log:", e);
-        }
-      }
-      
-      if (!orderId) {
-        console.error("❌ Order ID not found in transaction logs");
-        console.log("📋 Available logs:", receipt.logs);
-        // Don't fail here, just log the issue
-        orderId = txHash; // Use transaction hash as fallback
-      }
-      
-      console.log("✅ Order ID extracted:", orderId);
-      return { receipt, orderId };
-    } catch (err: any) {
-      console.error("❌ CreateOrder transaction failed:", err);
-      toast.error(err?.message || "Failed to send transaction");
-      return null;
-    }
-  };
-
   // Main: Offramp flow with backend API call and smart contract transaction
   const executeOfframpOrder = async () => {
     const targetChainId = getTargetChainId();
@@ -759,13 +659,13 @@ const SendCryptoModal: React.FC = () => {
         message_hash: messageHash,
         reason: reason,
       };
-      let signature;
+      let _signature; // Currently unused but kept for future signature verification
       try {
         if (!window.ethereum) throw new Error("Wallet not found");
         const provider = new ethers.BrowserProvider(window.ethereum);
         const signer = await provider.getSigner();
         const message = JSON.stringify(orderDetails);
-        signature = await signer.signMessage(message);
+        _signature = await signer.signMessage(message);
       } catch (signError) {
         console.error("❌ Signature rejected or failed:", signError);
         setShowProcessingPopup(false);
@@ -778,7 +678,12 @@ const SendCryptoModal: React.FC = () => {
       // 3. Send order details + signature to backend (map fields to expected names)
       let apiResponse;
       try {
+        console.log("🌐 Preparing API request...");
         const fiatPayload = orderDetails.fiat_payload;
+        console.log("📤 Starting offramp order creation with 45s timeout...");
+        const startTime = Date.now();
+        
+        // Use 45s timeout - longer than the axios 30s timeout to allow for retries
         apiResponse = await Promise.race([
           createOffRampOrder({
             userAddress: orderDetails.user_address,
@@ -793,12 +698,23 @@ const SendCryptoModal: React.FC = () => {
             accountNumber: fiatPayload.account_number || "",
             tillNumber: fiatPayload.till_number || ""
           }),
-          new Promise((_, reject) => setTimeout(() => reject(new Error("API request timed out after 15 seconds. The service may be experiencing high load. Please try again in a few moments.")), 15000))
+          new Promise((_, reject) => setTimeout(() => reject(new Error("API request timed out after 45 seconds. The Element Pay service may be experiencing high load. Please try again in a few moments or contact support if the issue persists.")), 45000))
         ]);
+        
+        const endTime = Date.now();
+        console.log(`✅ API request completed in ${endTime - startTime}ms`);
       } catch (apiError) {
         console.error("❌ Offramp API call failed:", apiError);
         setShowProcessingPopup(false);
-        toast.error((apiError as any)?.message || "Payment processing failed. Please try again.");
+        
+        // Check if it's a timeout error
+        const errorMessage = (apiError as any)?.message || "Payment processing failed. Please try again.";
+        if (errorMessage.includes("timed out")) {
+          toast.error("The payment is taking longer than expected. Please check your transaction history in a few minutes or contact support if needed.");
+        } else {
+          toast.error(errorMessage);
+        }
+        
         setIsApproving(false);
         setIsProcessing(false);
         return;
@@ -899,8 +815,8 @@ const SendCryptoModal: React.FC = () => {
       
       // Double-check with API validation if not already validated
       if (!phoneValidation.isValid) {
-        const isValid = await validatePhoneWithBackend(mobileNumber);
-        if (!isValid) {
+        const isPhoneValid = await validatePhoneWithBackend(mobileNumber);
+        if (!isPhoneValid) {
           toast.error("Phone number validation failed. Please check and try again.");
           return;
         }
@@ -924,7 +840,7 @@ const SendCryptoModal: React.FC = () => {
         return;
       }
       // Skip validation and proceed directly since Element Pay API doesn't have a validation endpoint
-      const isValid = await validateAccount(); // This will always return true now
+      await validateAccount(); // This will always return true now
       console.log("📋 PayBill validation complete, setting up modal");
       setProceedAfterValidation(() => () => {
         console.log("📋 Proceed button clicked, executing offramp order");
