@@ -365,7 +365,7 @@ export const createOnRampOrder = async ({
 export const createOffRampOrder = async ({
   userAddress,
   tokenAddress,
-  amount,
+  amount: _amount, // Renamed to indicate it's intentionally unused
   amountFiat,
   phoneNumber,
   messageHash,

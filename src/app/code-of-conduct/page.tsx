@@ -1,3 +1,4 @@
+/* eslint-disable react/no-unescaped-entities */
 import React from "react";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
@@ -31,7 +32,7 @@ export default function CodeOfConduct() {
               1. Introduction and Purpose
             </h2>
             <p className="text-gray-700 leading-relaxed mb-4">
-              This ElementPay Revised Code of Conduct ("Code") establishes the fundamental principles,
+              This ElementPay Revised Code of Conduct (&ldquo;Code&rdquo;) establishes the fundamental principles,
               ethical standards, and behavioral expectations for all individuals engaging with the ElementPay
               ecosystem, including but not limited to users, employees, contractors, partners, and stakeholders.
               As a Virtual Asset Service Provider (VASP) operating within the Republic of Kenya, ElementPay
@@ -39,13 +40,13 @@ export default function CodeOfConduct() {
               highest standards of integrity, professionalism, and legal probity.
             </p>
             <p className="text-gray-700 leading-relaxed mb-4">
-              This Code is designed to complement and reinforce ElementPay's commitment to all applicable laws and regulations,
-              including the Virtual Asset Service Providers Bill, 2025 (the "VASP Bill"), the Proceeds of
+              This Code is designed to complement and reinforce ElementPay&apos;s commitment to all applicable laws and regulations,
+              including the Virtual Asset Service Providers Bill, 2025 (the &ldquo;VASP Bill&rdquo;), the Proceeds of
               Crime and Anti-Money Laundering Act, 2009 (POCAMLA), and the Data Protection Act,
               2019 (DPA).
             </p>
             <p className="text-gray-700 leading-relaxed">
-              By accessing, using, or otherwise interacting with ElementPay's platform and services, all
+              By accessing, using, or otherwise interacting with ElementPay&apos;s platform and services, all
               individuals are deemed to have read, understood, and agreed to abide by the provisions of this
               Code. Adherence to this Code is paramount for maintaining the trust and confidence of our
               community and regulatory authorities.
