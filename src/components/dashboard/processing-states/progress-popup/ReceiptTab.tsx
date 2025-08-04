@@ -24,6 +24,9 @@ const ReceiptTab: React.FC<ReceiptTabProps> = ({
   const date = tx.date || fallbackDate;
   const amount = tx.amount || tx.value;
   const currency = tx.currency || tx.tokenSymbol || tx.assetSymbol;
+  const tokenSymbol = tx.tokenSymbol || tx.assetSymbol || "USDC"; // Get the actual token symbol
+  const tokenAmount = tx.tokenAmount || "0"; // Get the token amount
+  const network = tx.network || "Base"; // Get the network/chain information
   const to = tx.recipient || tx.to; // Prioritize recipient (receiver_name) over to (phone number)
   const from = tx.from || tx.sender;
   const txHash = tx.txHash || tx.hash || tx.transactionHash;
@@ -53,9 +56,9 @@ const ReceiptTab: React.FC<ReceiptTabProps> = ({
       animate={{ opacity: 1, scale: 1 }}
       exit={{ opacity: 0, scale: 0.95 }}
       className="mt-2 mb-4"
-      ref={receiptRef}
     >
-      <div className="bg-white rounded-xl shadow-md border border-gray-200 max-w-lg mx-auto p-6 text-left">
+      {/* Receipt content for printing/downloading - excludes buttons */}
+      <div ref={receiptRef} className="bg-white rounded-xl shadow-md border border-gray-200 max-w-lg mx-auto p-6 text-left">
         {/* Header: Logo and Company Name */}
         <div className="flex items-center justify-between mb-4">
           {branding.logo && (
@@ -96,46 +99,33 @@ const ReceiptTab: React.FC<ReceiptTabProps> = ({
           </div>
         </div>
 
-        {/* Items Table */}
+        {/* Transaction Details */}
         <div className="mb-4">
-          <div className="text-xs text-gray-500 mb-1">Items</div>
-          <table className="w-full text-sm border-collapse">
-            <thead>
-              <tr className="bg-gray-50">
-                <th className="py-1 px-2 text-left font-semibold text-gray-700">Name</th>
-                <th className="py-1 px-2 text-right font-semibold text-gray-700">Price</th>
-                <th className="py-1 px-2 text-right font-semibold text-gray-700">Qty</th>
-              </tr>
-            </thead>
-            <tbody>
-              {items.length > 0 ? (
-                items.map((item: any, idx: number) => (
-                  <tr key={idx} className="border-b last:border-b-0">
-                    <td className="py-1 px-2">{item.name}</td>
-                    <td className="py-1 px-2 text-right">{item.price} {currency}</td>
-                    <td className="py-1 px-2 text-right">{item.quantity}</td>
-                  </tr>
-                ))
-              ) : (
-                <tr>
-                  <td className="py-1 px-2" colSpan={3}>No items</td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+          <div className="text-xs text-gray-500 mb-2">Transaction Details</div>
+          <div className="bg-gray-50 rounded-lg p-3 space-y-2">
+            <div className="flex justify-between">
+              <span className="text-sm text-gray-600">Token</span>
+              <span className="font-medium text-gray-800">{tokenSymbol} on {network}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-sm text-gray-600">Token Amount</span>
+              <span className="font-medium text-gray-800">{tokenAmount} {tokenSymbol}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-sm text-gray-600">Fiat Amount</span>
+              <span className="font-medium text-gray-800">{amount} {currency}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-sm text-gray-600">Recipient</span>
+              <span className="font-medium text-gray-800">{to || "N/A"}</span>
+            </div>
+          </div>
         </div>
 
-        {/* Totals */}
-        <div className="flex flex-col gap-1 mb-4">
-          <div className="flex justify-between text-sm">
-            <span className="text-gray-600">Subtotal</span>
-            <span className="font-medium">{subtotal} {currency}</span>
-          </div>
-        
-          <div className="flex justify-between text-base font-bold border-t pt-2 mt-2">
-            <span>Total</span>
-            <span>{total} {currency}</span>
-          </div>
+        {/* Total Amount */}
+        <div className="flex justify-between text-base font-bold border-t pt-2 mb-4">
+          <span>Total Amount</span>
+          <span>{amount} {currency}</span>
         </div>
 
         {/* Transaction Hash/ID */}
@@ -144,26 +134,26 @@ const ReceiptTab: React.FC<ReceiptTabProps> = ({
           <div className="font-mono text-xs text-blue-700 break-all">{txHash || "Pending"}</div>
         </div>
 
-        {/* Print/Download Buttons */}
-        <div className="flex gap-3 justify-end mt-6">
-          <button
-            onClick={printReceipt}
-            className="flex items-center gap-2 px-4 py-2 bg-white text-gray-700 rounded-lg hover:bg-gray-50 border border-gray-200 font-medium shadow-sm"
-          >
-            <Printer size={16} /> Print
-          </button>
-          <button
-            onClick={downloadReceiptAsImage}
-            className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-lg hover:from-blue-600 hover:to-blue-700 font-medium shadow-md"
-          >
-            <Download size={16} /> Download
-          </button>
-        </div>
-
         {/* Footer message */}
         {branding.footerMessage && (
           <div className="mt-8 text-xs text-gray-400 text-center border-t pt-4">{branding.footerMessage}</div>
         )}
+      </div>
+
+      {/* Print/Download Buttons - Outside receipt content */}
+      <div className="flex gap-3 justify-end mt-4 max-w-lg mx-auto">
+        <button
+          onClick={printReceipt}
+          className="flex items-center gap-2 px-4 py-2 bg-white text-gray-700 rounded-lg hover:bg-gray-50 border border-gray-200 font-medium shadow-sm"
+        >
+          <Printer size={16} /> Print
+        </button>
+        <button
+          onClick={downloadReceiptAsImage}
+          className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-lg hover:from-blue-600 hover:to-blue-700 font-medium shadow-md"
+        >
+          <Download size={16} /> Download
+        </button>
       </div>
     </motion.div>
   );
