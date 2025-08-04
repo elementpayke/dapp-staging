@@ -1098,6 +1098,9 @@ const SendCryptoModal: React.FC = () => {
           transactionDetails={{
             amount: finalTransactionData?.amount_fiat?.toString() || transactionReciept.amount || amount,
             currency: "KES",
+            tokenSymbol: selectedToken.symbol, // Add the actual token symbol
+            tokenAmount: transactionSummary.usdcAmount.toFixed(6), // Add the token amount
+            network: selectedToken.chain, // Add the network/chain information
             recipient: finalTransactionData?.receiver_name || (() => {
               const cashoutType = getCashoutType();
               switch (cashoutType) {

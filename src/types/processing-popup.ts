@@ -18,6 +18,10 @@ export interface TransactionDetails {
   status: number;
   failureReason?: string;
   orderId?: string;
+  // Crypto-specific fields
+  tokenSymbol?: string;
+  tokenAmount?: string;
+  network?: string;
 }
 export interface OrderStatusAPIData {
   amount_fiat: number;

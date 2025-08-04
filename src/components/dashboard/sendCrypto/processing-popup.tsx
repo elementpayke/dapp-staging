@@ -8,7 +8,7 @@ import { fetchOrderStatus } from "@/app/api/aggregator";
 import generateReceiptHTML from "@/components/generateHtml";
 import { useProcessingPopupStore } from "@/lib/processingPopupStore";
 import { TransactionDetails } from "@/types/processing-popup";
-import { formatErrorMessage, formatReceiverName } from "@/utils/helpers";
+import { formatErrorMessage } from "@/utils/helpers";
 import CustomConfetti from "../processing-states/custom-confetti";
 import { AnimatedStatusBackground } from "../processing-states/animated-status-background";
 import ProgressPopup from "../processing-states/progress-popup";
@@ -45,12 +45,10 @@ const ProcessingPopup: React.FC<ProcessingPopupProps> = ({
 }) => {
   const {
     status,
-    progress,
     statusMessage,
     showConfetti,
     emailInput,
     transactionDetails,
-    fallbackDate,
     showTechnicalDetails,
     popupLocked,
     setStatus,
@@ -61,14 +59,12 @@ const ProcessingPopup: React.FC<ProcessingPopupProps> = ({
     setSendingEmail,
     setEmailSent,
     setTransactionDetails,
-    setFallbackDate,
     setShowTechnicalDetails,
     setPopupLocked,
     reset,
   } = useProcessingPopupStore();
 
   const receiptRef = useRef<HTMLDivElement>(null);
-  const [_, forceRerender] = useState(0); // Dummy state for forced rerender
 
   // Monitor transaction details changes for success state
   useEffect(() => {
@@ -100,6 +96,15 @@ const ProcessingPopup: React.FC<ProcessingPopupProps> = ({
       paymentStatus: initialTransactionDetails.paymentStatus
     });
     
+    // Check for failed transactions
+    const isDefinitelyFailed = (
+      initialTransactionDetails.status === 2 ||
+      initialTransactionDetails.paymentStatus?.toLowerCase() === "failed" ||
+      initialTransactionDetails.paymentStatus?.toLowerCase() === "rejected" ||
+      initialTransactionDetails.paymentStatus?.toLowerCase() === "cancelled" ||
+      initialTransactionDetails.paymentStatus?.toLowerCase() === "canceled"
+    );
+    
     if (isDefinitelySuccessful) {
       console.log("✅ ProcessingPopup: Detected successful transaction, showing success state");
       console.log("🔍 ProcessingPopup: Current transactionDetails:", JSON.stringify(transactionDetails, null, 2));
@@ -124,15 +129,27 @@ const ProcessingPopup: React.FC<ProcessingPopupProps> = ({
       });
       
       setTransactionDetails(initialTransactionDetails);
+    } else if (isDefinitelyFailed) {
+      console.log("❌ ProcessingPopup: Detected failed transaction, showing failed state");
+      console.log("🔍 ProcessingPopup: Failed transaction details:", JSON.stringify(initialTransactionDetails, null, 2));
+      
+      setStatus("failed");
+      setStatusMessage("Payment failed");
+      setProgress(100);
+      setShowConfetti(false);
+      setPopupLocked(true);
+      
+      // Update transaction details for failed state as well
+      setTransactionDetails(initialTransactionDetails);
     }
-  }, [isVisible, initialTransactionDetails, setStatus, setStatusMessage, setProgress, setShowConfetti, setPopupLocked, setTransactionDetails]);
+  }, [isVisible, initialTransactionDetails, setStatus, setStatusMessage, setProgress, setShowConfetti, setPopupLocked, setTransactionDetails, transactionDetails]);
 
-  // Log orderId changes - but don't override success state
+  // Log orderId changes - but don't override success or failed state
   useEffect(() => {
     if (!orderId) {
       console.warn("ProcessingPopup: No orderId provided");
-    } else if (isVisible && status !== "success") {
-      // Only reset to processing if we're not already in success state
+    } else if (isVisible && status !== "success" && status !== "failed") {
+      // Only reset to processing if we're not already in success or failed state
       console.log("🔄 ProcessingPopup: New orderId, initializing...");
       setStatus("processing");
       setStatusMessage("Initializing payment...");
@@ -142,12 +159,12 @@ const ProcessingPopup: React.FC<ProcessingPopupProps> = ({
     }
   }, [orderId, isVisible, status, setStatus, setStatusMessage, setProgress, setPopupLocked, setShowConfetti]);
 
-  // Prevent popup auto-closing when successful
+  // Prevent popup auto-closing when successful or failed
   useEffect(() => {
-    if (status === "success" && isVisible) {
+    if ((status === "success" || status === "failed") && isVisible) {
       setPopupLocked(true);
     }
-  }, [status, isVisible]);
+  }, [status, isVisible, setPopupLocked]);
 
   // Reset state when popup becomes invisible
   useEffect(() => {
@@ -157,7 +174,7 @@ const ProcessingPopup: React.FC<ProcessingPopupProps> = ({
       setPopupLocked(false);
       setShowConfetti(false);
     }
-  }, [isVisible, reset, setPopupLocked, setShowConfetti]);
+  }, [isVisible, reset, setPopupLocked, setShowConfetti, initialTransactionDetails]);
 
   // Poll for order status - restart when orderId changes
   useEffect(() => {
@@ -317,7 +334,7 @@ const ProcessingPopup: React.FC<ProcessingPopupProps> = ({
         setStatusMessage("Processing your payment...");
         setProgress(Math.min(currentProgress + 5, 95));
         return false;
-      } catch (error) {
+      } catch (_error) {
         if (pollAttempts >= maxPollAttempts) {
           setStatus("failed");
           setStatusMessage("Transaction is taking longer than expected. Please check your transaction history or contact support.");
@@ -344,7 +361,7 @@ const ProcessingPopup: React.FC<ProcessingPopupProps> = ({
       if (pollInterval) clearInterval(pollInterval);
       cleanupOrderId();
     };
-  }, [isVisible, orderId, popupLocked, status, setStatus, setStatusMessage, setProgress, setShowConfetti, setTransactionDetails, transactionDetails]);
+  }, [isVisible, orderId, popupLocked, status, disableInternalPolling, setStatus, setStatusMessage, setProgress, setShowConfetti, setTransactionDetails, transactionDetails, setPopupLocked]);
 
   // Copy to clipboard
   const copyToClipboard = (text: string) => {
@@ -464,7 +481,7 @@ const ProcessingPopup: React.FC<ProcessingPopupProps> = ({
             transition={{ type: "spring", damping: 25, stiffness: 300 }}
             className="bg-white rounded-2xl p-6 max-w-[95vw] w-full md:max-w-lg min-w-[340px] shadow-xl relative overflow-hidden"
             style={{ maxHeight: "90vh", overflowY: "auto", pointerEvents: "auto" }}
-            onClick={e => e.stopPropagation()}
+            onClick={(e) => e.stopPropagation()}
           >
             {/* Animated background patterns */}
             <AnimatedStatusBackground
