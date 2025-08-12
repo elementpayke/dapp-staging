@@ -64,6 +64,14 @@ const SendCryptoModal: React.FC = () => {
   });
   
   const [exchangeRate, setExchangeRate] = useState<number | null>(null);
+  const [rateMeta, setRateMeta] = useState<{
+    base: number | null;
+    marked: number | null;
+    markupPct: number | null;
+    mode: 'OffRamp' | 'OnRamp' | 'Unknown';
+    source: string; // which URL succeeded
+    fallbackUsed: boolean;
+  }>({ base: null, marked: null, markupPct: null, mode: 'Unknown', source: '', fallbackUsed: false });
   const [orderId, setOrderId] = useState("");
   const [showProcessingPopup, setShowProcessingPopup] = useState(false);
   const [apiKey, setApiKey] = useState("");
@@ -148,11 +156,10 @@ const SendCryptoModal: React.FC = () => {
     setApiKey(process.env.NEXT_PUBLIC_AGGR_API_KEY || "");
   }, []);
 
-  // Fetch marked-up exchange rate from Element Pay API
+  // Fetch marked-up (or adjusted) exchange rate from Element Pay API
   useEffect(() => {
     const fetchExchangeRate = async () => {
       try {
-        // Map token symbols to API currency codes
         const currencyMap: Record<string, string> = {
           'USDT': 'usdt_lisk',
           'USDC': 'usdc',
@@ -160,24 +167,108 @@ const SendCryptoModal: React.FC = () => {
           'ETH': 'eth'
         };
         const currency = currencyMap[selectedToken.symbol] || 'usdc';
-        const response = await fetch(
-          `${process.env.NEXT_PUBLIC_API_URL}/rates?currency=${currency}`
-        );
-        const data = await response.json();
-        if (data?.marked_up_rate) {
-          setExchangeRate(Number(data.marked_up_rate));
-        } else {
-          setExchangeRate(null);
+        // q=1 => OffRamp (markup subtracted). We are in an OffRamp flow.
+        const baseUrl = `${process.env.NEXT_PUBLIC_API_URL}/rates?currency=${currency}`;
+        const offRampUrl = `${baseUrl}&q=1`;
+        const legacyOffRampUrl = `${baseUrl}&order_type=OffRamp`; // legacy/textual variant
+
+        let usedUrl = offRampUrl;
+        let response: Response | null = null;
+        let fallbackUsed = false;
+
+        // 1. Try primary OffRamp param q=1
+        try {
+          response = await fetch(offRampUrl);
+          if (!response.ok) throw new Error(`Primary q=1 request failed (${response.status})`);
+        } catch (e) {
+          console.warn('[RATES] Primary OffRamp (q=1) failed:', e);
+          // 2. Try legacy textual param
+            try {
+              response = await fetch(legacyOffRampUrl);
+              usedUrl = legacyOffRampUrl;
+              if (!response.ok) throw new Error(`Legacy order_type=OffRamp failed (${response.status})`);
+              fallbackUsed = true;
+            } catch (e2) {
+              console.warn('[RATES] Legacy OffRamp (order_type=OffRamp) failed:', e2);
+              // 3. FINAL FALLBACK: Base URL (OnRamp) - log a HARD warning
+              response = await fetch(baseUrl);
+              usedUrl = baseUrl;
+              fallbackUsed = true;
+              if (!response.ok) {
+                throw new Error(`Base URL fallback also failed (${response.status})`);
+              }
+            }
         }
-      } catch {
+
+        const data = await response.json();
+        console.log('[RATES] Raw response from', usedUrl, ':', data);
+
+        const base_rate = typeof data?.base_rate === 'number' ? data.base_rate : null;
+        const marked_up_rate = typeof data?.marked_up_rate === 'number' ? data.marked_up_rate : (typeof data?.rate === 'number' ? data.rate : null);
+        const markup_percentage = typeof data?.markup_percentage === 'number' ? data.markup_percentage : null;
+
+        if (marked_up_rate == null) {
+          console.error('[RATES] No usable rate field (marked_up_rate/rate) in response, setting exchangeRate = null');
+          setExchangeRate(null);
+          setRateMeta({ base: base_rate, marked: null, markupPct: markup_percentage, mode: 'Unknown', source: usedUrl, fallbackUsed });
+          return;
+        }
+
+        // Heuristic mode detection
+        let detectedMode: 'OffRamp' | 'OnRamp' | 'Unknown' = 'Unknown';
+        if (usedUrl.includes('q=1') || usedUrl.includes('order_type=OffRamp')) {
+          detectedMode = 'OffRamp';
+        } else if (!usedUrl.includes('q=')) {
+          detectedMode = 'OnRamp';
+        }
+        // Cross-check with numeric relationship if both rates exist
+        if (base_rate != null) {
+          if (marked_up_rate < base_rate && detectedMode === 'OnRamp') {
+            console.warn('[RATES] Relationship (marked_up < base_rate) suggests OffRamp but URL indicates OnRamp. Possible fallback mismatch.');
+            detectedMode = 'OffRamp';
+          }
+          if (marked_up_rate > base_rate && detectedMode === 'OffRamp') {
+            console.warn('[RATES] Relationship (marked_up > base_rate) suggests OnRamp but URL indicates OffRamp. Backend may be returning OnRamp despite q=1.');
+            detectedMode = 'OnRamp';
+          }
+        }
+
+        // Log summary
+        console.log('[RATES] Summary:', {
+          usedUrl,
+          fallbackUsed,
+            base_rate,
+          marked_up_rate,
+          markup_percentage,
+          detectedMode,
+          expectation: 'OffRamp',
+          interpretation: detectedMode === 'OffRamp' ? 'Using adjusted (customer receives lower rate)' : detectedMode === 'OnRamp' ? 'Using marked-up buy rate (UNEXPECTED for offramp)' : 'Unknown'
+        });
+
+        if (detectedMode !== 'OffRamp') {
+          console.warn('[RATES] WARNING: Using a rate not confidently identified as OffRamp. Check backend support for q=1 or investigate fallbacks.');
+        }
+
+        setExchangeRate(marked_up_rate);
+        setRateMeta({
+          base: base_rate,
+          marked: marked_up_rate,
+          markupPct: markup_percentage,
+          mode: detectedMode,
+          source: usedUrl,
+          fallbackUsed
+        });
+      } catch (e) {
+        console.error('[RATES] Failed to fetch exchange rate:', e);
         setExchangeRate(null);
+        setRateMeta({ base: null, marked: null, markupPct: null, mode: 'Unknown', source: '', fallbackUsed: false });
       }
     };
     if (isBrowser) {
       fetchExchangeRate();
     }
   }, [isBrowser, selectedToken]);
-
+  console.log("[RATES] Exchange rate fetched:", exchangeRate, rateMeta);
   const TRANSACTION_FEE_RATE = 0.005; // 0.5%
 
   // Validate phone number with backend API
