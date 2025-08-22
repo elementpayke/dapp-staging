@@ -32,7 +32,7 @@ const TransactionList: FC<{ walletAddress: string | null }> = ({ walletAddress }
   if (!walletAddress) {
     return <p className="px-4">No wallet address provided</p>;
   }
-  
+
   const [transactions, setTransactions] = useState<ExtendedTx[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
@@ -49,7 +49,7 @@ const TransactionList: FC<{ walletAddress: string | null }> = ({ walletAddress }
   // Group transactions by date
   const groupTransactionsByDate = (transactions: ExtendedTx[]) => {
     const grouped: { [key: string]: ExtendedTx[] } = {};
-    
+
     transactions.forEach((tx) => {
       const date = tx.date;
       if (!grouped[date]) {
@@ -57,7 +57,7 @@ const TransactionList: FC<{ walletAddress: string | null }> = ({ walletAddress }
       }
       grouped[date].push(tx);
     });
-    
+
     return grouped;
   };
 
@@ -66,17 +66,17 @@ const TransactionList: FC<{ walletAddress: string | null }> = ({ walletAddress }
     const today = new Date();
     const yesterday = new Date(today);
     yesterday.setDate(yesterday.getDate() - 1);
-    
+
     if (date.toDateString() === today.toDateString()) {
       return "Today, " + date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
     } else if (date.toDateString() === yesterday.toDateString()) {
       return "Yesterday, " + date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
     } else {
-      return date.toLocaleDateString('en-GB', { 
-        weekday: 'long', 
-        day: 'numeric', 
-        month: 'short', 
-        year: 'numeric' 
+      return date.toLocaleDateString('en-GB', {
+        weekday: 'long',
+        day: 'numeric',
+        month: 'short',
+        year: 'numeric'
       });
     }
   };
@@ -84,29 +84,29 @@ const TransactionList: FC<{ walletAddress: string | null }> = ({ walletAddress }
   useEffect(() => {
     const fetchTransactions = async () => {
       try {
-        const res = await axios.get<Order[]>(`${process.env.NEXT_PUBLIC_API_URL}/orders/wallet`, {
+        const res = await axios.get<{ status: string; message: string; data: Order[] }>(`${process.env.NEXT_PUBLIC_API_URL}/orders/wallet`, {
           params: { wallet_address: walletAddress },
           headers: {
             "x-api-key": process.env.NEXT_PUBLIC_AGGR_API_KEY,
           },
         });
 
-        const mapped: ExtendedTx[] = res.data.map((order) => {
+        const mapped: ExtendedTx[] = res.data?.data?.map((order: Order) => {
           const createdDate = new Date(order.created_at);
           const settlementDate = order.updated_at ? new Date(order.updated_at) : null;
-          
+
           // Calculate processing time
-          const processingTime = settlementDate 
+          const processingTime = settlementDate
             ? `${Math.round((settlementDate.getTime() - createdDate.getTime()) / 1000 / 60)}m`
             : undefined;
-          
+
           return {
             id: order.order_id,
             name: order.order_type === 0 ? "OnRamp" : "OffRamp",
-            time: createdDate.toLocaleTimeString('en-US', { 
-              hour: 'numeric', 
+            time: createdDate.toLocaleTimeString('en-US', {
+              hour: 'numeric',
               minute: '2-digit',
-              hour12: true 
+              hour12: true
             }),
             date: formatDate(order.created_at),
             hash: order.settlement_transaction_hash
@@ -123,7 +123,7 @@ const TransactionList: FC<{ walletAddress: string | null }> = ({ walletAddress }
               : `Token: ${order.token}`,
             amount: `${order.amount_fiat.toFixed(2)} KES`,
             receiverDisplay: order.receiver_name || order.phone_number || "Unknown",
-            
+
             // New enhanced fields
             tokenSymbol: order.token,
             cryptoAmount: `${order.amount_crypto.toFixed(6)} ${order.token}`,
@@ -138,9 +138,12 @@ const TransactionList: FC<{ walletAddress: string | null }> = ({ walletAddress }
         });
 
         // Sort by created_at in descending order (newest first)
-        mapped.sort((a, b) => new Date(res.data.find(o => o.order_id === b.id)?.created_at || 0).getTime() - 
-                            new Date(res.data.find(o => o.order_id === a.id)?.created_at || 0).getTime());
-        
+        mapped.sort((a, b) => {
+          const bOrder = res.data.data.find((o: Order) => o.order_id === b.id);
+          const aOrder = res.data.data.find((o: Order) => o.order_id === a.id);
+          return new Date(bOrder?.created_at || 0).getTime() - new Date(aOrder?.created_at || 0).getTime();
+        });
+
         setTransactions(mapped);
       } catch (err) {
         console.error("Failed to fetch transactions", err);
@@ -158,7 +161,7 @@ const TransactionList: FC<{ walletAddress: string | null }> = ({ walletAddress }
     const directions = [...new Set(transactions.map(tx => tx.direction))];
     const paymentMethods = [...new Set(transactions.map(tx => tx.paymentMethod))];
     const tokens = [...new Set(transactions.map(tx => tx.tokenSymbol))];
-    
+
     return { statuses, directions, paymentMethods, tokens };
   };
 
@@ -167,7 +170,7 @@ const TransactionList: FC<{ walletAddress: string | null }> = ({ walletAddress }
   // Filter transactions based on search term and filters
   const filteredTransactions = transactions.filter(tx => {
     // Search filter
-    const matchesSearch = searchTerm === "" || 
+    const matchesSearch = searchTerm === "" ||
       tx.receiverDisplay.toLowerCase().includes(searchTerm.toLowerCase()) ||
       tx.hash.toLowerCase().includes(searchTerm.toLowerCase()) ||
       tx.status.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -177,13 +180,13 @@ const TransactionList: FC<{ walletAddress: string | null }> = ({ walletAddress }
 
     // Status filter
     const matchesStatus = filters.status.length === 0 || filters.status.includes(tx.status);
-    
+
     // Direction filter
     const matchesDirection = filters.direction.length === 0 || filters.direction.includes(tx.direction);
-    
+
     // Payment method filter
     const matchesPaymentMethod = filters.paymentMethod.length === 0 || filters.paymentMethod.includes(tx.paymentMethod);
-    
+
     // Token filter
     const matchesToken = filters.token.length === 0 || filters.token.includes(tx.tokenSymbol);
 
@@ -228,7 +231,7 @@ const TransactionList: FC<{ walletAddress: string | null }> = ({ walletAddress }
   const activeFilterCount = Object.values(filters).reduce((count, filterArray) => count + filterArray.length, 0);
 
   if (loading) return <p className="px-4">Loading...</p>;
-  
+
   if (!loading && transactions.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-10 px-4 text-center text-gray-500">
