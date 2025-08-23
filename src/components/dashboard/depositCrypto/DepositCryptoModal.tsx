@@ -158,8 +158,8 @@ const pollOrderStatusByTxHash = async (txHash: string) => {
       }
     });
 
-    if (response.status === 200) {
-      const orderData = (await response.json()).data;
+      if (response.status === 200) {
+        const orderData = (await response.json())?.data?.data;
 
       const status = orderData.status?.toLowerCase();
       const txHashes = orderData.transaction_hashes || {};
