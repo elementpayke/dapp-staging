@@ -20,10 +20,17 @@ import { TransactionReceipt } from "@/types/types";
 import TokenDropdown from "@/components/ui/TokenDropdown";
 import { SUPPORTED_TOKENS, SupportedToken } from "@/constants/supportedTokens";
 
-// Import the CreateOrderResponse type
+
 interface CreateOrderResponse {
-  tx_hash: string;
   status: string;
+  message: string;
+  data: {
+    tx_hash: string;
+    status: string;
+    rate_used: number;
+    amount_sent: number;
+    fiat_paid: number;
+  };
 }
 
 type OrderStatus =
@@ -159,20 +166,19 @@ const pollOrderStatusByTxHash = async (txHash: string) => {
     });
 
       if (response.status === 200) {
-        const orderData = (await response.json())?.data?.data;
+        const orderData = (await response.json())?.data;
+        const status = orderData.status?.toLowerCase();
+        const txHashes = orderData.transaction_hashes || {};
+        const settlementHash = txHashes.settlement || txHashes.creation || txHash;
 
-      const status = orderData.status?.toLowerCase();
-      const txHashes = orderData.transaction_hashes || {};
-      const settlementHash = txHashes.settlement || txHashes.creation || txHash;
-
-      const getUserFriendlyError = (reason: string) => {
-      const errorMap: { [key: string]: string } = {
-        "Missing CheckoutRequestID in STK response.": "Invalid phone number. Please check and try again.",
-        "Rule limited.": "This payment was rejected because a similar one was just sent. Please wait a moment and try again.",
-        // Add more mappings here as needed
-      };
-      return errorMap[reason] || reason;
-    };
+        const getUserFriendlyError = (reason: string) => {
+          const errorMap: { [key: string]: string } = {
+            "Missing CheckoutRequestID in STK response.": "Invalid phone number. Please check and try again.",
+            "Rule limited.": "This payment was rejected because a similar one was just sent. Please wait a moment and try again.",
+            // Add more mappings here as needed
+          };
+          return errorMap[reason] || reason;
+        };
 
       setTransactionReceipt({
         orderId: orderData.order_id,
@@ -272,16 +278,15 @@ const pollOrderStatusByTxHash = async (txHash: string) => {
             phoneNumber,
             reason,
           }),
-          new Promise((_, reject) => 
-            setTimeout(() => 
-              reject(new Error(`API request timed out after 45 seconds. The Element Pay service may be experiencing high load. Please try again in a few moments or contact support if the issue persists.`)), 
+          new Promise((_, reject) =>
+            setTimeout(() =>
+              reject(new Error(`API request timed out after 45 seconds. The Element Pay service may be experiencing high load. Please try again in a few moments or contact support if the issue persists.`)),
               45000
             )
           )
         ]);
 
-        console.log("📡 API Response:", res);
-        const txHash = (res as CreateOrderResponse)?.tx_hash;
+        const txHash = (res as CreateOrderResponse)?.data?.tx_hash;
         console.log("🔁 Starting poll for order created with tx:", txHash);
 
         if (!txHash) {
