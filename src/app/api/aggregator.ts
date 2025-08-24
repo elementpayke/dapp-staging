@@ -13,8 +13,15 @@ const PROVIDER_ID = process.env.NEXT_PUBLIC_PROVIDER_ID;
 const API_KEY = process.env.NEXT_PUBLIC_AGGR_API_KEY;
 
 interface CreateOrderResponse {
-  tx_hash: string;
-  status: string; // optional: "submitted"
+  status: string;
+  message: string;
+  data: {
+    tx_hash: string;
+    status: string;
+    rate_used: number;
+    amount_sent: number;
+    fiat_paid: number;
+  };
 }
 
 export const fetchRate = async ({
