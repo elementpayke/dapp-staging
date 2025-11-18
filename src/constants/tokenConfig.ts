@@ -18,6 +18,16 @@ export const TOKEN_CONFIG: Record<string, TokenConfig> = {
     address: "0x05D032ac25d322df992303dCa074EE7392C117b9",
     decimals: 6,
   },
+  // Scroll USDC
+  "0x06eFdBFf2a14a7c8E15944D1F4A48F9F95F663A4": {
+    address: "0x06eFdBFf2a14a7c8E15944D1F4A48F9F95F663A4",
+    decimals: 6,
+  },
+  // Arbitrum WXM
+  "0xb6093b61544572ab42a0e43af08abafd41bf25a6": {
+    address: "0xb6093b61544572ab42a0e43af08abafd41bf25a6",
+    decimals: 18,
+  },
 };
 
 /**
