@@ -24,6 +24,28 @@ interface CreateOrderResponse {
   };
 }
 
+interface OrderQuoteResponse {
+  status: string;
+  message: string;
+  data: {
+    required_token_amount: number;
+    required_token_amount_raw: number;
+    fee_amount: number;
+    effective_rate: number;
+    fiat_amount: number;
+    currency: string;
+    token: string;
+    order_type: string;
+    current_balance?: number;
+    current_balance_raw?: number;
+    current_allowance?: number;
+    current_allowance_raw?: number;
+    has_sufficient_balance?: boolean;
+    has_sufficient_allowance?: boolean;
+    balance_check_error?: string;
+  };
+}
+
 export const fetchRate = async ({
   token,
   amount,
@@ -488,5 +510,38 @@ export const createOffRampOrder = async ({
   }
 };
 
+/**
+ * Fetch order quote to get exact approval amount required
+ */
+export const fetchOrderQuote = async ({
+  amountFiat,
+  tokenAddress,
+  walletAddress,
+  orderType = 1, // OffRamp
+  currency = "KES",
+}: {
+  amountFiat: number;
+  tokenAddress: string;
+  walletAddress: string;
+  orderType?: number;
+  currency?: string;
+}): Promise<OrderQuoteResponse> => {
+  try {
+    const payload = {
+      amount_fiat: amountFiat,
+      token: tokenAddress,
+      order_type: orderType,
+      currency: currency,
+      wallet_address: walletAddress,
+    };
 
+    console.log(" Fetching order quote with payload:", payload);
+    const response = await api.post<OrderQuoteResponse>("/quote/order", payload);
+    console.log(" Order quote response:", response.data);
+    return response.data;
+  } catch (error: any) {
+    console.error("Error fetching order quote:", error);
+    throw error;
+  }
+};
 

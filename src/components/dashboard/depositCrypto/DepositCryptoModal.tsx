@@ -4,7 +4,7 @@ import { toast } from "react-toastify";
 import { useAccount, useSwitchChain } from "wagmi";
 import TransactionInProgressModal from "./TranactionInProgress";
 import DepositCryptoReceipt from "./DepositCryptoReciept";
-import { createOnRampOrder } from "@/app/api/aggregator";
+import { createOnRampOrder, fetchOrderQuote } from "@/app/api/aggregator";
 import { validateKenyanPhoneNumber, formatKenyanPhoneNumber } from "@/utils/phoneValidation";
 import {
   Dialog,
@@ -60,6 +60,12 @@ const DepositCryptoModal: React.FC = () => {
   const [isFavorite, setIsFavorite] = useState(false);
   const [phoneValidation, setPhoneValidation] = useState<{ isValid: boolean; error?: string }>({ isValid: false });
   const [isValidatingPhone, setIsValidatingPhone] = useState(false);
+  const [quoteData, setQuoteData] = useState<{
+    tokenAmount: number;
+    feeAmount: number;
+    effectiveRate: number;
+  } | null>(null);
+  const [isFetchingQuote, setIsFetchingQuote] = useState(false);
   const TRANSACTION_FEE_RATE = 0.005;
   const addressOwner = useAccount();
   const { chain } = addressOwner;
@@ -86,42 +92,32 @@ const DepositCryptoModal: React.FC = () => {
     }
   };
 
-  const MARKUP_PERCENTAGE = 0.5;
-
   const transactionSummary = useMemo(() => {
-    if (!exchangeRate)
-      return {
-        kesAmount: 0,
-        usdcAmount: 0,
-        transactionCharge: 0,
-        totalUSDC: 0,
-        totalKES: 0,
-        totalKESBalance: 0,
-        walletBalance: selectedTokenBalance ?? 0,
-        remainingBalance: 0,
-        usdcBalance: selectedTokenBalance ?? 0,
-      };
+    const fiatAmount = parseFloat(amount) || 0;
+    
+    // Use quote data if available, otherwise fallback to exchange rate
+    const tokenAmount = quoteData?.tokenAmount || (exchangeRate ? fiatAmount / exchangeRate : 0);
+    const feeAmount = quoteData?.feeAmount || 0;
+    const effectiveRate = quoteData?.effectiveRate || exchangeRate || 0;
 
-    const kesAmount = parseFloat(amount) * exchangeRate || 0;
-    const usdcAmount = parseFloat(amount) || 0;
-    const transactionCharge = usdcAmount * TRANSACTION_FEE_RATE;
-    const totalUSDC = usdcAmount;
+    const totalUSDC = tokenAmount;
     const remainingBalance = (selectedTokenBalance ?? 0) + totalUSDC;
-    const totalKES = (selectedTokenBalance ?? 0) * exchangeRate;
-    const totalKESBalance = totalKES + kesAmount;
+    const totalKES = (selectedTokenBalance ?? 0) * effectiveRate;
+    const totalKESBalance = totalKES + fiatAmount;
 
     return {
-      kesAmount,
-      usdcAmount,
-      transactionCharge,
+      kesAmount: fiatAmount,
+      usdcAmount: tokenAmount,
+      transactionCharge: feeAmount,
       totalUSDC,
       totalKES,
       totalKESBalance,
       walletBalance: selectedTokenBalance ?? 0,
       remainingBalance: Math.max(remainingBalance, 0),
       usdcBalance: selectedTokenBalance ?? 0,
+      effectiveRate,
     };
-  }, [amount, exchangeRate, selectedTokenBalance]);
+  }, [amount, exchangeRate, selectedTokenBalance, quoteData]);
 
   const [transactionReceipt, setTransactionReceipt] = useState<TransactionReceipt>({
     orderId: "",
@@ -136,6 +132,7 @@ const DepositCryptoModal: React.FC = () => {
 
   const fetchExchangeRate = async () => {
     try {
+      // Fallback to Coinbase for initial rate display
       const response = await fetch(
         "https://api.coinbase.com/v2/exchange-rates?currency=USDC"
       );
@@ -143,12 +140,49 @@ const DepositCryptoModal: React.FC = () => {
 
       if (data?.data?.rates?.KES) {
         const baseRate = parseFloat(data.data.rates.KES);
-        const markupRate = baseRate * (1 + MARKUP_PERCENTAGE / 100);
-        setExchangeRate(markupRate);
+        setExchangeRate(baseRate);
       }
     } catch (error) {
       console.error("Error fetching exchange rate:", error);
-      toast.error("Unable to fetch exchange rate");
+      // Don't show error toast for fallback rate, just log it
+    }
+  };
+
+  // Fetch quote when amount or token changes
+  const fetchQuote = async (fiatAmount: number) => {
+    if (!fiatAmount || fiatAmount <= 0 || !addressOwner.address) {
+      setQuoteData(null);
+      return;
+    }
+
+    setIsFetchingQuote(true);
+    try {
+      const quoteResponse = await fetchOrderQuote({
+        amountFiat: fiatAmount,
+        tokenAddress: selectedToken.tokenAddress,
+        walletAddress: addressOwner.address,
+        orderType: 0, // OnRamp
+        currency: "KES",
+      });
+
+      if (quoteResponse.status === "success" && quoteResponse.data) {
+        const data = quoteResponse.data;
+        setQuoteData({
+          tokenAmount: data.required_token_amount,
+          feeAmount: data.fee_amount,
+          effectiveRate: data.effective_rate,
+        });
+        // Update exchange rate from quote for consistency
+        setExchangeRate(data.effective_rate);
+      } else {
+        setQuoteData(null);
+      }
+    } catch (error: any) {
+      console.error("Error fetching quote:", error);
+      // Don't show error toast, just clear quote data
+      setQuoteData(null);
+    } finally {
+      setIsFetchingQuote(false);
     }
   };
 
@@ -208,6 +242,21 @@ const pollOrderStatusByTxHash = async (txHash: string) => {
   useEffect(() => {
     fetchExchangeRate();
   }, []);
+
+  // Fetch quote when amount or token changes (debounced)
+  useEffect(() => {
+    const fiatAmount = parseFloat(amount);
+    if (!fiatAmount || fiatAmount <= 0) {
+      setQuoteData(null);
+      return;
+    }
+
+    const timeoutId = setTimeout(() => {
+      fetchQuote(fiatAmount);
+    }, 500); // 500ms debounce
+
+    return () => clearTimeout(timeoutId);
+  }, [amount, selectedToken.tokenAddress, addressOwner.address]);
 
 
   const handleConfirmPayment = async () => {
@@ -565,7 +614,13 @@ const pollOrderStatusByTxHash = async (txHash: string) => {
                     {selectedToken.symbol} to receive
                   </span>
                   <span className="font-medium">
-                    {selectedToken.symbol} {(parseFloat(amount || "0") / (exchangeRate || 127.3)).toFixed(6)}
+                    {isFetchingQuote ? (
+                      <span className="text-gray-400">Calculating...</span>
+                    ) : quoteData ? (
+                      `${selectedToken.symbol} ${quoteData.tokenAmount.toFixed(6)}`
+                    ) : (
+                      `${selectedToken.symbol} ${(parseFloat(amount || "0") / (exchangeRate || 127.3)).toFixed(6)}`
+                    )}
                   </span>
                 </div>
 
@@ -574,7 +629,13 @@ const pollOrderStatusByTxHash = async (txHash: string) => {
                     Transaction charge
                   </span>
                   <span className="text-orange-600 text-sm">
-                    KES {(parseFloat(amount || "0") * TRANSACTION_FEE_RATE).toFixed(2)}
+                    {isFetchingQuote ? (
+                      <span className="text-gray-400">...</span>
+                    ) : quoteData ? (
+                      `KES ${quoteData.feeAmount.toFixed(2)}`
+                    ) : (
+                      `KES ${(parseFloat(amount || "0") * TRANSACTION_FEE_RATE).toFixed(2)}`
+                    )}
                   </span>
                 </div>
 
@@ -616,7 +677,7 @@ const pollOrderStatusByTxHash = async (txHash: string) => {
                   <span className="text-gray-900 font-medium text-sm">
                     KE{" "}
                     {(
-                      transactionSummary.walletBalance * (exchangeRate || 127.3)
+                      transactionSummary.walletBalance * (transactionSummary.effectiveRate || exchangeRate || 127.3)
                     ).toFixed(2)}
                   </span>
                 </div>

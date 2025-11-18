@@ -35,8 +35,9 @@ import {
 import { useTokenBalance } from "@/hooks/useTokenBalance";
 import { SUPPORTED_TOKENS, SupportedToken } from "@/constants/supportedTokens";
 import { validateKenyanPhoneNumber, validatePhoneWithAPI } from "@/utils/phoneValidation";
-import { createOffRampOrder } from "@/app/api/aggregator";
+import { createOffRampOrder, fetchOrderQuote } from "@/app/api/aggregator";
 import { ethers } from "ethers";
+import { getTokenConfig } from "@/constants/tokenConfig";
 
 interface TransactionReceipt {
   amount: string;
@@ -707,17 +708,76 @@ const SendCryptoModal: React.FC = () => {
         ...initialReceiptData
       }));
 
-      // 1. Approve token for Element Pay contract (MetaMask popup #1)
-      const spender = contractAddress;
-      const decimals = 6;
-      const approveAmount = (Number(amount) / (exchangeRate || 1)).toFixed(decimals);
-      const approveTxHash = await approveTokenIfNeeded(spender, approveAmount);
-      if (!approveTxHash) {
-        // Handle approval error - close popup and show error
-        setShowProcessingPopup(false);
+      // 1. Fetch quote to get exact approval amount required
+      let requiredApprovalAmount: string;
+      let hasSufficientAllowance = false;
+      
+      // account.address is already validated above, but TypeScript needs assurance
+      const walletAddress = account.address;
+      if (!walletAddress) {
+        toast.error("Wallet address not found. Please connect your wallet.");
         setIsApproving(false);
         setIsProcessing(false);
         return;
+      }
+      
+      try {
+        console.log("Fetching order quote for approval amount...");
+        const quoteResponse = await fetchOrderQuote({
+          amountFiat: Number(amount),
+          tokenAddress: selectedToken.tokenAddress,
+          walletAddress: walletAddress,
+          orderType: 1, // OffRamp
+          currency: "KES",
+        });
+
+        if (quoteResponse.status === "success" && quoteResponse.data) {
+          const quoteData = quoteResponse.data;
+          // Convert raw amount (smallest units) to standard units string
+          const tokenConfig = getTokenConfig(selectedToken.tokenAddress);
+          const decimals = tokenConfig?.decimals || 6;
+          // required_token_amount_raw is already in smallest units, convert to standard units
+          requiredApprovalAmount = (quoteData.required_token_amount_raw / Math.pow(10, decimals)).toFixed(decimals);
+          hasSufficientAllowance = quoteData.has_sufficient_allowance ?? false;
+          
+          console.log("Quote received:", {
+            requiredApprovalAmount,
+            hasSufficientAllowance,
+            requiredTokenAmountRaw: quoteData.required_token_amount_raw,
+            currentAllowanceRaw: quoteData.current_allowance_raw,
+            requiredTokenAmount: quoteData.required_token_amount,
+          });
+        } else {
+          throw new Error("Failed to get quote from API");
+        }
+      } catch (quoteError: any) {
+        console.error("Failed to fetch order quote:", quoteError);
+        setShowProcessingPopup(false);
+        setIsApproving(false);
+        setIsProcessing(false);
+        toast.error(quoteError?.response?.data?.message || quoteError?.message || "Failed to calculate required approval amount. Please try again.");
+        return;
+      }
+
+      // 2. Approve token if needed (MetaMask popup #1)
+      const spender = contractAddress;
+      const tokenConfig = getTokenConfig(selectedToken.tokenAddress);
+      const decimals = tokenConfig?.decimals || 6;
+      
+      if (!hasSufficientAllowance) {
+        console.log(`Approval needed. Approving ${requiredApprovalAmount} tokens...`);
+        const approveTxHash = await approveTokenIfNeeded(spender, requiredApprovalAmount);
+        if (!approveTxHash) {
+          // Handle approval error - close popup and show error
+          setShowProcessingPopup(false);
+          setIsApproving(false);
+          setIsProcessing(false);
+          toast.error("Token approval failed. Cannot proceed with order creation.");
+          return;
+        }
+        console.log("Token approval successful");
+      } else {
+        console.log("Sufficient allowance already exists, skipping approval");
       }
 
       // Debug log all order details before signing

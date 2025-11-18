@@ -87,16 +87,15 @@ const CryptoPrices: React.FC = () => {
         setLoading(true);
         setError(null);
 
+        // Route through our API route which has caching
+        const coinIds = Object.values(COIN_IDS).join(',');
         const response = await fetch(
-          `https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&ids=${Object.values(
-            COIN_IDS
-          ).join(
-            ","
-          )}&order=market_cap_desc&sparkline=false&price_change_percentage=24h`
+          `/api/coingecko/markets?ids=${coinIds}`
         );
 
         if (!response.ok) {
-          throw new Error("Failed to fetch cryptocurrency data");
+          const errorData = await response.json().catch(() => ({}));
+          throw new Error(errorData.error || "Failed to fetch cryptocurrency data");
         }
 
         const data: CoinGeckoMarketData[] = await response.json();
@@ -120,7 +119,8 @@ const CryptoPrices: React.FC = () => {
     };
 
     fetchPrices();
-    const interval = setInterval(fetchPrices, 60000); // Update every minute
+    // Update every 5 minutes (reduced from 1 minute to reduce API calls)
+    const interval = setInterval(fetchPrices, 5 * 60 * 1000);
 
     return () => clearInterval(interval);
   }, []);

@@ -92,8 +92,9 @@ const QuickActions: FC = () => {
     };
 
     fetchCoinGeckoRate();
-    // Refresh every 2 minutes
-    const intervalId = setInterval(fetchCoinGeckoRate, 2 * 60 * 1000);
+    // Refresh every 5 minutes (reduced from 2 minutes to reduce API calls)
+    // Cache on API route will handle more frequent requests
+    const intervalId = setInterval(fetchCoinGeckoRate, 5 * 60 * 1000);
 
     return () => clearInterval(intervalId);
   }, [currentToken.symbol]);
