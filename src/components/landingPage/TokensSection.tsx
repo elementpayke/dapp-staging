@@ -31,7 +31,7 @@ const Testimonials = () => {
           Real Stories. Real Impact.
         </h2>
         <p className="text-lg text-gray-600 mb-16 max-w-2xl mx-auto">
-          ElementPay is transforming how Kenyans make payments—whether for your daily commute, shopping, or paying your local vendor. Here's how we're making it easier for everyday transactions.
+          ElementPay is transforming how Kenyans make payments—whether for your daily commute, shopping, or paying your local vendor. Here&apos;s how we&apos;re making it easier for everyday transactions.
         </p>
 
         <div className="grid md:grid-cols-2 gap-10">
@@ -40,7 +40,7 @@ const Testimonials = () => {
               key={index}
               className="bg-white rounded-2xl shadow-md p-6 text-left border-l-4 border-[#0514eb]"
             >
-              <p className="text-gray-700 italic mb-4">"{item.feedback}"</p>
+              <p className="text-gray-700 italic mb-4">&ldquo;{item.feedback}&rdquo;</p>
               <p className="text-sm text-gray-500 font-semibold">
                 — {item.name}, {item.location}
               </p>
