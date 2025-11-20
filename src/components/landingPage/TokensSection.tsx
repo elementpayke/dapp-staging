@@ -4,22 +4,26 @@ const testimonials = [
   {
     name: "David",
     location: "Nairobi",
-    feedback: "I paid for my boda ride with just 50 KES using USDC. No waiting, just pure convenience!",
+    feedback:
+      "I paid for my boda ride with just 50 KES using USDC. No waiting, just pure convenience!",
   },
   {
     name: "Jane",
     location: "Kisumu",
-    feedback: "I used ElementPay to shop for groceries worth 5000 KES. Quick, secure, and seamless. This is the future of payments!",
+    feedback:
+      "I used ElementPay to shop for groceries worth 5000 KES. Quick, secure, and seamless. This is the future of payments!",
   },
   {
     name: "Julius",
     location: "Mombasa",
-    feedback: "Paid Mama Mboga 20 KES for veggies using crypto. I never thought this day would come!",
+    feedback:
+      "Paid Mama Mboga 20 KES for veggies using crypto. I never thought this day would come!",
   },
   {
     name: "Rachel",
     location: "Nyeri",
-    feedback: "ElementPay is my go-to for paying everyday bills—from transport to shopping. All in one place, fast and affordable.",
+    feedback:
+      "ElementPay is my go-to for paying everyday bills—from transport to shopping. All in one place, fast and affordable.",
   },
 ];
 
