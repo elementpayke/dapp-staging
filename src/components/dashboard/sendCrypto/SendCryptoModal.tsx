@@ -614,7 +614,7 @@ const SendCryptoModal: React.FC = () => {
               normalizedStatus = "SETTLED";
             }
             
-            console.log("📋 Status normalization:", {
+            console.log(" Status normalization:", {
               originalStatus: orderData.status,
               normalizedStatus,
               hasReceiptNumber,
