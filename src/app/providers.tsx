@@ -24,13 +24,23 @@ const queryClient = new QueryClient({
   },
 });
 
+/**
+ * Providers wrapper for the application
+ * 
+ * Note: OnchainKitProvider's chain prop is the "default" chain for the UI,
+ * but our app supports multiple chains (Base, Lisk, Scroll, Arbitrum).
+ * The actual chain used for transactions is determined by:
+ * 1. The selected token's chain in the transaction modals
+ * 2. wagmi's chain switching (for non-smart wallets)
+ * 3. Smart wallet's internal chain selection
+ */
 export function Providers(props: { children: ReactNode }) {
   return (
     <WagmiProvider config={wagmiConfig}>
       <QueryClientProvider client={queryClient}>
         <OnchainKitProvider
           apiKey={process.env.NEXT_PUBLIC_ONCHAINKIT_API_KEY}
-          chain={base}
+          chain={base} // Default chain for OnchainKit UI components
           config={{
             appearance: {
               name: "ElementPay",

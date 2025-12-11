@@ -16,10 +16,13 @@ import {
   useSwitchChain,
   useChainId,
   usePublicClient,
+  useWalletClient,
 } from "wagmi";
 import { erc20Abi } from "@/app/api/abi";
-import { getUSDCAddress } from "../../../services/tokens";
-import { useContract } from "@/services/useContract";
+import { 
+  isSmartWallet, 
+  safeChainSwitch,
+} from "@/lib/wallet-utils";
 
 import { encryptMessageDetailed } from "@/services/encryption";
 import { useContractEvents } from "@/context/useContractEvents";
@@ -433,7 +436,9 @@ const SendCryptoModal: React.FC = () => {
   ]);
 
   const account = useAccount();
+  const { connector } = account; // Get the current connector for smart wallet detection
   const { writeContractAsync } = useWriteContract();
+  const { data: walletClient } = useWalletClient(); // Get wallet client for signing
   // Map chain names to their contract addresses from env
   const CONTRACT_ADDRESS_MAP: Record<string, string> = {
     Base: process.env.NEXT_PUBLIC_CONTRACT_ADDRESS_BASE!,
@@ -486,7 +491,7 @@ const SendCryptoModal: React.FC = () => {
 
   const publicClient = usePublicClient();
 
-  const { switchChain } = useSwitchChain();
+  const { switchChainAsync } = useSwitchChain();
   const currentChainId = useChainId();
 
   // Get target chain ID based on selected token
@@ -614,7 +619,7 @@ const SendCryptoModal: React.FC = () => {
               normalizedStatus = "SETTLED";
             }
             
-            console.log(" Status normalization:", {
+            console.log("📋 Status normalization:", {
               originalStatus: orderData.status,
               normalizedStatus,
               hasReceiptNumber,
@@ -648,32 +653,58 @@ const SendCryptoModal: React.FC = () => {
   // Main: Offramp flow with backend API call and smart contract transaction
   const executeOfframpOrder = async () => {
     const targetChainId = getTargetChainId();
+    
+    // Use safe chain switching that handles smart wallets properly
     if (currentChainId !== targetChainId) {
       console.log(`🔄 Network switch needed: ${currentChainId} -> ${targetChainId} (${selectedToken.chain})`);
       
-      // Show switching notification
-      showNetworkSwitchNotification(selectedToken.chain, 'switching');
+      // Check if this is a smart wallet - they handle chains differently
+      const isSmartWalletConnected = isSmartWallet(connector);
       
-      try {
-        await switchChain({ chainId: targetChainId });
+      if (isSmartWalletConnected) {
+        // Smart wallets (like Coinbase Smart Wallet) handle chain context internally
+        // They don't support wallet_switchEthereumChain but can still transact on any chain
+        console.log(`📱 Smart wallet detected (${connector?.name}), proceeding without chain switch`);
+        toast.info(`Smart wallet detected. Proceeding with ${selectedToken.chain} transaction.`);
+        // Continue with transaction - smart wallet will handle the chain
+      } else {
+        // Regular wallet - attempt chain switch
+        showNetworkSwitchNotification(selectedToken.chain, 'switching');
         
-        // Wait a moment for the network to switch
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        
-        // Show success notification
-        showNetworkSwitchNotification(selectedToken.chain, 'success');
-        
-        console.log(`✅ Successfully switched to ${selectedToken.chain} network`);
-        toast.success(`Switched to ${selectedToken.chain}. Please try again.`);
-        return;
-      } catch (err) {
-        console.error("❌ Network switch failed:", err);
-        
-        // Show error notification
-        showNetworkSwitchNotification(selectedToken.chain, 'error');
-        
-        toast.error(`Please switch to ${selectedToken.chain} to continue.`);
-        return;
+        try {
+          const switchResult = await safeChainSwitch({
+            connector,
+            currentChainId,
+            targetChainId,
+            switchChainAsyncFn: switchChainAsync,
+            chainName: selectedToken.chain,
+          });
+          
+          if (switchResult.success) {
+            if (switchResult.method === 'switched') {
+              // Wait a moment for the network to switch
+              await new Promise(resolve => setTimeout(resolve, 1000));
+              showNetworkSwitchNotification(selectedToken.chain, 'success');
+              console.log(`✅ ${switchResult.message}`);
+              toast.success(`Switched to ${selectedToken.chain}. Please try again.`);
+              return; // User needs to retry after chain switch
+            } else if (switchResult.method === 'manual-required') {
+              showNetworkSwitchNotification(selectedToken.chain, 'error');
+              toast.warning(switchResult.message);
+              return;
+            }
+            // 'skipped' or 'already-on-chain' - continue with transaction
+          } else {
+            showNetworkSwitchNotification(selectedToken.chain, 'error');
+            toast.error(switchResult.message);
+            return;
+          }
+        } catch (err) {
+          console.error("❌ Network switch failed:", err);
+          showNetworkSwitchNotification(selectedToken.chain, 'error');
+          toast.error(`Please switch to ${selectedToken.chain} to continue.`);
+          return;
+        }
       }
     }
 
@@ -801,7 +832,7 @@ const SendCryptoModal: React.FC = () => {
         return;
       }
 
-      // 2. Prompt user to sign a message (MetaMask popup #2)
+      // 2. Prompt user to sign a message (wallet popup)
       const orderDetails = {
         user_address: account.address as string, // We already validated this above
         token: selectedToken.tokenAddress,
@@ -821,18 +852,21 @@ const SendCryptoModal: React.FC = () => {
       
       let _signature; // Currently unused but kept for future signature verification
       try {
-        if (!window.ethereum) {
-          throw new Error("Wallet not found");
+        // Use wagmi's wallet client for signing - this ensures we use the correct
+        // connected wallet, not whatever is at window.ethereum (could be Bybit, etc.)
+        if (!walletClient) {
+          throw new Error("Wallet not connected. Please reconnect your wallet.");
         }
         
-        const provider = new ethers.BrowserProvider(window.ethereum);
-        const signer = await provider.getSigner();
         const message = JSON.stringify(orderDetails);
         
         // Add timeout to prevent infinite hanging
-        const signPromise = signer.signMessage(message);
+        const signPromise = walletClient.signMessage({ 
+          message,
+          account: account.address as `0x${string}`,
+        });
         const signTimeout = new Promise<never>((_, reject) =>
-          setTimeout(() => reject(new Error("Signature request timed out after 2 minutes. Please check MetaMask.")), 120000)
+          setTimeout(() => reject(new Error("Signature request timed out after 2 minutes. Please check your wallet.")), 120000)
         );
         
         _signature = await Promise.race([signPromise, signTimeout]);
@@ -842,7 +876,7 @@ const SendCryptoModal: React.FC = () => {
         
         let errorMessage = "Signature rejected or failed. Please try again.";
         if (signError?.message?.includes("timed out")) {
-          errorMessage = "Signature request timed out. Please check MetaMask and try again.";
+          errorMessage = "Signature request timed out. Please check your wallet and try again.";
         } else if (signError?.code === 4001) {
           errorMessage = "Signature rejected by user. Please try again.";
         } else if (signError?.message) {
