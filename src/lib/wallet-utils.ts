@@ -203,7 +203,7 @@ export async function safeChainSwitch(params: {
     
     if (isUnsupportedMethod) {
       // Try to add the chain first, then switch
-      const addChainResult = await tryAddChain(targetChainId);
+      const addChainResult = await tryAddChain(targetChainId, connector);
       if (addChainResult) {
         return {
           success: true,
@@ -226,21 +226,27 @@ export async function safeChainSwitch(params: {
  * Attempts to add a chain to the wallet using wallet_addEthereumChain
  * 
  * @param chainId - The chain ID to add
+ * @param connector - The wagmi connector to use (ensures we use the correct wallet provider)
  * @returns true if chain was added successfully
  */
-async function tryAddChain(chainId: number): Promise<boolean> {
+async function tryAddChain(chainId: number, connector: Connector | undefined): Promise<boolean> {
   const chainConfig = CHAIN_CONFIGS[chainId];
-  if (!chainConfig) {
-    console.warn(`[wallet-utils] No chain config found for chainId ${chainId}`);
+  if (!chainConfig || !connector) {
+    console.warn(`[wallet-utils] No chain config or connector found for chainId ${chainId}`);
     return false;
   }
   
   try {
-    if (typeof window === 'undefined' || !window.ethereum) {
+    // Use the connector's provider instead of window.ethereum
+    // This ensures we're adding the chain to the wallet the user actually connected with,
+    // not whatever wallet has hijacked window.ethereum
+    const provider = await connector.getProvider();
+    if (!provider) {
+      console.warn(`[wallet-utils] No provider available from connector ${connector.name}`);
       return false;
     }
     
-    await window.ethereum.request({
+    await (provider as any).request({
       method: 'wallet_addEthereumChain',
       params: [chainConfig],
     });
@@ -275,26 +281,26 @@ export function getProviderFromWalletClient(walletClient: any): any {
  * @param connectors - Array of available connectors
  * @returns Sorted array with preferred connectors first
  */
-export function prioritizeConnectors(connectors: readonly Connector[]): Connector[] {
-  return [...connectors].sort((a, b) => {
-    const aDeprioritized = isDeprioritizedWallet(a);
-    const bDeprioritized = isDeprioritizedWallet(b);
+// export function prioritizeConnectors(connectors: readonly Connector[]): Connector[] {
+//   return [...connectors].sort((a, b) => {
+//     const aDeprioritized = isDeprioritizedWallet(a);
+//     const bDeprioritized = isDeprioritizedWallet(b);
     
-    // Deprioritized wallets go to the end
-    if (aDeprioritized && !bDeprioritized) return 1;
-    if (!aDeprioritized && bDeprioritized) return -1;
+//     // Deprioritized wallets go to the end
+//     if (aDeprioritized && !bDeprioritized) return 1;
+//     if (!aDeprioritized && bDeprioritized) return -1;
     
-    // Prefer Coinbase and MetaMask
-    const preferredOrder = ['coinbase', 'metamask'];
-    const aIndex = preferredOrder.findIndex(p => a.id?.toLowerCase().includes(p));
-    const bIndex = preferredOrder.findIndex(p => b.id?.toLowerCase().includes(p));
+//     // Prefer Coinbase and MetaMask
+//     const preferredOrder = ['coinbase', 'metamask'];
+//     const aIndex = preferredOrder.findIndex(p => a.id?.toLowerCase().includes(p));
+//     const bIndex = preferredOrder.findIndex(p => b.id?.toLowerCase().includes(p));
     
-    if (aIndex !== -1 && bIndex === -1) return -1;
-    if (aIndex === -1 && bIndex !== -1) return 1;
-    if (aIndex !== -1 && bIndex !== -1) return aIndex - bIndex;
+//     if (aIndex !== -1 && bIndex === -1) return -1;
+//     if (aIndex === -1 && bIndex !== -1) return 1;
+//     if (aIndex !== -1 && bIndex !== -1) return aIndex - bIndex;
     
-    return 0;
-  });
-}
+//     return 0;
+//   });
+// }
 
 
