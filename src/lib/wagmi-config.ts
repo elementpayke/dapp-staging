@@ -1,6 +1,7 @@
 import { http, createConfig } from 'wagmi';
 import { base, arbitrum } from 'wagmi/chains';
-import { coinbaseWallet, metaMask } from 'wagmi/connectors';
+import { coinbaseWallet, metaMask, injected } from 'wagmi/connectors';
+import type { Chain } from 'wagmi/chains';
 
 // Multiple RPC endpoints for fallback
 const baseRpcUrls = [
@@ -35,50 +36,120 @@ const createTransportWithFallback = (urls: string[]) => {
   });
 };
 
-// Add Lisk and Scroll chain definitions
-const lisk = {
+/**
+ * Lisk chain definition (chainId: 1135)
+ * Properly typed as a Chain for wagmi compatibility
+ */
+export const lisk = {
   id: 1135,
   name: 'Lisk',
-  network: 'lisk',
   nativeCurrency: { name: 'Lisk', symbol: 'LSK', decimals: 18 },
   rpcUrls: {
     default: { http: ['https://rpc.api.lisk.com'] },
-    public: { http: ['https://rpc.api.lisk.com'] },
   },
   blockExplorers: {
     default: { name: 'Blockscout', url: 'https://blockscout.lisk.com' },
   },
-  testnet: false,
-};
+} as const satisfies Chain;
 
-const scroll = {
+/**
+ * Scroll chain definition (chainId: 534352)
+ */
+export const scroll = {
   id: 534352,
   name: 'Scroll',
-  network: 'scroll',
   nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
   rpcUrls: {
     default: { http: ['https://rpc.scroll.io/'] },
-    public: { http: ['https://rpc.scroll.io/'] },
   },
   blockExplorers: {
-    default: { name: 'Blockscout', url: 'https://blockscout.scroll.io' },
+    default: { name: 'Blockscout', url: 'https://scrollscan.com' },
   },
-  testnet: false,
+} as const satisfies Chain;
+
+/**
+ * Wallet IDs to exclude from automatic detection
+ * These wallets may interfere with the intended wallet connection
+ */
+const EXCLUDED_WALLET_IDS = [
+  'bybit',
+  'com.bybit',
+];
+
+/**
+ * Check if an injected provider should be excluded
+ */
+const shouldExcludeProvider = (provider: any): boolean => {
+  if (!provider) return false;
+  
+  const providerInfo = provider.providerInfo || {};
+  const name = (providerInfo.name || provider.name || '').toLowerCase();
+  const rdns = (providerInfo.rdns || '').toLowerCase();
+  
+  return EXCLUDED_WALLET_IDS.some(id => 
+    name.includes(id) || rdns.includes(id)
+  );
 };
 
-// Wagmi configuration with proper error handling
+/**
+ * Wagmi configuration with proper error handling and multi-wallet support
+ * 
+ * Connector order matters - preferred wallets are listed first:
+ * 1. Coinbase Wallet (supports both smart wallet and injected)
+ * 2. MetaMask (most common injected wallet)
+ * 3. Generic injected (filtered to exclude problematic wallets)
+ */
 export const wagmiConfig = createConfig({
   chains: [base, lisk, scroll, arbitrum],
   connectors: [
+    // Coinbase Wallet - supports smart wallet mode
+    // Changed from 'smartWalletOnly' to 'all' to allow both modes
+    // Smart wallet will be detected via connector type, not forced
     coinbaseWallet({
       appName: 'ElementPay',
       appLogoUrl: '/logo.png',
-      preference: 'smartWalletOnly',
+      preference: 'all', // Allow both smart wallet and extension
     }),
+    // MetaMask - standard injected wallet
     metaMask({
       dappMetadata: {
         name: 'ElementPay',
         url: 'https://elementpay.net',
+      },
+    }),
+    // Generic injected connector with filtering
+    // This catches other wallets but excludes problematic ones
+    injected({
+      target: () => {
+        if (typeof window === 'undefined') return undefined;
+        
+        const ethereum = window.ethereum;
+        if (!ethereum) return undefined;
+        
+        // If it's a provider array (EIP-5749), filter out excluded wallets
+        if (ethereum.providers) {
+          const validProvider = ethereum.providers.find(
+            (p: any) => !shouldExcludeProvider(p)
+          );
+          if (validProvider) {
+            return {
+              id: 'injected',
+              name: 'Injected Wallet',
+              provider: validProvider,
+            };
+          }
+        }
+        
+        // Single provider - check if it should be excluded
+        if (shouldExcludeProvider(ethereum)) {
+          return undefined;
+        }
+        
+        return {
+          id: 'injected',
+          name: 'Browser Wallet',
+          provider: ethereum,
+        };
       },
     }),
   ],
