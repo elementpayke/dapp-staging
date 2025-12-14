@@ -1,7 +1,8 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { ArrowUpRight } from "lucide-react";
 import { toast } from "react-toastify";
-import { useAccount, useSwitchChain } from "wagmi";
+import { useAccount, useSwitchChain, useChainId } from "wagmi";
+import { isSmartWallet, safeChainSwitch } from "@/lib/wallet-utils";
 import TransactionInProgressModal from "./TranactionInProgress";
 import DepositCryptoReceipt from "./DepositCryptoReciept";
 import { createOnRampOrder, fetchOrderQuote } from "@/app/api/aggregator";
@@ -68,8 +69,9 @@ const DepositCryptoModal: React.FC = () => {
   const [isFetchingQuote, setIsFetchingQuote] = useState(false);
   const TRANSACTION_FEE_RATE = 0.005;
   const addressOwner = useAccount();
-  const { chain } = addressOwner;
-  const { switchChain } = useSwitchChain();
+  const { chain, connector } = addressOwner; // Get connector for smart wallet detection
+  const { switchChainAsync } = useSwitchChain();
+  const currentChainId = useChainId();
   const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
   const continuePollingRef = useRef<boolean>(true);
 
@@ -267,13 +269,44 @@ const pollOrderStatusByTxHash = async (txHash: string) => {
     // Check if connected to the correct chain for the selected token
     const targetChainId = getTargetChainId();
     if (chain?.id !== targetChainId) {
-      try {
-        await switchChain({ chainId: targetChainId });
-        toast.success(`Switched to ${selectedToken.chain}. Please click Confirm again.`);
-        return; // Exit so user can retry after chain switch
-      } catch (error) {
-        toast.error(`Please switch to ${selectedToken.chain} network to proceed.`);
-        return;
+      // Check if this is a smart wallet - they handle chains differently
+      const isSmartWalletConnected = isSmartWallet(connector);
+      
+      if (isSmartWalletConnected) {
+        // Smart wallets (like Coinbase Smart Wallet) handle chain context internally
+        // They don't support wallet_switchEthereumChain but can still transact on any chain
+        console.log(`📱 Smart wallet detected (${connector?.name}), proceeding without chain switch`);
+        toast.info(`Smart wallet detected. Proceeding with ${selectedToken.chain} transaction.`);
+        // Continue with transaction - smart wallet will handle the chain
+      } else {
+        // Regular wallet - attempt chain switch
+        try {
+          const switchResult = await safeChainSwitch({
+            connector,
+            currentChainId: chain?.id || currentChainId,
+            targetChainId,
+            switchChainAsyncFn: switchChainAsync,
+            chainName: selectedToken.chain,
+          });
+          
+          if (switchResult.success) {
+            if (switchResult.method === 'switched') {
+              toast.success(`Switched to ${selectedToken.chain}. Please click Confirm again.`);
+              return; // Exit so user can retry after chain switch
+            } else if (switchResult.method === 'manual-required') {
+              toast.warning(switchResult.message);
+              return;
+            }
+            // 'skipped' or 'already-on-chain' - continue with transaction
+          } else {
+            toast.error(switchResult.message);
+            return;
+          }
+        } catch (error) {
+          console.error("Network switch error:", error);
+          toast.error(`Please switch to ${selectedToken.chain} network to proceed.`);
+          return;
+        }
       }
     }
 
