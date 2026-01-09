@@ -14,7 +14,7 @@ interface ExtendedTx extends Tx {
   cryptoAmount: string;
   exchangeRate?: number;
   paymentMethod: string;
-  direction: 'Send' | 'Receive';
+  direction: "Send" | "Receive";
   processingTime?: string;
   receiptNumber?: string;
   invoiceId?: string;
@@ -28,7 +28,9 @@ interface FilterState {
   token: string[];
 }
 
-const TransactionList: FC<{ walletAddress: string | null }> = ({ walletAddress }) => {
+const TransactionList: FC<{ walletAddress: string | null }> = ({
+  walletAddress,
+}) => {
   if (!walletAddress) {
     return <p className="px-4">No wallet address provided</p>;
   }
@@ -43,7 +45,7 @@ const TransactionList: FC<{ walletAddress: string | null }> = ({ walletAddress }
     status: [],
     direction: [],
     paymentMethod: [],
-    token: []
+    token: [],
   });
 
   // Group transactions by date
@@ -68,15 +70,29 @@ const TransactionList: FC<{ walletAddress: string | null }> = ({ walletAddress }
     yesterday.setDate(yesterday.getDate() - 1);
 
     if (date.toDateString() === today.toDateString()) {
-      return "Today, " + date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+      return (
+        "Today, " +
+        date.toLocaleDateString("en-GB", {
+          day: "numeric",
+          month: "short",
+          year: "numeric",
+        })
+      );
     } else if (date.toDateString() === yesterday.toDateString()) {
-      return "Yesterday, " + date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+      return (
+        "Yesterday, " +
+        date.toLocaleDateString("en-GB", {
+          day: "numeric",
+          month: "short",
+          year: "numeric",
+        })
+      );
     } else {
-      return date.toLocaleDateString('en-GB', {
-        weekday: 'long',
-        day: 'numeric',
-        month: 'short',
-        year: 'numeric'
+      return date.toLocaleDateString("en-GB", {
+        weekday: "long",
+        day: "numeric",
+        month: "short",
+        year: "numeric",
       });
     }
   };
@@ -84,45 +100,69 @@ const TransactionList: FC<{ walletAddress: string | null }> = ({ walletAddress }
   useEffect(() => {
     const fetchTransactions = async () => {
       try {
-        const res = await axios.get<{ status: string; message: string; data: Order[] }>(`${process.env.NEXT_PUBLIC_API_URL}/orders/wallet`, {
+        // Use server-side API route to avoid exposing API key
+        const res = await axios.get<{
+          status: string;
+          message: string;
+          data: Order[];
+        }>(`/api/element-pay/orders/wallet`, {
           params: { wallet_address: walletAddress },
-          headers: {
-            "x-api-key": process.env.NEXT_PUBLIC_AGGR_API_KEY,
-          },
         });
 
         const mapped: ExtendedTx[] = res.data?.data?.map((order: Order) => {
           const createdDate = new Date(order.created_at);
-          const settlementDate = order.updated_at ? new Date(order.updated_at) : null;
+          const settlementDate = order.updated_at
+            ? new Date(order.updated_at)
+            : null;
 
           // Calculate processing time
           const processingTime = settlementDate
-            ? `${Math.round((settlementDate.getTime() - createdDate.getTime()) / 1000 / 60)}m`
+            ? `${Math.round(
+                (settlementDate.getTime() - createdDate.getTime()) / 1000 / 60
+              )}m`
             : undefined;
 
           return {
             id: order.order_id,
             name: order.order_type === 0 ? "OnRamp" : "OffRamp",
-            time: createdDate.toLocaleTimeString('en-US', {
-              hour: 'numeric',
-              minute: '2-digit',
-              hour12: true
+            time: createdDate.toLocaleTimeString("en-US", {
+              hour: "numeric",
+              minute: "2-digit",
+              hour12: true,
             }),
             date: formatDate(order.created_at),
             hash: order.settlement_transaction_hash
-              ? `${order.settlement_transaction_hash.slice(0, 10)}...${order.settlement_transaction_hash.slice(-6)}`
+              ? `${order.settlement_transaction_hash.slice(
+                  0,
+                  10
+                )}...${order.settlement_transaction_hash.slice(-6)}`
               : order.refund_transaction_hash
-                ? `${order.refund_transaction_hash.slice(0, 10)}...${order.refund_transaction_hash.slice(-6)}`
-                : order.creation_transaction_hash
-                  ? `${order.creation_transaction_hash.slice(0, 10)}...${order.creation_transaction_hash.slice(-6)}`
-                  : "—",
-            fullHash: order.settlement_transaction_hash || order.refund_transaction_hash || order.creation_transaction_hash || "—",
-            status: order.status === "refunded" ? "FAILED" : order.status.toUpperCase(),
-            description: order.receiver_name || order.phone_number
-              ? `To ${order.receiver_name || order.phone_number}`
-              : `Token: ${order.token}`,
+              ? `${order.refund_transaction_hash.slice(
+                  0,
+                  10
+                )}...${order.refund_transaction_hash.slice(-6)}`
+              : order.creation_transaction_hash
+              ? `${order.creation_transaction_hash.slice(
+                  0,
+                  10
+                )}...${order.creation_transaction_hash.slice(-6)}`
+              : "—",
+            fullHash:
+              order.settlement_transaction_hash ||
+              order.refund_transaction_hash ||
+              order.creation_transaction_hash ||
+              "—",
+            status:
+              order.status === "refunded"
+                ? "FAILED"
+                : order.status.toUpperCase(),
+            description:
+              order.receiver_name || order.phone_number
+                ? `To ${order.receiver_name || order.phone_number}`
+                : `Token: ${order.token}`,
             amount: `${order.amount_fiat.toFixed(2)} KES`,
-            receiverDisplay: order.receiver_name || order.phone_number || "Unknown",
+            receiverDisplay:
+              order.receiver_name || order.phone_number || "Unknown",
 
             // New enhanced fields
             tokenSymbol: order.token,
@@ -141,7 +181,10 @@ const TransactionList: FC<{ walletAddress: string | null }> = ({ walletAddress }
         mapped.sort((a, b) => {
           const bOrder = res.data.data.find((o: Order) => o.order_id === b.id);
           const aOrder = res.data.data.find((o: Order) => o.order_id === a.id);
-          return new Date(bOrder?.created_at || 0).getTime() - new Date(aOrder?.created_at || 0).getTime();
+          return (
+            new Date(bOrder?.created_at || 0).getTime() -
+            new Date(aOrder?.created_at || 0).getTime()
+          );
         });
 
         setTransactions(mapped);
@@ -157,10 +200,12 @@ const TransactionList: FC<{ walletAddress: string | null }> = ({ walletAddress }
 
   // Get unique filter options
   const getFilterOptions = () => {
-    const statuses = [...new Set(transactions.map(tx => tx.status))];
-    const directions = [...new Set(transactions.map(tx => tx.direction))];
-    const paymentMethods = [...new Set(transactions.map(tx => tx.paymentMethod))];
-    const tokens = [...new Set(transactions.map(tx => tx.tokenSymbol))];
+    const statuses = [...new Set(transactions.map((tx) => tx.status))];
+    const directions = [...new Set(transactions.map((tx) => tx.direction))];
+    const paymentMethods = [
+      ...new Set(transactions.map((tx) => tx.paymentMethod)),
+    ];
+    const tokens = [...new Set(transactions.map((tx) => tx.tokenSymbol))];
 
     return { statuses, directions, paymentMethods, tokens };
   };
@@ -168,9 +213,10 @@ const TransactionList: FC<{ walletAddress: string | null }> = ({ walletAddress }
   const { statuses, directions, paymentMethods, tokens } = getFilterOptions();
 
   // Filter transactions based on search term and filters
-  const filteredTransactions = transactions.filter(tx => {
+  const filteredTransactions = transactions.filter((tx) => {
     // Search filter
-    const matchesSearch = searchTerm === "" ||
+    const matchesSearch =
+      searchTerm === "" ||
       tx.receiverDisplay.toLowerCase().includes(searchTerm.toLowerCase()) ||
       tx.hash.toLowerCase().includes(searchTerm.toLowerCase()) ||
       tx.status.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -179,18 +225,30 @@ const TransactionList: FC<{ walletAddress: string | null }> = ({ walletAddress }
       tx.invoiceId?.toLowerCase().includes(searchTerm.toLowerCase());
 
     // Status filter
-    const matchesStatus = filters.status.length === 0 || filters.status.includes(tx.status);
+    const matchesStatus =
+      filters.status.length === 0 || filters.status.includes(tx.status);
 
     // Direction filter
-    const matchesDirection = filters.direction.length === 0 || filters.direction.includes(tx.direction);
+    const matchesDirection =
+      filters.direction.length === 0 ||
+      filters.direction.includes(tx.direction);
 
     // Payment method filter
-    const matchesPaymentMethod = filters.paymentMethod.length === 0 || filters.paymentMethod.includes(tx.paymentMethod);
+    const matchesPaymentMethod =
+      filters.paymentMethod.length === 0 ||
+      filters.paymentMethod.includes(tx.paymentMethod);
 
     // Token filter
-    const matchesToken = filters.token.length === 0 || filters.token.includes(tx.tokenSymbol);
+    const matchesToken =
+      filters.token.length === 0 || filters.token.includes(tx.tokenSymbol);
 
-    return matchesSearch && matchesStatus && matchesDirection && matchesPaymentMethod && matchesToken;
+    return (
+      matchesSearch &&
+      matchesStatus &&
+      matchesDirection &&
+      matchesPaymentMethod &&
+      matchesToken
+    );
   });
 
   // Calculate paginated transactions
@@ -209,11 +267,11 @@ const TransactionList: FC<{ walletAddress: string | null }> = ({ walletAddress }
 
   // Handle filter changes
   const handleFilterChange = (filterType: keyof FilterState, value: string) => {
-    setFilters(prev => ({
+    setFilters((prev) => ({
       ...prev,
       [filterType]: prev[filterType].includes(value)
-        ? prev[filterType].filter(item => item !== value)
-        : [...prev[filterType], value]
+        ? prev[filterType].filter((item) => item !== value)
+        : [...prev[filterType], value],
     }));
   };
 
@@ -223,12 +281,15 @@ const TransactionList: FC<{ walletAddress: string | null }> = ({ walletAddress }
       status: [],
       direction: [],
       paymentMethod: [],
-      token: []
+      token: [],
     });
   };
 
   // Get active filter count
-  const activeFilterCount = Object.values(filters).reduce((count, filterArray) => count + filterArray.length, 0);
+  const activeFilterCount = Object.values(filters).reduce(
+    (count, filterArray) => count + filterArray.length,
+    0
+  );
 
   if (loading) return <p className="px-4">Loading...</p>;
 
@@ -272,7 +333,8 @@ const TransactionList: FC<{ walletAddress: string | null }> = ({ walletAddress }
             {walletAddress.slice(0, 6)}...{walletAddress.slice(-4)}
           </span>
           <br />
-          Once you send or receive crypto via Element Pay, your activity will appear here.
+          Once you send or receive crypto via Element Pay, your activity will
+          appear here.
         </p>
         <button className="mt-4 px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition">
           Send your first payment
