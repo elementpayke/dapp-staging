@@ -84,45 +84,65 @@ const TransactionList: FC<{ walletAddress: string | null }> = ({ walletAddress }
   useEffect(() => {
     const fetchTransactions = async () => {
       try {
-        const res = await axios.get<{ status: string; message: string; data: Order[] }>(`${process.env.NEXT_PUBLIC_API_URL}/orders/wallet`, {
+        const res = await axios.get<{status: string; message: string; data: Order[];}>
+        (`/api/element-pay/orders/wallet`, {
           params: { wallet_address: walletAddress },
-          headers: {
-            "x-api-key": process.env.NEXT_PUBLIC_AGGR_API_KEY,
-          },
         });
 
         const mapped: ExtendedTx[] = res.data?.data?.map((order: Order) => {
           const createdDate = new Date(order.created_at);
-          const settlementDate = order.updated_at ? new Date(order.updated_at) : null;
+          const settlementDate = order.updated_at
+            ? new Date(order.updated_at)
+            : null;
 
           // Calculate processing time
           const processingTime = settlementDate
-            ? `${Math.round((settlementDate.getTime() - createdDate.getTime()) / 1000 / 60)}m`
+            ? `${Math.round(
+                (settlementDate.getTime() - createdDate.getTime()) / 1000 / 60
+              )}m`
             : undefined;
 
           return {
             id: order.order_id,
             name: order.order_type === 0 ? "OnRamp" : "OffRamp",
-            time: createdDate.toLocaleTimeString('en-US', {
-              hour: 'numeric',
-              minute: '2-digit',
-              hour12: true
+            time: createdDate.toLocaleTimeString("en-US", {
+              hour: "numeric",
+              minute: "2-digit",
+              hour12: true,
             }),
             date: formatDate(order.created_at),
             hash: order.settlement_transaction_hash
-              ? `${order.settlement_transaction_hash.slice(0, 10)}...${order.settlement_transaction_hash.slice(-6)}`
+              ? `${order.settlement_transaction_hash.slice(
+                  0,
+                  10
+                )}...${order.settlement_transaction_hash.slice(-6)}`
               : order.refund_transaction_hash
-                ? `${order.refund_transaction_hash.slice(0, 10)}...${order.refund_transaction_hash.slice(-6)}`
-                : order.creation_transaction_hash
-                  ? `${order.creation_transaction_hash.slice(0, 10)}...${order.creation_transaction_hash.slice(-6)}`
-                  : "—",
-            fullHash: order.settlement_transaction_hash || order.refund_transaction_hash || order.creation_transaction_hash || "—",
-            status: order.status === "refunded" ? "FAILED" : order.status.toUpperCase(),
-            description: order.receiver_name || order.phone_number
-              ? `To ${order.receiver_name || order.phone_number}`
-              : `Token: ${order.token}`,
+              ? `${order.refund_transaction_hash.slice(
+                  0,
+                  10
+                )}...${order.refund_transaction_hash.slice(-6)}`
+              : order.creation_transaction_hash
+              ? `${order.creation_transaction_hash.slice(
+                  0,
+                  10
+                )}...${order.creation_transaction_hash.slice(-6)}`
+              : "—",
+            fullHash:
+              order.settlement_transaction_hash ||
+              order.refund_transaction_hash ||
+              order.creation_transaction_hash ||
+              "—",
+            status:
+              order.status === "refunded"
+                ? "FAILED"
+                : order.status.toUpperCase(),
+            description:
+              order.receiver_name || order.phone_number
+                ? `To ${order.receiver_name || order.phone_number}`
+                : `Token: ${order.token}`,
             amount: `${order.amount_fiat.toFixed(2)} KES`,
-            receiverDisplay: order.receiver_name || order.phone_number || "Unknown",
+            receiverDisplay:
+              order.receiver_name || order.phone_number || "Unknown",
 
             // New enhanced fields
             tokenSymbol: order.token,
@@ -141,7 +161,10 @@ const TransactionList: FC<{ walletAddress: string | null }> = ({ walletAddress }
         mapped.sort((a, b) => {
           const bOrder = res.data.data.find((o: Order) => o.order_id === b.id);
           const aOrder = res.data.data.find((o: Order) => o.order_id === a.id);
-          return new Date(bOrder?.created_at || 0).getTime() - new Date(aOrder?.created_at || 0).getTime();
+          return (
+            new Date(bOrder?.created_at || 0).getTime() -
+            new Date(aOrder?.created_at || 0).getTime()
+          );
         });
 
         setTransactions(mapped);

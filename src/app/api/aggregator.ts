@@ -77,12 +77,6 @@ export const fetchTokenRates = async (currency: string = 'usdc'): Promise<{
       markup_percentage: number;
     }>(
       `${AGGREGATOR_URL}/rates?currency=${currency}`,
-      {
-        headers: {
-          'x-api-key': API_KEY || '',
-          'Content-Type': 'application/json',
-        },
-      }
     );
     return response.data;
   } catch (error) {
@@ -132,22 +126,17 @@ export const fetchAccountName = async (
   }
 };
 
-export const 
-
-
-fetchOrderStatus = async (
+export const fetchOrderStatus = async (
   orderId: string
 ): Promise<{ status: number; data: any }> => {
   try {
     console.log("Fetching order status for orderId:", orderId);
     console.log("*****************************************");
+    // Use internal server route to avoid exposing API key
     const response = await axios.get<{ status: number; data: any }>(
-      `${AGGREGATOR_URL}/orders/${orderId}`,
+      `/api/element-pay/orders/get`,
       {
-        headers: {
-          "x-api-key": process.env.NEXT_PUBLIC_AGGR_API_KEY,
-          "Content-Type": "application/json",
-        },
+        params: { orderId },
       }
     );
     console.log("Order status response:", response.data);
@@ -170,14 +159,12 @@ fetchOrderStatus = async (
   }
 };
 
-
-const api = axios.create({
-  baseURL: AGGREGATOR_URL,
+const clientApi = axios.create({
+  baseURL: "/api/element-pay",
   headers: {
-    'Content-Type': 'application/json',
-    'x-api-key': API_KEY || '',
+    "Content-Type": "application/json",
   },
-  timeout: 30000, // Increased to 30 seconds timeout for WXM orders
+  timeout: 30000,
 });
 
 // Retry logic for API calls with improved timeout handling
@@ -321,7 +308,7 @@ export const createOnRampOrder = async ({
   try {
     const startTime = Date.now();
     const response = await retryRequest(async () => {
-      const result = await api.post<CreateOrderResponse>('/orders/create', payload);
+      const result = await clientApi.post<CreateOrderResponse>('/orders/create', payload);
       return result;
     });
     const endTime = Date.now();
@@ -450,7 +437,7 @@ export const createOffRampOrder = async ({
     console.log("📤 Request payload:", JSON.stringify(payload, null, 2));
     
     const response = await retryRequest(async () => {
-      const result = await api.post<CreateOrderResponse>('/orders/create', payload);
+      const result = await clientApi.post<CreateOrderResponse>('/orders/create', payload);
       return result;
     });
     const endTime = Date.now();
@@ -536,7 +523,7 @@ export const fetchOrderQuote = async ({
     };
 
     console.log(" Fetching order quote with payload:", payload);
-    const response = await api.post<OrderQuoteResponse>("/quote/order", payload);
+    const response = await clientApi.post<OrderQuoteResponse>("/quote/order", payload);
     console.log(" Order quote response:", response.data);
     return response.data;
   } catch (error: any) {

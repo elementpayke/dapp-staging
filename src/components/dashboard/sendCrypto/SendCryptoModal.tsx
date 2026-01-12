@@ -564,30 +564,44 @@ const SendCryptoModal: React.FC = () => {
     const maxAttempts = 30; // Increased from 20 to give more time for M-Pesa receipt
     const delay = 3000;
     console.log("🔄 Starting order status polling for:", txHash);
-    
+
     while (attempts < maxAttempts) {
       try {
-        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/orders/tx/${txHash}`, {
-          headers: {
-            "x-api-key": apiKey,
-            "Content-Type": "application/json",
-          },
-        });
+        // Call server-side API route instead of Element Pay API directly
+        const res = await fetch(
+          `/api/element-pay/orders/status?txHash=${encodeURIComponent(txHash)}`
+        );
         const data = await res.json();
-        console.log(`📋 Poll attempt ${attempts + 1}/${maxAttempts} - Order status response:`, data);
-        
+        console.log(
+          `📋 Poll attempt ${
+            attempts + 1
+          }/${maxAttempts} - Order status response:`,
+          data
+        );
+
         // Check if we have order data
         if (data?.data) {
           const orderData = data.data;
           console.log("📋 Order data found:", orderData);
-          
+
           // Check for final states (settled or failed)
-          const isFinalState = orderData.status && ["SETTLED", "FAILED", "SETTLED_UNVERIFIED", "COMPLETED"].includes(orderData.status);
-          
+          const isFinalState =
+            orderData.status &&
+            ["SETTLED", "FAILED", "SETTLED_UNVERIFIED", "COMPLETED"].includes(
+              orderData.status
+            );
+
           // Also consider it successful if we have important receipt indicators
-          const hasReceiptNumber = !!(orderData.receipt_number || orderData.mpesa_receipt_number || orderData.file_id);
-          const hasTransactionHash = !!(orderData.transaction_hashes?.settlement || orderData.transaction_hashes?.creation);
-          
+          const hasReceiptNumber = !!(
+            orderData.receipt_number ||
+            orderData.mpesa_receipt_number ||
+            orderData.file_id
+          );
+          const hasTransactionHash = !!(
+            orderData.transaction_hashes?.settlement ||
+            orderData.transaction_hashes?.creation
+          );
+
           console.log("📋 Status check:", {
             status: orderData.status,
             isFinalState,
@@ -595,47 +609,61 @@ const SendCryptoModal: React.FC = () => {
             hasTransactionHash,
             receiptNumber: orderData.receipt_number,
             mpesaReceiptNumber: orderData.mpesa_receipt_number,
-            fileId: orderData.file_id
+            fileId: orderData.file_id,
           });
-          
-          if (isFinalState || (attempts > 10 && (hasReceiptNumber || hasTransactionHash))) {
+
+          if (
+            isFinalState ||
+            (attempts > 10 && (hasReceiptNumber || hasTransactionHash))
+          ) {
             console.log("✅ Final order status received:", orderData);
-            
+
             // More intelligent status determination
             let normalizedStatus = "SETTLED"; // Default to settled if we have receipts/hashes
-            
+
             // Only mark as failed if explicitly failed
-            if (orderData.status === "FAILED" || orderData.status === "REJECTED" || orderData.status === "CANCELLED") {
+            if (
+              orderData.status === "FAILED" ||
+              orderData.status === "REJECTED" ||
+              orderData.status === "CANCELLED"
+            ) {
               normalizedStatus = "FAILED";
             }
             // Consider it settled if we have receipt indicators or success statuses
             else if (
-              orderData.status === "SETTLED" || 
-              orderData.status === "COMPLETED" || 
+              orderData.status === "SETTLED" ||
+              orderData.status === "COMPLETED" ||
               orderData.status === "SETTLED_UNVERIFIED" ||
-              hasReceiptNumber || 
+              hasReceiptNumber ||
               hasTransactionHash
             ) {
               normalizedStatus = "SETTLED";
             }
-            
+
             console.log("📋 Status normalization:", {
               originalStatus: orderData.status,
               normalizedStatus,
               hasReceiptNumber,
-              hasTransactionHash
+              hasTransactionHash,
             });
-            
+
             return {
               ...orderData,
               // Use the more intelligent status determination
               status: normalizedStatus,
-              transaction_hash: orderData.transaction_hashes?.settlement || orderData.transaction_hashes?.creation || txHash,
-              receipt_number: orderData.mpesa_receipt_number || orderData.receipt_number || orderData.file_id || "",
+              transaction_hash:
+                orderData.transaction_hashes?.settlement ||
+                orderData.transaction_hashes?.creation ||
+                txHash,
+              receipt_number:
+                orderData.mpesa_receipt_number ||
+                orderData.receipt_number ||
+                orderData.file_id ||
+                "",
               receiver_name: orderData.receiver_name || "",
               mpesa_receipt_number: orderData.mpesa_receipt_number || "",
               created_at: orderData.created_at || new Date().toISOString(),
-              amount_fiat: orderData.amount_fiat
+              amount_fiat: orderData.amount_fiat,
             };
           }
         }
@@ -646,7 +674,11 @@ const SendCryptoModal: React.FC = () => {
       await new Promise((r) => setTimeout(r, delay));
       attempts++;
     }
-    console.log("❌ Order status polling timed out after", maxAttempts, "attempts");
+    console.log(
+      "❌ Order status polling timed out after",
+      maxAttempts,
+      "attempts"
+    );
     return null;
   };
 
