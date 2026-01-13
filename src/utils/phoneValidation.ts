@@ -83,9 +83,7 @@ export const formatKenyanPhoneNumber = (phoneNumber: string): string => {
  * Validates phone number (client-side only)
  */
 export const validatePhoneWithAPI = async (
-  phoneNumber: string, 
-  apiUrl?: string, 
-  apiKey?: string
+  phoneNumber: string
 ): Promise<PhoneValidationResult> => {
   // Use only client-side validation since phone validation endpoint is not in API docs
   return validateKenyanPhoneNumber(phoneNumber);

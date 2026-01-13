@@ -78,7 +78,6 @@ const SendCryptoModal: React.FC = () => {
   }>({ base: null, marked: null, markupPct: null, mode: 'Unknown', source: '', fallbackUsed: false });
   const [orderId, setOrderId] = useState("");
   const [showProcessingPopup, setShowProcessingPopup] = useState(false);
-  const [apiKey, setApiKey] = useState("");
   const [phoneValidation, setPhoneValidation] = useState<{ isValid: boolean; error?: string }>({ isValid: false });
   const [isValidatingPhone, setIsValidatingPhone] = useState(false);
   const [finalTransactionData, setFinalTransactionData] = useState<any>(null); // Store complete transaction data from API
@@ -157,7 +156,6 @@ const SendCryptoModal: React.FC = () => {
   useEffect(() => {
     setIsBrowser(true);
     // Set API key only on the client side
-    setApiKey(process.env.NEXT_PUBLIC_AGGR_API_KEY || "");
   }, []);
 
   // Fetch marked-up (or adjusted) exchange rate from Element Pay API
@@ -281,9 +279,7 @@ const SendCryptoModal: React.FC = () => {
       setIsValidatingPhone(true);
       
       const result = await validatePhoneWithAPI(
-        phoneNumber, 
-        process.env.NEXT_PUBLIC_API_URL, 
-        process.env.NEXT_PUBLIC_AGGR_API_KEY
+        phoneNumber
       );
       
       setPhoneValidation(result);

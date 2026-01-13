@@ -188,58 +188,83 @@ const DepositCryptoModal: React.FC = () => {
     }
   };
 
-const pollOrderStatusByTxHash = async (txHash: string) => {
-  if (!txHash) return;
+  const pollOrderStatusByTxHash = async (txHash: string) => {
+    if (!txHash) return;
 
-  const normalizedHash = txHash.startsWith("0x") ? txHash.slice(2) : txHash;
+    // Only continue polling if flag is still true
+    if (!continuePollingRef.current) return;
 
-  try {
-    const AGGREGATOR_URL = process.env.NEXT_PUBLIC_API_URL;
-    const response = await fetch(`${AGGREGATOR_URL}/orders/tx/${normalizedHash}`, {
-      headers: {
-        "x-api-key": process.env.NEXT_PUBLIC_AGGR_API_KEY!
-      }
-    });
+    try {
+      // Call the server-side route handler instead of directly calling the aggregator API
+      // This keeps the API key secure and server-side only
+      const response = await fetch(
+        `/api/orders/poll?txHash=${encodeURIComponent(txHash)}`
+      );
 
       if (response.status === 200) {
-        const orderData = (await response.json())?.data;
+        const responseData = await response.json();
+        const orderData = responseData?.data;
+
+        if (!orderData) {
+          console.error("No order data in response");
+          setTimeout(() => pollOrderStatusByTxHash(txHash), 3000);
+          return;
+        }
+
         const status = orderData.status?.toLowerCase();
         const txHashes = orderData.transaction_hashes || {};
-        const settlementHash = txHashes.settlement || txHashes.creation || txHash;
+        const settlementHash =
+          txHashes.settlement || txHashes.creation || txHash;
 
         const getUserFriendlyError = (reason: string) => {
           const errorMap: { [key: string]: string } = {
-            "Missing CheckoutRequestID in STK response.": "Invalid phone number. Please check and try again.",
-            "Rule limited.": "This payment was rejected because a similar one was just sent. Please wait a moment and try again.",
+            "Missing CheckoutRequestID in STK response.":
+              "Invalid phone number. Please check and try again.",
+            "Rule limited.":
+              "This payment was rejected because a similar one was just sent. Please wait a moment and try again.",
             // Add more mappings here as needed
           };
           return errorMap[reason] || reason;
         };
 
-      setTransactionReceipt({
-        orderId: orderData.order_id,
-        status,
-        reason: status === "failed" ? getUserFriendlyError(orderData.failure_reason || "") : "",
-        amount: orderData.amount_fiat,
-        amountCrypto: orderData.amount_fiat / (exchangeRate ?? 1), // Renamed from amountUSDC
-        transactionHash: settlementHash,
-        address: orderData.wallet_address,
-        phoneNumber: orderData.phone_number,
-      });
+        setTransactionReceipt({
+          orderId: orderData.order_id,
+          status,
+          reason:
+            status === "failed"
+              ? getUserFriendlyError(orderData.failure_reason || "")
+              : "",
+          amount: orderData.amount_fiat,
+          amountCrypto: orderData.amount_fiat / (exchangeRate ?? 1),
+          transactionHash: settlementHash,
+          address: orderData.wallet_address,
+          phoneNumber: orderData.phone_number,
+        });
 
-      if (status === "settled" || status === "failed") {
-        setIsTransactionModalOpen(false);
-        setIsReceiptModalOpen(true);
-        return;
+        if (status === "settled" || status === "failed") {
+          setIsTransactionModalOpen(false);
+          setIsReceiptModalOpen(true);
+          continuePollingRef.current = false;
+          return;
+        }
+      } else if (response.status === 202) {
+        // Still processing (pending)
+        console.log("Order still processing, continuing poll...");
+      } else {
+        console.error(`Polling failed with status ${response.status}`);
+      }
+
+      // Continue polling if still needed
+      if (continuePollingRef.current) {
+        setTimeout(() => pollOrderStatusByTxHash(txHash), 3000);
+      }
+    } catch (err) {
+      console.error("Polling order by tx hash failed", err);
+      if (continuePollingRef.current) {
+        toast.error("Could not verify order status. Try again.");
       }
     }
-
-    setTimeout(() => pollOrderStatusByTxHash(txHash), 3000);
-  } catch (err) {
-    console.error("Polling order by tx failed", err);
-    toast.error("Could not verify order status. Try again.");
-  }
-};
+  };
 
   useEffect(() => {
     fetchExchangeRate();

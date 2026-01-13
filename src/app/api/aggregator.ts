@@ -10,7 +10,7 @@ import type {
 
 const AGGREGATOR_URL = process.env.NEXT_PUBLIC_API_URL;
 const PROVIDER_ID = process.env.NEXT_PUBLIC_PROVIDER_ID;
-const API_KEY = process.env.NEXT_PUBLIC_AGGR_API_KEY;
+
 
 interface CreateOrderResponse {
   status: string;
@@ -203,7 +203,6 @@ export const checkApiHealth = async (): Promise<boolean> => {
     const response = await fetch(`${AGGREGATOR_URL}`, {
       method: 'GET',
       headers: {
-        'x-api-key': API_KEY || '',
         'Content-Type': 'application/json',
       },
       signal: AbortSignal.timeout(10000) // 10 second timeout
@@ -232,7 +231,6 @@ export const checkApiStatus = async (): Promise<{
     const response = await fetch(`${AGGREGATOR_URL}`, {
       method: 'GET',
       headers: {
-        'x-api-key': API_KEY || '',
         'Content-Type': 'application/json',
       },
       signal: AbortSignal.timeout(15000) // 15 second timeout
@@ -287,14 +285,13 @@ export const createOnRampOrder = async ({
   
   console.log("🚀 Creating onramp order with payload:", payload);
   console.log("🌐 API URL:", AGGREGATOR_URL);
-  console.log("🔑 API Key present:", !!API_KEY);
+
   
   // Quick connectivity check before proceeding
   try {
     const connectivityTest = await fetch(`${AGGREGATOR_URL}/orders/create`, {
       method: 'HEAD',
       headers: {
-        'x-api-key': API_KEY || '',
         'Content-Type': 'application/json',
       },
       signal: AbortSignal.timeout(5000) // 5 second timeout for connectivity test
@@ -429,7 +426,6 @@ export const createOffRampOrder = async ({
   
   console.log("🚀 Creating offramp order with payload:", payload);
   console.log("🌐 API URL:", AGGREGATOR_URL);
-  console.log("🔑 API Key present:", !!API_KEY);
   
   try {
     const startTime = Date.now();

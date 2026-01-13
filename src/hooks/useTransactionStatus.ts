@@ -51,7 +51,6 @@ export function useTransactionStatus({
         const response = await fetch(`http://167.71.190.23:8000/orders/${orderId}`, {
           method: "GET",
           headers: {
-            'x-api-key': process.env.NEXT_PUBLIC_AGGR_API_KEY || '', // or however you inject it
             "Content-Type": "application/json",
           },
         })
