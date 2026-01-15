@@ -9,7 +9,7 @@ import ProcessingPopup from "./processing-popup";
 import NetworkSwitchNotification from "@/components/ui/NetworkSwitchNotification";
 import { formatReceiverName } from "@/utils/helpers";
 
-import { parseUnits } from "viem";
+import { parseUnits, getContract, formatUnits } from "viem";
 import {
   useAccount,
   useWriteContract,
@@ -754,18 +754,6 @@ const SendCryptoModal: React.FC = () => {
       }
       
       if (validationError) {
-        console.error('Missing required order details:', {
-          user_address: account.address,
-          token: selectedToken.tokenAddress,
-          amount,
-          mobileNumber,
-          messageHash,
-          cashoutType,
-          paybillNumber,
-          accountNumber,
-          tillNumber,
-          error: validationError
-        });
         toast.error(validationError);
         setIsApproving(false);
         setIsProcessing(false);
@@ -785,7 +773,6 @@ const SendCryptoModal: React.FC = () => {
         status: 0, // Processing initially
       };
       
-      console.log("📋 Initial transaction receipt data:", initialReceiptData);
       setTransactionReciept((prev) => ({
         ...prev,
         ...initialReceiptData
@@ -816,7 +803,7 @@ const SendCryptoModal: React.FC = () => {
         if (quoteResponse.status === "success" && quoteResponse.data) {
           const quoteData = quoteResponse.data;
           // Convert raw amount (smallest units) to standard units string
-          const tokenConfig = getTokenConfig(selectedToken.tokenAddress);
+          const tokenConfig = await getTokenConfig(selectedToken.tokenAddress);
           const decimals = tokenConfig?.decimals || 6;
           // required_token_amount_raw is already in smallest units, convert to standard units
           requiredApprovalAmount = (quoteData.required_token_amount_raw / Math.pow(10, decimals)).toFixed(decimals);
@@ -835,7 +822,7 @@ const SendCryptoModal: React.FC = () => {
 
       // 2. Approve token if needed (MetaMask popup #1)
       const spender = contractAddress;
-      const tokenConfig = getTokenConfig(selectedToken.tokenAddress);
+      const tokenConfig = await getTokenConfig(selectedToken.tokenAddress);
       const decimals = tokenConfig?.decimals || 6;
       
       if (!hasSufficientAllowance) {
@@ -848,6 +835,30 @@ const SendCryptoModal: React.FC = () => {
           toast.error("Token approval failed. Cannot proceed with order creation.");
           return;
         }
+        if (publicClient) {
+                  const newAllowance = (await publicClient.readContract({
+                    address: selectedToken.tokenAddress as `0x${string}`,
+                    abi: erc20Abi,
+                    functionName: "allowance",
+                    args: [account.address as `0x${string}`, spender as `0x${string}`],
+                  })) as bigint;
+        
+                  // Use formatUnits instead of integer division to preserve decimals
+                  const newAllowanceFormatted = formatUnits(newAllowance, decimals);
+                  console.log(
+                    `Post-approval allowance: ${newAllowanceFormatted} (raw: ${newAllowance.toString()})`
+                  );
+        
+                  if (Number(newAllowanceFormatted) < Number(requiredApprovalAmount)) {
+                    toast.error(
+                      "Approval confirmed but allowance not updated yet. Please wait and try again."
+                    );
+                    setShowProcessingPopup(false);
+                    setIsApproving(false);
+                    setIsProcessing(false);
+                    return;
+                  }
+          }
       }
 
       // Validate messageHash before proceeding
