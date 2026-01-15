@@ -6,9 +6,9 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { WagmiProvider } from "wagmi";
 import { base } from "wagmi/chains";
 import { wagmiConfig } from "@/lib/wagmi-config";
-
+import { useWalletStore } from "@/lib/useWallet";
 import LogoImage from "@/assets/logo.png";
-
+import { useEffect } from "react";
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -23,6 +23,13 @@ const queryClient = new QueryClient({
     },
   },
 });
+// Hydration component for Zustand store
+function StoreHydration() {
+  useEffect(() => {
+    useWalletStore.persist.rehydrate();
+  }, []);
+  return null;
+}
 
 /**
  * Providers wrapper for the application
@@ -38,6 +45,7 @@ export function Providers(props: { children: ReactNode }) {
   return (
     <WagmiProvider config={wagmiConfig}>
       <QueryClientProvider client={queryClient}>
+        <StoreHydration />
         <OnchainKitProvider
           apiKey={process.env.NEXT_PUBLIC_ONCHAINKIT_API_KEY}
           chain={base} // Default chain for OnchainKit UI components
