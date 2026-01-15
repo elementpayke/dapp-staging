@@ -1,4 +1,4 @@
-import { http, createConfig } from 'wagmi';
+import { http, createConfig,noopStorage } from 'wagmi';
 import { base, arbitrum } from 'wagmi/chains';
 import { coinbaseWallet, metaMask, injected } from 'wagmi/connectors';
 import type { Chain } from 'wagmi/chains';
@@ -160,7 +160,7 @@ export const wagmiConfig = createConfig({
     [arbitrum.id]: http('https://arb1.arbitrum.io/rpc'),
   },
   ssr: true,
-  storage: null, // Disable storage to prevent hydration issues
+  storage: noopStorage, // Disable storage to prevent hydration issues
 });
 
 // Rate limit handler

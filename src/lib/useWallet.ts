@@ -11,6 +11,9 @@ interface WalletState {
   disconnectWallet: () => void;
   setWalletData: (address: string | null, isConnected: boolean) => void;
   setUsdcBalance: (balance: number) => void;
+  setConnected: (connected: boolean) => void;
+  setAddress: (address: string | null) => void;
+  disconnect: () => void;
 }
 
 export const useWalletStore = create<WalletState>()(
@@ -40,14 +43,14 @@ export const useWalletStore = create<WalletState>()(
       setWalletData: (address: string | null, isConnected: boolean) =>
         set({ address, isConnected }),
       setUsdcBalance: (balance: number) => set({ usdcBalance: balance }),
+      setConnected: (connected) => set({ isConnected: connected }),
+      setAddress: (address) => set({ address }),
+      disconnect: () => set({ isConnected: false, address: null }),
     }),
     {
       name: "wallet-storage",
       storage: createJSONStorage(() => localStorage),
-      partialize: (state) => ({
-        isConnected: state.isConnected,
-        address: state.address,
-      }),
+      skipHydration: true, // This enables manual rehydration
     }
   )
 );
