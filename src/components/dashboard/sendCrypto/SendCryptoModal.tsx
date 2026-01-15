@@ -51,6 +51,15 @@ interface TransactionReceipt {
   transactionHash: string;
 }
 
+interface QuoteValidation {
+  isValidating: boolean;
+  isValid: boolean;
+  error: string | null;
+  requiredAmount: number | null;
+  availableBalance: number | null;
+  hasSufficientBalance: boolean | null;
+}
+
 const SendCryptoModal: React.FC = () => {
   const [selectedToken, setSelectedToken] = useState<SupportedToken>(
     SUPPORTED_TOKENS[0]
@@ -90,6 +99,14 @@ const SendCryptoModal: React.FC = () => {
     error?: string;
   }>({ isValid: false });
   const [isValidatingPhone, setIsValidatingPhone] = useState(false);
+  const [quoteValidation, setQuoteValidation] = useState<QuoteValidation>({
+  isValidating: false,
+  isValid: false,
+  error: null,
+  requiredAmount: null,
+  availableBalance: null,
+  hasSufficientBalance: null,
+});
   const [finalTransactionData, setFinalTransactionData] = useState<any>(null); // Store complete transaction data from API
   const [isPollingComplete, setIsPollingComplete] = useState(false); // Flag to indicate polling is done
 
@@ -125,6 +142,11 @@ const SendCryptoModal: React.FC = () => {
 
   // Keep but don't directly use this state to preserve the component structure
   const [, setCashoutType] = useState<"PHONE" | "PAYBILL" | "TILL">("PHONE");
+
+  const account = useAccount();
+  const { connector } = account;
+  const { writeContractAsync } = useWriteContract();
+  const { data: walletClient } = useWalletClient();
 
   // Network switch notification helper functions
   const showNetworkSwitchNotification = (
@@ -361,6 +383,129 @@ const SendCryptoModal: React.FC = () => {
     }
   };
 
+  const validateAmountWithQuote = useCallback(async () => {
+  // Reset validation state
+  setQuoteValidation({
+    isValidating: false,
+    isValid: false,
+    error: null,
+    requiredAmount: null,
+    availableBalance: null,
+    hasSufficientBalance: null,
+  });
+
+  // Basic validations first
+  const amountNum = Number.parseFloat(amount);
+  
+  // Check if amount is empty or zero
+  if (!amount || amount.trim() === "") {
+    setQuoteValidation(prev => ({
+      ...prev,
+      error: "Please enter an amount",
+      isValid: false,
+    }));
+    return;
+  }
+
+  // Check if amount is numeric
+  if (isNaN(amountNum)) {
+    setQuoteValidation(prev => ({
+      ...prev,
+      error: "Amount must be a valid number",
+      isValid: false,
+    }));
+    return;
+  }
+
+  // Check minimum amount (10 KES)
+  if (amountNum < 10) {
+    setQuoteValidation(prev => ({
+      ...prev,
+      error: "Minimum amount is 10 KES",
+      isValid: false,
+    }));
+    return;
+  }
+
+  // Need wallet address to fetch quote
+  if (!account.address) {
+    setQuoteValidation(prev => ({
+      ...prev,
+      error: "Please connect your wallet",
+      isValid: false,
+    }));
+    return;
+  }
+
+  // Fetch quote to get exact required amount
+  try {
+    setQuoteValidation(prev => ({ ...prev, isValidating: true }));
+
+    const quoteResponse = await fetchOrderQuote({
+      amountFiat: amountNum,
+      tokenAddress: selectedToken.tokenAddress,
+      walletAddress: account.address,
+      orderType: 1, // OffRamp
+      currency: "KES",
+    });
+
+    if (quoteResponse.status === "success" && quoteResponse.data) {
+      const quoteData = quoteResponse.data;
+      const tokenConfig = getTokenConfig(selectedToken.tokenAddress);
+      const decimals = tokenConfig?.decimals || 6;
+      
+      // Convert from raw units to standard units
+      const requiredTokenAmount = quoteData.required_token_amount_raw / Math.pow(10, decimals);
+      const currentBalance = quoteData.current_balance_raw 
+        ? quoteData.current_balance_raw / Math.pow(10, decimals)
+        : selectedTokenBalance;
+
+      const hasSufficientBalance = quoteData.has_sufficient_balance ?? (currentBalance >= requiredTokenAmount);
+
+      console.log("💰 Quote validation:", {
+        requiredTokenAmount,
+        currentBalance,
+        hasSufficientBalance,
+        amountKES: amountNum,
+      });
+
+      if (!hasSufficientBalance) {
+        setQuoteValidation({
+          isValidating: false,
+          isValid: false,
+          error: `Insufficient balance. Required: ${requiredTokenAmount.toFixed(6)} ${selectedToken.symbol}, Available: ${currentBalance.toFixed(6)} ${selectedToken.symbol}`,
+          requiredAmount: requiredTokenAmount,
+          availableBalance: currentBalance,
+          hasSufficientBalance: false,
+        });
+        return;
+      }
+
+      // All validations passed
+      setQuoteValidation({
+        isValidating: false,
+        isValid: true,
+        error: null,
+        requiredAmount: requiredTokenAmount,
+        availableBalance: currentBalance,
+        hasSufficientBalance: true,
+      });
+    } else {
+      throw new Error("Failed to get quote from API");
+    }
+  } catch (error: any) {
+    console.error("Quote validation error:", error);
+    setQuoteValidation({
+      isValidating: false,
+      isValid: false,
+      error: error?.response?.data?.message || error?.message || "Failed to validate amount. Please try again.",
+      requiredAmount: null,
+      availableBalance: null,
+      hasSufficientBalance: null,
+    });
+  }
+}, [amount, selectedToken, account.address, selectedTokenBalance]);
+
   // Validate phone number when user stops typing (debounced)
   useEffect(() => {
     if (!mobileNumber) {
@@ -380,6 +525,27 @@ const SendCryptoModal: React.FC = () => {
 
     return () => clearTimeout(timeoutId);
   }, [mobileNumber]);
+
+  // Validate amount with quote when amount changes (debounced)
+  useEffect(() => {
+  if (!amount || !account.address) {
+    setQuoteValidation({
+      isValidating: false,
+      isValid: false,
+      error: null,
+      requiredAmount: null,
+      availableBalance: null,
+      hasSufficientBalance: null,
+    });
+    return;
+  }
+
+  const timeoutId = setTimeout(() => {
+    validateAmountWithQuote();
+  }, 800); // Debounce for 800ms
+
+  return () => clearTimeout(timeoutId);
+}, [amount, selectedToken, account.address, validateAmountWithQuote]);
 
   // Define transactionSummary BEFORE any code that references it
   const transactionSummary = useMemo(() => {
@@ -418,36 +584,41 @@ const SendCryptoModal: React.FC = () => {
     };
   }, [amount, exchangeRate, selectedTokenBalance]);
 
+
   // Helper function to check if the form is valid for the current payment method
-  const isFormValid = useCallback(() => {
-    const cashoutType = getCashoutType();
+const isFormValid = useCallback(() => {
+  const cashoutType = getCashoutType();
 
-    // Common validations
-    if (!amount || Number.parseFloat(amount) < 10) return false;
-    if (transactionSummary.totalUSDC <= 0) return false;
+  // Amount validations (basic + quote)
+  if (!amount || Number.parseFloat(amount) < 10) return false;
+  if (quoteValidation.isValidating) return false; // Don't allow submission while validating
+  if (!quoteValidation.isValid) return false; // Must pass quote validation
+  if (transactionSummary.totalUSDC <= 0) return false;
 
-    // Payment method specific validations
-    switch (cashoutType) {
-      case "PHONE":
-        return phoneValidation.isValid && !isValidatingPhone && mobileNumber;
-      case "PAYBILL":
-        return paybillNumber && accountNumber;
-      case "TILL":
-        return tillNumber;
-      default:
-        return false;
-    }
-  }, [
-    getCashoutType,
-    amount,
-    transactionSummary.totalUSDC,
-    phoneValidation.isValid,
-    isValidatingPhone,
-    mobileNumber,
-    paybillNumber,
-    accountNumber,
-    tillNumber,
-  ]);
+  // Payment method specific validations
+  switch (cashoutType) {
+    case "PHONE":
+      return phoneValidation.isValid && !isValidatingPhone && mobileNumber;
+    case "PAYBILL":
+      return paybillNumber && accountNumber;
+    case "TILL":
+      return tillNumber;
+    default:
+      return false;
+  }
+}, [
+  getCashoutType,
+  amount,
+  quoteValidation.isValidating,
+  quoteValidation.isValid,
+  transactionSummary.totalUSDC,
+  phoneValidation.isValid,
+  isValidatingPhone,
+  mobileNumber,
+  paybillNumber,
+  accountNumber,
+  tillNumber,
+]);
 
   // Now we can safely reference transactionSummary in useEffect
   useEffect(() => {
@@ -502,10 +673,7 @@ const SendCryptoModal: React.FC = () => {
     tillNumber,
   ]);
 
-  const account = useAccount();
-  const { connector } = account; // Get the current connector for smart wallet detection
-  const { writeContractAsync } = useWriteContract();
-  const { data: walletClient } = useWalletClient(); // Get wallet client for signing
+
   // Map chain names to their contract addresses from env
   const CONTRACT_ADDRESS_MAP: Record<string, string> = {
     Base: process.env.NEXT_PUBLIC_CONTRACT_ADDRESS_BASE!,
@@ -1380,11 +1548,13 @@ const SendCryptoModal: React.FC = () => {
                       ? handleApproveToken
                       : undefined
                   }
-                  disabled={isApproving || !isFormValid()}
+                  disabled={isApproving || !isFormValid() || quoteValidation.isValidating}
                   type="button"
                   className="w-full py-3 bg-gradient-to-r from-blue-600 to-red-600 text-white rounded-full font-medium hover:opacity-90 transition-opacity disabled:opacity-50"
                 >
-                  {isApproving
+                  {quoteValidation.isValidating
+                    ? "Validating amount..."
+                    : isApproving
                     ? "Approving..."
                     : isValidatingPhone
                     ? "Validating..."
@@ -1438,6 +1608,22 @@ const SendCryptoModal: React.FC = () => {
                     </span>
                   </div>
                 </div>
+                {quoteValidation.error && !quoteValidation.isValidating && (
+                   <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
+                    <p className="text-sm text-red-600 font-medium">
+                      ⚠️ {quoteValidation.error}
+                   </p>
+                 </div>
+                )}
+
+                {quoteValidation.isValidating && (
+                  <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                    <p className="text-sm text-blue-600 font-medium flex items-center gap-2">
+                      <span className="animate-spin">⏳</span>
+                      Validating amount...
+                    </p>
+                  </div>
+                )}
 
                 {/* Desktop Confirm Button */}
                 <div className="hidden lg:block mb-4">
@@ -1483,6 +1669,37 @@ const SendCryptoModal: React.FC = () => {
                     </div>
                   </div>
                 </div>
+                {quoteValidation.requiredAmount && quoteValidation.availableBalance && (
+                  <div className="bg-white border border-gray-200 p-3 rounded-lg mt-3">
+                    <div className="text-gray-600 mb-2 text-xs font-medium uppercase tracking-wider">
+                      Balance Check
+                    </div>
+                    <div className="space-y-2">
+                      <div className="flex justify-between items-center">
+                        <span className="text-gray-600 text-sm">Required</span>
+                        <span className="text-gray-900 font-medium text-sm">
+                          {quoteValidation.requiredAmount.toFixed(6)} {selectedToken.symbol}
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-gray-600 text-sm">Available</span>
+                        <span className={`font-medium text-sm ${
+                          quoteValidation.hasSufficientBalance 
+                            ? 'text-green-600' 
+                            : 'text-red-600'
+                        }`}>
+                          {quoteValidation.availableBalance.toFixed(6)} {selectedToken.symbol}
+                        </span>
+                      </div>
+                      {quoteValidation.hasSufficientBalance && (
+                        <div className="flex items-center gap-1 text-green-600 text-xs mt-1">
+                          <span>✓</span>
+                          <span>Sufficient balance</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           </div>
