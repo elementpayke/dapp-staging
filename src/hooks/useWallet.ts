@@ -1,6 +1,6 @@
 import { useWalletStore } from "@/lib/useWallet";
 import { useEffect, useCallback } from "react";
-import { useAccount, useEnsName, useBalance } from "wagmi";
+import { useAccount, useEnsName, useBalance, useDisconnect } from "wagmi";
 import { withRetry } from "@/lib/wagmi-config";
 
 export const useWallet = () => {
@@ -14,7 +14,8 @@ export const useWallet = () => {
       }
     }
   });
-  
+  const { disconnect: wagmiDisconnect } = useDisconnect();
+  const { disconnect: storeDisconnect } = useWalletStore();
   const { data: usdcBalanceData, refetch: fetchUSDCBalance } = useBalance({
     address: wagmiAddress,
     token: `${process.env.NEXT_PUBLIC_USDC_ADDRESS}` as `0x${string}`,
@@ -39,8 +40,10 @@ export const useWallet = () => {
         return result;
       });
     } catch (error: any) {
-      console.warn('Failed to fetch USDC balance after retries:', error?.message);
-      // Don't throw the error, just log it to prevent UI breaking
+      console.warn(
+        "Failed to fetch USDC balance after retries:",
+        error?.message
+      );
     }
   }, [fetchUSDCBalance]);
 
@@ -71,10 +74,21 @@ export const useWallet = () => {
     }
   }, []);
 
+  const disconnect = () => {
+    wagmiDisconnect();
+    storeDisconnect();
+
+    if (typeof window !== "undefined") {
+      localStorage.removeItem("wallet-storage");
+    }
+  };
+
   return {
     ...store,
     ensName: ensName || null,
     fetchUSDCBalance: fetchBalanceWithRetry,
+    disconnect,
+    disconnectWallet: disconnect,
     connectWallet,
   };
 };

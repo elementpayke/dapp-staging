@@ -24,8 +24,8 @@ export const metadata: Metadata = {
   },
   icons: {
     icon: '/favicon.ico',
-    shortcut: '/favicon-16x16.png',
-    apple: '/apple-touch-icon.png',
+    shortcut: '/logo.png',
+    apple: '/logo.png',
   },
   description:
     "Use your crypto for everyday purchases with ElementPay. Make instant payments, and connect all your wallets in one place.",

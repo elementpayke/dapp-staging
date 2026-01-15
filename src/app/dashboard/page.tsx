@@ -19,7 +19,7 @@ type PageComponent =
   | "support-email";
 
 export default function Dashboard() {
-  const { isConnected, ensName, address, disconnectWallet } = useWallet();
+  const { isConnected, ensName, address, disconnectWallet, disconnect } =useWallet();
   const [currentPage, setCurrentPage] = useState<PageComponent>("overview");
   const [showDropdown, setShowDropdown] = useState(false);
 
@@ -44,7 +44,7 @@ export default function Dashboard() {
   };
 
   const handleDisconnect = () => {
-    disconnectWallet();
+    disconnect();
     setShowDropdown(false);
     window.location.reload();
   };
