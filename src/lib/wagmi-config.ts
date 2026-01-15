@@ -1,7 +1,17 @@
-import { http, createConfig,noopStorage } from 'wagmi';
+import { http, createConfig } from 'wagmi';
 import { base, arbitrum } from 'wagmi/chains';
 import { coinbaseWallet, metaMask, injected } from 'wagmi/connectors';
 import type { Chain } from 'wagmi/chains';
+import { createStorage } from 'wagmi';
+
+// Custom noop storage to prevent hydration issues
+const noopStorage = createStorage({
+  storage: {
+    getItem: () => null,
+    setItem: () => {},
+    removeItem: () => {},
+  },
+});
 
 // Multiple RPC endpoints for fallback
 const baseRpcUrls = [
