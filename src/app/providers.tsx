@@ -15,7 +15,10 @@ const queryClient = new QueryClient({
     queries: {
       retry: (failureCount, error: any) => {
         // Don't retry on rate limit errors immediately
-        if (error?.code === -32005 || error?.message?.includes('Too Many Requests')) {
+        if (
+          error?.code === -32005 ||
+          error?.message?.includes("Too Many Requests")
+        ) {
           return failureCount < 2;
         }
         return failureCount < 3;
@@ -37,7 +40,7 @@ function StoreHydration() {
 
 /**
  * Providers wrapper for the application
- * 
+ *
  * Note: OnchainKitProvider's chain prop is the "default" chain for the UI,
  * but our app supports multiple chains (Base, Lisk, Scroll, Arbitrum).
  * The actual chain used for transactions is determined by:
