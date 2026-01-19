@@ -13,6 +13,80 @@ const noopStorage = createStorage({
   },
 });
 
+/**
+ * Create a storage that syncs across tabs using localStorage
+ * but returns null on server to prevent hydration mismatches
+ */
+const createCrossTabStorage = () => {
+  // Check if we're in a browser environment
+  const isBrowser = typeof window !== 'undefined';
+  
+  return createStorage({
+    storage: {
+      getItem: (key: string) => {
+        if (!isBrowser) return null;
+        try {
+          return window.localStorage.getItem(key);
+        } catch {
+          return null;
+        }
+      },
+      setItem: (key: string, value: string) => {
+        if (!isBrowser) return;
+        try {
+          window.localStorage.setItem(key, value);
+          // Note: localStorage automatically dispatches storage events to OTHER tabs
+        } catch {
+          // Ignore storage errors (e.g., quota exceeded)
+        }
+      },
+      removeItem: (key: string) => {
+        if (!isBrowser) return;
+        try {
+          window.localStorage.removeItem(key);
+        } catch {
+          // Ignore storage errors
+        }
+      },
+    },
+  });
+};
+
+// Use cross-tab storage for wallet session persistence
+const crossTabStorage = createCrossTabStorage();
+
+/**
+ * Safely get the ethereum provider without triggering conflicts
+ * This handles the case where multiple wallet extensions compete for window.ethereum
+ */
+const safeGetEthereum = (): any | undefined => {
+  if (typeof window === 'undefined') return undefined;
+  
+  try {
+    // Use Object.getOwnPropertyDescriptor to safely check the property
+    const descriptor = Object.getOwnPropertyDescriptor(window, 'ethereum');
+    
+    if (descriptor) {
+      // If it's a getter, call it safely
+      if (descriptor.get) {
+        try {
+          return descriptor.get.call(window);
+        } catch {
+          return undefined;
+        }
+      }
+      // If it's a value property, return it
+      return descriptor.value;
+    }
+    
+    // Fallback: try direct access with error handling
+    return (window as any).ethereum;
+  } catch (error) {
+    console.warn('Error accessing window.ethereum:', error);
+    return undefined;
+  }
+};
+
 // Multiple RPC endpoints for fallback
 const baseRpcUrls = [
   process.env.NEXT_PUBLIC_BASE_RPC_URL || 'https://mainnet.base.org',
@@ -92,13 +166,36 @@ const EXCLUDED_WALLET_IDS = [
 const shouldExcludeProvider = (provider: any): boolean => {
   if (!provider) return false;
   
-  const providerInfo = provider.providerInfo || {};
-  const name = (providerInfo.name || provider.name || '').toLowerCase();
-  const rdns = (providerInfo.rdns || '').toLowerCase();
+  try {
+    const providerInfo = provider.providerInfo || {};
+    const name = (providerInfo.name || provider.name || '').toLowerCase();
+    const rdns = (providerInfo.rdns || '').toLowerCase();
+    
+    return EXCLUDED_WALLET_IDS.some(id => 
+      name.includes(id) || rdns.includes(id)
+    );
+  } catch {
+    return false;
+  }
+};
+
+/**
+ * Get providers from EIP-6963 discovery if available
+ * This is the modern standard for multi-wallet support
+ */
+const getEIP6963Providers = (): any[] => {
+  if (typeof window === 'undefined') return [];
   
-  return EXCLUDED_WALLET_IDS.some(id => 
-    name.includes(id) || rdns.includes(id)
-  );
+  try {
+    // Check for EIP-6963 provider store (used by modern wallets)
+    const providerStore = (window as any).ethereum?.providers;
+    if (Array.isArray(providerStore)) {
+      return providerStore;
+    }
+    return [];
+  } catch {
+    return [];
+  }
 };
 
 /**
@@ -126,40 +223,60 @@ export const wagmiConfig = createConfig({
         name: 'ElementPay',
         url: 'https://elementpay.net',
       },
+      preferDesktop: true,
     }),
     // Generic injected connector with filtering
     // This catches other wallets but excludes problematic ones
     injected({
       target: () => {
-        if (typeof window === 'undefined') return undefined;
-        
-        const ethereum = window.ethereum;
+        // Use safe getter to avoid conflicts between wallet extensions
+        const ethereum = safeGetEthereum();
         if (!ethereum) return undefined;
         
-        // If it's a provider array (EIP-5749), filter out excluded wallets
-        if (ethereum.providers) {
-          const validProvider = ethereum.providers.find(
-            (p: any) => !shouldExcludeProvider(p)
-          );
-          if (validProvider) {
-            return {
-              id: 'injected',
-              name: 'Injected Wallet',
-              provider: validProvider,
-            };
+        try {
+          // First try EIP-6963 providers (modern multi-wallet standard)
+          const eip6963Providers = getEIP6963Providers();
+          if (eip6963Providers.length > 0) {
+            const validProvider = eip6963Providers.find(
+              (p: any) => !shouldExcludeProvider(p)
+            );
+            if (validProvider) {
+              return {
+                id: 'injected',
+                name: validProvider.providerInfo?.name || 'Injected Wallet',
+                provider: validProvider,
+              };
+            }
           }
-        }
-        
-        // Single provider - check if it should be excluded
-        if (shouldExcludeProvider(ethereum)) {
+          
+          // If it's a provider array (EIP-5749), filter out excluded wallets
+          if (ethereum.providers && Array.isArray(ethereum.providers)) {
+            const validProvider = ethereum.providers.find(
+              (p: any) => !shouldExcludeProvider(p)
+            );
+            if (validProvider) {
+              return {
+                id: 'injected',
+                name: 'Injected Wallet',
+                provider: validProvider,
+              };
+            }
+          }
+          
+          // Single provider - check if it should be excluded
+          if (shouldExcludeProvider(ethereum)) {
+            return undefined;
+          }
+          
+          return {
+            id: 'injected',
+            name: 'Browser Wallet',
+            provider: ethereum,
+          };
+        } catch (error) {
+          console.warn('Error detecting injected wallet:', error);
           return undefined;
         }
-        
-        return {
-          id: 'injected',
-          name: 'Browser Wallet',
-          provider: ethereum,
-        };
       },
     }),
   ],
@@ -170,7 +287,7 @@ export const wagmiConfig = createConfig({
     [arbitrum.id]: http('https://arb1.arbitrum.io/rpc'),
   },
   ssr: true,
-  storage: noopStorage, // Disable storage to prevent hydration issues
+  storage: crossTabStorage, // Use cross-tab storage for session persistence across tabs
 });
 
 // Rate limit handler

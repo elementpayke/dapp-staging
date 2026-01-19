@@ -9,6 +9,7 @@ import { wagmiConfig } from "@/lib/wagmi-config";
 import { useWalletStore } from "@/lib/useWallet";
 import LogoImage from "@/assets/logo.png";
 import { useEffect } from "react";
+
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -20,9 +21,12 @@ const queryClient = new QueryClient({
         return failureCount < 3;
       },
       retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
+      // Add staleTime to reduce unnecessary refetches across tabs
+      staleTime: 1000 * 60, // 1 minute
     },
   },
 });
+
 // Hydration component for Zustand store
 function StoreHydration() {
   useEffect(() => {

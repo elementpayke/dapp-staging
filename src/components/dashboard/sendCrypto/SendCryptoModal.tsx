@@ -50,6 +50,14 @@ interface TransactionReceipt {
   status: number;
   transactionHash: string;
 }
+interface QuoteValidation {
+  isValidating: boolean;
+  isValid: boolean;
+  error: string | null;
+  requiredAmount: number | null;
+  availableBalance: number | null;
+  hasSufficientBalance: boolean | null;
+}
 
 const SendCryptoModal: React.FC = () => {
   const [selectedToken, setSelectedToken] = useState<SupportedToken>(
@@ -109,6 +117,14 @@ const SendCryptoModal: React.FC = () => {
   >(() => () => { });
   const [modalMode, setModalMode] = useState<"confirm" | "error">("confirm");
   const [isMainDialogOpen, setIsMainDialogOpen] = useState(false);
+  const [quoteValidation, setQuoteValidation] = useState<QuoteValidation>({
+  isValidating: false,
+  isValid: false,
+  error: null,
+  requiredAmount: null,
+  availableBalance: null,
+  hasSufficientBalance: null,
+  });
 
   // Keep but don't directly use this state to preserve the component structure
   const [, setCashoutType] = useState<"PHONE" | "PAYBILL" | "TILL">("PHONE");
@@ -1015,6 +1031,10 @@ const SendCryptoModal: React.FC = () => {
       toast.error("Please connect your wallet first");
       return;
     }
+    if (Number.parseFloat(amount) < 10) {
+      toast.error("Minimum transaction amount is 10 KES");
+      return;
+    }
     if (Number.parseFloat(amount) <= 0) {
       toast.error("Amount must be greater than zero");
       return;
@@ -1182,16 +1202,12 @@ const SendCryptoModal: React.FC = () => {
               {/* Mobile Confirm Button - Only shown on small screens */}
               <div className="block lg:hidden pt-4">
                 <button
-                  onClick={
-                    Number.parseFloat(amount) >= 10
-                      ? handleApproveToken
-                      : undefined
-                  }
-                  disabled={isApproving || !isFormValid()}
+                  onClick={handleApproveToken}
+                  disabled={isApproving || !isFormValid() || Number.parseFloat(amount) < 10}
                   type="button"
                   className="w-full py-3 bg-gradient-to-r from-blue-600 to-red-600 text-white rounded-full font-medium hover:opacity-90 transition-opacity disabled:opacity-50"
                 >
-                  {isApproving ? "Approving..." : isValidatingPhone ? "Validating..." : "Confirm Payment"}
+                  {isApproving ? "Approving..." : isValidatingPhone ? "Validating..." : Number.parseFloat(amount) > 0 && Number.parseFloat(amount) < 10 ? "Min 10 KES" : "Confirm Payment"}
                 </button>
               </div>
             </div>
@@ -1237,16 +1253,12 @@ const SendCryptoModal: React.FC = () => {
                 {/* Desktop Confirm Button */}
                 <div className="hidden lg:block mb-4">
                   <button
-                    onClick={
-                      Number.parseFloat(amount) >= 10
-                        ? handleApproveToken
-                        : undefined
-                    }
-                    disabled={isApproving || !isFormValid()}
+                    onClick={handleApproveToken}
+                    disabled={isApproving || !isFormValid() || Number.parseFloat(amount) < 10}
                     type="button"
                     className="w-full py-3 bg-gradient-to-r from-blue-600 to-red-600 text-white rounded-full font-medium hover:opacity-90 transition-opacity disabled:opacity-50 text-sm"
                   >
-                    {isApproving ? "Approving..." : isValidatingPhone ? "Validating..." : "Confirm Payment"}
+                    {isApproving ? "Approving..." : isValidatingPhone ? "Validating..." : Number.parseFloat(amount) > 0 && Number.parseFloat(amount) < 10 ? "Min 10 KES" : "Confirm Payment"}
                   </button>
                 </div>
 
