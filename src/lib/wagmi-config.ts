@@ -225,6 +225,20 @@ export const wagmiConfig = createConfig({
       },
       preferDesktop: true,
     }),
+    injected({
+      target: () => {
+        const ethereum = safeGetEthereum();
+        // Check if Rabby is available via its identifier
+        if (ethereum?.isRabby) {
+          return {
+            id: "rabby",
+            name: "Rabby Wallet",
+            provider: ethereum,
+          };
+        }
+        return undefined;
+      },
+    }),
     // Generic injected connector with filtering
     // This catches other wallets but excludes problematic ones
     injected({

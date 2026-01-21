@@ -2,7 +2,6 @@
 
 import React, { useEffect } from "react";
 import {
-  ConnectWallet,
   Wallet,
   WalletDropdown,
   WalletDropdownBasename,
@@ -18,7 +17,7 @@ import {
 } from "@coinbase/onchainkit/identity";
 import { twMerge } from "tailwind-merge";
 import { redirect, usePathname } from "next/navigation";
-import { useWallet } from "@/hooks/useWallet";
+import { usePrivy } from "@privy-io/react-auth";
 import ClientOnly from "@/components/shared/ClientOnly";
 
 const buttonStyles = {
@@ -40,14 +39,14 @@ const WalletConnection = ({
   isHero?: boolean;
   buttonClassName?: string;
 }) => {
-  const { connectWallet, isConnected } = useWallet();
+  const { login, authenticated, ready, user } = usePrivy();
   const pathname = usePathname();
 
   useEffect(() => {
-    if (isConnected && pathname === "/") {
+    if (authenticated && pathname === "/") {
       redirect("/dashboard");
     }
-  }, [isConnected, pathname]);
+  }, [authenticated, pathname]);
 
   const getButtonClassName = () => {
     let style;
@@ -58,59 +57,69 @@ const WalletConnection = ({
     }
     return twMerge(style, buttonClassName);
   };
+  const walletAddress = user?.wallet?.address;
 
   const MobileWalletComponent = () => (
     <div className="mt-8 space-y-4">
-      {isConnected ? (
+      {authenticated && walletAddress ? (
         <Wallet>
-          <ConnectWallet>
+          <Identity
+            address={walletAddress as `0x${string}`}
+            className="px-4 pt-3 pb-2"
+          >
             <Avatar className="h-6 w-6" />
             <Name />
-          </ConnectWallet>
+          </Identity>
         </Wallet>
       ) : (
-        <ConnectWallet
+        <button
           className={getButtonClassName()}
-          onConnect={connectWallet}
+          onClick={login}
+          disabled={!ready}
         >
-          Connect Wallet
-        </ConnectWallet>
+          {!ready ? "Loading..." : "Connect Wallet"}
+        </button>
       )}
     </div>
   );
 
   const DesktopWalletComponent = () => (
     <div className="hidden md:block">
-      {isConnected ? (
+      {authenticated && walletAddress ? (
         <Wallet>
-          <ConnectWallet>
+          <Identity
+            address={walletAddress as `0x${string}`}
+            className="flex items-center gap-2 cursor-pointer"
+          >
             <Avatar className="h-6 w-6" />
             <Name />
-          </ConnectWallet>
+          </Identity>
           <WalletDropdown>
-            <Identity className="px-4 pt-3 pb-2" hasCopyAddressOnClick>
+            <Identity
+              address={walletAddress as `0x${string}`}
+              className="px-4 pt-3 pb-2"
+              hasCopyAddressOnClick
+            >
               <Avatar />
               <Name />
               <Address />
               <EthBalance />
             </Identity>
             <WalletDropdownBasename />
-            <WalletDropdownLink
-              icon="wallet"
-              href="https://keys.coinbase.com"
-            >
+            <WalletDropdownLink icon="wallet" href="https://keys.coinbase.com">
               Wallet
             </WalletDropdownLink>
             <WalletDropdownDisconnect />
           </WalletDropdown>
         </Wallet>
       ) : (
-        <ConnectWallet
+        <button
           className={getButtonClassName()}
-          onConnect={connectWallet}
+          onClick={login}
+          disabled={!ready}
         >
-          Connect Wallet
-        </ConnectWallet>
+          {!ready ? "Loading..." : "Connect Wallet"}
+        </button>
       )}
     </div>
   );

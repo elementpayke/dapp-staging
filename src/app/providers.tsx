@@ -4,11 +4,12 @@ import type { ReactNode } from "react";
 import { OnchainKitProvider } from "@coinbase/onchainkit";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { WagmiProvider } from "wagmi";
-import { base } from "wagmi/chains";
-import { wagmiConfig } from "@/lib/wagmi-config";
+import { base, arbitrum } from "wagmi/chains";
+import { wagmiConfig, lisk, scroll } from "@/lib/wagmi-config";
 import { useWalletStore } from "@/lib/useWallet";
 import LogoImage from "@/assets/logo.png";
 import { useEffect } from "react";
+import { PrivyProvider } from "@privy-io/react-auth";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -50,29 +51,48 @@ function StoreHydration() {
  */
 export function Providers(props: { children: ReactNode }) {
   return (
-    <WagmiProvider config={wagmiConfig}>
-      <QueryClientProvider client={queryClient}>
-        <StoreHydration />
-        <OnchainKitProvider
-          apiKey={process.env.NEXT_PUBLIC_ONCHAINKIT_API_KEY}
-          chain={base} // Default chain for OnchainKit UI components
-          config={{
-            appearance: {
-              name: "ElementPay",
-              logo: LogoImage.src,
-              mode: "auto",
-              theme: "default",
-            },
-            wallet: {
-              display: "modal",
-              termsUrl: "https://elementpay.net/terms",
-              privacyUrl: "https://elementpay.net/privacy",
-            },
-          }}
-        >
-          {props.children}
-        </OnchainKitProvider>
-      </QueryClientProvider>
-    </WagmiProvider>
+    <PrivyProvider
+      appId={process.env.NEXT_PUBLIC_PRIVY_APP_ID || ""}
+      config={{
+        appearance: {
+          theme: "dark",
+          accentColor: "#0514eb",
+          logo: LogoImage.src,
+          showWalletLoginFirst: true,
+        },
+        loginMethods: ["wallet"],
+        // Support multiple chains
+        defaultChain: base,
+        supportedChains: [base, arbitrum, lisk, scroll],
+        embeddedWallets: {
+          createOnLogin: "users-without-wallets",
+        },
+      }}
+    >
+      <WagmiProvider config={wagmiConfig}>
+        <QueryClientProvider client={queryClient}>
+          <StoreHydration />
+          <OnchainKitProvider
+            apiKey={process.env.NEXT_PUBLIC_ONCHAINKIT_API_KEY}
+            chain={base}
+            config={{
+              appearance: {
+                name: "ElementPay",
+                logo: LogoImage.src,
+                mode: "auto",
+                theme: "default",
+              },
+              wallet: {
+                display: "modal",
+                termsUrl: "https://elementpay.net/terms",
+                privacyUrl: "https://elementpay.net/privacy",
+              },
+            }}
+          >
+            {props.children}
+          </OnchainKitProvider>
+        </QueryClientProvider>
+      </WagmiProvider>
+    </PrivyProvider>
   );
 }
