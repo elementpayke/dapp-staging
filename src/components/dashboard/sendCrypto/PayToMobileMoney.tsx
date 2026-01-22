@@ -3,7 +3,7 @@ import type React from "react";
 import { useState, useEffect } from "react";
 import { SupportedToken } from "@/constants/supportedTokens";
 import TokenDropdown from "@/components/ui/TokenDropdown";
-import MaxOfframpButton from './MaxOfframpButton';
+import MaxOfframpButton from "./MaxOfframpButton";
 
 interface PayToMobileMoneyProps {
   selectedToken: SupportedToken;
@@ -54,9 +54,10 @@ const PayToMobileMoney: React.FC<PayToMobileMoneyProps> = ({
   selectedTokenBalance,
   exchangeRate,
   account,
-  handleMaxAmountSet
+  handleMaxAmountSet,
 }) => {
-  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("Send Money");
+  const [paymentMethod, setPaymentMethod] =
+    useState<PaymentMethod>("Send Money");
 
   useEffect(() => {
     switch (paymentMethod) {
@@ -148,11 +149,11 @@ const PayToMobileMoney: React.FC<PayToMobileMoneyProps> = ({
                     setMobileNumber(input);
                   }}
                   className={`w-full p-3 bg-gray-50 rounded-lg border-0 text-gray-900 focus:outline-none focus:ring-2 transition-colors ${
-                    phoneValidation.isValid 
-                      ? 'focus:ring-green-500 border-green-200' 
-                      : mobileNumber && !phoneValidation.isValid 
-                      ? 'focus:ring-red-500 border-red-200' 
-                      : 'focus:ring-blue-500'
+                    phoneValidation.isValid
+                      ? "focus:ring-green-500 border-green-200"
+                      : mobileNumber && !phoneValidation.isValid
+                        ? "focus:ring-red-500 border-red-200"
+                        : "focus:ring-blue-500"
                   }`}
                   placeholder="e.g., 254712345678"
                 />
@@ -163,24 +164,56 @@ const PayToMobileMoney: React.FC<PayToMobileMoneyProps> = ({
                 )}
                 {phoneValidation.isValid && !isValidatingPhone && (
                   <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
-                    <svg className="h-5 w-5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    <svg
+                      className="h-5 w-5 text-green-500"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M5 13l4 4L19 7"
+                      />
                     </svg>
                   </div>
                 )}
               </div>
-              {mobileNumber && !phoneValidation.isValid && phoneValidation.error && (
-                <p className="text-red-500 text-sm mt-1 flex items-center gap-1">
-                  <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                  {phoneValidation.error}
-                </p>
-              )}
+              {mobileNumber &&
+                !phoneValidation.isValid &&
+                phoneValidation.error && (
+                  <p className="text-red-500 text-sm mt-1 flex items-center gap-1">
+                    <svg
+                      className="h-4 w-4"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                      />
+                    </svg>
+                    {phoneValidation.error}
+                  </p>
+                )}
               {phoneValidation.isValid && (
                 <p className="text-green-600 text-sm mt-1 flex items-center gap-1">
-                  <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  <svg
+                    className="h-4 w-4"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+                    />
                   </svg>
                   Valid Safaricom number
                 </p>
@@ -193,7 +226,9 @@ const PayToMobileMoney: React.FC<PayToMobileMoneyProps> = ({
         return (
           <>
             <div>
-              <label className="block text-gray-600 mb-2">Business Number</label>
+              <label className="block text-gray-600 mb-2">
+                Business Number
+              </label>
               <input
                 type="text"
                 value={paybillNumber}
@@ -246,22 +281,24 @@ const PayToMobileMoney: React.FC<PayToMobileMoneyProps> = ({
       <div>
         <label className="block text-gray-600 mb-2">Payment Method</label>
         <div className="grid grid-cols-3 gap-2">
-          {(["Send Money", "Pay Bill", "Buy Goods"] as PaymentMethod[]).map((method) => {
-            return (
-              <button
-                key={method}
-                type="button"
-                onClick={() => setPaymentMethod(method)}
-                className={`relative p-3 rounded-lg text-center text-sm font-medium transition-colors ${
-                  paymentMethod === method
-                    ? "bg-green-100 text-green-800 border-2 border-green-600"
-                    : "bg-gray-50 text-gray-700 border border-gray-200 hover:bg-gray-100"
-                }`}
-              >
-                {method}
-              </button>
-            );
-          })}
+          {(["Send Money", "Pay Bill", "Buy Goods"] as PaymentMethod[]).map(
+            (method) => {
+              return (
+                <button
+                  key={method}
+                  type="button"
+                  onClick={() => setPaymentMethod(method)}
+                  className={`relative p-3 rounded-lg text-center text-sm font-medium transition-colors ${
+                    paymentMethod === method
+                      ? "bg-green-100 text-green-800 border-2 border-green-600"
+                      : "bg-gray-50 text-gray-700 border border-gray-200 hover:bg-gray-100"
+                  }`}
+                >
+                  {method}
+                </button>
+              );
+            },
+          )}
         </div>
       </div>
 
@@ -272,10 +309,7 @@ const PayToMobileMoney: React.FC<PayToMobileMoneyProps> = ({
       <div className="grid grid-cols-2 gap-4">
         <div>
           <label className="block text-gray-600 mb-2">Token</label>
-          <TokenDropdown
-            selected={selectedToken}
-            onSelect={setSelectedToken}
-          />
+          <TokenDropdown selected={selectedToken} onSelect={setSelectedToken} />
         </div>
         <div>
           <div className="flex items-center justify-between mb-2">
@@ -284,7 +318,8 @@ const PayToMobileMoney: React.FC<PayToMobileMoneyProps> = ({
               disabled={false}
               selectedTokenBalance={selectedTokenBalance}
               exchangeRate={exchangeRate}
-              selectedTokenAddress={selectedToken.address}
+              selectedTokenAddress={selectedToken.tokenAddress}
+              selectedTokenSymbol={selectedToken.symbol}
               walletAddress={account?.address}
               onMaxAmountCalculated={handleMaxAmountSet}
             />

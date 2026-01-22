@@ -1,30 +1,31 @@
 import React, { useState } from 'react';
 import { Loader2 } from 'lucide-react';
+import { 
+  fetchMaxSpendable, 
+  getApiCurrencyFromToken 
+} from '@/utils/feeStructure';
 
 interface MaxOfframpButtonProps {
   selectedTokenBalance: number;
   exchangeRate: number | null;
   selectedTokenAddress: string;
+  selectedTokenSymbol: string;  // Added for API call
   walletAddress: string;
   onMaxAmountCalculated: (maxKESAmount: string) => void;
   disabled?: boolean;
 }
 
 /**
- * Max Offramp Button - Calculates maximum offramp amount
+ * Max Offramp Button - Calculates maximum offramp amount using fee structure API
  * 
- * Fee Structure:
- * - Transactions < 100 KES: FREE (no fees)
- * - Transactions >= 100 KES: Apply 5% buffer for fees
- * 
- * Simple calculation:
- * - If balance × rate < 100: max = balance × rate (FREE)
- * - If balance × rate >= 100: max = balance × rate × 0.95 (with fee buffer)
+ * Uses the Element Pay fee structure API to accurately calculate
+ * the maximum KES amount a user can receive based on their token balance.
  */
 const MaxOfframpButton: React.FC<MaxOfframpButtonProps> = ({
   selectedTokenBalance,
   exchangeRate,
   selectedTokenAddress,
+  selectedTokenSymbol,
   walletAddress,
   onMaxAmountCalculated,
   disabled = false
@@ -38,40 +39,40 @@ const MaxOfframpButton: React.FC<MaxOfframpButtonProps> = ({
     }
 
     setIsCalculating(true);
-    console.log('🚀 Calculating max offramp amount...');
+    console.log('🚀 Calculating max offramp amount using fee structure API...');
 
     try {
-      // Calculate base maximum: balance × exchange rate
-      const baseMaxKES = selectedTokenBalance * exchangeRate;
-      console.log(`📊 Base calculation: ${selectedTokenBalance.toFixed(6)} tokens × ${exchangeRate} = ${baseMaxKES.toFixed(2)} KES`);
+      // Get the API currency from token symbol
+      const apiCurrency = getApiCurrencyFromToken(selectedTokenSymbol);
       
-      let maxAmount: number;
-      
-      if (baseMaxKES < 100) {
-        // Transactions below 100 KES are FREE - no fees
-        maxAmount = baseMaxKES;
-        console.log(`✅ Amount < 100 KES (FREE): ${maxAmount.toFixed(2)} KES`);
-      } else {
-        // Transactions >= 100 KES: Apply 5% buffer for fees
-        maxAmount = baseMaxKES * 0.95;
-        console.log(`✅ Amount >= 100 KES (with 5% fee buffer): ${maxAmount.toFixed(2)} KES`);
-      }
+      // Fetch max spendable from the fee structure utility
+      const result = await fetchMaxSpendable({
+        token: apiCurrency,
+        action: "OffRamp",
+        tokenBalance: selectedTokenBalance,
+        exchangeRate,
+      });
 
-      // Round down to nearest whole number and ensure minimum is 10 KES
-      const roundedAmount = Math.floor(maxAmount);
-      
-      if (roundedAmount < 10) {
+      console.log(`📊 Fee structure calculation result:`, {
+        maxFiat: result.maxFiat,
+        maxTokens: result.maxTokens,
+        tokenBalance: selectedTokenBalance,
+        exchangeRate,
+      });
+
+      // Ensure minimum is 10 KES
+      if (result.maxFiat < 10) {
         console.warn('⚠️ Calculated amount below minimum (10 KES)');
         onMaxAmountCalculated('0');
       } else {
-        console.log(`✨ Final max amount: ${roundedAmount} KES`);
-        onMaxAmountCalculated(roundedAmount.toString());
+        console.log(`✨ Final max amount: ${result.maxFiat} KES`);
+        onMaxAmountCalculated(result.maxFiat.toString());
       }
 
     } catch (error) {
       console.error('❌ Max calculation failed:', error);
       
-      // Fallback calculation
+      // Fallback calculation using simple fee estimation
       if (exchangeRate) {
         const baseMax = selectedTokenBalance * exchangeRate;
         const fallback = baseMax < 100 
@@ -85,10 +86,11 @@ const MaxOfframpButton: React.FC<MaxOfframpButtonProps> = ({
     }
   };
 
-  // Calculate quick estimate for tooltip
+  // Calculate quick estimate for tooltip (without API call)
   const getEstimatedMax = () => {
     if (!exchangeRate || selectedTokenBalance <= 0) return 0;
     const baseMax = selectedTokenBalance * exchangeRate;
+    // Simple estimate: free tier < 100, otherwise ~5% fee buffer
     return baseMax < 100 
       ? Math.floor(baseMax) 
       : Math.floor(baseMax * 0.95);

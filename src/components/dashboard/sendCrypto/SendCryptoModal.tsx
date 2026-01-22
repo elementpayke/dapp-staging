@@ -42,6 +42,12 @@ import {
 import { createOffRampOrder, fetchOrderQuote } from "@/app/api/aggregator";
 import { ethers } from "ethers";
 import { getTokenConfig } from "@/constants/tokenConfig";
+import {
+  FeeBand,
+  fetchFeeStructureCached,
+  getTotalCost,
+  getApiCurrencyFromToken,
+} from "@/utils/feeStructure";
 
 interface TransactionReceipt {
   amount: string;
@@ -92,6 +98,8 @@ const SendCryptoModal: React.FC = () => {
     source: "",
     fallbackUsed: false,
   });
+  const [feeBands, setFeeBands] = useState<FeeBand[]>([]);
+  const [isFetchingFees, setIsFetchingFees] = useState(false);
   const [orderId, setOrderId] = useState("");
   const [showProcessingPopup, setShowProcessingPopup] = useState(false);
   const [phoneValidation, setPhoneValidation] = useState<{
@@ -171,7 +179,7 @@ const SendCryptoModal: React.FC = () => {
 
   // Handler for when Max button calculates the maximum amount
   const handleMaxAmountSet = useCallback((maxAmount: string) => {
-    console.log('💰 Setting max offramp amount:', maxAmount, 'KES');
+    console.log("💰 Setting max offramp amount:", maxAmount, "KES");
     setAmount(maxAmount);
   }, []);
 
@@ -357,7 +365,46 @@ const SendCryptoModal: React.FC = () => {
     }
   }, [isBrowser, selectedToken]);
   console.log("[RATES] Exchange rate fetched:", exchangeRate, rateMeta);
-  const TRANSACTION_FEE_RATE = 0.005; // 0.5%
+
+  // Fetch fee structure when token or browser state changes
+  useEffect(() => {
+    const fetchFeeStructure = async () => {
+      if (!isBrowser) return;
+
+      setIsFetchingFees(true);
+      try {
+        const apiCurrency = getApiCurrencyFromToken(selectedToken.symbol);
+        const feeData = await fetchFeeStructureCached({
+          token: apiCurrency,
+          action: "OffRamp",
+        });
+
+        console.log("[FEES] Fee structure fetched:", feeData.data);
+        setFeeBands(feeData.data.fee_bands);
+      } catch (error) {
+        console.error("[FEES] Failed to fetch fee structure:", error);
+        // Set default fee bands as fallback
+        setFeeBands([
+          {
+            min_amount: 0,
+            max_amount: 100,
+            fee_amount: 0,
+            description: "Free tier",
+          },
+          {
+            min_amount: 101,
+            max_amount: null,
+            fee_amount: 0,
+            description: "Default",
+          },
+        ]);
+      } finally {
+        setIsFetchingFees(false);
+      }
+    };
+
+    fetchFeeStructure();
+  }, [isBrowser, selectedToken]);
 
   // Validate phone number with backend API
   const validatePhoneWithBackend = async (
@@ -408,18 +455,51 @@ const SendCryptoModal: React.FC = () => {
         kesAmount: 0,
         usdcAmount: 0,
         transactionCharge: 0,
+        transactionChargeKES: 0,
         totalUSDC: 0,
         totalKES: 0,
         totalKESBalance: 0,
         walletBalance: 0,
         remainingBalance: 0,
         usdcBalance: 0,
+        canAfford: false,
+        maxSpendableFiat: 0,
       };
     }
 
     const kesAmount = Number.parseFloat(amount) || 0;
+
+    // Use fee structure utility if fee bands are loaded
+    if (feeBands.length > 0) {
+      const costResult = getTotalCost({
+        amountFiat: kesAmount,
+        tokenBalance: selectedTokenBalance,
+        exchangeRate,
+        feeBands,
+        orderType: "OffRamp",
+      });
+
+      console.log("[TRANSACTION SUMMARY] Using fee structure:", costResult);
+
+      return {
+        kesAmount,
+        usdcAmount: kesAmount / exchangeRate,
+        transactionCharge: costResult.totalTokenCost - kesAmount / exchangeRate,
+        transactionChargeKES: costResult.feeAmountFiat,
+        totalUSDC: costResult.totalTokenCost,
+        totalKES: selectedTokenBalance * exchangeRate,
+        totalKESBalance: costResult.remainingFiatValue,
+        walletBalance: kesAmount,
+        remainingBalance: costResult.remainingTokenBalance,
+        usdcBalance: selectedTokenBalance,
+        canAfford: costResult.canAfford,
+        maxSpendableFiat: costResult.maxSpendableFiat,
+      };
+    }
+
+    // Fallback to simple calculation if fee bands not loaded yet
     const usdcAmount = kesAmount / exchangeRate;
-    const transactionCharge = usdcAmount * TRANSACTION_FEE_RATE;
+    const transactionCharge = 0; // No fee assumption for fallback
     const totalUSDC = usdcAmount + transactionCharge;
     const remainingBalance = selectedTokenBalance - totalUSDC;
     const totalKES = selectedTokenBalance * exchangeRate;
@@ -429,14 +509,17 @@ const SendCryptoModal: React.FC = () => {
       kesAmount,
       usdcAmount,
       transactionCharge,
+      transactionChargeKES: 0,
       totalUSDC,
       totalKES,
       totalKESBalance: totalKESBalance,
       walletBalance: Number.parseFloat(amount) || 0,
       remainingBalance: Math.max(remainingBalance, 0),
       usdcBalance: selectedTokenBalance,
+      canAfford: totalUSDC <= selectedTokenBalance,
+      maxSpendableFiat: totalKES,
     };
-  }, [amount, exchangeRate, selectedTokenBalance]);
+  }, [amount, exchangeRate, selectedTokenBalance, feeBands]);
 
   // Helper function to check if the form is valid for the current payment method
   const isFormValid = useCallback(() => {
@@ -445,6 +528,7 @@ const SendCryptoModal: React.FC = () => {
     // Common validations
     if (!amount || Number.parseFloat(amount) < 10) return false;
     if (transactionSummary.totalUSDC <= 0) return false;
+    if (!transactionSummary.canAfford) return false; // Check if user can afford based on fee structure
 
     // Payment method specific validations
     switch (cashoutType) {
@@ -461,6 +545,7 @@ const SendCryptoModal: React.FC = () => {
     getCashoutType,
     amount,
     transactionSummary.totalUSDC,
+    transactionSummary.canAfford,
     phoneValidation.isValid,
     isValidatingPhone,
     mobileNumber,
