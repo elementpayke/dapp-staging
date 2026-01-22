@@ -5,6 +5,7 @@ import { useState, useEffect, useMemo, useCallback } from "react";
 import { ArrowUpRight } from "lucide-react";
 import { toast } from "react-toastify";
 import PayToMobileMoney from "./PayToMobileMoney";
+import MaxOfframpButton from "./MaxOfframpButton";
 import ProcessingPopup from "./processing-popup";
 import NetworkSwitchNotification from "@/components/ui/NetworkSwitchNotification";
 import { formatReceiverName } from "@/utils/helpers";
@@ -167,6 +168,12 @@ const SendCryptoModal: React.FC = () => {
     if (tillNumber) return "TILL";
     return "PHONE";
   }, [paybillNumber, accountNumber, tillNumber]);
+
+  // Handler for when Max button calculates the maximum amount
+  const handleMaxAmountSet = useCallback((maxAmount: string) => {
+    console.log('💰 Setting max offramp amount:', maxAmount, 'KES');
+    setAmount(maxAmount);
+  }, []);
 
   const validateAccount = async () => {
     // Element Pay API doesn't have a separate validation endpoint
@@ -1380,6 +1387,10 @@ const SendCryptoModal: React.FC = () => {
                 setCashoutType={setCashoutType}
                 phoneValidation={phoneValidation}
                 isValidatingPhone={isValidatingPhone}
+                selectedTokenBalance={selectedTokenBalance}
+                exchangeRate={exchangeRate}
+                account={account}
+                handleMaxAmountSet={handleMaxAmountSet}
               />
 
               {/* Mobile Confirm Button - Only shown on small screens */}

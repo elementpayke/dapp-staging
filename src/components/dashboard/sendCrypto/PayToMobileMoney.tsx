@@ -3,6 +3,7 @@ import type React from "react";
 import { useState, useEffect } from "react";
 import { SupportedToken } from "@/constants/supportedTokens";
 import TokenDropdown from "@/components/ui/TokenDropdown";
+import MaxOfframpButton from './MaxOfframpButton';
 
 interface PayToMobileMoneyProps {
   selectedToken: SupportedToken;
@@ -23,12 +24,13 @@ interface PayToMobileMoneyProps {
   setCashoutType: (type: "PHONE" | "TILL" | "PAYBILL") => void;
   phoneValidation?: { isValid: boolean; error?: string };
   isValidatingPhone?: boolean;
+  selectedTokenBalance: number;
+  exchangeRate: number | null;
+  account: any;
+  handleMaxAmountSet: (amount: string) => void;
 }
 
-type PaymentMethod =
-  | "Send Money"
-  | "Pay Bill"
-  | "Buy Goods";
+type PaymentMethod = "Send Money" | "Pay Bill" | "Buy Goods";
 
 const PayToMobileMoney: React.FC<PayToMobileMoneyProps> = ({
   selectedToken,
@@ -49,9 +51,12 @@ const PayToMobileMoney: React.FC<PayToMobileMoneyProps> = ({
   setCashoutType,
   phoneValidation = { isValid: false },
   isValidatingPhone = false,
+  selectedTokenBalance,
+  exchangeRate,
+  account,
+  handleMaxAmountSet
 }) => {
-  const [paymentMethod, setPaymentMethod] =
-    useState<PaymentMethod>("Send Money");
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("Send Money");
 
   useEffect(() => {
     switch (paymentMethod) {
@@ -71,7 +76,7 @@ const PayToMobileMoney: React.FC<PayToMobileMoneyProps> = ({
         setCashoutType("PHONE");
         break;
       default:
-        setCashoutType("PHONE"); // Add default case
+        setCashoutType("PHONE");
         break;
     }
   }, [
@@ -188,9 +193,7 @@ const PayToMobileMoney: React.FC<PayToMobileMoneyProps> = ({
         return (
           <>
             <div>
-              <label className="block text-gray-600 mb-2">
-                Business Number
-              </label>
+              <label className="block text-gray-600 mb-2">Business Number</label>
               <input
                 type="text"
                 value={paybillNumber}
@@ -239,27 +242,20 @@ const PayToMobileMoney: React.FC<PayToMobileMoneyProps> = ({
 
   return (
     <div className="space-y-4">
-      {/* Network and Wallet Selection */}
-
       {/* M-PESA Payment Method Selector */}
       <div>
         <label className="block text-gray-600 mb-2">Payment Method</label>
         <div className="grid grid-cols-3 gap-2">
-          {(
-            [
-              "Send Money",
-              "Pay Bill",
-              "Buy Goods",
-            ] as PaymentMethod[]
-          ).map((method) => {
+          {(["Send Money", "Pay Bill", "Buy Goods"] as PaymentMethod[]).map((method) => {
             return (
               <button
                 key={method}
                 type="button"
                 onClick={() => setPaymentMethod(method)}
-                className={`relative p-3 rounded-lg text-center text-sm font-medium transition-colors ${paymentMethod === method
-                  ? "bg-green-100 text-green-800 border-2 border-green-600"
-                  : "bg-gray-50 text-gray-700 border border-gray-200 hover:bg-gray-100"
+                className={`relative p-3 rounded-lg text-center text-sm font-medium transition-colors ${
+                  paymentMethod === method
+                    ? "bg-green-100 text-green-800 border-2 border-green-600"
+                    : "bg-gray-50 text-gray-700 border border-gray-200 hover:bg-gray-100"
                 }`}
               >
                 {method}
@@ -282,7 +278,17 @@ const PayToMobileMoney: React.FC<PayToMobileMoneyProps> = ({
           />
         </div>
         <div>
-          <label className="block text-gray-600 mb-2">Amount in KES</label>
+          <div className="flex items-center justify-between mb-2">
+            <label className="block text-gray-600">Amount in KES</label>
+            <MaxOfframpButton
+              disabled={false}
+              selectedTokenBalance={selectedTokenBalance}
+              exchangeRate={exchangeRate}
+              selectedTokenAddress={selectedToken.address}
+              walletAddress={account?.address}
+              onMaxAmountCalculated={handleMaxAmountSet}
+            />
+          </div>
           <input
             type="text"
             value={amount}
