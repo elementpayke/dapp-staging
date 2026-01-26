@@ -24,6 +24,7 @@ export interface UseFeeStructureParams {
 export interface UseFeeStructureResult {
   feeBands: FeeBand[];
   baseRate: number | null;
+  exchangeRate: number | null; // Alias for baseRate for convenience
   isLoading: boolean;
   error: Error | null;
   refetch: () => Promise<void>;
@@ -74,6 +75,7 @@ export function useFeeStructure(
   return {
     feeBands,
     baseRate,
+    exchangeRate: baseRate, // Alias for convenience
     isLoading,
     error,
     refetch: fetchFees,

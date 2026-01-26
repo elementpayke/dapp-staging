@@ -82,12 +82,14 @@ const TransactionList: FC<{ walletAddress: string | null }> = ({ walletAddress }
   };
 
   useEffect(() => {
+    let ignore = false;
     const fetchTransactions = async () => {
       try {
-        const res = await axios.get<{status: string; message: string; data: Order[];}>
-        (`/api/element-pay/orders/wallet`, {
-          params: { wallet_address: walletAddress },
-        });
+        const res = await axios.get<{status: string; message: string; data: Order[];}>(
+          `/api/element-pay/orders/wallet`, {
+            params: { wallet_address: walletAddress },
+          }
+        );
 
         const mapped: ExtendedTx[] = res.data?.data?.map((order: Order) => {
           const createdDate = new Date(order.created_at);
@@ -167,15 +169,26 @@ const TransactionList: FC<{ walletAddress: string | null }> = ({ walletAddress }
           );
         });
 
-        setTransactions(mapped);
+        if (!ignore) setTransactions(mapped);
       } catch (err) {
-        console.error("Failed to fetch transactions", err);
+        if (!ignore) console.error("Failed to fetch transactions", err);
       } finally {
-        setLoading(false);
+        if (!ignore) setLoading(false);
       }
     };
 
     if (walletAddress) fetchTransactions();
+
+    // Listen for custom event to refresh transactions
+    const refreshHandler = () => {
+      setLoading(true);
+      fetchTransactions();
+    };
+    window.addEventListener('elementpay:refresh-transactions', refreshHandler);
+    return () => {
+      ignore = true;
+      window.removeEventListener('elementpay:refresh-transactions', refreshHandler);
+    };
   }, [walletAddress]);
 
   // Get unique filter options

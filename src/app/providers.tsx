@@ -67,6 +67,12 @@ export function Providers(props: { children: ReactNode }) {
         embeddedWallets: {
           createOnLogin: "users-without-wallets",
         },
+        // Enable WalletConnect for mobile wallet support
+        externalWallets: {
+          walletConnect: {
+            enabled: true,
+          },
+        },
       }}
     >
       <WagmiProvider config={wagmiConfig}>
