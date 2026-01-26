@@ -286,7 +286,9 @@ const DepositCryptoModal: React.FC = () => {
             setIsReceiptModalOpen(true);
             continuePollingRef.current = false;
             // Dispatch a custom event to notify transaction list to refresh
-            window.dispatchEvent(new CustomEvent('elementpay:refresh-transactions'));
+            window.dispatchEvent(
+              new CustomEvent("elementpay:refresh-transactions"),
+            );
             return;
           }
 
