@@ -1,3 +1,4 @@
+
 "use client";
 
 import type React from "react";
@@ -57,14 +58,6 @@ interface TransactionReceipt {
   status: number;
   transactionHash: string;
 }
-interface QuoteValidation {
-  isValidating: boolean;
-  isValid: boolean;
-  error: string | null;
-  requiredAmount: number | null;
-  availableBalance: number | null;
-  hasSufficientBalance: boolean | null;
-}
 
 const SendCryptoModal: React.FC = () => {
   const [selectedToken, setSelectedToken] = useState<SupportedToken>(
@@ -73,11 +66,9 @@ const SendCryptoModal: React.FC = () => {
   const [amount, setAmount] = useState("");
   const [mobileNumber, setMobileNumber] = useState("");
   const [reason, setReason] = useState("Transport");
-  // Keep but don't use these variables to preserve the component's state structure
   const [isApproving, setIsApproving] = useState(false);
   const [, setIsProcessing] = useState(false);
 
-  // Get balance for the selected token dynamically
   const { balance: selectedTokenBalance } = useTokenBalance({
     token: selectedToken,
   });
@@ -88,7 +79,7 @@ const SendCryptoModal: React.FC = () => {
     marked: number | null;
     markupPct: number | null;
     mode: "OffRamp" | "OnRamp" | "Unknown";
-    source: string; // which URL succeeded
+    source: string;
     fallbackUsed: boolean;
   }>({
     base: null,
@@ -107,17 +98,15 @@ const SendCryptoModal: React.FC = () => {
     error?: string;
   }>({ isValid: false });
   const [isValidatingPhone, setIsValidatingPhone] = useState(false);
-  const [finalTransactionData, setFinalTransactionData] = useState<any>(null); // Store complete transaction data from API
-  const [isPollingComplete, setIsPollingComplete] = useState(false); // Flag to indicate polling is done
+  const [finalTransactionData, setFinalTransactionData] = useState<any>(null);
+  const [isPollingComplete, setIsPollingComplete] = useState(false);
 
-  // Network switch notification state
   const [networkSwitchNotification, setNetworkSwitchNotification] = useState({
     isVisible: false,
     networkName: "",
     status: "switching" as "switching" | "success" | "error",
   });
 
-  // Debug orderId changes
   useEffect(() => {
     console.log("[ORDER ID CHANGE] orderId changed to:", orderId);
     console.log(
@@ -125,6 +114,7 @@ const SendCryptoModal: React.FC = () => {
       showProcessingPopup,
     );
   }, [orderId, showProcessingPopup]);
+
   const [messageHash, setMessageHash] = useState("");
   const [isBrowser, setIsBrowser] = useState(false);
 
@@ -139,19 +129,9 @@ const SendCryptoModal: React.FC = () => {
   >(() => () => {});
   const [modalMode, setModalMode] = useState<"confirm" | "error">("confirm");
   const [isMainDialogOpen, setIsMainDialogOpen] = useState(false);
-  const [quoteValidation, setQuoteValidation] = useState<QuoteValidation>({
-    isValidating: false,
-    isValid: false,
-    error: null,
-    requiredAmount: null,
-    availableBalance: null,
-    hasSufficientBalance: null,
-  });
 
-  // Keep but don't directly use this state to preserve the component structure
   const [, setCashoutType] = useState<"PHONE" | "PAYBILL" | "TILL">("PHONE");
 
-  // Network switch notification helper functions
   const showNetworkSwitchNotification = (
     networkName: string,
     status: "switching" | "success" | "error",
@@ -177,37 +157,30 @@ const SendCryptoModal: React.FC = () => {
     return "PHONE";
   }, [paybillNumber, accountNumber, tillNumber]);
 
-  // Handler for when Max button calculates the maximum amount
   const handleMaxAmountSet = useCallback((maxAmount: string) => {
     console.log("💰 Setting max offramp amount:", maxAmount, "KES");
     setAmount(maxAmount);
   }, []);
 
   const validateAccount = async () => {
-    // Element Pay API doesn't have a separate validation endpoint
-    // Validation will happen during order creation
     console.log(
-      "� Skipping pre-validation - Element Pay will validate during order creation",
+      "✓ Skipping pre-validation - Element Pay will validate during order creation",
     );
 
     const cashoutType = getCashoutType();
     if (cashoutType === "PAYBILL") {
-      // Just set a placeholder name since we can't pre-validate
       setValidatedAccountInfo(`PayBill ${paybillNumber}`);
     } else if (cashoutType === "TILL") {
       setValidatedAccountInfo(`Till ${tillNumber}`);
     }
 
-    return true; // Always return true since we can't pre-validate
+    return true;
   };
 
-  // Set isBrowser to true once component mounts (client-side only)
   useEffect(() => {
     setIsBrowser(true);
-    // Set API key only on the client side
   }, []);
 
-  // Fetch marked-up (or adjusted) exchange rate from Element Pay API
   useEffect(() => {
     const fetchExchangeRate = async () => {
       try {
@@ -218,23 +191,20 @@ const SendCryptoModal: React.FC = () => {
           ETH: "eth",
         };
         const currency = currencyMap[selectedToken.symbol] || "usdc";
-        // q=1 => OffRamp (markup subtracted). We are in an OffRamp flow.
         const baseUrl = `${process.env.NEXT_PUBLIC_API_URL}/rates?currency=${currency}`;
         const offRampUrl = `${baseUrl}&q=1`;
-        const legacyOffRampUrl = `${baseUrl}&order_type=OffRamp`; // legacy/textual variant
+        const legacyOffRampUrl = `${baseUrl}&order_type=OffRamp`;
 
         let usedUrl = offRampUrl;
         let response: Response | null = null;
         let fallbackUsed = false;
 
-        // 1. Try primary OffRamp param q=1
         try {
           response = await fetch(offRampUrl);
           if (!response.ok)
             throw new Error(`Primary q=1 request failed (${response.status})`);
         } catch (e) {
           console.warn("[RATES] Primary OffRamp (q=1) failed:", e);
-          // 2. Try legacy textual param
           try {
             response = await fetch(legacyOffRampUrl);
             usedUrl = legacyOffRampUrl;
@@ -248,7 +218,6 @@ const SendCryptoModal: React.FC = () => {
               "[RATES] Legacy OffRamp (order_type=OffRamp) failed:",
               e2,
             );
-            // 3. FINAL FALLBACK: Base URL (OnRamp) - log a HARD warning
             response = await fetch(baseUrl);
             usedUrl = baseUrl;
             fallbackUsed = true;
@@ -278,7 +247,7 @@ const SendCryptoModal: React.FC = () => {
 
         if (marked_up_rate == null) {
           console.error(
-            "[RATES] No usable rate field (marked_up_rate/rate) in response, setting exchangeRate = null",
+            "[RATES] No usable rate field in response, setting exchangeRate = null",
           );
           setExchangeRate(null);
           setRateMeta({
@@ -292,30 +261,28 @@ const SendCryptoModal: React.FC = () => {
           return;
         }
 
-        // Heuristic mode detection
         let detectedMode: "OffRamp" | "OnRamp" | "Unknown" = "Unknown";
         if (usedUrl.includes("q=1") || usedUrl.includes("order_type=OffRamp")) {
           detectedMode = "OffRamp";
         } else if (!usedUrl.includes("q=")) {
           detectedMode = "OnRamp";
         }
-        // Cross-check with numeric relationship if both rates exist
+
         if (base_rate != null) {
           if (marked_up_rate < base_rate && detectedMode === "OnRamp") {
             console.warn(
-              "[RATES] Relationship (marked_up < base_rate) suggests OffRamp but URL indicates OnRamp. Possible fallback mismatch.",
+              "[RATES] Relationship suggests OffRamp but URL indicates OnRamp.",
             );
             detectedMode = "OffRamp";
           }
           if (marked_up_rate > base_rate && detectedMode === "OffRamp") {
             console.warn(
-              "[RATES] Relationship (marked_up > base_rate) suggests OnRamp but URL indicates OffRamp. Backend may be returning OnRamp despite q=1.",
+              "[RATES] Relationship suggests OnRamp but URL indicates OffRamp.",
             );
             detectedMode = "OnRamp";
           }
         }
 
-        // Log summary
         console.log("[RATES] Summary:", {
           usedUrl,
           fallbackUsed,
@@ -323,18 +290,11 @@ const SendCryptoModal: React.FC = () => {
           marked_up_rate,
           markup_percentage,
           detectedMode,
-          expectation: "OffRamp",
-          interpretation:
-            detectedMode === "OffRamp"
-              ? "Using adjusted (customer receives lower rate)"
-              : detectedMode === "OnRamp"
-                ? "Using marked-up buy rate (UNEXPECTED for offramp)"
-                : "Unknown",
         });
 
         if (detectedMode !== "OffRamp") {
           console.warn(
-            "[RATES] WARNING: Using a rate not confidently identified as OffRamp. Check backend support for q=1 or investigate fallbacks.",
+            "[RATES] WARNING: Using a rate not confidently identified as OffRamp.",
           );
         }
 
@@ -366,7 +326,6 @@ const SendCryptoModal: React.FC = () => {
   }, [isBrowser, selectedToken]);
   console.log("[RATES] Exchange rate fetched:", exchangeRate, rateMeta);
 
-  // Fetch fee structure when token or browser state changes
   useEffect(() => {
     const fetchFeeStructure = async () => {
       if (!isBrowser) return;
@@ -383,7 +342,6 @@ const SendCryptoModal: React.FC = () => {
         setFeeBands(feeData.data.fee_bands);
       } catch (error) {
         console.error("[FEES] Failed to fetch fee structure:", error);
-        // Set default fee bands as fallback
         setFeeBands([
           {
             min_amount: 0,
@@ -405,8 +363,6 @@ const SendCryptoModal: React.FC = () => {
 
     fetchFeeStructure();
   }, [isBrowser, selectedToken]);
-
-  // Validate phone number with backend API
   const validatePhoneWithBackend = async (
     phoneNumber: string,
   ): Promise<boolean> => {
@@ -419,7 +375,6 @@ const SendCryptoModal: React.FC = () => {
       return result.isValid;
     } catch (error) {
       console.error("Phone validation error:", error);
-      // Fall back to client-side validation
       const clientValidation = validateKenyanPhoneNumber(phoneNumber);
       setPhoneValidation(clientValidation);
       return clientValidation.isValid;
@@ -428,7 +383,6 @@ const SendCryptoModal: React.FC = () => {
     }
   };
 
-  // Validate phone number when user stops typing (debounced)
   useEffect(() => {
     if (!mobileNumber) {
       setPhoneValidation({ isValid: false });
@@ -439,16 +393,15 @@ const SendCryptoModal: React.FC = () => {
       if (mobileNumber.length >= 12) {
         validatePhoneWithBackend(mobileNumber);
       } else {
-        // Do client-side validation for partial numbers
         const validation = validateKenyanPhoneNumber(mobileNumber);
         setPhoneValidation(validation);
       }
-    }, 1000); // 1 second delay
+    }, 1000);
 
     return () => clearTimeout(timeoutId);
   }, [mobileNumber]);
 
-  // Define transactionSummary BEFORE any code that references it
+  // ✅ FIXED: Use dynamic fee structure instead of hardcoded 1% fee
   const transactionSummary = useMemo(() => {
     if (!exchangeRate) {
       return {
@@ -499,7 +452,7 @@ const SendCryptoModal: React.FC = () => {
 
     // Fallback to simple calculation if fee bands not loaded yet
     const usdcAmount = kesAmount / exchangeRate;
-    const transactionCharge = 0; // No fee assumption for fallback
+    const transactionCharge = 0;
     const totalUSDC = usdcAmount + transactionCharge;
     const remainingBalance = selectedTokenBalance - totalUSDC;
     const totalKES = selectedTokenBalance * exchangeRate;
@@ -521,16 +474,13 @@ const SendCryptoModal: React.FC = () => {
     };
   }, [amount, exchangeRate, selectedTokenBalance, feeBands]);
 
-  // Helper function to check if the form is valid for the current payment method
   const isFormValid = useCallback(() => {
     const cashoutType = getCashoutType();
 
-    // Common validations
     if (!amount || Number.parseFloat(amount) < 10) return false;
     if (transactionSummary.totalUSDC <= 0) return false;
-    if (!transactionSummary.canAfford) return false; // Check if user can afford based on fee structure
+    if (!transactionSummary.canAfford) return false; // ✅ ADDED: Balance check
 
-    // Payment method specific validations
     switch (cashoutType) {
       case "PHONE":
         return phoneValidation.isValid && !isValidatingPhone && mobileNumber;
@@ -554,12 +504,10 @@ const SendCryptoModal: React.FC = () => {
     tillNumber,
   ]);
 
-  // Now we can safely reference transactionSummary in useEffect
   useEffect(() => {
     if (isBrowser && exchangeRate && transactionSummary.totalUSDC && amount) {
       const cashoutType = getCashoutType();
 
-      // Check if we have the required fields for the current payment method
       let hasRequiredFields = false;
       switch (cashoutType) {
         case "PHONE":
@@ -591,7 +539,6 @@ const SendCryptoModal: React.FC = () => {
           console.error("Error encrypting message:", error);
         }
       } else {
-        // Clear message hash if required fields are missing
         setMessageHash("");
       }
     }
@@ -608,10 +555,10 @@ const SendCryptoModal: React.FC = () => {
   ]);
 
   const account = useAccount();
-  const { connector } = account; // Get the current connector for smart wallet detection
+  const { connector } = account;
   const { writeContractAsync } = useWriteContract();
-  const { data: walletClient } = useWalletClient(); // Get wallet client for signing
-  // Map chain names to their contract addresses from env
+  const { data: walletClient } = useWalletClient();
+  
   const CONTRACT_ADDRESS_MAP: Record<string, string> = {
     Base: process.env.NEXT_PUBLIC_CONTRACT_ADDRESS_BASE!,
     Lisk: process.env.NEXT_PUBLIC_CONTRACT_ADDRESS_LISK!,
@@ -619,9 +566,6 @@ const SendCryptoModal: React.FC = () => {
     Arbitrum: process.env.NEXT_PUBLIC_CONTRACT_ADDRESS_ARBITRUM!,
   };
   const contractAddress = CONTRACT_ADDRESS_MAP[selectedToken.chain];
-  // Remove unused contract variables
-  // const { contract, address } = useContract(contractAddress);
-  // const usdcTokenAddress = getUSDCAddress() as `0x${string}`;
 
   useContractEvents(
     contractAddress,
@@ -631,21 +575,16 @@ const SendCryptoModal: React.FC = () => {
       console.log("[CONTRACT EVENT] Setting orderId to:", order.orderId);
     },
     (order: any) => {
-      // Handle order settled event
       console.log("Order settled:", order);
-      // If we get a settled event, we should update the popup to show success
       if (showProcessingPopup && order.orderId) {
         console.log("[CONTRACT EVENT] Order settled, updating popup state");
-        // The processing popup should detect this through polling
       }
     },
     (orderId: any) => {
-      // Handle order refunded event
       console.log("Order refunded:", orderId);
     },
   );
 
-  // Add cleanup function
   const cleanupOrderStates = useCallback(() => {
     setOrderId("");
     setShowProcessingPopup(false);
@@ -666,7 +605,6 @@ const SendCryptoModal: React.FC = () => {
   const { switchChainAsync } = useSwitchChain();
   const currentChainId = useChainId();
 
-  // Get target chain ID based on selected token
   const getTargetChainId = () => {
     switch (selectedToken.chain) {
       case "Base":
@@ -678,35 +616,30 @@ const SendCryptoModal: React.FC = () => {
       case "Arbitrum":
         return 42161;
       default:
-        return 8453; // Default to Base
+        return 8453;
     }
   };
 
-  // --- ELEMENT PAY API INTEGRATION ---
-  // Helper: Approve token if needed (ERC20 approve)
   const approveTokenIfNeeded = async (spender: string, amount: string) => {
     try {
       setIsApproving(true);
 
-      // Check if writeContractAsync is available
       if (!writeContractAsync) {
         throw new Error(
           "Contract write function not available. Please refresh the page.",
         );
       }
 
-      // Add timeout to prevent infinite hanging
       const approvalPromise = writeContractAsync({
         address: selectedToken.tokenAddress as `0x${string}`,
         abi: erc20Abi,
         functionName: "approve",
         args: [
           spender as `0x${string}`,
-          parseUnits(amount, 6), // USDC/USDT are always 6 decimals
+          parseUnits(amount, 6),
         ],
       });
 
-      // Add 2 minute timeout for user interaction
       const timeoutPromise = new Promise<never>((_, reject) =>
         setTimeout(
           () =>
@@ -725,7 +658,6 @@ const SendCryptoModal: React.FC = () => {
         try {
           await publicClient.waitForTransactionReceipt({ hash: approveHash });
         } catch (receiptError: any) {
-          // Don't fail the whole approval if receipt waiting fails - the transaction might still succeed
           console.warn(
             "Error waiting for receipt (transaction may still succeed):",
             receiptError,
@@ -743,16 +675,14 @@ const SendCryptoModal: React.FC = () => {
     }
   };
 
-  // Helper: Poll order status from Element Pay API (by tx_hash)
   const pollOrderStatus = async (txHash: string) => {
     let attempts = 0;
-    const maxAttempts = 30; // Increased from 20 to give more time for M-Pesa receipt
+    const maxAttempts = 30;
     const delay = 3000;
     console.log("🔄 Starting order status polling for:", txHash);
 
     while (attempts < maxAttempts) {
       try {
-        // Call server-side API route instead of Element Pay API directly
         const res = await fetch(
           `/api/element-pay/orders/status?txHash=${encodeURIComponent(txHash)}`,
         );
@@ -764,19 +694,16 @@ const SendCryptoModal: React.FC = () => {
           data,
         );
 
-        // Check if we have order data
         if (data?.data) {
           const orderData = data.data;
           console.log("📋 Order data found:", orderData);
 
-          // Check for final states (settled or failed)
           const isFinalState =
             orderData.status &&
             ["SETTLED", "FAILED", "SETTLED_UNVERIFIED", "COMPLETED"].includes(
               orderData.status,
             );
 
-          // Also consider it successful if we have important receipt indicators
           const hasReceiptNumber = !!(
             orderData.receipt_number ||
             orderData.mpesa_receipt_number ||
@@ -803,19 +730,15 @@ const SendCryptoModal: React.FC = () => {
           ) {
             console.log("✅ Final order status received:", orderData);
 
-            // More intelligent status determination
-            let normalizedStatus = "SETTLED"; // Default to settled if we have receipts/hashes
+            let normalizedStatus = "SETTLED";
 
-            // Only mark as failed if explicitly failed
             if (
               orderData.status === "FAILED" ||
               orderData.status === "REJECTED" ||
               orderData.status === "CANCELLED"
             ) {
               normalizedStatus = "FAILED";
-            }
-            // Consider it settled if we have receipt indicators or success statuses
-            else if (
+            } else if (
               orderData.status === "SETTLED" ||
               orderData.status === "COMPLETED" ||
               orderData.status === "SETTLED_UNVERIFIED" ||
@@ -834,7 +757,6 @@ const SendCryptoModal: React.FC = () => {
 
             return {
               ...orderData,
-              // Use the more intelligent status determination
               status: normalizedStatus,
               transaction_hash:
                 orderData.transaction_hashes?.settlement ||
@@ -854,7 +776,6 @@ const SendCryptoModal: React.FC = () => {
         }
       } catch (e) {
         console.log(`⚠️ Poll attempt ${attempts + 1} failed:`, e);
-        // ignore, will retry
       }
       await new Promise((r) => setTimeout(r, delay));
       attempts++;
@@ -867,31 +788,24 @@ const SendCryptoModal: React.FC = () => {
     return null;
   };
 
-  // Main: Offramp flow with backend API call and smart contract transaction
   const executeOfframpOrder = async () => {
     const targetChainId = getTargetChainId();
 
-    // Use safe chain switching that handles smart wallets properly
     if (currentChainId !== targetChainId) {
       console.log(
         `🔄 Network switch needed: ${currentChainId} -> ${targetChainId} (${selectedToken.chain})`,
       );
 
-      // Check if this is a smart wallet - they handle chains differently
       const isSmartWalletConnected = isSmartWallet(connector);
 
       if (isSmartWalletConnected) {
-        // Smart wallets (like Coinbase Smart Wallet) handle chain context internally
-        // They don't support wallet_switchEthereumChain but can still transact on any chain
         console.log(
           `📱 Smart wallet detected (${connector?.name}), proceeding without chain switch`,
         );
         toast.info(
           `Smart wallet detected. Proceeding with ${selectedToken.chain} transaction.`,
         );
-        // Continue with transaction - smart wallet will handle the chain
       } else {
-        // Regular wallet - attempt chain switch
         showNetworkSwitchNotification(selectedToken.chain, "switching");
 
         try {
@@ -905,20 +819,18 @@ const SendCryptoModal: React.FC = () => {
 
           if (switchResult.success) {
             if (switchResult.method === "switched") {
-              // Wait a moment for the network to switch
               await new Promise((resolve) => setTimeout(resolve, 1000));
               showNetworkSwitchNotification(selectedToken.chain, "success");
               console.log(`✅ ${switchResult.message}`);
               toast.success(
                 `Switched to ${selectedToken.chain}. Please try again.`,
               );
-              return; // User needs to retry after chain switch
+              return;
             } else if (switchResult.method === "manual-required") {
               showNetworkSwitchNotification(selectedToken.chain, "error");
               toast.warning(switchResult.message);
               return;
             }
-            // 'skipped' or 'already-on-chain' - continue with transaction
           } else {
             showNetworkSwitchNotification(selectedToken.chain, "error");
             toast.error(switchResult.message);
@@ -936,7 +848,16 @@ const SendCryptoModal: React.FC = () => {
     try {
       setIsApproving(true);
 
-      // Validate all required fields before proceeding
+      // ✅ FIXED: Validate balance before proceeding
+      if (!transactionSummary.canAfford) {
+        toast.error(
+          `Insufficient balance. You need ${transactionSummary.totalUSDC.toFixed(6)} ${selectedToken.symbol} but only have ${selectedTokenBalance.toFixed(6)} ${selectedToken.symbol}`,
+        );
+        setIsApproving(false);
+        setIsProcessing(false);
+        return;
+      }
+
       const cashoutType = getCashoutType();
       let validationError = "";
 
@@ -979,10 +900,8 @@ const SendCryptoModal: React.FC = () => {
         return;
       }
 
-      // Show processing popup immediately when we start processing
       setShowProcessingPopup(true);
 
-      // Update initial transaction receipt data
       const initialReceiptData = {
         amount: amount,
         amountUSDC: transactionSummary.usdcAmount,
@@ -994,7 +913,7 @@ const SendCryptoModal: React.FC = () => {
               : tillNumber,
         address: account.address || "",
         transactionHash: "",
-        status: 0, // Processing initially
+        status: 0,
       };
 
       console.log("📋 Initial transaction receipt data:", initialReceiptData);
@@ -1003,11 +922,9 @@ const SendCryptoModal: React.FC = () => {
         ...initialReceiptData,
       }));
 
-      // 1. Fetch quote to get exact approval amount required
       let requiredApprovalAmount: string;
       let hasSufficientAllowance = false;
 
-      // account.address is already validated above, but TypeScript needs assurance
       const walletAddress = account.address;
       if (!walletAddress) {
         toast.error("Wallet address not found. Please connect your wallet.");
@@ -1021,16 +938,14 @@ const SendCryptoModal: React.FC = () => {
           amountFiat: Number(amount),
           tokenAddress: selectedToken.tokenAddress,
           walletAddress: walletAddress,
-          orderType: 1, // OffRamp
+          orderType: 1,
           currency: "KES",
         });
 
         if (quoteResponse.status === "success" && quoteResponse.data) {
           const quoteData = quoteResponse.data;
-          // Convert raw amount (smallest units) to standard units string
           const tokenConfig = getTokenConfig(selectedToken.tokenAddress);
           const decimals = tokenConfig?.decimals || 6;
-          // required_token_amount_raw is already in smallest units, convert to standard units
           requiredApprovalAmount = (
             quoteData.required_token_amount_raw / Math.pow(10, decimals)
           ).toFixed(decimals);
@@ -1051,7 +966,6 @@ const SendCryptoModal: React.FC = () => {
         return;
       }
 
-      // 2. Approve token if needed (MetaMask popup #1)
       const spender = contractAddress;
       const tokenConfig = getTokenConfig(selectedToken.tokenAddress);
       const decimals = tokenConfig?.decimals || 6;
@@ -1073,7 +987,6 @@ const SendCryptoModal: React.FC = () => {
         }
       }
 
-      // Validate messageHash before proceeding
       if (!messageHash) {
         console.error(
           "Message hash is missing! Cannot proceed with order creation.",
@@ -1085,9 +998,8 @@ const SendCryptoModal: React.FC = () => {
         return;
       }
 
-      // 2. Prompt user to sign a message (wallet popup)
       const orderDetails = {
-        user_address: account.address as string, // We already validated this above
+        user_address: account.address as string,
         token: selectedToken.tokenAddress,
         order_type: 1,
         fiat_payload: {
@@ -1105,10 +1017,8 @@ const SendCryptoModal: React.FC = () => {
         reason: reason,
       };
 
-      let _signature; // Currently unused but kept for future signature verification
+      let _signature;
       try {
-        // Use wagmi's wallet client for signing - this ensures we use the correct
-        // connected wallet, not whatever is at window.ethereum (could be Bybit, etc.)
         if (!walletClient) {
           throw new Error(
             "Wallet not connected. Please reconnect your wallet.",
@@ -1117,7 +1027,6 @@ const SendCryptoModal: React.FC = () => {
 
         const message = JSON.stringify(orderDetails);
 
-        // Add timeout to prevent infinite hanging
         const signPromise = walletClient.signMessage({
           message,
           account: account.address as `0x${string}`,
@@ -1155,18 +1064,16 @@ const SendCryptoModal: React.FC = () => {
         return;
       }
 
-      // 3. Send order details + signature to backend (map fields to expected names)
       let apiResponse;
       try {
         const fiatPayload = orderDetails.fiat_payload;
 
-        // Use 45s timeout - longer than the axios 30s timeout to allow for retries
         apiResponse = await Promise.race([
           createOffRampOrder({
             userAddress: orderDetails.user_address,
             tokenAddress: orderDetails.token,
-            amount: Number(fiatPayload.amount_fiat), // token amount
-            amountFiat: Number(fiatPayload.amount_fiat), // KES amount
+            amount: Number(fiatPayload.amount_fiat),
+            amountFiat: Number(fiatPayload.amount_fiat),
             phoneNumber: fiatPayload.phone_number || "",
             messageHash: orderDetails.message_hash,
             reason: orderDetails.reason,
@@ -1191,7 +1098,6 @@ const SendCryptoModal: React.FC = () => {
         console.error("❌ Offramp API call failed:", apiError);
         setShowProcessingPopup(false);
 
-        // Check if it's a timeout error
         const errorMessage =
           (apiError as any)?.message ||
           "Payment processing failed. Please try again.";
@@ -1207,14 +1113,13 @@ const SendCryptoModal: React.FC = () => {
         setIsProcessing(false);
         return;
       }
-      // 4. Extract order ID and update transaction receipt with orderId
+      
       const orderId =
         (apiResponse as any)?.data.tx_hash ||
         (apiResponse as any)?.order_id ||
         "";
       setOrderId(orderId);
 
-      // Update transaction receipt with orderId
       setTransactionReciept((prev) => ({
         ...prev,
         transactionHash: orderId,
@@ -1225,9 +1130,8 @@ const SendCryptoModal: React.FC = () => {
         const isSettled = statusData.status === "SETTLED";
         const isFailed = statusData.status === "FAILED";
 
-        // Store complete transaction data for ProcessingPopup
         setFinalTransactionData(statusData);
-        setIsPollingComplete(true); // Mark polling as complete
+        setIsPollingComplete(true);
 
         const finalReceiptData = {
           status: isSettled ? 1 : isFailed ? 2 : 0,
@@ -1250,12 +1154,11 @@ const SendCryptoModal: React.FC = () => {
           );
         }
       } else {
-        // Handle polling timeout - update UI to show timeout state
         console.log("⏰ Order status polling timed out");
-        setIsPollingComplete(true); // Mark polling as complete even on timeout
+        setIsPollingComplete(true);
         setTransactionReciept((prev) => ({
           ...prev,
-          status: 2, // Mark as failed due to timeout
+          status: 2,
         }));
         toast.error(
           "Payment is taking longer than expected. Please check your transaction history or contact support.",
@@ -1291,7 +1194,6 @@ const SendCryptoModal: React.FC = () => {
 
     const cashout_type = getCashoutType();
 
-    // Validate phone number for PHONE payments
     if (cashout_type === "PHONE") {
       if (!phoneValidation.isValid) {
         if (phoneValidation.error) {
@@ -1302,7 +1204,6 @@ const SendCryptoModal: React.FC = () => {
         return;
       }
 
-      // Double-check with API validation if not already validated
       if (!phoneValidation.isValid) {
         const isPhoneValid = await validatePhoneWithBackend(mobileNumber);
         if (!isPhoneValid) {
@@ -1314,13 +1215,11 @@ const SendCryptoModal: React.FC = () => {
       }
     }
 
-    // Validate till number for TILL payments
     if (cashout_type === "TILL") {
       if (!tillNumber) {
         toast.error("Please enter a till number");
         return;
       }
-      // You can add till number validation here if needed
       await executeOfframpOrder();
       return;
     }
@@ -1330,18 +1229,15 @@ const SendCryptoModal: React.FC = () => {
         toast.error("Please enter both business number and account number");
         return;
       }
-      // Skip validation and proceed directly since Element Pay API doesn't have a validation endpoint
-      await validateAccount(); // This will always return true now
+      await validateAccount();
       console.log("📋 PayBill validation complete, setting up modal");
       setProceedAfterValidation(() => () => {
         console.log("📋 Proceed button clicked, executing offramp order");
         executeOfframpOrder();
       });
 
-      // Close main dialog to prevent backdrop interference
       setIsMainDialogOpen(false);
 
-      // Small delay to ensure dialog closes before showing confirmation modal
       setTimeout(() => {
         setShowValidationModal(true);
         setModalMode("confirm");
@@ -1352,7 +1248,6 @@ const SendCryptoModal: React.FC = () => {
     await executeOfframpOrder();
   };
 
-  // Initialize transaction receipt
   const [transactionReciept, setTransactionReciept] =
     useState<TransactionReceipt>({
       amount: "0.00",
@@ -1363,7 +1258,6 @@ const SendCryptoModal: React.FC = () => {
       transactionHash: "",
     });
 
-  // Debug final transaction data changes
   useEffect(() => {
     console.log(
       "[FINAL TRANSACTION DATA] finalTransactionData changed to:",
@@ -1387,13 +1281,11 @@ const SendCryptoModal: React.FC = () => {
     );
   }, [finalTransactionData, transactionReciept.status, isPollingComplete]);
 
-  // Update transaction receipt when relevant values change
   useEffect(() => {
     if (isBrowser) {
       const cashoutType = getCashoutType();
       let recipientInfo = "";
 
-      // Generate recipient info based on payment method
       switch (cashoutType) {
         case "PHONE":
           recipientInfo = mobileNumber || "";
@@ -1447,7 +1339,6 @@ const SendCryptoModal: React.FC = () => {
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* Left Column - Payment Form */}
             <div className="lg:col-span-2 space-y-4">
-              {/* Payment Type Header */}
               <div>
                 <h3 className="text-lg font-medium text-gray-900 mb-4">
                   Pay to Mobile Money
@@ -1476,6 +1367,8 @@ const SendCryptoModal: React.FC = () => {
                 exchangeRate={exchangeRate}
                 account={account}
                 handleMaxAmountSet={handleMaxAmountSet}
+                transactionChargeKES={transactionSummary.transactionChargeKES}
+                feeBands={feeBands}
               />
 
               {/* Mobile Confirm Button - Only shown on small screens */}
@@ -1530,14 +1423,10 @@ const SendCryptoModal: React.FC = () => {
                   </div>
                   <div className="flex justify-between items-center">
                     <span className="text-gray-600 text-sm">
-                      Transaction charge (0.5%)
+                      Transaction fee
                     </span>
                     <span className="text-orange-600 text-sm">
-                      KE{" "}
-                      {(
-                        transactionSummary.transactionCharge *
-                        (exchangeRate || 1)
-                      ).toFixed(2)}
+                      KE {transactionSummary.transactionChargeKES.toFixed(2)}
                     </span>
                   </div>
                   <div className="border-t pt-3 flex justify-between items-center font-semibold">
@@ -1600,7 +1489,6 @@ const SendCryptoModal: React.FC = () => {
           </div>
         </DialogContent>
 
-        {/* Network Switch Notification */}
         <NetworkSwitchNotification
           isVisible={networkSwitchNotification.isVisible}
           networkName={networkSwitchNotification.networkName}
@@ -1609,21 +1497,17 @@ const SendCryptoModal: React.FC = () => {
         />
       </Dialog>
 
-      {/* Render modals outside of Dialog to prevent click interference */}
       <ConfirmationModal
         isOpen={showValidationModal}
         onClose={() => {
           setShowValidationModal(false);
-          // Reopen main dialog when confirmation modal is cancelled
           setTimeout(() => {
             setIsMainDialogOpen(true);
           }, 100);
         }}
         onConfirm={() => {
-          // Execute the proceed function and close confirmation modal
           proceedAfterValidation();
           setShowValidationModal(false);
-          // Don't reopen main dialog since we're proceeding with the transaction
         }}
         accountInfo={validatedAccountInfo}
         amountKES={transactionSummary.kesAmount}
@@ -1637,8 +1521,6 @@ const SendCryptoModal: React.FC = () => {
         <ProcessingPopup
           isVisible={showProcessingPopup}
           onClose={() => {
-            // Only allow closing when transaction is complete (success or failure)
-            // The popup itself should handle this logic
             console.log(
               "[POPUP CLOSE] Processing popup closing, orderId was:",
               orderId,
@@ -1646,16 +1528,16 @@ const SendCryptoModal: React.FC = () => {
             cleanupOrderStates();
           }}
           orderId={orderId}
-          disableInternalPolling={true} // Disable ProcessingPopup's own polling
+          disableInternalPolling={true}
           transactionDetails={{
             amount:
               finalTransactionData?.amount_fiat?.toString() ||
               transactionReciept.amount ||
               amount,
             currency: "KES",
-            tokenSymbol: selectedToken.symbol, // Add the actual token symbol
-            tokenAmount: transactionSummary.usdcAmount.toFixed(6), // Add the token amount
-            network: selectedToken.chain, // Add the network/chain information
+            tokenSymbol: selectedToken.symbol,
+            tokenAmount: transactionSummary.usdcAmount.toFixed(6),
+            network: selectedToken.chain,
             recipient:
               finalTransactionData?.receiver_name ||
               (() => {
@@ -1708,7 +1590,6 @@ const SendCryptoModal: React.FC = () => {
                   ? "Failed"
                   : "Processing",
             status: transactionReciept.status,
-            // Add orderId to help with debugging
             orderId: orderId,
           }}
         />

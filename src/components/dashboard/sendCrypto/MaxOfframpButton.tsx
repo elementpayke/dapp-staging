@@ -1,106 +1,95 @@
 import React, { useState } from 'react';
 import { Loader2 } from 'lucide-react';
-import { 
-  fetchMaxSpendable, 
-  getApiCurrencyFromToken 
-} from '@/utils/feeStructure';
+import { calculateMaxSpendableFiat } from '@/utils/feeStructure';
 
 interface MaxOfframpButtonProps {
   selectedTokenBalance: number;
   exchangeRate: number | null;
   selectedTokenAddress: string;
-  selectedTokenSymbol: string;  // Added for API call
+  selectedTokenSymbol: string;
   walletAddress: string;
   onMaxAmountCalculated: (maxKESAmount: string) => void;
   disabled?: boolean;
+  feeBands: Array<{
+    min_amount: number;
+    max_amount: number | null;
+    fee_amount: number;
+    description: string;
+  }>;
 }
 
 /**
- * Max Offramp Button - Calculates maximum offramp amount using fee structure API
+ * Max Offramp Button - Calculates maximum offramp amount using fee structure utility
  * 
- * Uses the Element Pay fee structure API to accurately calculate
- * the maximum KES amount a user can receive based on their token balance.
+ * Uses the calculateMaxSpendableFiat utility function from feeStructure.ts
+ * No direct API calls - follows the architecture pattern
  */
 const MaxOfframpButton: React.FC<MaxOfframpButtonProps> = ({
   selectedTokenBalance,
   exchangeRate,
-  selectedTokenAddress,
-  selectedTokenSymbol,
-  walletAddress,
+  feeBands,
   onMaxAmountCalculated,
   disabled = false
 }) => {
   const [isCalculating, setIsCalculating] = useState(false);
 
-  const calculateMaxOfframp = async () => {
-    if (!exchangeRate || selectedTokenBalance <= 0 || !walletAddress) {
-      console.warn('Cannot calculate max: missing required data');
+  const calculateMaxOfframp = () => {
+    if (!exchangeRate || selectedTokenBalance <= 0 || feeBands.length === 0) {
+      console.warn('Cannot calculate max: missing required data', {
+        exchangeRate,
+        selectedTokenBalance,
+        hasFees: feeBands.length > 0
+      });
       return;
     }
 
     setIsCalculating(true);
-    console.log('🚀 Calculating max offramp amount using fee structure API...');
+    console.log('💰 Calculating max offramp amount using utility function...');
 
     try {
-      // Get the API currency from token symbol
-      const apiCurrency = getApiCurrencyFromToken(selectedTokenSymbol);
-      
-      // Fetch max spendable from the fee structure utility
-      const result = await fetchMaxSpendable({
-        token: apiCurrency,
-        action: "OffRamp",
-        tokenBalance: selectedTokenBalance,
+      // ✅ Use the utility function from feeStructure.ts
+      // No API calls - just pure calculation
+      const result = calculateMaxSpendableFiat(
+        selectedTokenBalance,
         exchangeRate,
-      });
+        feeBands,
+        "OffRamp"
+      );
 
-      console.log(`📊 Fee structure calculation result:`, {
-        maxFiat: result.maxFiat,
-        maxTokens: result.maxTokens,
-        tokenBalance: selectedTokenBalance,
-        exchangeRate,
-      });
+      console.log('✨ Final max amount:', result.maxFiat, 'KES (from', result.maxFiat, ')');
 
       // Ensure minimum is 10 KES
       if (result.maxFiat < 10) {
         console.warn('⚠️ Calculated amount below minimum (10 KES)');
         onMaxAmountCalculated('0');
       } else {
-        console.log(`✨ Final max amount: ${result.maxFiat} KES`);
         onMaxAmountCalculated(result.maxFiat.toString());
       }
 
     } catch (error) {
       console.error('❌ Max calculation failed:', error);
       
-      // Fallback calculation using simple fee estimation
+      // Simple fallback
       if (exchangeRate) {
-        const baseMax = selectedTokenBalance * exchangeRate;
-        const fallback = baseMax < 100 
-          ? Math.floor(baseMax * 0.90) 
-          : Math.floor(baseMax * 0.85);
-        console.log(`🔄 Using fallback: ${fallback} KES`);
-        onMaxAmountCalculated(fallback >= 10 ? fallback.toString() : '0');
+        const simpleMax = Math.floor(selectedTokenBalance * exchangeRate);
+        console.log('🔄 Using simple fallback:', simpleMax, 'KES');
+        onMaxAmountCalculated(simpleMax >= 10 ? simpleMax.toString() : '0');
       }
     } finally {
       setIsCalculating(false);
     }
   };
 
-  // Calculate quick estimate for tooltip (without API call)
   const getEstimatedMax = () => {
     if (!exchangeRate || selectedTokenBalance <= 0) return 0;
-    const baseMax = selectedTokenBalance * exchangeRate;
-    // Simple estimate: free tier < 100, otherwise ~5% fee buffer
-    return baseMax < 100 
-      ? Math.floor(baseMax) 
-      : Math.floor(baseMax * 0.95);
+    return Math.floor(selectedTokenBalance * exchangeRate);
   };
 
   return (
     <button
       type="button"
       onClick={calculateMaxOfframp}
-      disabled={disabled || isCalculating || !exchangeRate || selectedTokenBalance <= 0 || !walletAddress}
+      disabled={disabled || isCalculating || !exchangeRate || selectedTokenBalance <= 0 || feeBands.length === 0}
       className="px-3 py-1.5 text-sm font-medium text-blue-600 bg-blue-50 rounded-md hover:bg-blue-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-1.5 whitespace-nowrap"
       title={`Calculate maximum offramp amount (estimated ~${getEstimatedMax()} KES)`}
     >

@@ -28,6 +28,13 @@ interface PayToMobileMoneyProps {
   exchangeRate: number | null;
   account: any;
   handleMaxAmountSet: (amount: string) => void;
+  transactionChargeKES: number; // ✅ ADDED: Dynamic transaction fee
+  feeBands: Array<{  // ✅ ADD THIS ENTIRE BLOCK
+    min_amount: number;
+    max_amount: number | null;
+    fee_amount: number;
+    description: string;
+  }>;
 }
 
 type PaymentMethod = "Send Money" | "Pay Bill" | "Buy Goods";
@@ -55,6 +62,8 @@ const PayToMobileMoney: React.FC<PayToMobileMoneyProps> = ({
   exchangeRate,
   account,
   handleMaxAmountSet,
+  transactionChargeKES, // ✅ ADDED: Receive dynamic fee from parent
+  feeBands, // ✅ ADDED: Receive fee bands from parent
 }) => {
   const [paymentMethod, setPaymentMethod] =
     useState<PaymentMethod>("Send Money");
@@ -88,7 +97,6 @@ const PayToMobileMoney: React.FC<PayToMobileMoneyProps> = ({
     setAccountNumber,
   ]);
 
-  // Validate input based on payment method
   const validateInput = () => {
     if (amount && Number.parseFloat(amount) < 10) {
       return "Minimum amount is 10 KES";
@@ -132,17 +140,13 @@ const PayToMobileMoney: React.FC<PayToMobileMoneyProps> = ({
                     let input = e.target.value
                       .replace(/[^\d]/g, "")
                       .substring(0, 12);
-                    // If starts with '2540', prevent entering
                     if (input.startsWith("2540")) {
-                      // Do not update the value
                       return;
                     }
-                    // If input is empty, set default to '254'
                     if (input === "") {
                       setMobileNumber("254");
                       return;
                     }
-                    // Ensure input always starts with '254'
                     if (!input.startsWith("254")) {
                       input = "254" + input.replace(/^254*/, "");
                     }
@@ -322,13 +326,13 @@ const PayToMobileMoney: React.FC<PayToMobileMoneyProps> = ({
               selectedTokenSymbol={selectedToken.symbol}
               walletAddress={account?.address}
               onMaxAmountCalculated={handleMaxAmountSet}
+              feeBands={feeBands}
             />
           </div>
           <input
             type="text"
             value={amount}
             onChange={(e) => {
-              // Allow only numbers and decimal point
               const newValue = e.target.value.replace(/[^\d.]/g, "");
               setAmount(newValue);
             }}
@@ -369,11 +373,9 @@ const PayToMobileMoney: React.FC<PayToMobileMoneyProps> = ({
         </div>
         <div className="flex justify-between text-sm">
           <span className="text-gray-600">Transaction fee:</span>
+          {/* ✅ FIXED: Use dynamic fee instead of hardcoded calculation */}
           <span className="font-medium">
-            {amount
-              ? Math.min(Number.parseFloat(amount) * 0.01, 100).toFixed(2)
-              : "0.00"}{" "}
-            KES
+            {transactionChargeKES.toFixed(2)} KES
           </span>
         </div>
       </div>
