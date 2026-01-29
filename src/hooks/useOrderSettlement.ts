@@ -50,7 +50,7 @@ function hashesMatch(hash1: string | null, hash2: string | null): boolean {
 
 // OrderCreated event ABI for parsing
 const ORDER_CREATED_EVENT = parseAbiItem(
-  "event OrderCreated(bytes32 indexed orderId, address indexed token, address indexed requester, uint256 amount, string messageHash, uint256 rate, uint8 orderType)"
+  "event OrderCreated(bytes32 indexed orderId, address indexed token, address indexed requester, uint256 amount, string messageHash, uint256 rate, uint8 orderType)",
 );
 
 export interface OrderSettlementResult {
@@ -109,7 +109,7 @@ export function useOrderSettlement({
     useState<OrderSettlementResult | null>(null);
   const [error, setError] = useState<Error | null>(null);
   const [pollCount, setPollCount] = useState(0);
-  
+
   // The REAL orderId extracted from the OrderCreated event (different from txHash!)
   const [realOrderId, setRealOrderId] = useState<string | null>(null);
 
@@ -137,7 +137,7 @@ export function useOrderSettlement({
     isSettledRef.current = isSettled;
     isRefundedRef.current = isRefunded;
   }, [isSettled, isRefunded]);
-  
+
   // Sync realOrderId ref
   useEffect(() => {
     realOrderIdRef.current = realOrderId;
@@ -158,30 +158,36 @@ export function useOrderSettlement({
     if (!publicClient || !txHash || hasExtractedOrderId.current) {
       return null;
     }
-    
+
     try {
       const normalizedTxHash = normalizeHash(txHash) as `0x${string}`;
-      console.log(`[useOrderSettlement] 📦 Extracting orderId from tx: ${normalizedTxHash}`);
-      
+      console.log(
+        `[useOrderSettlement] 📦 Extracting orderId from tx: ${normalizedTxHash}`,
+      );
+
       const receipt = await publicClient.getTransactionReceipt({
         hash: normalizedTxHash,
       });
-      
+
       if (!receipt) {
         console.error("[useOrderSettlement] No receipt found for tx:", txHash);
         return null;
       }
-      
-      console.log(`[useOrderSettlement] Receipt has ${receipt.logs.length} logs`);
-      
+
+      console.log(
+        `[useOrderSettlement] Receipt has ${receipt.logs.length} logs`,
+      );
+
       // Find the OrderCreated event in the logs
       for (const log of receipt.logs) {
         try {
           // OrderCreated event signature hash
-          const orderCreatedSignature = "0x" + "OrderCreated(bytes32,address,address,uint256,string,uint256,uint8)"
-            .split("")
-            .reduce((hash, char) => hash, ""); // We'll match by topics instead
-          
+          const orderCreatedSignature =
+            "0x" +
+            "OrderCreated(bytes32,address,address,uint256,string,uint256,uint8)"
+              .split("")
+              .reduce((hash, char) => hash, ""); // We'll match by topics instead
+
           // The first topic is the event signature, orderId is the second topic (first indexed param)
           if (log.topics.length >= 2) {
             const decoded = decodeEventLog({
@@ -190,10 +196,12 @@ export function useOrderSettlement({
               topics: log.topics,
               eventName: "OrderCreated",
             });
-            
+
             const extractedOrderId = (decoded.args as any).orderId as string;
-            console.log(`✅ [useOrderSettlement] Extracted REAL orderId: ${extractedOrderId}`);
-            
+            console.log(
+              `✅ [useOrderSettlement] Extracted REAL orderId: ${extractedOrderId}`,
+            );
+
             hasExtractedOrderId.current = true;
             setRealOrderId(extractedOrderId);
             realOrderIdRef.current = extractedOrderId;
@@ -204,8 +212,10 @@ export function useOrderSettlement({
           continue;
         }
       }
-      
-      console.error("[useOrderSettlement] No OrderCreated event found in tx logs");
+
+      console.error(
+        "[useOrderSettlement] No OrderCreated event found in tx logs",
+      );
       return null;
     } catch (err) {
       console.error("[useOrderSettlement] Error extracting orderId:", err);
@@ -216,8 +226,14 @@ export function useOrderSettlement({
   // Main polling function - uses refs to avoid dependency changes
   const pollForEvents = useCallback(async () => {
     // Early exit checks using refs (stable across renders)
-    if (isPollingStopped.current || isSettledRef.current || isRefundedRef.current) {
-      console.log("[useOrderSettlement] Polling stopped - already settled/refunded");
+    if (
+      isPollingStopped.current ||
+      isSettledRef.current ||
+      isRefundedRef.current
+    ) {
+      console.log(
+        "[useOrderSettlement] Polling stopped - already settled/refunded",
+      );
       stopPolling();
       return;
     }
@@ -226,19 +242,21 @@ export function useOrderSettlement({
       console.log("[useOrderSettlement] Missing required params");
       return;
     }
-    
+
     // First, try to get the real orderId from the creation tx
     let searchOrderId = realOrderIdRef.current;
     if (!searchOrderId && txHash) {
       searchOrderId = await extractOrderIdFromTx();
     }
-    
+
     if (!searchOrderId) {
       console.log("[useOrderSettlement] ⏳ Waiting for orderId extraction...");
       return;
     }
 
-    console.log(`[useOrderSettlement] 🔍 Polling for REAL orderId: ${searchOrderId}`);
+    console.log(
+      `[useOrderSettlement] 🔍 Polling for REAL orderId: ${searchOrderId}`,
+    );
 
     try {
       // Get current block
@@ -252,9 +270,13 @@ export function useOrderSettlement({
               hash: normalizeHash(txHash) as `0x${string}`,
             });
             startBlockRef.current = receipt.blockNumber;
-            console.log(`[useOrderSettlement] Start block from tx receipt: ${startBlockRef.current}`);
+            console.log(
+              `[useOrderSettlement] Start block from tx receipt: ${startBlockRef.current}`,
+            );
           } catch (e) {
-            console.log("[useOrderSettlement] Could not get tx receipt, using lookback");
+            console.log(
+              "[useOrderSettlement] Could not get tx receipt, using lookback",
+            );
             startBlockRef.current = currentBlock - BLOCK_LOOKBACK;
           }
         } else {
@@ -269,7 +291,7 @@ export function useOrderSettlement({
       }
 
       console.log(
-        `[useOrderSettlement] Querying blocks ${startBlockRef.current} to ${currentBlock}`
+        `[useOrderSettlement] Querying blocks ${startBlockRef.current} to ${currentBlock}`,
       );
 
       // Query for OrderSettled events
@@ -280,7 +302,9 @@ export function useOrderSettlement({
         toBlock: currentBlock,
       });
 
-      console.log(`[useOrderSettlement] Found ${settledLogs.length} OrderSettled events`);
+      console.log(
+        `[useOrderSettlement] Found ${settledLogs.length} OrderSettled events`,
+      );
 
       // Check each settled log
       for (const log of settledLogs) {
@@ -289,9 +313,11 @@ export function useOrderSettlement({
           console.log("[useOrderSettlement] Already settled, skipping...");
           return;
         }
-        
+
         const eventOrderId = log.topics[1]; // bytes32 indexed orderId
-        console.log(`[useOrderSettlement] Comparing: event=${eventOrderId} vs search=${searchOrderId}`);
+        console.log(
+          `[useOrderSettlement] Comparing: event=${eventOrderId} vs search=${searchOrderId}`,
+        );
 
         if (hashesMatch(eventOrderId, searchOrderId)) {
           console.log("✅ [useOrderSettlement] ORDER SETTLED!", {
@@ -324,12 +350,14 @@ export function useOrderSettlement({
         toBlock: currentBlock,
       });
 
-      console.log(`[useOrderSettlement] Found ${refundedLogs.length} OrderRefunded events`);
+      console.log(
+        `[useOrderSettlement] Found ${refundedLogs.length} OrderRefunded events`,
+      );
 
       // Check each refunded log
       for (const log of refundedLogs) {
         const eventOrderId = log.topics[1];
-        
+
         if (hashesMatch(eventOrderId, searchOrderId)) {
           console.log("⚠️ [useOrderSettlement] ORDER REFUNDED!", {
             eventOrderId,
@@ -346,12 +374,20 @@ export function useOrderSettlement({
 
       // Move start block forward to avoid re-scanning
       startBlockRef.current = currentBlock + BigInt(1);
-      console.log(`[useOrderSettlement] Poll complete. Next start: ${startBlockRef.current}`);
+      console.log(
+        `[useOrderSettlement] Poll complete. Next start: ${startBlockRef.current}`,
+      );
     } catch (err) {
       console.error("[useOrderSettlement] Poll error:", err);
       // Continue polling despite errors
     }
-  }, [publicClient, contractAddress, txHash, stopPolling, extractOrderIdFromTx]);
+  }, [
+    publicClient,
+    contractAddress,
+    txHash,
+    stopPolling,
+    extractOrderIdFromTx,
+  ]);
 
   // Set up polling interval - only depends on stable values
   useEffect(() => {
@@ -369,12 +405,16 @@ export function useOrderSettlement({
     }
 
     if (isSettled || isRefunded) {
-      console.log("[useOrderSettlement] Already settled/refunded, not starting poll");
+      console.log(
+        "[useOrderSettlement] Already settled/refunded, not starting poll",
+      );
       stopPolling();
       return;
     }
 
-    console.log(`[useOrderSettlement] 🚀 Starting polling for txHash: ${txHash}`);
+    console.log(
+      `[useOrderSettlement] 🚀 Starting polling for txHash: ${txHash}`,
+    );
 
     // Do initial poll immediately
     pollForEvents();
@@ -384,7 +424,7 @@ export function useOrderSettlement({
     pollIntervalRef.current = setInterval(() => {
       setPollCount((prev) => {
         const newCount = prev + 1;
-        
+
         if (newCount > MAX_POLL_ATTEMPTS) {
           console.log("[useOrderSettlement] ⏰ Max poll attempts reached");
           stopPolling();
@@ -393,10 +433,14 @@ export function useOrderSettlement({
         }
 
         // Check if we should still poll (using refs for latest values)
-        if (!isPollingStopped.current && !isSettledRef.current && !isRefundedRef.current) {
+        if (
+          !isPollingStopped.current &&
+          !isSettledRef.current &&
+          !isRefundedRef.current
+        ) {
           pollForEvents();
         }
-        
+
         return newCount;
       });
     }, POLL_INTERVAL);
@@ -444,7 +488,7 @@ export function useOrderSettlement({
 export async function fetchOrderReceipt(txHash: string): Promise<any> {
   try {
     const res = await fetch(
-      `/api/element-pay/orders/status?txHash=${encodeURIComponent(txHash)}`
+      `/api/element-pay/orders/status?txHash=${encodeURIComponent(txHash)}`,
     );
 
     if (!res.ok) {
