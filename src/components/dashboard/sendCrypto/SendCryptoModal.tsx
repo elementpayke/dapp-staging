@@ -1,4 +1,3 @@
-
 "use client";
 
 import type React from "react";
@@ -64,6 +63,7 @@ const SendCryptoModal: React.FC = () => {
     SUPPORTED_TOKENS[0],
   );
   const [amount, setAmount] = useState("");
+  const [debouncedAmount, setDebouncedAmount] = useState("");
   const [mobileNumber, setMobileNumber] = useState("");
   const [reason, setReason] = useState("Transport");
   const [isApproving, setIsApproving] = useState(false);
@@ -180,6 +180,16 @@ const SendCryptoModal: React.FC = () => {
   useEffect(() => {
     setIsBrowser(true);
   }, []);
+
+  // Task 2.6: Added debouncing for amount changes to avoid excessive recalculations
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedAmount(amount);
+      console.log("[DEBOUNCE] Amount debounced:", amount);
+    }, 300); // 300ms debounce delay
+
+    return () => clearTimeout(timer);
+  }, [amount]);
 
   useEffect(() => {
     const fetchExchangeRate = async () => {
@@ -401,7 +411,7 @@ const SendCryptoModal: React.FC = () => {
     return () => clearTimeout(timeoutId);
   }, [mobileNumber]);
 
-  // ✅ FIXED: Use dynamic fee structure instead of hardcoded 1% fee
+  // Task 2.6: Use debounced amount and ensure all dependencies are included
   const transactionSummary = useMemo(() => {
     if (!exchangeRate) {
       return {
@@ -420,7 +430,7 @@ const SendCryptoModal: React.FC = () => {
       };
     }
 
-    const kesAmount = Number.parseFloat(amount) || 0;
+    const kesAmount = Number.parseFloat(debouncedAmount) || 0;
 
     // Use fee structure utility if fee bands are loaded
     if (feeBands.length > 0) {
@@ -466,13 +476,13 @@ const SendCryptoModal: React.FC = () => {
       totalUSDC,
       totalKES,
       totalKESBalance: totalKESBalance,
-      walletBalance: Number.parseFloat(amount) || 0,
+      walletBalance: Number.parseFloat(debouncedAmount) || 0,
       remainingBalance: Math.max(remainingBalance, 0),
       usdcBalance: selectedTokenBalance,
       canAfford: totalUSDC <= selectedTokenBalance,
       maxSpendableFiat: totalKES,
     };
-  }, [amount, exchangeRate, selectedTokenBalance, feeBands]);
+  }, [debouncedAmount, exchangeRate, selectedTokenBalance, selectedToken, feeBands]);
 
   const isFormValid = useCallback(() => {
     const cashoutType = getCashoutType();
