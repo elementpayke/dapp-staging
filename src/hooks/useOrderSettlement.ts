@@ -10,29 +10,64 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { usePublicClient } from "wagmi";
-import { decodeEventLog, parseAbiItem } from "viem";
-import { gatewayAbi } from "@/app/api/abi";
+import { parseAbiItem, decodeEventLog } from "viem";
+import contractABI from "@/lib/contractABI.json";
 
-// Polling interval in ms
-const POLL_INTERVAL = 3000;
-const MAX_POLL_ATTEMPTS = 100; // ~5 minutes at 3s intervals
-const BLOCK_LOOKBACK = BigInt(100); // How many blocks back to start searching
+// Polling configuration
+const POLL_INTERVAL = 5000; // 5 seconds between polls
+const MAX_POLL_ATTEMPTS = 60; // ~5 minutes total
+const BLOCK_LOOKBACK = BigInt(50); // How many blocks back to start searching
+
+/**
+ * Normalize a hash to lowercase with 0x prefix
+ */
+function normalizeHash(hash: string | null | undefined): string | null {
+  if (!hash) return null;
+  const cleaned = hash.toLowerCase().trim();
+  return cleaned.startsWith("0x") ? cleaned : `0x${cleaned}`;
+}
+
+/**
+ * Compare two hashes for equality
+ * Handles the case where orderId from API might be tx hash format
+ * and event orderId is bytes32 format
+ */
+function hashesMatch(hash1: string | null, hash2: string | null): boolean {
+  if (!hash1 || !hash2) return false;
+  const n1 = normalizeHash(hash1);
+  const n2 = normalizeHash(hash2);
+  if (!n1 || !n2) return false;
+
+  // Direct match
+  if (n1 === n2) return true;
+
+  // Handle potential padding differences (bytes32 is 66 chars with 0x)
+  // If one is shorter, check if the longer one ends with the shorter one's hex part
+  const hex1 = n1.slice(2);
+  const hex2 = n2.slice(2);
+  return hex1.endsWith(hex2) || hex2.endsWith(hex1);
+}
+
+// OrderCreated event ABI for parsing
+const ORDER_CREATED_EVENT = parseAbiItem(
+  "event OrderCreated(bytes32 indexed orderId, address indexed token, address indexed requester, uint256 amount, string messageHash, uint256 rate, uint8 orderType)"
+);
 
 export interface OrderSettlementResult {
+  /** The order ID (bytes32 hex string) */
   orderId: string;
-  splitOrderId?: string;
-  liquidityProvider?: string;
-  settlePercent?: number;
+  /** The transaction hash where settlement occurred */
   transactionHash: string;
+  /** The block number where settlement occurred */
   blockNumber: bigint;
 }
 
 export interface UseOrderSettlementOptions {
   /** Contract address to watch */
   contractAddress: `0x${string}`;
-  /** The order ID to watch for (hex string) */
+  /** The order ID to watch for (hex string) - this is the tx_hash from createOffRampOrder API */
   orderId: string | null;
-  /** Transaction hash to watch from (to get the starting block) */
+  /** Transaction hash of the order creation (same as orderId in your case) */
   txHash?: string | null;
   /** Callback when order is settled */
   onSettled?: (result: OrderSettlementResult) => void;
@@ -55,6 +90,8 @@ export interface UseOrderSettlementReturn {
   pollCount: number;
   /** Reset the settlement state */
   reset: () => void;
+  /** The real orderId extracted from OrderCreated event (for debugging) */
+  realOrderId: string | null;
 }
 
 export function useOrderSettlement({
@@ -65,50 +102,159 @@ export function useOrderSettlement({
   onRefunded,
   enabled = true,
 }: UseOrderSettlementOptions): UseOrderSettlementReturn {
+  // State
   const [isSettled, setIsSettled] = useState(false);
   const [isRefunded, setIsRefunded] = useState(false);
   const [settlementResult, setSettlementResult] =
     useState<OrderSettlementResult | null>(null);
   const [error, setError] = useState<Error | null>(null);
   const [pollCount, setPollCount] = useState(0);
+  
+  // The REAL orderId extracted from the OrderCreated event (different from txHash!)
+  const [realOrderId, setRealOrderId] = useState<string | null>(null);
 
+  // Refs for stable values across renders
   const publicClient = usePublicClient();
-  const onSettledRef = useRef(onSettled);
-  const onRefundedRef = useRef(onRefunded);
+  const isSettledRef = useRef(false);
+  const isRefundedRef = useRef(false);
+  const realOrderIdRef = useRef<string | null>(null);
   const startBlockRef = useRef<bigint | null>(null);
   const pollIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const isPollingStopped = useRef(false);
+  const hasExtractedOrderId = useRef(false);
 
-  // Keep callbacks fresh without causing re-subscriptions
+  // Keep callbacks in refs to avoid recreating pollForEvents
+  const onSettledRef = useRef(onSettled);
+  const onRefundedRef = useRef(onRefunded);
+
   useEffect(() => {
     onSettledRef.current = onSettled;
     onRefundedRef.current = onRefunded;
   }, [onSettled, onRefunded]);
 
-  // Poll for events using getLogs (more widely supported than filters)
+  // Sync refs with state
+  useEffect(() => {
+    isSettledRef.current = isSettled;
+    isRefundedRef.current = isRefunded;
+  }, [isSettled, isRefunded]);
+  
+  // Sync realOrderId ref
+  useEffect(() => {
+    realOrderIdRef.current = realOrderId;
+  }, [realOrderId]);
+
+  // Stop polling helper
+  const stopPolling = useCallback(() => {
+    isPollingStopped.current = true;
+    if (pollIntervalRef.current) {
+      clearInterval(pollIntervalRef.current);
+      pollIntervalRef.current = null;
+    }
+  }, []);
+
+  // Extract the REAL orderId from the OrderCreated event in the creation transaction
+  // This is critical: the API returns txHash, but we need the orderId from the event!
+  const extractOrderIdFromTx = useCallback(async () => {
+    if (!publicClient || !txHash || hasExtractedOrderId.current) {
+      return null;
+    }
+    
+    try {
+      const normalizedTxHash = normalizeHash(txHash) as `0x${string}`;
+      console.log(`[useOrderSettlement] 📦 Extracting orderId from tx: ${normalizedTxHash}`);
+      
+      const receipt = await publicClient.getTransactionReceipt({
+        hash: normalizedTxHash,
+      });
+      
+      if (!receipt) {
+        console.error("[useOrderSettlement] No receipt found for tx:", txHash);
+        return null;
+      }
+      
+      console.log(`[useOrderSettlement] Receipt has ${receipt.logs.length} logs`);
+      
+      // Find the OrderCreated event in the logs
+      for (const log of receipt.logs) {
+        try {
+          // OrderCreated event signature hash
+          const orderCreatedSignature = "0x" + "OrderCreated(bytes32,address,address,uint256,string,uint256,uint8)"
+            .split("")
+            .reduce((hash, char) => hash, ""); // We'll match by topics instead
+          
+          // The first topic is the event signature, orderId is the second topic (first indexed param)
+          if (log.topics.length >= 2) {
+            const decoded = decodeEventLog({
+              abi: contractABI,
+              data: log.data,
+              topics: log.topics,
+              eventName: "OrderCreated",
+            });
+            
+            const extractedOrderId = (decoded.args as any).orderId as string;
+            console.log(`✅ [useOrderSettlement] Extracted REAL orderId: ${extractedOrderId}`);
+            
+            hasExtractedOrderId.current = true;
+            setRealOrderId(extractedOrderId);
+            realOrderIdRef.current = extractedOrderId;
+            return extractedOrderId;
+          }
+        } catch (e) {
+          // Not an OrderCreated event, continue
+          continue;
+        }
+      }
+      
+      console.error("[useOrderSettlement] No OrderCreated event found in tx logs");
+      return null;
+    } catch (err) {
+      console.error("[useOrderSettlement] Error extracting orderId:", err);
+      return null;
+    }
+  }, [publicClient, txHash]);
+
+  // Main polling function - uses refs to avoid dependency changes
   const pollForEvents = useCallback(async () => {
-    if (
-      !publicClient ||
-      !contractAddress ||
-      !orderId ||
-      isSettled ||
-      isRefunded
-    ) {
+    // Early exit checks using refs (stable across renders)
+    if (isPollingStopped.current || isSettledRef.current || isRefundedRef.current) {
+      console.log("[useOrderSettlement] Polling stopped - already settled/refunded");
+      stopPolling();
       return;
     }
+
+    if (!publicClient || !contractAddress) {
+      console.log("[useOrderSettlement] Missing required params");
+      return;
+    }
+    
+    // First, try to get the real orderId from the creation tx
+    let searchOrderId = realOrderIdRef.current;
+    if (!searchOrderId && txHash) {
+      searchOrderId = await extractOrderIdFromTx();
+    }
+    
+    if (!searchOrderId) {
+      console.log("[useOrderSettlement] ⏳ Waiting for orderId extraction...");
+      return;
+    }
+
+    console.log(`[useOrderSettlement] 🔍 Polling for REAL orderId: ${searchOrderId}`);
 
     try {
       // Get current block
       const currentBlock = await publicClient.getBlockNumber();
 
-      // Set start block if not set (use transaction block or current - 100)
+      // Initialize start block from the creation tx
       if (startBlockRef.current === null) {
         if (txHash) {
           try {
             const receipt = await publicClient.getTransactionReceipt({
-              hash: txHash as `0x${string}`,
+              hash: normalizeHash(txHash) as `0x${string}`,
             });
             startBlockRef.current = receipt.blockNumber;
-          } catch {
+            console.log(`[useOrderSettlement] Start block from tx receipt: ${startBlockRef.current}`);
+          } catch (e) {
+            console.log("[useOrderSettlement] Could not get tx receipt, using lookback");
             startBlockRef.current = currentBlock - BLOCK_LOOKBACK;
           }
         } else {
@@ -116,57 +262,57 @@ export function useOrderSettlement({
         }
       }
 
+      // Ensure valid block range
+      if (startBlockRef.current > currentBlock) {
+        console.log("[useOrderSettlement] Waiting for blocks...");
+        return;
+      }
+
+      console.log(
+        `[useOrderSettlement] Querying blocks ${startBlockRef.current} to ${currentBlock}`
+      );
+
       // Query for OrderSettled events
       const settledLogs = await publicClient.getLogs({
         address: contractAddress,
-        event: parseAbiItem(
-          "event OrderSettled(bytes32 indexed orderId, bytes32 indexed splitOrderId, address indexed liquidityProvider, uint64 settlePercent)",
-        ),
+        event: parseAbiItem("event OrderSettled(bytes32 indexed orderId)"),
         fromBlock: startBlockRef.current,
         toBlock: currentBlock,
       });
 
+      console.log(`[useOrderSettlement] Found ${settledLogs.length} OrderSettled events`);
+
+      // Check each settled log
       for (const log of settledLogs) {
-        try {
-          console.log("My Contract logs as ", log);
-          const decoded = decodeEventLog({
-            abi: gatewayAbi,
-            data: log.data,
-            topics: log.topics,
-            eventName: "OrderSettled",
+        // Double-check we haven't already processed settlement
+        if (isSettledRef.current) {
+          console.log("[useOrderSettlement] Already settled, skipping...");
+          return;
+        }
+        
+        const eventOrderId = log.topics[1]; // bytes32 indexed orderId
+        console.log(`[useOrderSettlement] Comparing: event=${eventOrderId} vs search=${searchOrderId}`);
+
+        if (hashesMatch(eventOrderId, searchOrderId)) {
+          console.log("✅ [useOrderSettlement] ORDER SETTLED!", {
+            eventOrderId,
+            searchOrderId,
+            txHash: log.transactionHash,
           });
 
-          const eventOrderId = (decoded.args as any).orderId as string;
+          const result: OrderSettlementResult = {
+            orderId: eventOrderId as string,
+            transactionHash: log.transactionHash,
+            blockNumber: log.blockNumber,
+          };
 
-          // Check if this event is for our order
-          if (eventOrderId?.toLowerCase() === orderId?.toLowerCase()) {
-            console.log(
-              "✅ [useOrderSettlement] Order settled on-chain:",
-              eventOrderId,
-              "decoded msg : ",
-              decoded
-            );
-
-            const result: OrderSettlementResult = {
-              orderId: eventOrderId,
-              splitOrderId: (decoded.args as any).splitOrderId as string,
-              liquidityProvider: (decoded.args as any)
-                .liquidityProvider as string,
-              settlePercent: Number((decoded.args as any).settlePercent),
-              transactionHash: log.transactionHash,
-              blockNumber: log.blockNumber,
-            };
-
-            setSettlementResult(result);
-            setIsSettled(true);
-            onSettledRef.current?.(result);
-            return; // Stop polling
-          }
-        } catch (err) {
-          console.error(
-            "[useOrderSettlement] Error decoding settled event:",
-            err,
-          );
+          // Update state and stop polling
+          setSettlementResult(result);
+          setIsSettled(true);
+          isSettledRef.current = true;
+          stopPolling();
+          onSettledRef.current?.(result);
+          return;
         }
       }
 
@@ -178,93 +324,107 @@ export function useOrderSettlement({
         toBlock: currentBlock,
       });
 
+      console.log(`[useOrderSettlement] Found ${refundedLogs.length} OrderRefunded events`);
+
+      // Check each refunded log
       for (const log of refundedLogs) {
-        try {
-          const decoded = decodeEventLog({
-            abi: gatewayAbi,
-            data: log.data,
-            topics: log.topics,
-            eventName: "OrderRefunded",
+        const eventOrderId = log.topics[1];
+        
+        if (hashesMatch(eventOrderId, searchOrderId)) {
+          console.log("⚠️ [useOrderSettlement] ORDER REFUNDED!", {
+            eventOrderId,
+            searchOrderId,
           });
 
-          const eventOrderId = (decoded.args as any).orderId as string;
-
-          if (eventOrderId?.toLowerCase() === orderId?.toLowerCase()) {
-            console.log(
-              "⚠️ [useOrderSettlement] Order refunded:",
-              eventOrderId,
-            );
-            setIsRefunded(true);
-            onRefundedRef.current?.(eventOrderId);
-            return; // Stop polling
-          }
-        } catch (err) {
-          console.error(
-            "[useOrderSettlement] Error decoding refund event:",
-            err,
-          );
+          setIsRefunded(true);
+          isRefundedRef.current = true;
+          stopPolling();
+          onRefundedRef.current?.(eventOrderId as string);
+          return;
         }
       }
 
-      // Update start block to avoid re-scanning old blocks
-      startBlockRef.current = currentBlock;
+      // Move start block forward to avoid re-scanning
+      startBlockRef.current = currentBlock + BigInt(1);
+      console.log(`[useOrderSettlement] Poll complete. Next start: ${startBlockRef.current}`);
     } catch (err) {
       console.error("[useOrderSettlement] Poll error:", err);
-      // Don't set error state for transient RPC errors, just log and continue
+      // Continue polling despite errors
     }
-  }, [publicClient, contractAddress, orderId, txHash, isSettled, isRefunded]);
+  }, [publicClient, contractAddress, txHash, stopPolling, extractOrderIdFromTx]);
 
-  // Set up polling interval
+  // Set up polling interval - only depends on stable values
   useEffect(() => {
-    if (!enabled || !orderId || isSettled || isRefunded) {
-      if (pollIntervalRef.current) {
-        clearInterval(pollIntervalRef.current);
-        pollIntervalRef.current = null;
-      }
+    // Reset refs when txHash changes
+    isPollingStopped.current = false;
+    startBlockRef.current = null;
+    hasExtractedOrderId.current = false;
+    setRealOrderId(null);
+    realOrderIdRef.current = null;
+
+    if (!enabled || !txHash) {
+      console.log("[useOrderSettlement] Polling disabled or no txHash");
+      stopPolling();
       return;
     }
 
-    // Initial poll
+    if (isSettled || isRefunded) {
+      console.log("[useOrderSettlement] Already settled/refunded, not starting poll");
+      stopPolling();
+      return;
+    }
+
+    console.log(`[useOrderSettlement] 🚀 Starting polling for txHash: ${txHash}`);
+
+    // Do initial poll immediately
     pollForEvents();
     setPollCount(1);
 
-    // Set up interval
+    // Set up interval for subsequent polls
     pollIntervalRef.current = setInterval(() => {
       setPollCount((prev) => {
-        if (prev >= MAX_POLL_ATTEMPTS) {
-          console.log("[useOrderSettlement] Max poll attempts reached");
-          if (pollIntervalRef.current) {
-            clearInterval(pollIntervalRef.current);
-            pollIntervalRef.current = null;
-          }
+        const newCount = prev + 1;
+        
+        if (newCount > MAX_POLL_ATTEMPTS) {
+          console.log("[useOrderSettlement] ⏰ Max poll attempts reached");
+          stopPolling();
           setError(new Error("Settlement timeout - max poll attempts reached"));
           return prev;
         }
-        pollForEvents();
-        return prev + 1;
+
+        // Check if we should still poll (using refs for latest values)
+        if (!isPollingStopped.current && !isSettledRef.current && !isRefundedRef.current) {
+          pollForEvents();
+        }
+        
+        return newCount;
       });
     }, POLL_INTERVAL);
 
+    // Cleanup on unmount or when dependencies change
     return () => {
-      if (pollIntervalRef.current) {
-        clearInterval(pollIntervalRef.current);
-        pollIntervalRef.current = null;
-      }
+      console.log("[useOrderSettlement] Cleanup - stopping polling");
+      stopPolling();
     };
-  }, [enabled, orderId, isSettled, isRefunded, pollForEvents]);
+  }, [enabled, txHash, isSettled, isRefunded]); // Now depends on txHash, not orderId
 
+  // Reset function
   const reset = useCallback(() => {
+    console.log("[useOrderSettlement] 🔄 Reset called");
+    stopPolling();
     setIsSettled(false);
     setIsRefunded(false);
     setSettlementResult(null);
+    setRealOrderId(null);
     setError(null);
     setPollCount(0);
+    isSettledRef.current = false;
+    isRefundedRef.current = false;
+    realOrderIdRef.current = null;
     startBlockRef.current = null;
-    if (pollIntervalRef.current) {
-      clearInterval(pollIntervalRef.current);
-      pollIntervalRef.current = null;
-    }
-  }, []);
+    isPollingStopped.current = false;
+    hasExtractedOrderId.current = false;
+  }, [stopPolling]);
 
   return {
     isSettled,
@@ -273,6 +433,8 @@ export function useOrderSettlement({
     error,
     pollCount,
     reset,
+    // Also expose the extracted orderId for debugging
+    realOrderId,
   };
 }
 
@@ -282,7 +444,7 @@ export function useOrderSettlement({
 export async function fetchOrderReceipt(txHash: string): Promise<any> {
   try {
     const res = await fetch(
-      `/api/element-pay/orders/status?txHash=${encodeURIComponent(txHash)}`,
+      `/api/element-pay/orders/status?txHash=${encodeURIComponent(txHash)}`
     );
 
     if (!res.ok) {

@@ -1,15 +1,3 @@
-/**
- * SendCryptoModalV2 - Redesigned offramp modal with cleaner UX
- *
- * Features:
- * - Compact, intuitive design
- * - Dark/light theme support
- * - +254 phone prefix addon
- * - 25/50/75/Max amount buttons
- * - Inline transaction status (no overlay-on-overlay)
- * - Event-based settlement detection
- */
-
 "use client";
 
 import React, { useState, useCallback, useMemo, useEffect } from "react";

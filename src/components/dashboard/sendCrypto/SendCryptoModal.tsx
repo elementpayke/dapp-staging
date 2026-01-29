@@ -20,6 +20,10 @@ import {
   useWalletClient,
 } from "wagmi";
 import { erc20Abi } from "@/app/api/abi";
+import {
+  useOrderSettlement,
+  fetchOrderReceipt,
+} from "@/hooks/useOrderSettlement";
 import { isSmartWallet, safeChainSwitch } from "@/lib/wallet-utils";
 
 import { encryptMessageDetailed } from "@/services/encryption";
@@ -659,7 +663,87 @@ const SendCryptoModal: React.FC = () => {
       status: 0,
       transactionHash: "",
     });
+    orderSettlementReset();
   }, []);
+  // --- Order Settlement Polling Integration ---
+  // Only enable polling if we have an orderId and are processing
+  const {
+    isSettled: isOrderSettled,
+    isRefunded: isOrderRefunded,
+    settlementResult,
+    error: settlementError,
+    pollCount: settlementPollCount,
+    reset: orderSettlementReset,
+    realOrderId, // The actual orderId extracted from OrderCreated event
+  } = useOrderSettlement({
+    contractAddress: contractAddress as `0x${string}`,
+    orderId: orderId || null,
+    txHash: orderId || undefined, // The API returns tx_hash which is the real blockchain transaction hash
+    enabled: !!orderId && showProcessingPopup,
+    onSettled: async (result) => {
+      console.log("✅ [SendCryptoModal] Order settled on-chain:", result);
+
+      // Fetch MPESA/payment details from backend using the tx hash
+      try {
+        const orderDetails = await fetchOrderReceipt(
+          orderId || result.transactionHash,
+        );
+        console.log(
+          "📋 [SendCryptoModal] Fetched order receipt:",
+          orderDetails,
+        );
+
+        // Store the complete order details for the ProcessingPopup
+        setFinalTransactionData(orderDetails);
+
+        // Update transaction receipt with settlement details
+        setTransactionReciept((prev) => ({
+          ...prev,
+          status: 1, // Settled
+          transactionHash: result.transactionHash,
+          // Include any MPESA-specific fields from backend response
+          ...(orderDetails?.mpesa_receipt && {
+            mpesaReceipt: orderDetails.mpesa_receipt,
+          }),
+          ...(orderDetails?.mpesa_transaction_id && {
+            mpesaTransactionId: orderDetails.mpesa_transaction_id,
+          }),
+        }));
+
+        toast.success("Payment completed successfully!");
+      } catch (fetchError) {
+        console.error(
+          "❌ [SendCryptoModal] Failed to fetch order receipt:",
+          fetchError,
+        );
+        // Still mark as settled even if receipt fetch fails
+        setTransactionReciept((prev) => ({
+          ...prev,
+          status: 1,
+          transactionHash: result.transactionHash,
+        }));
+        toast.success(
+          "Order settled on-chain. Receipt details may be delayed.",
+        );
+      }
+
+      setIsPollingComplete(true);
+      // DON'T close the popup immediately - let ProcessingPopup show success state with confetti
+      // The user can close it manually after seeing the receipt
+      // setShowProcessingPopup(false); // Removed - let user close after seeing success
+    },
+    onRefunded: (refundedOrderId) => {
+      console.log("⚠️ [SendCryptoModal] Order refunded:", refundedOrderId);
+      setTransactionReciept((prev) => ({
+        ...prev,
+        status: 2, // Refunded
+      }));
+      setIsPollingComplete(true);
+      // DON'T close the popup immediately - let ProcessingPopup show refund state
+      // setShowProcessingPopup(false); // Removed - let user close after seeing result
+      toast.warning("Order was refunded. Funds returned to your wallet.");
+    },
+  });
 
   const publicClient = usePublicClient();
 
@@ -1220,47 +1304,9 @@ const SendCryptoModal: React.FC = () => {
         transactionHash: orderId,
       }));
 
-      const statusData = await pollOrderStatus(orderId);
-      if (statusData) {
-        const isSettled = statusData.status === "SETTLED";
-        const isFailed = statusData.status === "FAILED";
-
-        // Store complete transaction data for ProcessingPopup
-        setFinalTransactionData(statusData);
-        setIsPollingComplete(true); // Mark polling as complete
-
-        const finalReceiptData = {
-          status: isSettled ? 1 : isFailed ? 2 : 0,
-          transactionHash: statusData.transaction_hash || orderId,
-        };
-
-        console.log("📋 Final transaction receipt data:", finalReceiptData);
-        setTransactionReciept((prev) => ({
-          ...prev,
-          ...finalReceiptData,
-        }));
-
-        if (isSettled) {
-          toast.success(
-            `Payment completed! ${statusData.mpesa_receipt_number ? `M-Pesa Receipt: ${statusData.mpesa_receipt_number}` : ""}`,
-          );
-        } else if (isFailed) {
-          toast.error(
-            `Payment failed: ${statusData.failure_reason || "Transaction was not completed successfully"}`,
-          );
-        }
-      } else {
-        // Handle polling timeout - update UI to show timeout state
-        console.log("⏰ Order status polling timed out");
-        setIsPollingComplete(true); // Mark polling as complete even on timeout
-        setTransactionReciept((prev) => ({
-          ...prev,
-          status: 2, // Mark as failed due to timeout
-        }));
-        toast.error(
-          "Payment is taking longer than expected. Please check your transaction history or contact support.",
-        );
-      }
+      // --- Instead of polling backend, rely on on-chain event settlement ---
+      // The useOrderSettlement hook will update the UI when settlement/refund is detected
+      // Optionally, you can still poll backend for extra details if needed
     } catch (err: any) {
       console.error("❌ Transaction process failed:", err);
       setShowProcessingPopup(false);
@@ -1635,6 +1681,7 @@ const SendCryptoModal: React.FC = () => {
 
       {isBrowser && (
         <ProcessingPopup
+          key={`popup-${orderId}-${transactionReciept.status}`}
           isVisible={showProcessingPopup}
           onClose={() => {
             // Only allow closing when transaction is complete (success or failure)
