@@ -1,3 +1,5 @@
+"use client";
+
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { ArrowUpRight } from "lucide-react";
 import { toast } from "react-toastify";
@@ -45,11 +47,17 @@ type OrderStatus =
   | "failed";
 
 const DepositCryptoModal: React.FC = () => {
+  const [isMounted, setIsMounted] = useState(false);
   const [isTransactionModalOpen, setIsTransactionModalOpen] = useState(false);
   const [isReceiptModalOpen, setIsReceiptModalOpen] = useState(false);
   const [selectedToken, setSelectedToken] = useState<SupportedToken>(
     SUPPORTED_TOKENS[0],
   );
+
+  // Ensure component only renders on client after mount
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
 
   // Get balance for the selected token dynamically
   const {
@@ -570,6 +578,11 @@ const DepositCryptoModal: React.FC = () => {
 
     return () => clearTimeout(timeoutId);
   }, [phoneNumber]);
+
+  // Don't render until mounted on client to prevent wagmi context errors
+  if (!isMounted) {
+    return null;
+  }
 
   return (
     <>

@@ -3,12 +3,23 @@ import React, { FC, useMemo } from "react";
 import { Bell, MoreHorizontal } from "lucide-react"; // Import icons
 import { useChainId, useBalance } from "wagmi";
 import { useAccount } from "wagmi";
+import dynamic from "next/dynamic";
 
-import SendCryptoModal from "./sendCrypto/SendCryptoModal";
-import SendCryptoModalV2 from "./sendCrypto/SendCryptoModalV2";
-import DepositCryptoModal from "./depositCrypto/DepositCryptoModal";
 import { SUPPORTED_TOKENS, SupportedToken } from "@/constants/supportedTokens";
 import { useState, useEffect } from "react";
+
+// Dynamically import modals with no SSR to prevent wagmi context issues
+const SendCryptoModal = dynamic(() => import("./sendCrypto/SendCryptoModal"), {
+  ssr: false,
+});
+const SendCryptoModalV2 = dynamic(
+  () => import("./sendCrypto/SendCryptoModalV2"),
+  { ssr: false },
+);
+const DepositCryptoModal = dynamic(
+  () => import("./depositCrypto/DepositCryptoModal"),
+  { ssr: false },
+);
 
 const QuickActions: FC = () => {
   const { address } = useAccount();
@@ -146,7 +157,7 @@ const QuickActions: FC = () => {
 
       <div className="flex gap-3 flex-wrap">
         <SendCryptoModal />
-        <SendCryptoModalV2 />
+
         <DepositCryptoModal />
       </div>
     </div>

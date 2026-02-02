@@ -1,65 +1,43 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import { ethers, BigNumberish } from "ethers";
 import { CONTRACT_ABI } from "@/app/api/abi";
+import { base } from "wagmi/chains";
 
-const NODE_URL =
-  process.env.NEXT_PUBLIC_BASE_WS_URL ||
-  "wss://base-mainnet.infura.io/ws/v3/079a8513fe4e46829490d949e078e4c1";
+// RPC URLs from environment variables (matching wagmi-config.ts)
+const BASE_RPC_URLS = [
+  process.env.NEXT_PUBLIC_BASE_RPC_URL || "https://mainnet.base.org",
+  process.env.NEXT_PUBLIC_FALLBACK_RPC_URL || "https://base-rpc.publicnode.com",
+  "https://base.drpc.org",
+];
 
-// WebSocket provider with auto-reconnection
-let provider: ethers.WebSocketProvider | null = null;
-let reconnectAttempts = 0;
-const MAX_RECONNECT_ATTEMPTS = 5;
-const RECONNECT_DELAY_BASE = 2000; // 2 seconds base delay
-
-const createProvider = (): ethers.WebSocketProvider => {
-  const newProvider = new ethers.WebSocketProvider(NODE_URL);
-
-  // Listen for WebSocket close events to trigger reconnection
-  newProvider.websocket.addEventListener("close", () => {
-    console.warn("WebSocket connection closed, attempting to reconnect...");
-    handleReconnect();
-  });
-
-  newProvider.websocket.addEventListener("error", (error) => {
-    console.error("WebSocket error:", error);
-  });
-
-  newProvider.websocket.addEventListener("open", () => {
-    console.log("WebSocket connected successfully");
-    reconnectAttempts = 0; // Reset attempts on successful connection
-  });
-
-  return newProvider;
-};
-
-const handleReconnect = () => {
-  if (reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
-    console.error(
-      "Max reconnection attempts reached. Please refresh the page.",
-    );
-    return;
-  }
-
-  reconnectAttempts++;
-  const delay = RECONNECT_DELAY_BASE * Math.pow(2, reconnectAttempts - 1); // Exponential backoff
-
-  console.log(
-    `Reconnecting in ${delay}ms (attempt ${reconnectAttempts}/${MAX_RECONNECT_ATTEMPTS})`,
-  );
-
-  setTimeout(() => {
+// Create HTTP provider with fallback
+const createProvider = (): ethers.JsonRpcProvider => {
+  // Try each RPC URL until one works
+  for (const url of BASE_RPC_URLS) {
     try {
-      provider = createProvider();
+      const provider = new ethers.JsonRpcProvider(url, {
+        chainId: base.id,
+        name: base.name,
+      });
+      console.log(`Connected to RPC: ${url}`);
+      return provider;
     } catch (error) {
-      console.error("Failed to reconnect:", error);
-      handleReconnect();
+      console.warn(`Failed to connect to ${url}, trying next...`);
     }
-  }, delay);
+  }
+  
+  // Fallback to first URL if all fail
+  return new ethers.JsonRpcProvider(BASE_RPC_URLS[0], {
+    chainId: base.id,
+    name: base.name,
+  });
 };
 
-// Initialize provider
-const getProvider = (): ethers.WebSocketProvider => {
+// Shared provider instance
+let provider: ethers.JsonRpcProvider | null = null;
+
+// Get or create provider
+const getProvider = (): ethers.JsonRpcProvider => {
   if (!provider) {
     provider = createProvider();
   }
@@ -78,13 +56,15 @@ export const useContractEvents = (
   useEffect(() => {
     if (!contractAddress) return;
 
-    const wsProvider = getProvider();
+    const httpProvider = getProvider();
     const contract = new ethers.Contract(
       contractAddress,
       CONTRACT_ABI,
-      wsProvider,
+      httpProvider,
     );
     contractRef.current = contract;
+
+    // Event listeners
     const orderCreatedListener = (
       orderId: string,
       token: string,
@@ -119,11 +99,13 @@ export const useContractEvents = (
       onOrderRefunded(orderId);
     };
 
+    // Subscribe to events
     contract.on("OrderCreated", orderCreatedListener);
     contract.on("OrderSettled", orderSettledListener);
     contract.on("OrderRefunded", orderRefundedListener);
 
     return () => {
+      // Cleanup listeners
       contract.off("OrderCreated", orderCreatedListener);
       contract.off("OrderSettled", orderSettledListener);
       contract.off("OrderRefunded", orderRefundedListener);
@@ -131,7 +113,7 @@ export const useContractEvents = (
   }, [contractAddress, onOrderCreated, onOrderSettled, onOrderRefunded]);
 };
 
-// Hook for Handling Order Status
+// Hook for Handling Order Status with retry logic
 export const useContractHandleOrderStatus = (contractAddress: string) => {
   const [isProcessing, setIsProcessing] = useState(false);
 
@@ -146,22 +128,22 @@ export const useContractHandleOrderStatus = (contractAddress: string) => {
 
       setIsProcessing(true);
 
-      // Use the managed provider with auto-reconnection
-      const wsProvider = getProvider();
+      const httpProvider = getProvider();
       const contract = new ethers.Contract(
         contractAddress,
         CONTRACT_ABI,
-        wsProvider,
+        httpProvider,
       );
 
       try {
         let orderStatus = await contract.getOrder(orderId);
         console.log("Initial order status:", orderStatus);
+        
         let attempts = 0;
-        const maxAttempts = 12; // Stop checking after 12 attempts (1 min)
-        let intervalResolved = false; // To track interval resolution
+        const maxAttempts = 12; // 12 attempts = 1 minute (5s intervals)
+        let intervalResolved = false;
 
-        const interval = setInterval(async () => {
+        const checkOrderStatus = async () => {
           if (attempts >= maxAttempts || intervalResolved) {
             clearInterval(interval);
             setIsProcessing(false);
@@ -173,28 +155,40 @@ export const useContractHandleOrderStatus = (contractAddress: string) => {
           }
 
           attempts++;
-          orderStatus = await contract.getOrder(orderId);
-          console.log(`Attempt ${attempts} Order status: ${orderStatus}`);
-          if (orderStatus && Number(orderStatus[5]) === 1) {
-            clearInterval(interval);
-            console.log("Order settled successfully");
-            setIsProcessing(false);
-            setIsTransactionModalOpen(false);
-            setDepositCryptoReciept(true);
-            intervalResolved = true; // Mark as resolved
-            transactionReciept.status = 1;
-            transactionReciept.transactionHash = orderStatus[7];
-            return; // Return success status
+          
+          try {
+            orderStatus = await contract.getOrder(orderId);
+            console.log(`Attempt ${attempts}/${maxAttempts} - Order status:`, orderStatus);
+            
+            // Check if order is settled (status === 1)
+            if (orderStatus && Number(orderStatus[5]) === 1) {
+              clearInterval(interval);
+              intervalResolved = true;
+              console.log("Order settled successfully");
+              
+              setIsProcessing(false);
+              setIsTransactionModalOpen(false);
+              setDepositCryptoReciept(true);
+              transactionReciept.status = 1;
+              transactionReciept.transactionHash = orderStatus[7];
+              return { orderId, status: 1 };
+            }
+          } catch (error) {
+            console.error(`Error checking order status (attempt ${attempts}):`, error);
+            // Continue polling despite errors
           }
-        }, 5000); // Poll every 5 seconds
+        };
 
-        // Just in case, handle when the interval is cleared early
-        await new Promise((resolve) => setTimeout(resolve, maxAttempts * 5000));
+        const interval = setInterval(checkOrderStatus, 5000); // Poll every 5 seconds
+        
+        // Initial check
+        await checkOrderStatus();
 
-        return { orderId, status: 0 }; // Fallback return in case polling ends without resolution
+        return { orderId, status: 0 };
       } catch (error) {
         console.error("Error fetching order:", error);
         setIsProcessing(false);
+        setIsTransactionModalOpen(false);
         return { orderId, status: 0 };
       }
     },
@@ -202,4 +196,35 @@ export const useContractHandleOrderStatus = (contractAddress: string) => {
   );
 
   return { handleOrderStatus, isProcessing };
+};
+
+// Utility function for manual order checking
+export const checkOrderStatus = async (
+  contractAddress: string,
+  orderId: string,
+): Promise<any> => {
+  const httpProvider = getProvider();
+  const contract = new ethers.Contract(
+    contractAddress,
+    CONTRACT_ABI,
+    httpProvider,
+  );
+
+  try {
+    const orderStatus = await contract.getOrder(orderId);
+    return {
+      orderId,
+      token: orderStatus[0],
+      requester: orderStatus[1],
+      amount: ethers.formatUnits(orderStatus[2], 6),
+      messageHash: orderStatus[3],
+      rate: orderStatus[4],
+      status: Number(orderStatus[5]),
+      orderType: Number(orderStatus[6]),
+      transactionHash: orderStatus[7],
+    };
+  } catch (error) {
+    console.error("Error checking order status:", error);
+    throw error;
+  }
 };
