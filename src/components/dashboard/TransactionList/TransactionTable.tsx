@@ -38,11 +38,11 @@ const TransactionTable: FC<TransactionTableProps> = ({
   rowsPerPage,
 }) => {
   return (
-    <div>
+    <div className="w-full">
       {/* Transaction Groups */}
-      <div className="space-y-4 sm:space-y-6">
+      <div className="space-y-4 sm:space-y-6 w-full">
         {Object.entries(groupedTransactions).map(([date, dayTransactions]) => (
-          <div key={date} className="bg-white rounded-lg shadow-sm border border-gray-200">
+          <div key={date} className="bg-white rounded-lg shadow-sm border border-gray-200 w-full">
             <div className="px-4 sm:px-6 py-3 border-b border-gray-100 bg-gray-50 rounded-t-lg">
               <h3 className="text-sm font-medium text-gray-700">{date}</h3>
             </div>
@@ -54,6 +54,7 @@ const TransactionTable: FC<TransactionTableProps> = ({
           </div>
         ))}
       </div>
+      
       {/* No Results Message */}
       {filteredTransactions.length === 0 && (
         <div className="text-center py-8">
@@ -66,6 +67,7 @@ const TransactionTable: FC<TransactionTableProps> = ({
           </button>
         </div>
       )}
+      
       {/* Pagination */}
       {filteredTransactions.length > 0 && totalPages > 1 && (
         <div className="flex flex-wrap justify-center items-center gap-1 sm:gap-2 mt-6 sm:mt-8 px-4">
@@ -99,4 +101,4 @@ const TransactionTable: FC<TransactionTableProps> = ({
   );
 };
 
-export default TransactionTable; 
+export default TransactionTable;

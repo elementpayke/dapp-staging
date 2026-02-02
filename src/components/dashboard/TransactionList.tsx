@@ -1,10 +1,17 @@
 import { FC, useEffect, useState } from "react";
-import { Copy, Search, Filter, ChevronDown, X } from "lucide-react";
+import { Copy, Search, Filter, ChevronDown, X, RefreshCw } from "lucide-react";
 import axios from "axios";
 import { Order, Tx } from "@/types/types";
 import TransactionFilters from "./TransactionList/TransactionFilters";
 import TransactionTable from "./TransactionList/TransactionTable";
 import ClientOnly from "@/components/shared/ClientOnly";
+import { DatePicker } from "antd";
+import dayjs, { Dayjs } from "dayjs";
+import isBetween from "dayjs/plugin/isBetween";
+
+dayjs.extend(isBetween);
+
+const { RangePicker } = DatePicker;
 
 interface ExtendedTx extends Tx {
   receiverDisplay: string;
@@ -19,6 +26,7 @@ interface ExtendedTx extends Tx {
   receiptNumber?: string;
   invoiceId?: string;
   orderType: string;
+  rawDate: Date; // For date filtering
 }
 
 interface FilterState {
@@ -35,10 +43,12 @@ const TransactionList: FC<{ walletAddress: string | null }> = ({ walletAddress }
 
   const [transactions, setTransactions] = useState<ExtendedTx[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [rowsPerPage, setRowsPerPage] = useState(20);
   const [showFilters, setShowFilters] = useState(false);
+  const [dateRange, setDateRange] = useState<[Dayjs | null, Dayjs | null] | null>(null);
   const [filters, setFilters] = useState<FilterState>({
     status: [],
     direction: [],
@@ -81,102 +91,114 @@ const TransactionList: FC<{ walletAddress: string | null }> = ({ walletAddress }
     }
   };
 
+  const fetchTransactions = async () => {
+    try {
+      const res = await axios.get<{status: string; message: string; data: Order[];}>
+      (`/api/element-pay/orders/wallet`, {
+        params: { wallet_address: walletAddress },
+      });
+
+      const mapped: ExtendedTx[] = res.data?.data?.map((order: Order) => {
+        const createdDate = new Date(order.created_at);
+        const settlementDate = order.updated_at
+          ? new Date(order.updated_at)
+          : null;
+
+        // Calculate processing time
+        const processingTime = settlementDate
+          ? `${Math.round(
+              (settlementDate.getTime() - createdDate.getTime()) / 1000 / 60
+            )}m`
+          : undefined;
+
+        return {
+          id: order.order_id,
+          name: order.order_type === 0 ? "OnRamp" : "OffRamp",
+          time: createdDate.toLocaleTimeString("en-US", {
+            hour: "numeric",
+            minute: "2-digit",
+            hour12: true,
+          }),
+          date: formatDate(order.created_at),
+          hash: order.settlement_transaction_hash
+            ? `${order.settlement_transaction_hash.slice(
+                0,
+                10
+              )}...${order.settlement_transaction_hash.slice(-6)}`
+            : order.refund_transaction_hash
+            ? `${order.refund_transaction_hash.slice(
+                0,
+                10
+              )}...${order.refund_transaction_hash.slice(-6)}`
+            : order.creation_transaction_hash
+            ? `${order.creation_transaction_hash.slice(
+                0,
+                10
+              )}...${order.creation_transaction_hash.slice(-6)}`
+            : "—",
+          fullHash:
+            order.settlement_transaction_hash ||
+            order.refund_transaction_hash ||
+            order.creation_transaction_hash ||
+            "—",
+          status:
+            order.status === "refunded"
+              ? "FAILED"
+              : order.status.toUpperCase(),
+          description:
+            order.receiver_name || order.phone_number
+              ? `To ${order.receiver_name || order.phone_number}`
+              : `Token: ${order.token}`,
+          amount: `${order.amount_fiat.toFixed(2)} KES`,
+          receiverDisplay:
+            order.receiver_name || order.phone_number || "Unknown",
+
+          // New enhanced fields
+          tokenSymbol: order.token,
+          cryptoAmount: `${order.amount_crypto.toFixed(6)} ${order.token}`,
+          exchangeRate: order.exchange_rate,
+          paymentMethod: "M-pesa",
+          direction: order.order_type === 0 ? "Receive" : "Send",
+          processingTime,
+          receiptNumber: undefined,
+          invoiceId: order.invoice_id,
+          orderType: order.order_type === 0 ? "OnRamp" : "OffRamp",
+          rawDate: createdDate, // Store raw date for filtering
+        };
+      });
+
+      // Sort by created_at in descending order (newest first)
+      mapped.sort((a, b) => {
+        const bOrder = res.data.data.find((o: Order) => o.order_id === b.id);
+        const aOrder = res.data.data.find((o: Order) => o.order_id === a.id);
+        return (
+          new Date(bOrder?.created_at || 0).getTime() -
+          new Date(aOrder?.created_at || 0).getTime()
+        );
+      });
+
+      setTransactions(mapped);
+    } catch (err) {
+      console.error("Failed to fetch transactions", err);
+    }
+  };
+
   useEffect(() => {
-    const fetchTransactions = async () => {
-      try {
-        const res = await axios.get<{status: string; message: string; data: Order[];}>
-        (`/api/element-pay/orders/wallet`, {
-          params: { wallet_address: walletAddress },
-        });
-
-        const mapped: ExtendedTx[] = res.data?.data?.map((order: Order) => {
-          const createdDate = new Date(order.created_at);
-          const settlementDate = order.updated_at
-            ? new Date(order.updated_at)
-            : null;
-
-          // Calculate processing time
-          const processingTime = settlementDate
-            ? `${Math.round(
-                (settlementDate.getTime() - createdDate.getTime()) / 1000 / 60
-              )}m`
-            : undefined;
-
-          return {
-            id: order.order_id,
-            name: order.order_type === 0 ? "OnRamp" : "OffRamp",
-            time: createdDate.toLocaleTimeString("en-US", {
-              hour: "numeric",
-              minute: "2-digit",
-              hour12: true,
-            }),
-            date: formatDate(order.created_at),
-            hash: order.settlement_transaction_hash
-              ? `${order.settlement_transaction_hash.slice(
-                  0,
-                  10
-                )}...${order.settlement_transaction_hash.slice(-6)}`
-              : order.refund_transaction_hash
-              ? `${order.refund_transaction_hash.slice(
-                  0,
-                  10
-                )}...${order.refund_transaction_hash.slice(-6)}`
-              : order.creation_transaction_hash
-              ? `${order.creation_transaction_hash.slice(
-                  0,
-                  10
-                )}...${order.creation_transaction_hash.slice(-6)}`
-              : "—",
-            fullHash:
-              order.settlement_transaction_hash ||
-              order.refund_transaction_hash ||
-              order.creation_transaction_hash ||
-              "—",
-            status:
-              order.status === "refunded"
-                ? "FAILED"
-                : order.status.toUpperCase(),
-            description:
-              order.receiver_name || order.phone_number
-                ? `To ${order.receiver_name || order.phone_number}`
-                : `Token: ${order.token}`,
-            amount: `${order.amount_fiat.toFixed(2)} KES`,
-            receiverDisplay:
-              order.receiver_name || order.phone_number || "Unknown",
-
-            // New enhanced fields
-            tokenSymbol: order.token,
-            cryptoAmount: `${order.amount_crypto.toFixed(6)} ${order.token}`,
-            exchangeRate: order.exchange_rate,
-            paymentMethod: "M-pesa",
-            direction: order.order_type === 0 ? "Receive" : "Send",
-            processingTime,
-            receiptNumber: undefined,
-            invoiceId: order.invoice_id,
-            orderType: order.order_type === 0 ? "OnRamp" : "OffRamp",
-          };
-        });
-
-        // Sort by created_at in descending order (newest first)
-        mapped.sort((a, b) => {
-          const bOrder = res.data.data.find((o: Order) => o.order_id === b.id);
-          const aOrder = res.data.data.find((o: Order) => o.order_id === a.id);
-          return (
-            new Date(bOrder?.created_at || 0).getTime() -
-            new Date(aOrder?.created_at || 0).getTime()
-          );
-        });
-
-        setTransactions(mapped);
-      } catch (err) {
-        console.error("Failed to fetch transactions", err);
-      } finally {
-        setLoading(false);
-      }
+    const loadTransactions = async () => {
+      setLoading(true);
+      await fetchTransactions();
+      setLoading(false);
     };
 
-    if (walletAddress) fetchTransactions();
+    if (walletAddress) loadTransactions();
   }, [walletAddress]);
+
+  // Refresh function
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    await fetchTransactions();
+    setRefreshing(false);
+  };
 
   // Get unique filter options
   const getFilterOptions = () => {
@@ -190,7 +212,7 @@ const TransactionList: FC<{ walletAddress: string | null }> = ({ walletAddress }
 
   const { statuses, directions, paymentMethods, tokens } = getFilterOptions();
 
-  // Filter transactions based on search term and filters
+  // Filter transactions based on search term, filters, and date range
   const filteredTransactions = transactions.filter(tx => {
     // Search filter
     const matchesSearch = searchTerm === "" ||
@@ -213,7 +235,11 @@ const TransactionList: FC<{ walletAddress: string | null }> = ({ walletAddress }
     // Token filter
     const matchesToken = filters.token.length === 0 || filters.token.includes(tx.tokenSymbol);
 
-    return matchesSearch && matchesStatus && matchesDirection && matchesPaymentMethod && matchesToken;
+    // Date range filter
+    const matchesDateRange = !dateRange || !dateRange[0] || !dateRange[1] ||
+      dayjs(tx.rawDate).isBetween(dateRange[0], dateRange[1], 'day', '[]');
+
+    return matchesSearch && matchesStatus && matchesDirection && matchesPaymentMethod && matchesToken && matchesDateRange;
   });
 
   // Calculate paginated transactions
@@ -226,7 +252,7 @@ const TransactionList: FC<{ walletAddress: string | null }> = ({ walletAddress }
   // Reset to first page if search/filter changes
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchTerm, rowsPerPage, walletAddress, filters]);
+  }, [searchTerm, rowsPerPage, walletAddress, filters, dateRange]);
 
   const groupedTransactions = groupTransactionsByDate(paginatedTransactions);
 
@@ -248,10 +274,11 @@ const TransactionList: FC<{ walletAddress: string | null }> = ({ walletAddress }
       paymentMethod: [],
       token: []
     });
+    setDateRange(null);
   };
 
-  // Get active filter count
-  const activeFilterCount = Object.values(filters).reduce((count, filterArray) => count + filterArray.length, 0);
+  // Get active filter count (including date range)
+  const activeFilterCount = Object.values(filters).reduce((count, filterArray) => count + filterArray.length, 0) + (dateRange ? 1 : 0);
 
   if (loading) return <p className="px-4">Loading...</p>;
 
@@ -304,39 +331,82 @@ const TransactionList: FC<{ walletAddress: string | null }> = ({ walletAddress }
     );
   }
 
-  return (
-    <ClientOnly fallback={<div className="p-4">Loading transactions...</div>}>
-      <div className="max-w-7xl p-2 sm:p-4 bg-gray-50 min-h-screen">
-        <TransactionFilters
-          searchTerm={searchTerm}
-          setSearchTerm={setSearchTerm}
-          showFilters={showFilters}
-          setShowFilters={setShowFilters}
-          filters={filters}
-          setFilters={setFilters}
-          statuses={statuses}
-          directions={directions}
-          paymentMethods={paymentMethods}
-          tokens={tokens}
-          rowsPerPage={rowsPerPage}
-          setRowsPerPage={setRowsPerPage}
-          activeFilterCount={activeFilterCount}
-          handleFilterChange={handleFilterChange}
-          clearFilters={clearFilters}
-        />
-        <TransactionTable
-          groupedTransactions={groupedTransactions}
-          filters={filters}
-          clearFilters={clearFilters}
-          filteredTransactions={filteredTransactions}
-          currentPage={currentPage}
-          setCurrentPage={setCurrentPage}
-          totalPages={totalPages}
-          rowsPerPage={rowsPerPage}
-        />
-      </div>
-    </ClientOnly>
-  );
-};
+    return (
+      <ClientOnly fallback={<div className="p-4">Loading transactions...</div>}>
+        <div className="w-full p-2 sm:p-4 bg-gray-50 min-h-screen">
+          {/* Header with Refresh and Date Range Filter */}
+          <div className="mb-4 bg-white rounded-lg border border-gray-200 p-4 shadow-sm">
+            <div className="flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between">
+              <div className="flex flex-col sm:flex-row gap-3 sm:items-center flex-1">
+                {/* Refresh Button */}
+                <button
+                  onClick={handleRefresh}
+                  disabled={refreshing}
+                  className="inline-flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
+                >
+                  <RefreshCw size={16} className={refreshing ? "animate-spin" : ""} />
+                  <span className="text-sm font-medium">{refreshing ? "Refreshing..." : "Refresh"}</span>
+                </button>
+
+                {/* Date Range Picker */}
+                <div className="flex items-center gap-2 flex-1">
+                  <RangePicker
+                    value={dateRange}
+                    onChange={(dates) => setDateRange(dates as [Dayjs | null, Dayjs | null] | null)}
+                    format="MMM D, YYYY"
+                    className="w-full sm:w-auto"
+                    placeholder={["Start date", "End date"]}
+                    allowClear
+                    style={{ minWidth: '280px' }}
+                  />
+                  {dateRange && (
+                    <button
+                      onClick={() => setDateRange(null)}
+                      className="text-sm text-blue-600 hover:text-blue-800 whitespace-nowrap font-medium"
+                    >
+                      Clear dates
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Transaction Count */}
+              <div className="text-sm font-medium text-gray-700 bg-gray-50 px-3 py-2 rounded-lg">
+                {filteredTransactions.length} {filteredTransactions.length === 1 ? "transaction" : "transactions"}
+              </div>
+            </div>
+          </div>
+
+          <TransactionFilters
+            searchTerm={searchTerm}
+            setSearchTerm={setSearchTerm}
+            showFilters={showFilters}
+            setShowFilters={setShowFilters}
+            filters={filters}
+            setFilters={setFilters}
+            statuses={statuses}
+            directions={directions}
+            paymentMethods={paymentMethods}
+            tokens={tokens}
+            rowsPerPage={rowsPerPage}
+            setRowsPerPage={setRowsPerPage}
+            activeFilterCount={activeFilterCount}
+            handleFilterChange={handleFilterChange}
+            clearFilters={clearFilters}
+          />
+          <TransactionTable
+            groupedTransactions={groupedTransactions}
+            filters={filters}
+            clearFilters={clearFilters}
+            filteredTransactions={filteredTransactions}
+            currentPage={currentPage}
+            setCurrentPage={setCurrentPage}
+            totalPages={totalPages}
+            rowsPerPage={rowsPerPage}
+          />
+        </div>
+      </ClientOnly>
+    );
+    };
 
 export default TransactionList;
