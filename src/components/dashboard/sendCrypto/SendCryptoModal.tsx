@@ -107,14 +107,6 @@ const SendCryptoModal: React.FC = () => {
     error?: string;
   }>({ isValid: false });
   const [isValidatingPhone, setIsValidatingPhone] = useState(false);
-  const [quoteValidation, setQuoteValidation] = useState<QuoteValidation>({
-    isValidating: false,
-    isValid: false,
-    error: null,
-    requiredAmount: null,
-    availableBalance: null,
-    hasSufficientBalance: null,
-  });
   const [finalTransactionData, setFinalTransactionData] = useState<any>(null); // Store complete transaction data from API
   const [isPollingComplete, setIsPollingComplete] = useState(false); // Flag to indicate polling is done
 
@@ -381,9 +373,7 @@ const SendCryptoModal: React.FC = () => {
       setIsValidatingPhone(true);
 
       const result = await validatePhoneWithAPI(
-        phoneNumber,
-        process.env.NEXT_PUBLIC_API_URL,
-        process.env.NEXT_PUBLIC_AGGR_API_KEY,
+        phoneNumber
       );
 
       setPhoneValidation(result);
