@@ -114,18 +114,9 @@ const TransactionList: FC<{ walletAddress: string | null }> = ({
           const settlementDate = order.updated_at
             ? new Date(order.updated_at)
             : null;
-          const settlementDate = order.updated_at
-            ? new Date(order.updated_at)
-            : null;
 
           // Calculate processing time
           const processingTime = settlementDate
-            ? `${Math.round(
-                (settlementDate.getTime() - createdDate.getTime()) / 1000 / 60
-              )}m`
-            ? `${Math.round(
-                (settlementDate.getTime() - createdDate.getTime()) / 1000 / 60
-              )}m`
             ? `${Math.round(
                 (settlementDate.getTime() - createdDate.getTime()) / 1000 / 60,
               )}m`
@@ -138,59 +129,24 @@ const TransactionList: FC<{ walletAddress: string | null }> = ({
               hour: "numeric",
               minute: "2-digit",
               hour12: true,
-            time: createdDate.toLocaleTimeString("en-US", {
-              hour: "numeric",
-              minute: "2-digit",
-              hour12: true,
             }),
             date: formatDate(order.created_at),
             hash: order.settlement_transaction_hash
               ? `${order.settlement_transaction_hash.slice(
                   0,
-                  10
-                )}...${order.settlement_transaction_hash.slice(-6)}`
-              ? `${order.settlement_transaction_hash.slice(
-                  0,
-                  10
-                )}...${order.settlement_transaction_hash.slice(-6)}`
-              ? `${order.settlement_transaction_hash.slice(
-                  0,
                   10,
                 )}...${order.settlement_transaction_hash.slice(-6)}`
               : order.refund_transaction_hash
-              ? `${order.refund_transaction_hash.slice(
-                  0,
-                  10
-                )}...${order.refund_transaction_hash.slice(-6)}`
-              : order.creation_transaction_hash
-              ? `${order.creation_transaction_hash.slice(
-                  0,
-                  10
-                )}...${order.creation_transaction_hash.slice(-6)}`
-              : "—",
-            fullHash:
-              order.settlement_transaction_hash ||
-              order.refund_transaction_hash ||
-              order.creation_transaction_hash ||
-              "—",
-            status:
-              order.status === "refunded"
-                ? "FAILED"
-                : order.status.toUpperCase(),
-            description:
-              order.receiver_name || order.phone_number
-                ? `To ${order.receiver_name || order.phone_number}`
-                : `Token: ${order.token}`,
-              ? `${order.refund_transaction_hash.slice(
-                  0,
-                  10
-                )}...${order.refund_transaction_hash.slice(-6)}`
-              : order.creation_transaction_hash
-              ? `${order.creation_transaction_hash.slice(
-                  0,
-                  10
-                )}...${order.creation_transaction_hash.slice(-6)}`
-              : "—",
+                ? `${order.refund_transaction_hash.slice(
+                    0,
+                    10,
+                  )}...${order.refund_transaction_hash.slice(-6)}`
+                : order.creation_transaction_hash
+                  ? `${order.creation_transaction_hash.slice(
+                      0,
+                      10,
+                    )}...${order.creation_transaction_hash.slice(-6)}`
+                  : "—",
             fullHash:
               order.settlement_transaction_hash ||
               order.refund_transaction_hash ||
@@ -205,8 +161,6 @@ const TransactionList: FC<{ walletAddress: string | null }> = ({
                 ? `To ${order.receiver_name || order.phone_number}`
                 : `Token: ${order.token}`,
             amount: `${order.amount_fiat.toFixed(2)} KES`,
-            receiverDisplay:
-              order.receiver_name || order.phone_number || "Unknown",
             receiverDisplay:
               order.receiver_name || order.phone_number || "Unknown",
 
@@ -227,10 +181,6 @@ const TransactionList: FC<{ walletAddress: string | null }> = ({
         mapped.sort((a, b) => {
           const bOrder = res.data.data.find((o: Order) => o.order_id === b.id);
           const aOrder = res.data.data.find((o: Order) => o.order_id === a.id);
-          return (
-            new Date(bOrder?.created_at || 0).getTime() -
-            new Date(aOrder?.created_at || 0).getTime()
-          );
           return (
             new Date(bOrder?.created_at || 0).getTime() -
             new Date(aOrder?.created_at || 0).getTime()
@@ -352,7 +302,7 @@ const TransactionList: FC<{ walletAddress: string | null }> = ({
   // Get active filter count
   const activeFilterCount = Object.values(filters).reduce(
     (count, filterArray) => count + filterArray.length,
-    0
+    0,
   );
 
   if (loading) return <p className="px-4">Loading...</p>;
