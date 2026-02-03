@@ -239,8 +239,6 @@ const PayToMobileMoney: React.FC<PayToMobileMoneyProps> = ({
 
   return (
     <div className="space-y-4">
-      {/* Network and Wallet Selection */}
-
       {/* M-PESA Payment Method Selector */}
       <div>
         <label className="block text-gray-600 mb-2">Payment Method</label>
@@ -272,30 +270,64 @@ const PayToMobileMoney: React.FC<PayToMobileMoneyProps> = ({
       {/* Dynamic Input Fields based on Payment Method */}
       {renderInputFields()}
 
-      {/* Token and Amount */}
-      <div className="grid grid-cols-2 gap-4">
-        <div>
-          <label className="block text-gray-600 mb-2">Token</label>
-          <TokenDropdown
-            selected={selectedToken}
-            onSelect={setSelectedToken}
-          />
-        </div>
-        <div>
-          <label className="block text-gray-600 mb-2">Amount in KES</label>
-          <input
-            type="text"
-            value={amount}
-            onChange={(e) => {
-              // Allow only numbers and decimal point
-              const newValue = e.target.value.replace(/[^\d.]/g, "");
-              setAmount(newValue);
-            }}
-            className="w-full p-3 bg-gray-50 rounded-lg border-0 text-gray-900"
-            placeholder="Enter amount"
-          />
-          {error && <p className="text-red-500 mt-2 text-sm">{error}</p>}
-        </div>
+      {/* Percentage Buttons Row - Above Token and Amount */}
+      <div className="grid grid-cols-4 gap-2">
+        <button
+          type="button"
+          onClick={() => setAmount((totalKES * 0.25).toFixed(2))}
+          className="px-2 py-1.5 bg-blue-50 text-blue-700 border border-blue-200 rounded-md hover:bg-blue-100 hover:border-blue-300 transition-all font-medium text-xs"
+        >
+          25%
+        </button>
+        <button
+          type="button"
+          onClick={() => setAmount((totalKES * 0.50).toFixed(2))}
+          className="px-2 py-1.5 bg-blue-50 text-blue-700 border border-blue-200 rounded-md hover:bg-blue-100 hover:border-blue-300 transition-all font-medium text-xs"
+        >
+          50%
+        </button>
+        <button
+          type="button"
+          onClick={() => setAmount((totalKES * 0.75).toFixed(2))}
+          className="px-2 py-1.5 bg-blue-50 text-blue-700 border border-blue-200 rounded-md hover:bg-blue-100 hover:border-blue-300 transition-all font-medium text-xs"
+        >
+          75%
+        </button>
+        <button
+          type="button"
+          onClick={() => setAmount(totalKES.toFixed(2))}
+          className="px-2 py-1.5 bg-gradient-to-r from-blue-600 to-red-600 text-white border border-transparent rounded-md hover:opacity-90 transition-all font-medium text-xs"
+        >
+          MAX
+        </button>
+      </div>
+
+      {/* Token Selection */}
+      <div>
+        <label className="block text-gray-600 mb-2">Token</label>
+        <TokenDropdown
+          selected={selectedToken}
+          onSelect={setSelectedToken}
+        />
+      </div>
+
+      {/* Amount Input */}
+      <div>
+        <label className="block text-gray-600 mb-2">Amount in KES</label>
+        
+        {/* Amount Input Field */}
+        <input
+          type="text"
+          value={amount}
+          onChange={(e) => {
+            // Allow only numbers and decimal point
+            const newValue = e.target.value.replace(/[^\d.]/g, "");
+            setAmount(newValue);
+          }}
+          className="w-full p-3 bg-gray-50 rounded-lg border-0 text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          placeholder="Enter amount"
+        />
+        {error && <p className="text-red-500 mt-2 text-sm">{error}</p>}
       </div>
 
       {/* Payment Reason */}

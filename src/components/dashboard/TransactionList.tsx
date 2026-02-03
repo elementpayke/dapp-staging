@@ -334,49 +334,6 @@ const TransactionList: FC<{ walletAddress: string | null }> = ({ walletAddress }
     return (
       <ClientOnly fallback={<div className="p-4">Loading transactions...</div>}>
         <div className="w-full p-2 sm:p-4 bg-gray-50 min-h-screen">
-          {/* Header with Refresh and Date Range Filter */}
-          <div className="mb-4 bg-white rounded-lg border border-gray-200 p-4 shadow-sm">
-            <div className="flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between">
-              <div className="flex flex-col sm:flex-row gap-3 sm:items-center flex-1">
-                {/* Refresh Button */}
-                <button
-                  onClick={handleRefresh}
-                  disabled={refreshing}
-                  className="inline-flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
-                >
-                  <RefreshCw size={16} className={refreshing ? "animate-spin" : ""} />
-                  <span className="text-sm font-medium">{refreshing ? "Refreshing..." : "Refresh"}</span>
-                </button>
-
-                {/* Date Range Picker */}
-                <div className="flex items-center gap-2 flex-1">
-                  <RangePicker
-                    value={dateRange}
-                    onChange={(dates) => setDateRange(dates as [Dayjs | null, Dayjs | null] | null)}
-                    format="MMM D, YYYY"
-                    className="w-full sm:w-auto"
-                    placeholder={["Start date", "End date"]}
-                    allowClear
-                    style={{ minWidth: '280px' }}
-                  />
-                  {dateRange && (
-                    <button
-                      onClick={() => setDateRange(null)}
-                      className="text-sm text-blue-600 hover:text-blue-800 whitespace-nowrap font-medium"
-                    >
-                      Clear dates
-                    </button>
-                  )}
-                </div>
-              </div>
-
-              {/* Transaction Count */}
-              <div className="text-sm font-medium text-gray-700 bg-gray-50 px-3 py-2 rounded-lg">
-                {filteredTransactions.length} {filteredTransactions.length === 1 ? "transaction" : "transactions"}
-              </div>
-            </div>
-          </div>
-
           <TransactionFilters
             searchTerm={searchTerm}
             setSearchTerm={setSearchTerm}
@@ -393,6 +350,10 @@ const TransactionList: FC<{ walletAddress: string | null }> = ({ walletAddress }
             activeFilterCount={activeFilterCount}
             handleFilterChange={handleFilterChange}
             clearFilters={clearFilters}
+            onDateRangeChange={setDateRange}
+            onRefresh={handleRefresh}
+            dateRange={dateRange}
+            refreshing={refreshing}
           />
           <TransactionTable
             groupedTransactions={groupedTransactions}
