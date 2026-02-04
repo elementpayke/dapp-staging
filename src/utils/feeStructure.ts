@@ -316,7 +316,18 @@ export function getFeeForAmount(
 
 /**
  * Calculate the maximum fiat amount that can be transacted given a token balance
- * Uses binary search to find the optimal amount considering fees
+ *
+ * This algorithm considers fee band boundaries to find the optimal maximum.
+ *
+ * Key insight: Sometimes staying at a lower fee band boundary yields a higher
+ * effective max than paying fees in a higher band.
+ *
+ * Example: With 104 KES worth of tokens:
+ * - At 104 KES → fee is 5 (band 101-500) → needs 109 KES → Can't afford
+ * - Binary search → ~99 KES (99 + 5 = 104)
+ * - BUT at 100 KES → fee is 0 (band 0-100) → needs 100 KES → CAN afford!
+ *
+ * The algorithm checks each fee band boundary and finds the best option.
  */
 export function calculateMaxSpendableFiat(
   tokenBalance: number,
@@ -335,31 +346,81 @@ export function calculateMaxSpendableFiat(
     // For OffRamp: User sends tokens worth (fiat_amount + fee) to receive fiat_amount
     // We need to find max fiat_amount where (fiat_amount + fee) / rate <= tokenBalance
 
-    // Binary search for the maximum affordable fiat amount
-    let low = 0;
-    let high = maxPossibleFiat;
-    let maxAffordableFiat = 0;
+    // Sort bands by min_amount
+    const sortedBands = [...feeBands].sort(
+      (a, b) => a.min_amount - b.min_amount,
+    );
 
-    while (high - low > 0.01) {
-      const mid = (low + high) / 2;
-      const { fee } = getFeeForAmount(mid, feeBands);
-      const totalFiatCost = mid + fee;
-      const tokensRequired = totalFiatCost / exchangeRate;
+    // Strategy: Check multiple candidate amounts:
+    // 1. The max_amount of each fee band (band boundaries)
+    // 2. Binary search within each band to find the max affordable amount in that band
 
-      if (tokensRequired <= tokenBalance) {
-        maxAffordableFiat = mid;
-        low = mid;
-      } else {
-        high = mid;
+    let bestMaxFiat = 0;
+    let bestMaxTokens = 0;
+
+    for (const band of sortedBands) {
+      const bandMaxAmount = band.max_amount ?? maxPossibleFiat;
+      const fee = band.fee_amount;
+
+      // Calculate max affordable amount within this band
+      // Formula: (fiat_amount + fee) / rate <= tokenBalance
+      // => fiat_amount <= tokenBalance * rate - fee
+      const maxInBandBeforeFee = tokenBalance * exchangeRate - fee;
+
+      if (maxInBandBeforeFee < band.min_amount) {
+        // Can't afford even the minimum in this band
+        continue;
+      }
+
+      // The max we can afford in this band (capped by band's max_amount)
+      const maxAffordableInBand = Math.min(maxInBandBeforeFee, bandMaxAmount);
+
+      // Ensure it's within the band range
+      if (maxAffordableInBand >= band.min_amount) {
+        // Round down to whole number
+        const roundedMax = Math.floor(maxAffordableInBand);
+
+        // Verify this amount is valid (stays within the same band after rounding)
+        const { fee: actualFee } = getFeeForAmount(roundedMax, feeBands);
+        const tokensRequired = (roundedMax + actualFee) / exchangeRate;
+
+        if (tokensRequired <= tokenBalance && roundedMax > bestMaxFiat) {
+          bestMaxFiat = roundedMax;
+          bestMaxTokens = tokensRequired;
+        }
+      }
+
+      // Also check the band boundary (max_amount) as a candidate
+      // This is important when the next band has higher fees
+      if (band.max_amount !== null && band.max_amount > 0) {
+        const boundaryAmount = band.max_amount;
+        const boundaryFee = band.fee_amount;
+        const boundaryTokensRequired =
+          (boundaryAmount + boundaryFee) / exchangeRate;
+
+        if (
+          boundaryTokensRequired <= tokenBalance &&
+          boundaryAmount > bestMaxFiat
+        ) {
+          bestMaxFiat = boundaryAmount;
+          bestMaxTokens = boundaryTokensRequired;
+        }
       }
     }
 
-    // Round down to nearest whole number (KES doesn't use decimals typically)
-    const roundedMax = Math.floor(maxAffordableFiat);
-    const { fee: finalFee } = getFeeForAmount(roundedMax, feeBands);
-    const maxTokens = (roundedMax + finalFee) / exchangeRate;
+    // Final verification
+    if (bestMaxFiat > 0) {
+      const { fee: finalFee } = getFeeForAmount(bestMaxFiat, feeBands);
+      const verifiedTokens = (bestMaxFiat + finalFee) / exchangeRate;
 
-    return { maxFiat: roundedMax, maxTokens };
+      console.log(
+        `[MaxSpendable] Best max: ${bestMaxFiat} KES, fee: ${finalFee} KES, tokens needed: ${verifiedTokens.toFixed(6)}, balance: ${tokenBalance.toFixed(6)}`,
+      );
+
+      return { maxFiat: bestMaxFiat, maxTokens: verifiedTokens };
+    }
+
+    return { maxFiat: 0, maxTokens: 0 };
   } else {
     // For OnRamp: User pays fiat, receives tokens worth (fiat - fee)
     // Max fiat is simply the fiat equivalent of token balance + any fees they'd pay
