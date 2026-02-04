@@ -5,6 +5,7 @@ import { SupportedToken } from "@/constants/supportedTokens";
 import TokenDropdown from "@/components/ui/TokenDropdown";
 import MaxOfframpButton from "./MaxOfframpButton";
 import KenyanPhoneInput from "@/components/shared/KenyanPhoneInput";
+import { MIN_TRANSACTION_AMOUNT_KES } from "@/utils/feeStructure";
 
 interface PayToMobileMoneyProps {
   selectedToken: SupportedToken;
@@ -105,8 +106,8 @@ const PayToMobileMoney: React.FC<PayToMobileMoneyProps> = ({
   ]);
 
   const validateInput = () => {
-    if (amount && Number.parseFloat(amount) < 10) {
-      return "Minimum amount is 10 KES";
+    if (amount && Number.parseFloat(amount) < MIN_TRANSACTION_AMOUNT_KES) {
+      return `Minimum amount is ${MIN_TRANSACTION_AMOUNT_KES} KES`;
     }
 
     if (paymentMethod === "Pay Bill") {

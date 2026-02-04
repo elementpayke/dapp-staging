@@ -1,6 +1,9 @@
-import React, { useState } from 'react';
-import { Loader2 } from 'lucide-react';
-import { calculateMaxSpendableFiat } from '@/utils/feeStructure';
+import React, { useState } from "react";
+import { Loader2 } from "lucide-react";
+import {
+  calculateMaxSpendableFiat,
+  MIN_TRANSACTION_AMOUNT_KES,
+} from "@/utils/feeStructure";
 
 interface MaxOfframpButtonProps {
   selectedTokenBalance: number;
@@ -20,7 +23,7 @@ interface MaxOfframpButtonProps {
 
 /**
  * Max Offramp Button - Calculates maximum offramp amount using fee structure utility
- * 
+ *
  * Uses the calculateMaxSpendableFiat utility function from feeStructure.ts
  * No direct API calls - follows the architecture pattern
  */
@@ -29,22 +32,22 @@ const MaxOfframpButton: React.FC<MaxOfframpButtonProps> = ({
   exchangeRate,
   feeBands,
   onMaxAmountCalculated,
-  disabled = false
+  disabled = false,
 }) => {
   const [isCalculating, setIsCalculating] = useState(false);
 
   const calculateMaxOfframp = () => {
     if (!exchangeRate || selectedTokenBalance <= 0 || feeBands.length === 0) {
-      console.warn('Cannot calculate max: missing required data', {
+      console.warn("Cannot calculate max: missing required data", {
         exchangeRate,
         selectedTokenBalance,
-        hasFees: feeBands.length > 0
+        hasFees: feeBands.length > 0,
       });
       return;
     }
 
     setIsCalculating(true);
-    console.log('💰 Calculating max offramp amount using utility function...');
+    console.log("💰 Calculating max offramp amount using utility function...");
 
     try {
       // ✅ Use the utility function from feeStructure.ts
@@ -53,27 +56,38 @@ const MaxOfframpButton: React.FC<MaxOfframpButtonProps> = ({
         selectedTokenBalance,
         exchangeRate,
         feeBands,
-        "OffRamp"
+        "OffRamp",
       );
 
-      console.log('✨ Final max amount:', result.maxFiat, 'KES (from', result.maxFiat, ')');
+      console.log(
+        "✨ Final max amount:",
+        result.maxFiat,
+        "KES (from",
+        result.maxFiat,
+        ")",
+      );
 
-      // Ensure minimum is 10 KES
-      if (result.maxFiat < 10) {
-        console.warn('⚠️ Calculated amount below minimum (10 KES)');
-        onMaxAmountCalculated('0');
+      // Ensure minimum is met
+      if (result.maxFiat < MIN_TRANSACTION_AMOUNT_KES) {
+        console.warn(
+          `⚠️ Calculated amount below minimum (${MIN_TRANSACTION_AMOUNT_KES} KES)`,
+        );
+        onMaxAmountCalculated("0");
       } else {
-        onMaxAmountCalculated(result.maxFiat.toString());
+        // Round down to ensure we don't exceed balance
+        const roundedMax = Math.floor(result.maxFiat);
+        onMaxAmountCalculated(roundedMax.toString());
       }
-
     } catch (error) {
-      console.error('❌ Max calculation failed:', error);
-      
+      console.error("❌ Max calculation failed:", error);
+
       // Simple fallback
       if (exchangeRate) {
         const simpleMax = Math.floor(selectedTokenBalance * exchangeRate);
-        console.log('🔄 Using simple fallback:', simpleMax, 'KES');
-        onMaxAmountCalculated(simpleMax >= 10 ? simpleMax.toString() : '0');
+        console.log("🔄 Using simple fallback:", simpleMax, "KES");
+        onMaxAmountCalculated(
+          simpleMax >= MIN_TRANSACTION_AMOUNT_KES ? simpleMax.toString() : "0",
+        );
       }
     } finally {
       setIsCalculating(false);
@@ -89,7 +103,13 @@ const MaxOfframpButton: React.FC<MaxOfframpButtonProps> = ({
     <button
       type="button"
       onClick={calculateMaxOfframp}
-      disabled={disabled || isCalculating || !exchangeRate || selectedTokenBalance <= 0 || feeBands.length === 0}
+      disabled={
+        disabled ||
+        isCalculating ||
+        !exchangeRate ||
+        selectedTokenBalance <= 0 ||
+        feeBands.length === 0
+      }
       className="px-3 py-1.5 text-sm font-medium text-blue-600 bg-blue-50 rounded-md hover:bg-blue-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-1.5 whitespace-nowrap"
       title={`Calculate maximum offramp amount (estimated ~${getEstimatedMax()} KES)`}
     >
@@ -99,7 +119,7 @@ const MaxOfframpButton: React.FC<MaxOfframpButtonProps> = ({
           <span>Calculating...</span>
         </>
       ) : (
-        'Max'
+        "Max"
       )}
     </button>
   );

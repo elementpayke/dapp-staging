@@ -59,6 +59,15 @@ export function Providers(props: { children: ReactNode }) {
           accentColor: "#0514eb",
           logo: LogoImage.src,
           showWalletLoginFirst: true,
+          // Show these wallets first in the modal (in order)
+          walletList: [
+            "metamask",
+            "phantom",
+            "coinbase_wallet",
+            "rabby_wallet",
+            "detected_wallets", // Show any other detected wallets
+            "wallet_connect", // WalletConnect for other wallets
+          ],
         },
         loginMethods: ["wallet"],
         // Support multiple chains

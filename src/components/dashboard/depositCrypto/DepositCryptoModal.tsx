@@ -25,6 +25,10 @@ import { useModalOverlay } from "@/hooks/useModalOverlay";
 import { TransactionReceipt } from "@/types/types";
 import TokenDropdown from "@/components/ui/TokenDropdown";
 import { SUPPORTED_TOKENS, SupportedToken } from "@/constants/supportedTokens";
+import {
+  getApiCurrencyFromToken,
+  fetchFeeStructureCached,
+} from "@/utils/feeStructure";
 
 interface CreateOrderResponse {
   status: string;
@@ -157,15 +161,33 @@ const DepositCryptoModal: React.FC = () => {
 
   const fetchExchangeRate = async () => {
     try {
-      // Fallback to Coinbase for initial rate display
-      const response = await fetch(
-        "https://api.coinbase.com/v2/exchange-rates?currency=USDC",
-      );
-      const data = await response.json();
+      // Use fee-structure API for OnRamp rate (same source as SendCryptoModal)
+      const currency = getApiCurrencyFromToken(selectedToken.symbol);
+      const feeData = await fetchFeeStructureCached({
+        token: currency,
+        action: "OnRamp",
+      });
 
-      if (data?.data?.rates?.KES) {
-        const baseRate = parseFloat(data.data.rates.KES);
-        setExchangeRate(baseRate);
+      if (feeData.data.base_rate && feeData.data.base_rate > 0) {
+        setExchangeRate(feeData.data.base_rate);
+        console.log(
+          "[DepositCrypto] Fee structure rate:",
+          feeData.data.base_rate,
+          "KES per",
+          selectedToken.symbol,
+        );
+      } else {
+        // Fallback to Coinbase for initial rate display
+        const response = await fetch(
+          "https://api.coinbase.com/v2/exchange-rates?currency=USDC",
+        );
+        const data = await response.json();
+
+        if (data?.data?.rates?.KES) {
+          const baseRate = parseFloat(data.data.rates.KES);
+          setExchangeRate(baseRate);
+          console.log("[DepositCrypto] Coinbase fallback rate:", baseRate);
+        }
       }
     } catch (error) {
       console.error("Error fetching exchange rate:", error);

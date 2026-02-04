@@ -1,9 +1,88 @@
 /**
  * Fee Structure Utility
  *
- * Handles fee calculation based on the Element Pay quote API.
+ * Handles fee calculation based on the Element Pay fee-structure API.
  * Used for both OffRamp and OnRamp transactions.
  */
+
+// ============ Constants ============
+
+/**
+ * Default fee bands used when API is unavailable.
+ * These match the real API structure for consistency.
+ */
+export const DEFAULT_FEE_BANDS: FeeBand[] = [
+  {
+    min_amount: 0,
+    max_amount: 100,
+    fee_amount: 0,
+    description: "0-100 KES: 0 KES fee",
+  },
+  {
+    min_amount: 101,
+    max_amount: 500,
+    fee_amount: 5,
+    description: "101-500 KES: 5 KES fee",
+  },
+  {
+    min_amount: 501,
+    max_amount: 1000,
+    fee_amount: 8,
+    description: "501-1000 KES: 8 KES fee",
+  },
+  {
+    min_amount: 1001,
+    max_amount: 2500,
+    fee_amount: 12,
+    description: "1001-2500 KES: 12 KES fee",
+  },
+  {
+    min_amount: 2501,
+    max_amount: 5000,
+    fee_amount: 18,
+    description: "2501-5000 KES: 18 KES fee",
+  },
+  {
+    min_amount: 5001,
+    max_amount: 10000,
+    fee_amount: 25,
+    description: "5001-10000 KES: 25 KES fee",
+  },
+  {
+    min_amount: 10001,
+    max_amount: 25000,
+    fee_amount: 40,
+    description: "10001-25000 KES: 40 KES fee",
+  },
+  {
+    min_amount: 25001,
+    max_amount: 50000,
+    fee_amount: 55,
+    description: "25001-50000 KES: 55 KES fee",
+  },
+  {
+    min_amount: 50001,
+    max_amount: 100000,
+    fee_amount: 80,
+    description: "50001-100000 KES: 80 KES fee",
+  },
+  {
+    min_amount: 100001,
+    max_amount: null,
+    fee_amount: 100,
+    description: "100001-∞ KES: 100 KES fee",
+  },
+];
+
+/**
+ * Minimum transaction amount in KES
+ */
+export const MIN_TRANSACTION_AMOUNT_KES = 10;
+
+/**
+ * Maximum transaction amount in KES (from API structure)
+ */
+export const MAX_TRANSACTION_AMOUNT_KES = 500000; // 500k KES limit
 
 // ============ Types ============
 
@@ -72,7 +151,7 @@ export interface FetchFeeStructureParams {
 // ============ Quote API Functions ============
 
 /**
- * Fetch quote from the API - this is the new primary method
+ * Fetch quote from the API - used for balance validation
  */
 export async function fetchQuote(params: {
   amountFiat: number;
@@ -86,7 +165,7 @@ export async function fetchQuote(params: {
     {
       method: "GET",
       headers: { "Content-Type": "application/json" },
-    }
+    },
   );
 
   if (!response.ok) {
@@ -103,58 +182,82 @@ export async function fetchQuote(params: {
 }
 
 /**
- * Fetch fee structure - now uses quote API with a default amount
- * Returns synthetic fee bands for backward compatibility
+ * Fetch fee structure from the dedicated fee-structure API endpoint
+ * Returns real fee bands from the backend
  */
 export async function fetchFeeStructure(
-  params: FetchFeeStructureParams
+  params: FetchFeeStructureParams,
 ): Promise<FeeStructureResponse> {
   const { token, action } = params;
+  const apiCurrency = getApiCurrencyFromToken(token);
+
+  // Use the local API route which proxies to the backend with authentication
+  const feeStructureUrl = `/api/fee-structure?token=${apiCurrency}&action=${action}`;
+
+  console.log("[feeStructure] Fetching from:", feeStructureUrl);
 
   try {
-    // Fetch quote with a sample amount to get the rate
-    const quote = await fetchQuote({
-      amountFiat: 1000, // Sample amount to get rate
-      token: getApiCurrencyFromToken(token),
-      orderType: action,
+    const response = await fetch(feeStructureUrl, {
+      method: "GET",
+      headers: { "Content-Type": "application/json" },
     });
 
-    const rate = quote.data.rate || quote.data.effective_rate || 129.5;
-    const feeAmount = quote.data.fee_amount || 0;
+    if (!response.ok) {
+      throw new Error(
+        `Fee structure API failed: ${response.status} ${response.statusText}`,
+      );
+    }
 
-    // Create synthetic fee bands based on quote response
-    const feeBands: FeeBand[] = [
-      { min_amount: 0, max_amount: 99, fee_amount: 0, description: "Free tier" },
-      { min_amount: 100, max_amount: 500, fee_amount: Math.max(feeAmount, 10), description: "Small transactions" },
-      { min_amount: 501, max_amount: 2000, fee_amount: Math.max(feeAmount, 15), description: "Medium transactions" },
-      { min_amount: 2001, max_amount: null, fee_amount: Math.max(feeAmount, 20), description: "Large transactions" },
-    ];
+    const data = await response.json();
+    console.log("[feeStructure] API response:", data);
+
+    if (data.status !== "success" || !data.data?.fee_bands) {
+      throw new Error(data.message || "Invalid fee structure response");
+    }
+
+    // Validate and normalize fee bands from API
+    const feeBands: FeeBand[] = data.data.fee_bands.map((band: any) => ({
+      min_amount: Number(band.min_amount) || 0,
+      max_amount: band.max_amount != null ? Number(band.max_amount) : null,
+      fee_amount: Number(band.fee_amount) || 0,
+      description:
+        band.description || `${band.min_amount}-${band.max_amount ?? "∞"} KES`,
+    }));
 
     return {
       status: "success",
-      message: "Fee structure from quote",
+      message: data.message || "Fee structure retrieved successfully",
       data: {
-        currency: token,
-        base_rate: rate,
-        order_type: action,
-        fee_type: "flat",
-        fee_currency: "KES",
+        currency: data.data.currency || apiCurrency,
+        base_rate: Number(data.data.base_rate) || 129.5,
+        order_type: data.data.order_type || action,
+        fee_type: data.data.fee_type || "band_based",
+        fee_currency: data.data.fee_currency || "KES",
         fee_bands: feeBands,
-        notes: { onramp: "", offramp: "", free_tier: "Transactions under KES 100 are free" },
+        notes: data.data.notes || {
+          onramp: "User pays fiat amount, receives tokens worth (amount - fee)",
+          offramp:
+            "User sends tokens worth (amount + fee), merchant receives full fiat amount",
+          free_tier: "Transactions 0-100 KES are always free",
+        },
       },
     };
   } catch (error) {
-    console.warn("[feeStructure] Quote API failed, using fallback:", error);
+    console.warn(
+      "[feeStructure] Fee structure API failed, using fallback:",
+      error,
+    );
     return getFallbackFeeStructure(token, action);
   }
 }
 
 /**
  * Fallback fee structure when API is unavailable
+ * Uses DEFAULT_FEE_BANDS for consistency
  */
 function getFallbackFeeStructure(
   token: string,
-  action: "OffRamp" | "OnRamp"
+  action: "OffRamp" | "OnRamp",
 ): FeeStructureResponse {
   const fallbackRates: Record<string, number> = {
     usdc: 129.5,
@@ -164,6 +267,8 @@ function getFallbackFeeStructure(
     usdt_lisk: 129.5,
   };
 
+  console.log("[feeStructure] Using fallback fee bands for", token, action);
+
   return {
     status: "success",
     message: "Using fallback rates",
@@ -171,15 +276,15 @@ function getFallbackFeeStructure(
       currency: token,
       base_rate: fallbackRates[token.toLowerCase()] || 129.5,
       order_type: action,
-      fee_type: "flat",
+      fee_type: "band_based",
       fee_currency: "KES",
-      fee_bands: [
-        { min_amount: 0, max_amount: 99, fee_amount: 0, description: "Free tier" },
-        { min_amount: 100, max_amount: 500, fee_amount: 10, description: "Small" },
-        { min_amount: 501, max_amount: 2000, fee_amount: 15, description: "Medium" },
-        { min_amount: 2001, max_amount: null, fee_amount: 20, description: "Large" },
-      ],
-      notes: { onramp: "", offramp: "", free_tier: "" },
+      fee_bands: DEFAULT_FEE_BANDS, // Use the centralized default
+      notes: {
+        onramp: "User pays fiat amount, receives tokens worth (amount - fee)",
+        offramp:
+          "User sends tokens worth (amount + fee), merchant receives full fiat amount",
+        free_tier: "Transactions 0-100 KES are always free",
+      },
     },
   };
 }

@@ -132,13 +132,13 @@ export function AnimatedStatusBackground({
             <div className="p-6">
               <div className="flex items-center justify-center mb-5">
                 <motion.div
-                  className="bg-red-100 rounded-full p-3"
+                  className="bg-orange-100 rounded-full p-3"
                   initial={{ scale: 0.8 }}
                   animate={{ scale: 1 }}
                   transition={{ type: "spring", stiffness: 300 }}
                 >
                   <svg
-                    className="w-8 h-8 text-red-500"
+                    className="w-8 h-8 text-orange-500"
                     viewBox="0 0 24 24"
                     fill="none"
                     stroke="currentColor"
@@ -153,16 +153,13 @@ export function AnimatedStatusBackground({
 
               <div className="text-center mb-6">
                 <h3 className="text-xl font-bold text-gray-900 mb-2">
-                  Unsupported Customer Type
+                  Could not verify the transaction status
                 </h3>
-                <p className="text-gray-600 text-base">
-                  {transactionDetails.failureReason ||
-                    "Your account is registered as a Credit Party customer, which is not compatible with this payment method. Please try a different payment option or contact our support team."}
-                </p>
+              
               </div>
 
               <motion.div
-                className="bg-red-50 rounded-lg p-4 mb-5"
+                className="bg-orange-50 rounded-lg p-4 mb-5"
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.2 }}
@@ -170,7 +167,7 @@ export function AnimatedStatusBackground({
                 <div className="flex items-start space-x-3">
                   <div className="mt-0.5">
                     <svg
-                      className="h-5 w-5 text-red-500"
+                      className="h-5 w-5 text-orange-500"
                       viewBox="0 0 20 20"
                       fill="currentColor"
                     >
@@ -182,7 +179,7 @@ export function AnimatedStatusBackground({
                     </svg>
                   </div>
                   <div>
-                    <p className="text-sm text-red-700">
+                    <p className="text-sm text-orange-700">
                       {transactionDetails.failureReason ||
                         "The payment could not be processed at this time."}
                     </p>
@@ -190,12 +187,12 @@ export function AnimatedStatusBackground({
                 </div>
               </motion.div>
 
-              <div className="space-y-3 mb-5">
+              <div className="flex flex-row gap-2 mb-5">
                 <button
                   onClick={() =>
                     window.open("mailto:support@elementpay.com", "_blank")
                   }
-                  className="w-full px-4 py-2.5 bg-red-600 text-white rounded-lg hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 transition-colors font-medium flex items-center justify-center"
+                  className="w-full px-4 py-2.5 bg-orange-600 text-black rounded-lg hover:bg-orange-700 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 transition-colors font-medium flex items-center justify-center"
                 >
                   <ExternalLink size={16} className="mr-2" />
                   Contact Support
@@ -204,7 +201,7 @@ export function AnimatedStatusBackground({
                   onClick={onClose}
                   className="w-full px-4 py-2.5 bg-white text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-300 focus:ring-offset-2 transition-colors font-medium"
                 >
-                  Return to Payment Options
+                  Close
                 </button>
               </div>
 

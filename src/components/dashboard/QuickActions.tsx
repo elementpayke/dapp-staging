@@ -7,6 +7,10 @@ import dynamic from "next/dynamic";
 
 import { SUPPORTED_TOKENS, SupportedToken } from "@/constants/supportedTokens";
 import { useState, useEffect } from "react";
+import {
+  getApiCurrencyFromToken,
+  fetchFeeStructureCached,
+} from "@/utils/feeStructure";
 
 // Dynamically import modals with no SSR to prevent wagmi context issues
 const SendCryptoModal = dynamic(() => import("./sendCrypto/SendCryptoModal"), {
@@ -70,63 +74,56 @@ const QuickActions: FC = () => {
     },
   });
 
-  // Map token symbol to CoinGecko API ID
-  const getCoinGeckoId = (symbol: string): string => {
-    switch (symbol.toLowerCase()) {
-      case "usdc":
-        return "usd-coin";
-      case "wxm":
-        return "weatherxm-network";
-      case "usdt":
-        return "tether";
-      case "eth":
-        return "ethereum";
-      default:
-        return "usd-coin"; // fallback to USDC
-    }
-  };
+  const tokenBalance = parseFloat(tokenBalanceData?.formatted || "0");
 
-  // Custom hook for CoinGecko exchange rates
-  const [coinGeckoRate, setCoinGeckoRate] = useState<number | null>(null);
+  // Use Element Pay OffRamp rate from fee-structure API (same as SendCryptoModal)
+  const [elementPayRate, setElementPayRate] = useState<number | null>(null);
   const [isLoadingRate, setIsLoadingRate] = useState<boolean>(true);
 
   useEffect(() => {
-    const fetchCoinGeckoRate = async () => {
+    const fetchElementPayRate = async () => {
       setIsLoadingRate(true);
       try {
-        const coinId = getCoinGeckoId(currentToken.symbol);
-        const response = await fetch(
-          `/api/coingecko?coinId=${coinId}&currency=kes`,
-        );
-        const data = await response.json();
+        const currency = getApiCurrencyFromToken(currentToken.symbol);
 
-        if (data[coinId] && data[coinId].kes) {
-          setCoinGeckoRate(data[coinId].kes);
+        // Use fee-structure API which provides base_rate (same as SendCryptoModal)
+        const feeData = await fetchFeeStructureCached({
+          token: currency,
+          action: "OffRamp",
+        });
+
+        const rate = feeData.data.base_rate;
+        if (rate && rate > 0) {
+          console.log(
+            "[QuickActions] Fee structure rate:",
+            rate,
+            "KES per",
+            currentToken.symbol,
+          );
+          setElementPayRate(rate);
         } else {
-          setCoinGeckoRate(null);
+          console.warn("[QuickActions] No valid base_rate in fee structure");
+          setElementPayRate(null);
         }
       } catch (error) {
-        console.error("Error fetching CoinGecko rate:", error);
-        setCoinGeckoRate(null);
+        console.error("[QuickActions] Error fetching fee structure:", error);
+        setElementPayRate(null);
       } finally {
         setIsLoadingRate(false);
       }
     };
 
-    fetchCoinGeckoRate();
-    // Refresh every 5 minutes (reduced from 2 minutes to reduce API calls)
-    // Cache on API route will handle more frequent requests
-    const intervalId = setInterval(fetchCoinGeckoRate, 5 * 60 * 1000);
+    fetchElementPayRate();
+    // Refresh every 2 minutes to stay in sync with modal
+    const intervalId = setInterval(fetchElementPayRate, 2 * 60 * 1000);
 
     return () => clearInterval(intervalId);
   }, [currentToken.symbol]);
 
-  const tokenBalance = parseFloat(tokenBalanceData?.formatted || "0");
-
   const rawKesBalance = () => {
-    if (isLoadingRate || !coinGeckoRate) return "Loading...";
+    if (isLoadingRate || !elementPayRate) return "Loading...";
 
-    const kesAmount = tokenBalance * coinGeckoRate;
+    const kesAmount = tokenBalance * elementPayRate;
     return kesAmount.toFixed(2);
   };
 

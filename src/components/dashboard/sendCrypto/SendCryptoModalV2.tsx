@@ -45,7 +45,7 @@ import {
   selectPhaseMessage,
 } from "@/stores/transactionStore";
 import { SUPPORTED_TOKENS, SupportedToken } from "@/constants/supportedTokens";
-import { getTotalCost } from "@/utils/feeStructure";
+import { getTotalCost, MIN_TRANSACTION_AMOUNT_KES } from "@/utils/feeStructure";
 import { PhoneValidationResult } from "@/utils/phoneValidation";
 
 import KenyanPhoneInput from "@/components/shared/KenyanPhoneInput";
@@ -131,7 +131,7 @@ export function SendCryptoModalV2() {
   const isFormValid = useMemo(() => {
     const amountFiat = parseFloat(amount) || 0;
 
-    if (amountFiat < 10) return false;
+    if (amountFiat < MIN_TRANSACTION_AMOUNT_KES) return false;
     if (!transactionSummary.canAfford) return false;
 
     switch (paymentMethod) {

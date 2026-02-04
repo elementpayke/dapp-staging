@@ -47,6 +47,8 @@ import {
   fetchFeeStructureCached,
   getTotalCost,
   getApiCurrencyFromToken,
+  DEFAULT_FEE_BANDS,
+  MIN_TRANSACTION_AMOUNT_KES,
 } from "@/utils/feeStructure";
 
 interface TransactionReceipt {
@@ -152,6 +154,27 @@ const SendCryptoModal: React.FC = () => {
   const { writeContractAsync } = useWriteContract();
   const { data: walletClient } = useWalletClient();
 
+  // Detect if user is on mobile device
+  const isMobileDevice = useMemo(() => {
+    if (typeof window === "undefined") return false;
+    return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(
+      navigator.userAgent,
+    );
+  }, []);
+
+  // Check if using WalletConnect (typically mobile wallet)
+  const isWalletConnect = useMemo(() => {
+    return (
+      connector?.id === "walletConnect" ||
+      connector?.name?.toLowerCase().includes("walletconnect")
+    );
+  }, [connector]);
+
+  // Combined check for mobile wallet flow
+  const isMobileWalletFlow = useMemo(() => {
+    return isMobileDevice || isWalletConnect;
+  }, [isMobileDevice, isWalletConnect]);
+
   const showNetworkSwitchNotification = (
     networkName: string,
     status: "switching" | "success" | "error",
@@ -201,153 +224,9 @@ const SendCryptoModal: React.FC = () => {
     setIsBrowser(true);
   }, []);
 
+  // Fetch both exchange rate AND fee bands from the fee-structure API (single source of truth)
   useEffect(() => {
-    const fetchExchangeRate = async () => {
-      try {
-        const currencyMap: Record<string, string> = {
-          USDT: "usdt_lisk",
-          USDC: "usdc",
-          WXM: "wxm",
-          ETH: "eth",
-        };
-        const currency = currencyMap[selectedToken.symbol] || "usdc";
-        const baseUrl = `${process.env.NEXT_PUBLIC_API_URL}/rates?currency=${currency}`;
-        const offRampUrl = `${baseUrl}&q=1`;
-        const legacyOffRampUrl = `${baseUrl}&order_type=OffRamp`;
-
-        let usedUrl = offRampUrl;
-        let response: Response | null = null;
-        let fallbackUsed = false;
-
-        try {
-          response = await fetch(offRampUrl);
-          if (!response.ok)
-            throw new Error(`Primary q=1 request failed (${response.status})`);
-        } catch (e) {
-          console.warn("[RATES] Primary OffRamp (q=1) failed:", e);
-          try {
-            response = await fetch(legacyOffRampUrl);
-            usedUrl = legacyOffRampUrl;
-            if (!response.ok)
-              throw new Error(
-                `Legacy order_type=OffRamp failed (${response.status})`,
-              );
-            fallbackUsed = true;
-          } catch (e2) {
-            console.warn(
-              "[RATES] Legacy OffRamp (order_type=OffRamp) failed:",
-              e2,
-            );
-            response = await fetch(baseUrl);
-            usedUrl = baseUrl;
-            fallbackUsed = true;
-            if (!response.ok) {
-              throw new Error(
-                `Base URL fallback also failed (${response.status})`,
-              );
-            }
-          }
-        }
-
-        const data = await response.json();
-        console.log("[RATES] Raw response from", usedUrl, ":", data);
-
-        const base_rate =
-          typeof data?.base_rate === "number" ? data.base_rate : null;
-        const marked_up_rate =
-          typeof data?.marked_up_rate === "number"
-            ? data.marked_up_rate
-            : typeof data?.rate === "number"
-              ? data.rate
-              : null;
-        const markup_percentage =
-          typeof data?.markup_percentage === "number"
-            ? data.markup_percentage
-            : null;
-
-        if (marked_up_rate == null) {
-          console.error(
-            "[RATES] No usable rate field in response, setting exchangeRate = null",
-          );
-          setExchangeRate(null);
-          setRateMeta({
-            base: base_rate,
-            marked: null,
-            markupPct: markup_percentage,
-            mode: "Unknown",
-            source: usedUrl,
-            fallbackUsed,
-          });
-          return;
-        }
-
-        let detectedMode: "OffRamp" | "OnRamp" | "Unknown" = "Unknown";
-        if (usedUrl.includes("q=1") || usedUrl.includes("order_type=OffRamp")) {
-          detectedMode = "OffRamp";
-        } else if (!usedUrl.includes("q=")) {
-          detectedMode = "OnRamp";
-        }
-
-        if (base_rate != null) {
-          if (marked_up_rate < base_rate && detectedMode === "OnRamp") {
-            console.warn(
-              "[RATES] Relationship suggests OffRamp but URL indicates OnRamp.",
-            );
-            detectedMode = "OffRamp";
-          }
-          if (marked_up_rate > base_rate && detectedMode === "OffRamp") {
-            console.warn(
-              "[RATES] Relationship suggests OnRamp but URL indicates OffRamp.",
-            );
-            detectedMode = "OnRamp";
-          }
-        }
-
-        console.log("[RATES] Summary:", {
-          usedUrl,
-          fallbackUsed,
-          base_rate,
-          marked_up_rate,
-          markup_percentage,
-          detectedMode,
-        });
-
-        if (detectedMode !== "OffRamp") {
-          console.warn(
-            "[RATES] WARNING: Using a rate not confidently identified as OffRamp.",
-          );
-        }
-
-        setExchangeRate(marked_up_rate);
-        setRateMeta({
-          base: base_rate,
-          marked: marked_up_rate,
-          markupPct: markup_percentage,
-          mode: detectedMode,
-          source: usedUrl,
-          fallbackUsed,
-        });
-      } catch (e) {
-        console.error("[RATES] Failed to fetch exchange rate:", e);
-        setExchangeRate(null);
-        setRateMeta({
-          base: null,
-          marked: null,
-          markupPct: null,
-          mode: "Unknown",
-          source: "",
-          fallbackUsed: false,
-        });
-      }
-    };
-    if (isBrowser) {
-      fetchExchangeRate();
-    }
-  }, [isBrowser, selectedToken]);
-  console.log("[RATES] Exchange rate fetched:", exchangeRate, rateMeta);
-
-  useEffect(() => {
-    const fetchFeeStructure = async () => {
+    const fetchFeeStructureAndRate = async () => {
       if (!isBrowser) return;
 
       setIsFetchingFees(true);
@@ -358,31 +237,73 @@ const SendCryptoModal: React.FC = () => {
           action: "OffRamp",
         });
 
-        console.log("[FEES] Fee structure fetched:", feeData.data);
+        console.log("[FEE-STRUCTURE] API response:", feeData.data);
+
+        // Set fee bands from fee-structure API
         setFeeBands(feeData.data.fee_bands);
+
+        // Set exchange rate from fee-structure API (base_rate)
+        const baseRate = feeData.data.base_rate;
+        if (baseRate && baseRate > 0) {
+          setExchangeRate(baseRate);
+          setRateMeta({
+            base: baseRate,
+            marked: baseRate, // For OffRamp, we use base_rate directly
+            markupPct: null,
+            mode: "OffRamp",
+            source: "fee-structure",
+            fallbackUsed: false,
+          });
+          console.log(
+            "[FEE-STRUCTURE] Exchange rate set:",
+            baseRate,
+            "KES per",
+            selectedToken.symbol,
+          );
+        } else {
+          console.warn("[FEE-STRUCTURE] No valid base_rate in response");
+          setExchangeRate(null);
+          setRateMeta({
+            base: null,
+            marked: null,
+            markupPct: null,
+            mode: "Unknown",
+            source: "fee-structure",
+            fallbackUsed: true,
+          });
+        }
       } catch (error) {
-        console.error("[FEES] Failed to fetch fee structure:", error);
-        setFeeBands([
-          {
-            min_amount: 0,
-            max_amount: 100,
-            fee_amount: 0,
-            description: "Free tier",
-          },
-          {
-            min_amount: 101,
-            max_amount: null,
-            fee_amount: 0,
-            description: "Default",
-          },
-        ]);
+        console.error("[FEE-STRUCTURE] Failed to fetch fee structure:", error);
+        // Use centralized default fee bands for consistency
+        setFeeBands(DEFAULT_FEE_BANDS);
+        setExchangeRate(null);
+        setRateMeta({
+          base: null,
+          marked: null,
+          markupPct: null,
+          mode: "Unknown",
+          source: "",
+          fallbackUsed: true,
+        });
       } finally {
         setIsFetchingFees(false);
       }
     };
 
-    fetchFeeStructure();
+    fetchFeeStructureAndRate();
   }, [isBrowser, selectedToken]);
+
+  // Log exchange rate changes (inside useEffect to prevent spam on every render)
+  useEffect(() => {
+    if (exchangeRate !== null) {
+      console.log(
+        "[FEE-STRUCTURE] Exchange rate updated:",
+        exchangeRate,
+        "KES per token",
+        rateMeta,
+      );
+    }
+  }, [exchangeRate, rateMeta]);
   const validatePhoneWithBackend = async (
     phoneNumber: string,
   ): Promise<boolean> => {
@@ -437,11 +358,11 @@ const SendCryptoModal: React.FC = () => {
       return;
     }
 
-    // Check minimum amount (10 KES)
-    if (amountNum < 10) {
+    // Check minimum amount
+    if (amountNum < MIN_TRANSACTION_AMOUNT_KES) {
       setQuoteValidation((prev) => ({
         ...prev,
-        error: "Minimum amount is 10 KES",
+        error: `Minimum amount is ${MIN_TRANSACTION_AMOUNT_KES} KES`,
         isValid: false,
       }));
       return;
@@ -648,7 +569,8 @@ const SendCryptoModal: React.FC = () => {
     const cashoutType = getCashoutType();
 
     // Common validations
-    if (!amount || Number.parseFloat(amount) < 10) return false;
+    if (!amount || Number.parseFloat(amount) < MIN_TRANSACTION_AMOUNT_KES)
+      return false;
     if (quoteValidation.isValidating) return false; // Don't allow submission while validating
     if (!quoteValidation.isValid) return false; // Must pass quote validation
     if (transactionSummary.totalUSDC <= 0) return false;
@@ -771,6 +693,14 @@ const SendCryptoModal: React.FC = () => {
     });
   }, []);
 
+  // Helper to refresh transaction list after order completion
+  const refreshTransactionList = useCallback(() => {
+    if (typeof window !== "undefined") {
+      console.log("🔄 Dispatching transaction refresh event");
+      window.dispatchEvent(new CustomEvent("elementpay:refresh-transactions"));
+    }
+  }, []);
+
   const publicClient = usePublicClient();
 
   const { switchChainAsync } = useSwitchChain();
@@ -801,6 +731,13 @@ const SendCryptoModal: React.FC = () => {
         );
       }
 
+      // For mobile wallets, show guidance toast
+      if (isMobileWalletFlow) {
+        toast.info("Please approve the token in your wallet app.", {
+          autoClose: 15000,
+        });
+      }
+
       const approvalPromise = writeContractAsync({
         address: selectedToken.tokenAddress as `0x${string}`,
         abi: erc20Abi,
@@ -808,15 +745,19 @@ const SendCryptoModal: React.FC = () => {
         args: [spender as `0x${string}`, parseUnits(amount, 6)],
       });
 
+      // Longer timeout for mobile wallets
+      const timeoutDuration = isMobileWalletFlow ? 180000 : 120000; // 3 min for mobile, 2 min for desktop
       const timeoutPromise = new Promise<never>((_, reject) =>
         setTimeout(
           () =>
             reject(
               new Error(
-                "Approval request timed out. Please check MetaMask and try again.",
+                isMobileWalletFlow
+                  ? "Approval request timed out. Please make sure your wallet app is open and try again."
+                  : "Approval request timed out. Please check MetaMask and try again.",
               ),
             ),
-          120000,
+          timeoutDuration,
         ),
       );
 
@@ -963,6 +904,9 @@ const SendCryptoModal: React.FC = () => {
       console.log(
         `🔄 Network switch needed: ${currentChainId} -> ${targetChainId} (${selectedToken.chain})`,
       );
+      console.log(
+        `📱 Mobile wallet flow: ${isMobileWalletFlow}, Device: ${isMobileDevice}, WalletConnect: ${isWalletConnect}`,
+      );
 
       const isSmartWalletConnected = isSmartWallet(connector);
 
@@ -974,6 +918,14 @@ const SendCryptoModal: React.FC = () => {
           `Smart wallet detected. Proceeding with ${selectedToken.chain} transaction.`,
         );
       } else {
+        // For mobile wallets, show guidance before switching
+        if (isMobileWalletFlow) {
+          toast.info(
+            `Switching to ${selectedToken.chain}. Please approve in your wallet app.`,
+            { autoClose: 5000 },
+          );
+        }
+
         showNetworkSwitchNotification(selectedToken.chain, "switching");
 
         try {
@@ -987,18 +939,30 @@ const SendCryptoModal: React.FC = () => {
 
           if (switchResult.success) {
             if (switchResult.method === "switched") {
-              await new Promise((resolve) => setTimeout(resolve, 1000));
+              // Wait longer for mobile wallets to complete the switch
+              const waitTime = isMobileWalletFlow ? 3000 : 1000;
+              await new Promise((resolve) => setTimeout(resolve, waitTime));
               showNetworkSwitchNotification(selectedToken.chain, "success");
               console.log(`✅ ${switchResult.message}`);
-              toast.success(
-                `Switched to ${selectedToken.chain}. Please try again.`,
+
+              // ✅ CRITICAL FIX: For desktop, show toast and return (existing behavior)
+              // For mobile, continue with the transaction flow
+              if (!isMobileWalletFlow) {
+                toast.success(
+                  `Switched to ${selectedToken.chain}. Please try again.`,
+                );
+                return;
+              }
+              // Mobile: Continue with transaction - don't return
+              console.log(
+                "📱 Mobile wallet: Continuing transaction after network switch",
               );
-              return;
             } else if (switchResult.method === "manual-required") {
               showNetworkSwitchNotification(selectedToken.chain, "error");
               toast.warning(switchResult.message);
               return;
             }
+            // For 'skipped' or 'already-on-chain', continue with transaction
           } else {
             showNetworkSwitchNotification(selectedToken.chain, "error");
             toast.error(switchResult.message);
@@ -1068,7 +1032,15 @@ const SendCryptoModal: React.FC = () => {
         return;
       }
 
+      // Show processing popup - earlier for mobile to give visual feedback
       setShowProcessingPopup(true);
+
+      // For mobile wallets, show guidance
+      if (isMobileWalletFlow) {
+        toast.info("Please check your wallet app to approve the transaction.", {
+          autoClose: 10000,
+        });
+      }
 
       const initialReceiptData = {
         amount: amount,
@@ -1139,6 +1111,13 @@ const SendCryptoModal: React.FC = () => {
       const decimals = tokenConfig?.decimals || 6;
 
       if (!hasSufficientAllowance) {
+        // For mobile wallets, show additional guidance
+        if (isMobileWalletFlow) {
+          toast.info("Approval needed. Please approve in your wallet app.", {
+            autoClose: 15000,
+          });
+        }
+
         const approveTxHash = await approveTokenIfNeeded(
           spender,
           requiredApprovalAmount,
@@ -1152,6 +1131,14 @@ const SendCryptoModal: React.FC = () => {
             "Token approval failed. Cannot proceed with order creation.",
           );
           return;
+        }
+
+        // Wait a bit after approval for mobile wallets
+        if (isMobileWalletFlow) {
+          await new Promise((resolve) => setTimeout(resolve, 2000));
+          toast.info("Approval successful! Now signing the transaction...", {
+            autoClose: 10000,
+          });
         }
       }
 
@@ -1195,19 +1182,31 @@ const SendCryptoModal: React.FC = () => {
 
         const message = JSON.stringify(orderDetails);
 
+        // For mobile wallets, show guidance before signing
+        if (isMobileWalletFlow) {
+          toast.info("Please sign the message in your wallet app.", {
+            autoClose: 15000,
+          });
+        }
+
         const signPromise = walletClient.signMessage({
           message,
           account: account.address as `0x${string}`,
         });
+
+        // Longer timeout for mobile wallets
+        const timeoutDuration = isMobileWalletFlow ? 180000 : 120000; // 3 min for mobile, 2 min for desktop
         const signTimeout = new Promise<never>((_, reject) =>
           setTimeout(
             () =>
               reject(
                 new Error(
-                  "Signature request timed out after 2 minutes. Please check your wallet.",
+                  isMobileWalletFlow
+                    ? "Signature request timed out. Please make sure your wallet app is open and try again."
+                    : "Signature request timed out after 2 minutes. Please check your wallet.",
                 ),
               ),
-            120000,
+            timeoutDuration,
           ),
         );
 
@@ -1218,8 +1217,9 @@ const SendCryptoModal: React.FC = () => {
 
         let errorMessage = "Signature rejected or failed. Please try again.";
         if (signError?.message?.includes("timed out")) {
-          errorMessage =
-            "Signature request timed out. Please check your wallet and try again.";
+          errorMessage = isMobileWalletFlow
+            ? "Signature request timed out. Please make sure your wallet app is open and try again."
+            : "Signature request timed out. Please check your wallet and try again.";
         } else if (signError?.code === 4001) {
           errorMessage = "Signature rejected by user. Please try again.";
         } else if (signError?.message) {
@@ -1312,6 +1312,9 @@ const SendCryptoModal: React.FC = () => {
           ...finalReceiptData,
         }));
 
+        // Refresh transaction list after completion
+        refreshTransactionList();
+
         if (isSettled) {
           toast.success(
             `Payment completed! ${
@@ -1335,6 +1338,8 @@ const SendCryptoModal: React.FC = () => {
           ...prev,
           status: 2,
         }));
+        // Refresh transaction list even on timeout (order may have been created)
+        refreshTransactionList();
         toast.error(
           "Payment is taking longer than expected. Please check your transaction history or contact support.",
         );
@@ -1342,6 +1347,8 @@ const SendCryptoModal: React.FC = () => {
     } catch (err: any) {
       console.error("❌ Transaction process failed:", err);
       setShowProcessingPopup(false);
+      // Refresh transaction list on error as well (partial state may exist)
+      refreshTransactionList();
       toast.error(err?.message || "Transaction failed. Please try again.");
     } finally {
       setIsApproving(false);
@@ -1354,8 +1361,10 @@ const SendCryptoModal: React.FC = () => {
       toast.error("Please connect your wallet first");
       return;
     }
-    if (Number.parseFloat(amount) < 10) {
-      toast.error("Minimum transaction amount is 10 KES");
+    if (Number.parseFloat(amount) < MIN_TRANSACTION_AMOUNT_KES) {
+      toast.error(
+        `Minimum transaction amount is ${MIN_TRANSACTION_AMOUNT_KES} KES`,
+      );
       return;
     }
     if (Number.parseFloat(amount) <= 0) {
@@ -1550,7 +1559,7 @@ const SendCryptoModal: React.FC = () => {
               <div className="block lg:hidden pt-4">
                 <button
                   onClick={
-                    Number.parseFloat(amount) >= 10
+                    Number.parseFloat(amount) >= MIN_TRANSACTION_AMOUNT_KES
                       ? handleApproveToken
                       : undefined
                   }
@@ -1638,7 +1647,7 @@ const SendCryptoModal: React.FC = () => {
                     disabled={
                       isApproving ||
                       !isFormValid() ||
-                      Number.parseFloat(amount) < 10
+                      Number.parseFloat(amount) < MIN_TRANSACTION_AMOUNT_KES
                     }
                     type="button"
                     className="w-full py-3 bg-gradient-to-r from-blue-600 to-red-600 text-white rounded-full font-medium hover:opacity-90 transition-opacity disabled:opacity-50 text-sm"
