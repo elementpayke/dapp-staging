@@ -45,8 +45,7 @@ export async function GET(
     // Use server-side environment variables (without NEXT_PUBLIC prefix)
     const AGGREGATOR_URL =
       process.env.AGGREGATOR_URL || process.env.NEXT_PUBLIC_API_URL;
-    const API_KEY =
-      process.env.AGGR_API_KEY || process.env.NEXT_PUBLIC_AGGR_API_KEY;
+    const API_KEY = process.env.NEXT_PRIVATE_AGGR_API_KEY;
 
     if (!AGGREGATOR_URL) {
       console.error("AGGREGATOR_URL is not configured");

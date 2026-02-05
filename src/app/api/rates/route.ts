@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 
 const AGGREGATOR_URL = process.env.NEXT_PUBLIC_API_URL;
-const API_KEY = process.env.NEXT_PUBLIC_AGGR_API_KEY;
+const API_KEY = process.env.NEXT_PRIVATE_AGGR_API_KEY;
 
 interface RatesResponse {
   currency: string;
