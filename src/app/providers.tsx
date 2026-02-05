@@ -60,13 +60,15 @@ export function Providers(props: { children: ReactNode }) {
           logo: LogoImage.src,
           showWalletLoginFirst: true,
           // Show these wallets first in the modal (in order)
+          // Mobile-friendly order: WalletConnect first for mobile users
           walletList: [
+            "wallet_connect", // WalletConnect first for mobile wallet connections
             "metamask",
-            "phantom",
             "coinbase_wallet",
+            "rainbow",
+            "phantom",
             "rabby_wallet",
             "detected_wallets", // Show any other detected wallets
-            "wallet_connect", // WalletConnect for other wallets
           ],
         },
         loginMethods: ["wallet"],
@@ -74,14 +76,18 @@ export function Providers(props: { children: ReactNode }) {
         defaultChain: base,
         supportedChains: [base, arbitrum, lisk, scroll],
         embeddedWallets: {
-          createOnLogin: "users-without-wallets",
+        createOnLogin: "users-without-wallets",
         },
-        // Enable WalletConnect for mobile wallet support
+        // Enhanced WalletConnect configuration for mobile
         externalWallets: {
           walletConnect: {
             enabled: true,
           },
         },
+        // Mobile-specific settings
+        // Allow wallet connection from in-app browsers
+        walletConnectCloudProjectId:
+          process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID,
       }}
     >
       <WagmiProvider config={wagmiConfig}>

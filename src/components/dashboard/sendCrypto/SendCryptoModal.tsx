@@ -1515,16 +1515,18 @@ const SendCryptoModal: React.FC = () => {
           <ArrowUpRight size={24} />
           Spend Crypto
         </DialogTrigger>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Spend Crypto</DialogTitle>
+        <DialogContent className="w-[95vw] sm:w-full max-w-4xl max-h-[85vh] sm:max-h-[90vh] overflow-y-auto p-4 sm:p-6">
+          <DialogHeader className="pb-2 sm:pb-4">
+            <DialogTitle className="text-lg sm:text-xl">
+              Spend Crypto
+            </DialogTitle>
           </DialogHeader>
 
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
             {/* Left Column - Payment Form */}
-            <div className="lg:col-span-2 space-y-4">
+            <div className="lg:col-span-2 space-y-3 sm:space-y-4">
               <div>
-                <h3 className="text-lg font-medium text-gray-900 mb-4">
+                <h3 className="text-base sm:text-lg font-medium text-gray-900 mb-2 sm:mb-4">
                   Pay to Mobile Money
                 </h3>
               </div>
@@ -1556,7 +1558,7 @@ const SendCryptoModal: React.FC = () => {
               />
 
               {/* Mobile Confirm Button - Only shown on small screens */}
-              <div className="block lg:hidden pt-4">
+              <div className="block lg:hidden pt-2 sm:pt-4 sticky bottom-0 bg-white pb-2">
                 <button
                   onClick={
                     Number.parseFloat(amount) >= MIN_TRANSACTION_AMOUNT_KES
@@ -1569,10 +1571,10 @@ const SendCryptoModal: React.FC = () => {
                     quoteValidation.isValidating
                   }
                   type="button"
-                  className="w-full py-3 bg-gradient-to-r from-blue-600 to-red-600 text-white rounded-full font-medium hover:opacity-90 transition-opacity disabled:opacity-50"
+                  className="w-full py-3.5 sm:py-3 bg-gradient-to-r from-blue-600 to-red-600 text-white rounded-full font-medium hover:opacity-90 transition-opacity disabled:opacity-50 text-base sm:text-sm shadow-lg"
                 >
                   {quoteValidation.isValidating
-                    ? "Validating amount..."
+                    ? "Validating..."
                     : isApproving
                       ? "Approving..."
                       : isValidatingPhone
@@ -1583,14 +1585,14 @@ const SendCryptoModal: React.FC = () => {
             </div>
 
             {/* Right Column - Transaction Summary */}
-            <div className="lg:col-span-1">
-              <div className="bg-gray-50 p-4 rounded-xl h-fit sticky top-4">
-                <h3 className="text-lg font-semibold mb-4 text-gray-900">
+            <div className="lg:col-span-1 order-first lg:order-last">
+              <div className="bg-gray-50 p-3 sm:p-4 rounded-xl h-fit lg:sticky lg:top-4">
+                <h3 className="text-base sm:text-lg font-semibold mb-3 sm:mb-4 text-gray-900">
                   Transaction Summary
                 </h3>
 
                 {/* Main Summary */}
-                <div className="space-y-3 mb-4">
+                <div className="space-y-2 sm:space-y-3 mb-3 sm:mb-4">
                   <div className="flex justify-between items-center">
                     <span className="text-gray-600 text-sm">
                       Wallet balance
@@ -1624,18 +1626,18 @@ const SendCryptoModal: React.FC = () => {
                   </div>
                 </div>
                 {quoteValidation.error && !quoteValidation.isValidating && (
-                  <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
-                    <p className="text-sm text-red-600 font-medium">
+                  <div className="mb-3 sm:mb-4 p-2 sm:p-3 bg-red-50 border border-red-200 rounded-lg">
+                    <p className="text-xs sm:text-sm text-red-600 font-medium break-words">
                       ⚠️ {quoteValidation.error}
                     </p>
                   </div>
                 )}
 
                 {quoteValidation.isValidating && (
-                  <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                    <p className="text-sm text-blue-600 font-medium flex items-center gap-2">
+                  <div className="mb-3 sm:mb-4 p-2 sm:p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                    <p className="text-xs sm:text-sm text-blue-600 font-medium flex items-center gap-2">
                       <span className="animate-spin">⏳</span>
-                      Validating amount...
+                      Validating...
                     </p>
                   </div>
                 )}
