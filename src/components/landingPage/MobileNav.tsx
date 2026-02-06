@@ -14,9 +14,19 @@ const MobileNav = ({}) => {
       <div className="h-full flex flex-col">
         {/* Branded Top Bar with Logo and Close Button */}
         <div className="flex items-center justify-between p-4 border-b border-[#4339CA] bg-[#f5f6ff]">
-          <Link href="/" onClick={() => setIsMenuOpen(false)} className="flex items-center space-x-2">
-            <img src="/logo.png" alt="ElementPay Logo" className="w-8 h-8 rounded-lg shadow" />
-            <span className="text-xl font-bold text-[#4339CA] tracking-tight">ElementPay</span>
+          <Link
+            href="/"
+            onClick={() => setIsMenuOpen(false)}
+            className="flex items-center space-x-2"
+          >
+            <img
+              src="/logo.png"
+              alt="ElementPay Logo"
+              className="w-8 h-8 rounded-lg shadow"
+            />
+            <span className="text-xl font-bold text-[#4339CA] tracking-tight">
+              ElementPay
+            </span>
           </Link>
           <button
             onClick={() => setIsMenuOpen(false)}
@@ -47,7 +57,9 @@ const MobileNav = ({}) => {
           </a>
           {/* Legal Dropdown (as section) */}
           <div>
-            <span className="block text-2xl font-bold text-[#4339CA] mb-2">Legal</span>
+            <span className="block text-2xl font-bold text-[#4339CA] mb-2">
+              Legal
+            </span>
             <Link
               href="/privacy-policy"
               onClick={() => setIsMenuOpen(false)}
@@ -69,6 +81,11 @@ const MobileNav = ({}) => {
             >
               Code of Conduct
             </Link>
+          </div>
+
+          {/* Mobile Wallet Connect Button */}
+          <div className="pt-4 border-t border-gray-200">
+            <WalletConnection isMobile={true} />
           </div>
         </div>
       </div>

@@ -41,7 +41,7 @@ export const useWallet = () => {
       retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 10000),
     },
   });
-  
+
   const { setWalletData, setUsdcBalance, ...store } = useWalletStore();
 
   // Enhanced balance fetching with retry logic
@@ -54,7 +54,7 @@ export const useWallet = () => {
     } catch (error: any) {
       console.warn(
         "Failed to fetch USDC balance after retries:",
-        error?.message
+        error?.message,
       );
     }
   }, [fetchUSDCBalance]);
@@ -82,14 +82,18 @@ export const useWallet = () => {
         return Promise.resolve();
       });
     } catch (error: any) {
-      console.warn('Wallet connection error:', error?.message);
+      console.warn("Wallet connection error:", error?.message);
     }
   }, []);
 
-  const disconnect = useCallback(() => {
-    // Disconnect from Privy first
-    if (authenticated) {
-      privyLogout();
+  const disconnect = useCallback(async () => {
+    // Disconnect from Privy first (async — must await to avoid race conditions)
+    try {
+      if (authenticated) {
+        await privyLogout();
+      }
+    } catch (err) {
+      console.warn("Privy logout error (non-fatal):", err);
     }
     // Then disconnect wagmi
     wagmiDisconnect();

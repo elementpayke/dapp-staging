@@ -1,12 +1,11 @@
 "use client";
 
-import React, { useEffect } from "react";
+import React, { useEffect, useCallback } from "react";
 import {
   Wallet,
   WalletDropdown,
   WalletDropdownBasename,
   WalletDropdownLink,
-  WalletDropdownDisconnect,
 } from "@coinbase/onchainkit/wallet";
 import {
   Address,
@@ -16,9 +15,12 @@ import {
   EthBalance,
 } from "@coinbase/onchainkit/identity";
 import { twMerge } from "tailwind-merge";
-import { redirect, usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { usePrivy } from "@privy-io/react-auth";
+import { useDisconnect } from "wagmi";
+import { LogOut } from "lucide-react";
 import ClientOnly from "@/components/shared/ClientOnly";
+import { useWalletStore } from "@/lib/useWallet";
 
 const buttonStyles = {
   default:
@@ -39,14 +41,38 @@ const WalletConnection = ({
   isHero?: boolean;
   buttonClassName?: string;
 }) => {
-  const { login, authenticated, ready, user } = usePrivy();
+  const { login, logout: privyLogout, authenticated, ready, user } = usePrivy();
+  const { disconnect: wagmiDisconnect } = useDisconnect();
+  const { disconnect: storeDisconnect } = useWalletStore();
   const pathname = usePathname();
+  const router = useRouter();
 
+  // Redirect to dashboard when authenticated on landing page
   useEffect(() => {
     if (authenticated && pathname === "/") {
-      redirect("/dashboard");
+      router.push("/dashboard");
     }
-  }, [authenticated, pathname]);
+  }, [authenticated, pathname, router]);
+
+  /**
+   * Unified disconnect: Privy logout (async) → wagmi disconnect → store cleanup
+   * This ensures all three layers are properly torn down in order.
+   */
+  const handleDisconnect = useCallback(async () => {
+    try {
+      if (authenticated) {
+        await privyLogout();
+      }
+    } catch (err) {
+      console.warn("Privy logout error (non-fatal):", err);
+    }
+    wagmiDisconnect();
+    storeDisconnect();
+    if (typeof window !== "undefined") {
+      localStorage.removeItem("wallet-storage");
+    }
+    router.push("/");
+  }, [authenticated, privyLogout, wagmiDisconnect, storeDisconnect, router]);
 
   const getButtonClassName = () => {
     let style;
@@ -109,7 +135,13 @@ const WalletConnection = ({
             <WalletDropdownLink icon="wallet" href="https://keys.coinbase.com">
               Wallet
             </WalletDropdownLink>
-            <WalletDropdownDisconnect />
+            <button
+              onClick={handleDisconnect}
+              className="flex items-center gap-2 w-full px-4 py-2 text-sm text-red-600 hover:bg-gray-100 cursor-pointer"
+            >
+              <LogOut className="w-4 h-4" />
+              Disconnect
+            </button>
           </WalletDropdown>
         </Wallet>
       ) : (

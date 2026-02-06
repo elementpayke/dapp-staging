@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Sidebar from "@/components/dashboard/Sidebar";
 import OverviewPage from "@/components/dashboard/pages/OverviewPage";
 import TransactionsPage from "@/components/dashboard/pages/TransactionsPage";
@@ -8,7 +8,7 @@ import EmailPage from "@/components/dashboard/pages/EmailPage";
 import { Bell, ChevronDown, LogOut } from "lucide-react";
 import Image from "next/image";
 import avatarPlaceholder from "@/assets/avatar-placeholder.svg";
-import { redirect } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { useWallet } from "@/hooks/useWallet";
 
 type PageComponent =
@@ -19,12 +19,22 @@ type PageComponent =
   | "support-email";
 
 export default function Dashboard() {
-  const { isConnected, ensName, address, disconnectWallet, disconnect } =useWallet();
+  const { isConnected, ensName, address, disconnectWallet, disconnect } =
+    useWallet();
   const [currentPage, setCurrentPage] = useState<PageComponent>("overview");
   const [showDropdown, setShowDropdown] = useState(false);
+  const router = useRouter();
 
+  // Redirect to home when wallet is disconnected
+  useEffect(() => {
+    if (!isConnected) {
+      router.push("/");
+    }
+  }, [isConnected, router]);
+
+  // Show nothing while redirecting to avoid flicker
   if (!isConnected) {
-    redirect("/");
+    return null;
   }
 
   const renderPage = () => {
@@ -43,10 +53,10 @@ export default function Dashboard() {
     }
   };
 
-  const handleDisconnect = () => {
-    disconnect();
+  const handleDisconnect = async () => {
     setShowDropdown(false);
-    window.location.reload();
+    await disconnect();
+    router.push("/");
   };
 
   const truncateAddress = (addr: string | null | undefined): string => {
@@ -94,8 +104,9 @@ export default function Dashboard() {
                       {ensName || truncateAddress(address)}
                     </span>
                     <ChevronDown
-                      className={`w-4 h-4 text-gray-600 transition-transform ${showDropdown ? "rotate-180" : ""
-                        }`}
+                      className={`w-4 h-4 text-gray-600 transition-transform ${
+                        showDropdown ? "rotate-180" : ""
+                      }`}
                     />
                   </button>
 

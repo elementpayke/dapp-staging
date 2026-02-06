@@ -3,13 +3,13 @@
 import type { ReactNode } from "react";
 import { OnchainKitProvider } from "@coinbase/onchainkit";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { WagmiProvider } from "wagmi";
 import { base, arbitrum } from "wagmi/chains";
 import { wagmiConfig, lisk, scroll } from "@/lib/wagmi-config";
 import { useWalletStore } from "@/lib/useWallet";
 import LogoImage from "@/assets/logo.png";
 import { useEffect } from "react";
 import { PrivyProvider } from "@privy-io/react-auth";
+import { WagmiProvider } from "@privy-io/wagmi";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -76,7 +76,7 @@ export function Providers(props: { children: ReactNode }) {
         defaultChain: base,
         supportedChains: [base, arbitrum, lisk, scroll],
         embeddedWallets: {
-        createOnLogin: "users-without-wallets",
+          createOnLogin: "users-without-wallets",
         },
         // Enhanced WalletConnect configuration for mobile
         externalWallets: {
@@ -90,8 +90,8 @@ export function Providers(props: { children: ReactNode }) {
           process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID,
       }}
     >
-      <WagmiProvider config={wagmiConfig}>
-        <QueryClientProvider client={queryClient}>
+      <QueryClientProvider client={queryClient}>
+        <WagmiProvider config={wagmiConfig}>
           <StoreHydration />
           <OnchainKitProvider
             apiKey={process.env.NEXT_PUBLIC_ONCHAINKIT_API_KEY}
@@ -112,8 +112,8 @@ export function Providers(props: { children: ReactNode }) {
           >
             {props.children}
           </OnchainKitProvider>
-        </QueryClientProvider>
-      </WagmiProvider>
+        </WagmiProvider>
+      </QueryClientProvider>
     </PrivyProvider>
   );
 }

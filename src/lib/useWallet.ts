@@ -35,7 +35,11 @@ export const useWalletStore = create<WalletState>()(
             ensName: null,
             usdcBalance: 0,
           });
-          localStorage.clear();
+          // Only remove wallet-specific keys — do NOT use localStorage.clear()
+          // as it would destroy Privy's session tokens and other app state
+          localStorage.removeItem("wallet-storage");
+          localStorage.removeItem("walletAddress");
+          localStorage.removeItem("isWalletConnected");
         } catch (error) {
           console.error("Error disconnecting wallet:", error);
         }
@@ -51,6 +55,6 @@ export const useWalletStore = create<WalletState>()(
       name: "wallet-storage",
       storage: createJSONStorage(() => localStorage),
       skipHydration: true, // This enables manual rehydration
-    }
-  )
+    },
+  ),
 );
