@@ -1,7 +1,7 @@
 "use client";
 import React, { FC, useMemo } from "react";
 import { Bell, MoreHorizontal } from "lucide-react"; // Import icons
-import { useChainId, useBalance } from "wagmi";
+import { useChainId } from "wagmi";
 import { useAccount } from "wagmi";
 import dynamic from "next/dynamic";
 
@@ -12,6 +12,7 @@ import {
   fetchFeeStructureCached,
 } from "@/utils/feeStructure";
 import TokenDropdown from "@/components/ui/TokenDropdown";
+import { useTokenBalance } from "@/hooks/useTokenBalance";
 
 // Dynamically import modals with no SSR to prevent wagmi context issues
 const SendCryptoModal = dynamic(() => import("./sendCrypto/SendCryptoModal"), {
@@ -27,7 +28,6 @@ const DepositCryptoModal = dynamic(
 );
 
 const QuickActions: FC = () => {
-  const { address } = useAccount();
   const currentChainId = useChainId();
 
   // State to manage selected token (similar to modals)
@@ -70,22 +70,12 @@ const QuickActions: FC = () => {
     setSelectedToken(currentToken);
   }, [currentToken]);
 
-  // Fetch balance for the selected token (not currentToken)
-  const { data: tokenBalanceData } = useBalance({
-    address: address,
-    token: selectedToken.tokenAddress as `0x${string}`,
-    query: {
-      staleTime: 30_000,
-      refetchInterval: 30_000,
-      retry: (failureCount, error: any) => {
-        if (error?.code === -32005) return false;
-        return failureCount < 2;
-      },
-      retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 10000),
-    },
+  // Fetch balance for the selected token using useTokenBalance hook
+  const { balance: selectedTokenBalance, isCorrectNetwork } = useTokenBalance({
+    token: selectedToken,
   });
 
-  const tokenBalance = parseFloat(tokenBalanceData?.formatted || "0");
+  const tokenBalance = selectedTokenBalance;
 
   // Use Element Pay OffRamp rate from fee-structure API (same as SendCryptoModal)
   const [elementPayRate, setElementPayRate] = useState<number | null>(null);
@@ -152,6 +142,11 @@ const QuickActions: FC = () => {
           <p className="text-sm text-gray-500 mt-1">
             {tokenBalance.toFixed(16)} {selectedToken.symbol}
           </p>
+          {!isCorrectNetwork && (
+            <p className="text-xs text-orange-500 mt-1">
+              ⚠️ Switch to {selectedToken.chain} network to view balance
+            </p>
+          )}
         </div>
         <div className="flex gap-2">
           <button className="p-2 rounded-full border border-gray-200 hover:bg-gray-50">
