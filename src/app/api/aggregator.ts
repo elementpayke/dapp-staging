@@ -63,13 +63,16 @@ export const fetchRate = async ({
 };
 
 // Fetch token to KES conversion rates for offramp approval calculation
-export const fetchTokenRates = async (currency: string = 'usdc'): Promise<{
+export const fetchTokenRates = async (
+  currency: string = "usdc"
+): Promise<{
   currency: string;
   base_rate: number;
   marked_up_rate: number;
   markup_percentage: number;
 }> => {
   try {
+    // Call public rates endpoint directly (no API key client-side)
     const response = await axios.get<{
       currency: string;
       base_rate: number;
@@ -168,28 +171,35 @@ const clientApi = axios.create({
 });
 
 // Retry logic for API calls with improved timeout handling
-const retryRequest = async <T>(fn: () => Promise<T>, maxRetries = 3, delay = 2000): Promise<T> => {
+const retryRequest = async <T>(
+  fn: () => Promise<T>,
+  maxRetries = 3,
+  delay = 2000
+): Promise<T> => {
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
       return await fn();
     } catch (error: any) {
       console.log(`Attempt ${attempt} failed:`, error?.message || error);
-      
+
       // Don't retry on client errors (4xx) except 408, 429
-      if (error.response?.status >= 400 && error.response?.status < 500 && 
-          ![408, 429].includes(error.response?.status)) {
+      if (
+        error.response?.status >= 400 &&
+        error.response?.status < 500 &&
+        ![408, 429].includes(error.response?.status)
+      ) {
         throw error;
       }
-      
+
       // Don't retry on 5xx errors after max attempts
       if (attempt === maxRetries) {
         throw error;
       }
-      
+
       // Wait before retrying (exponential backoff with jitter)
       const waitTime = delay * Math.pow(2, attempt - 1) + Math.random() * 1000;
       console.log(`Retrying in ${Math.round(waitTime)}ms...`);
-      await new Promise(resolve => setTimeout(resolve, waitTime));
+      await new Promise((resolve) => setTimeout(resolve, waitTime));
     }
   }
   throw new Error("Max retries exceeded");
@@ -199,13 +209,10 @@ const retryRequest = async <T>(fn: () => Promise<T>, maxRetries = 3, delay = 200
 export const checkApiHealth = async (): Promise<boolean> => {
   try {
     console.log("🏥 Checking API health...");
-    // Try a simple GET request to the base URL
+    // Try a simple GET request to the public base URL (no key on client)
     const response = await fetch(`${AGGREGATOR_URL}`, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      signal: AbortSignal.timeout(10000) // 10 second timeout
+      method: "GET",
+      signal: AbortSignal.timeout(10000),
     });
     console.log("✅ API health check passed:", response.status);
     return response.ok;
@@ -213,7 +220,7 @@ export const checkApiHealth = async (): Promise<boolean> => {
     console.error("❌ API health check failed:", {
       status: error?.response?.status,
       message: error?.message,
-      url: AGGREGATOR_URL
+      url: AGGREGATOR_URL,
     });
     return false;
   }
@@ -229,15 +236,12 @@ export const checkApiStatus = async (): Promise<{
   const startTime = Date.now();
   try {
     const response = await fetch(`${AGGREGATOR_URL}`, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      signal: AbortSignal.timeout(15000) // 15 second timeout
+      method: "GET",
+      signal: AbortSignal.timeout(15000),
     });
     const endTime = Date.now();
     const responseTime = endTime - startTime;
-    
+
     return {
       isOnline: response.ok,
       responseTime,
@@ -246,12 +250,12 @@ export const checkApiStatus = async (): Promise<{
   } catch (error: any) {
     const endTime = Date.now();
     const responseTime = endTime - startTime;
-    
+
     return {
       isOnline: false,
       responseTime,
-      status: 'ERROR',
-      error: error?.message || 'Unknown error'
+      status: "ERROR",
+      error: error?.message || "Unknown error",
     };
   }
 };
@@ -261,7 +265,7 @@ export const createOnRampOrder = async ({
   tokenAddress,
   amount,
   phoneNumber,
-  reason
+  reason,
 }: {
   userAddress: string;
   tokenAddress: string;
@@ -277,35 +281,21 @@ export const createOnRampOrder = async ({
       amount_fiat: amount,
       cashout_type: "PHONE",
       phone_number: phoneNumber,
-      currency: "KES"
-    }
+      currency: "KES",
+    },
   };
-  
-  if (reason) payload.reason = reason;
-  
-  console.log("🚀 Creating onramp order with payload:", payload);
-  console.log("🌐 API URL:", AGGREGATOR_URL);
 
-  
-  // Quick connectivity check before proceeding
-  try {
-    const connectivityTest = await fetch(`${AGGREGATOR_URL}/orders/create`, {
-      method: 'HEAD',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      signal: AbortSignal.timeout(5000) // 5 second timeout for connectivity test
-    });
-    console.log("✅ API connectivity test passed:", connectivityTest.status);
-  } catch (error: any) {
-    console.warn("⚠️ API connectivity test failed:", error?.message);
-    // Continue anyway, the main request might still work
-  }
-  
+  if (reason) payload.reason = reason;
+
+  console.log("🚀 Creating onramp order with payload:", payload);
+
   try {
     const startTime = Date.now();
     const response = await retryRequest(async () => {
-      const result = await clientApi.post<CreateOrderResponse>('/orders/create', payload);
+      const result = await clientApi.post<CreateOrderResponse>(
+        "/orders/create",
+        payload
+      );
       return result;
     });
     const endTime = Date.now();
@@ -322,56 +312,83 @@ export const createOnRampOrder = async ({
         url: error?.config?.url,
         method: error?.config?.method,
         timeout: error?.config?.timeout,
-        headers: error?.config?.headers ? Object.keys(error.config.headers) : []
-      }
+        headers: error?.config?.headers
+          ? Object.keys(error.config.headers)
+          : [],
+      },
     });
-    
+
     // Provide more specific error messages for WXM orders
-    if (error.code === 'ECONNABORTED' || error.message?.includes('timeout')) {
+    if (error.code === "ECONNABORTED" || error.message?.includes("timeout")) {
       console.error("⏰ Request timeout - API may be down or slow");
-      
+
       // Check if it's a complete API failure
-      if (error.code === 'ECONNABORTED' && !error.response) {
-        throw new Error("The Element Pay API is currently unreachable. This appears to be a server-side issue. Please try again later or contact Element Pay support for assistance.");
+      if (error.code === "ECONNABORTED" && !error.response) {
+        throw new Error(
+          "The Element Pay API is currently unreachable. This appears to be a server-side issue. Please try again later or contact Element Pay support for assistance."
+        );
       }
-      
-      throw new Error("API request timed out after 30 seconds. The Element Pay service may be experiencing high load. Please try again in a few moments or contact support if the issue persists.");
+
+      throw new Error(
+        "API request timed out after 30 seconds. The Element Pay service may be experiencing high load. Please try again in a few moments or contact support if the issue persists."
+      );
     }
-    
-    if (error.code === 'ERR_NETWORK' || error.message?.includes('Network Error')) {
+
+    if (
+      error.code === "ERR_NETWORK" ||
+      error.message?.includes("Network Error")
+    ) {
       console.error("🌐 Network error - possible CORS or connectivity issue");
-      throw new Error("Network error. Please check your internet connection and try again.");
+      throw new Error(
+        "Network error. Please check your internet connection and try again."
+      );
     }
-    
-    if (error.code === 'ERR_INTERNET_DISCONNECTED' || error.message?.includes('Failed to fetch')) {
+
+    if (
+      error.code === "ERR_INTERNET_DISCONNECTED" ||
+      error.message?.includes("Failed to fetch")
+    ) {
       console.error("🌐 Internet disconnected or API completely down");
-      throw new Error("Unable to reach the Element Pay service. Please check your internet connection and try again.");
+      throw new Error(
+        "Unable to reach the Element Pay service. Please check your internet connection and try again."
+      );
     }
-    
+
     if (error.response?.status === 504) {
-      throw new Error("Service temporarily unavailable. Please try again in a few moments.");
+      throw new Error(
+        "Service temporarily unavailable. Please try again in a few moments."
+      );
     }
-    
+
     if (error.response?.status === 429) {
       throw new Error("Too many requests. Please wait a moment and try again.");
     }
-    
+
     if (error.response?.status === 422) {
-      const errorMessage = error.response?.data?.message || "Invalid request data";
+      const errorMessage =
+        error.response?.data?.message || "Invalid request data";
       throw new Error(`Validation error: ${errorMessage}`);
     }
-    
+
     if (error.response?.status === 401) {
-      throw new Error("Authentication failed. Please check your API key.");
+      throw new Error(
+        "Authentication failed. Please check server API key configuration."
+      );
     }
-    
+
     if (error.response?.status === 0) {
       console.error("🚫 CORS or network issue - no response received");
-      throw new Error("Network issue. The API may be unavailable or there's a CORS problem.");
+      throw new Error(
+        "Network issue. The API may be unavailable or there's a CORS problem."
+      );
     }
-    
+
     console.error("❌ Unknown error:", error);
-    throw new Error(error.response?.data?.message || error.message || "Failed to create onramp order");
+    throw new Error(
+      error.response?.data?.message ||
+        error.message ||
+        "Failed to create onramp order"
+    );
   }
 };
 
@@ -386,7 +403,7 @@ export const createOffRampOrder = async ({
   cashoutType,
   paybillNumber,
   accountNumber,
-  tillNumber
+  tillNumber,
 }: {
   userAddress: string;
   tokenAddress: string;
@@ -407,11 +424,11 @@ export const createOffRampOrder = async ({
     fiat_payload: {
       amount_fiat: amountFiat,
       cashout_type: cashoutType,
-      currency: "KES"
+      currency: "KES",
     },
-    message_hash: messageHash
+    message_hash: messageHash,
   };
-  
+
   // Add cashout-specific fields
   if (cashoutType === "PHONE") {
     payload.fiat_payload.phone_number = phoneNumber;
@@ -421,23 +438,27 @@ export const createOffRampOrder = async ({
   } else if (cashoutType === "TILL") {
     payload.fiat_payload.till_number = tillNumber;
   }
-  
+
   if (reason) payload.reason = reason;
-  
+
   console.log("🚀 Creating offramp order with payload:", payload);
-  console.log("🌐 API URL:", AGGREGATOR_URL);
-  
+
   try {
     const startTime = Date.now();
     console.log("🌐 Making API request to:", `${AGGREGATOR_URL}/orders/create`);
     console.log("📤 Request payload:", JSON.stringify(payload, null, 2));
-    
+
     const response = await retryRequest(async () => {
-      const result = await clientApi.post<CreateOrderResponse>('/orders/create', payload);
+      const result = await clientApi.post<CreateOrderResponse>(
+        "/orders/create",
+        payload
+      );
       return result;
     });
     const endTime = Date.now();
-    console.log(`✅ Offramp order created successfully in ${endTime - startTime}ms`);
+    console.log(
+      `✅ Offramp order created successfully in ${endTime - startTime}ms`
+    );
     console.log("📥 Response:", response.data);
     return response.data;
   } catch (error: any) {
@@ -451,45 +472,65 @@ export const createOffRampOrder = async ({
         url: error?.config?.url,
         method: error?.config?.method,
         timeout: error?.config?.timeout,
-        headers: error?.config?.headers ? Object.keys(error.config.headers) : []
-      }
+        headers: error?.config?.headers
+          ? Object.keys(error.config.headers)
+          : [],
+      },
     });
-    
+
     // Provide more specific error messages
-    if (error.code === 'ECONNABORTED' || error.message?.includes('timeout')) {
+    if (error.code === "ECONNABORTED" || error.message?.includes("timeout")) {
       console.error("⏰ Request timeout - API may be down or slow");
-      throw new Error("API request timed out. The service may be experiencing high load. Please try again in a few moments.");
+      throw new Error(
+        "API request timed out. The service may be experiencing high load. Please try again in a few moments."
+      );
     }
-    
-    if (error.code === 'ERR_NETWORK' || error.message?.includes('Network Error')) {
+
+    if (
+      error.code === "ERR_NETWORK" ||
+      error.message?.includes("Network Error")
+    ) {
       console.error("🌐 Network error - possible CORS or connectivity issue");
-      throw new Error("Network error. Please check your connection and try again.");
+      throw new Error(
+        "Network error. Please check your connection and try again."
+      );
     }
-    
+
     if (error.response?.status === 504) {
-      throw new Error("Service temporarily unavailable. Please try again in a few moments.");
+      throw new Error(
+        "Service temporarily unavailable. Please try again in a few moments."
+      );
     }
-    
+
     if (error.response?.status === 429) {
       throw new Error("Too many requests. Please wait a moment and try again.");
     }
-    
+
     if (error.response?.status === 422) {
-      const errorMessage = error.response?.data?.message || "Invalid request data";
+      const errorMessage =
+        error.response?.data?.message || "Invalid request data";
       throw new Error(`Validation error: ${errorMessage}`);
     }
-    
+
     if (error.response?.status === 401) {
-      throw new Error("Authentication failed. Please check your API key.");
+      throw new Error(
+        "Authentication failed. Please check server API key configuration."
+      );
     }
-    
+
     if (error.response?.status === 0) {
       console.error("🚫 CORS or network issue - no response received");
-      throw new Error("Network issue. The API may be unavailable or there's a CORS problem.");
+      throw new Error(
+        "Network issue. The API may be unavailable or there's a CORS problem."
+      );
     }
-    
+
     console.error("❌ Unknown error:", error);
-    throw new Error(error.response?.data?.message || error.message || "Failed to create offramp order");
+    throw new Error(
+      error.response?.data?.message ||
+        error.message ||
+        "Failed to create offramp order"
+    );
   }
 };
 
@@ -519,7 +560,10 @@ export const fetchOrderQuote = async ({
     };
 
     console.log(" Fetching order quote with payload:", payload);
-    const response = await clientApi.post<OrderQuoteResponse>("/quote/order", payload);
+    const response = await clientApi.post<OrderQuoteResponse>(
+      "/quote/order",
+      payload
+    );
     console.log(" Order quote response:", response.data);
     return response.data;
   } catch (error: any) {
@@ -527,4 +571,3 @@ export const fetchOrderQuote = async ({
     throw error;
   }
 };
-

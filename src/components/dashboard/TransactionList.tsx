@@ -21,7 +21,7 @@ interface ExtendedTx extends Tx {
   cryptoAmount: string;
   exchangeRate?: number;
   paymentMethod: string;
-  direction: 'Send' | 'Receive';
+  direction: "Send" | "Receive";
   processingTime?: string;
   receiptNumber?: string;
   invoiceId?: string;
@@ -36,7 +36,9 @@ interface FilterState {
   token: string[];
 }
 
-const TransactionList: FC<{ walletAddress: string | null }> = ({ walletAddress }) => {
+const TransactionList: FC<{ walletAddress: string | null }> = ({
+  walletAddress,
+}) => {
   if (!walletAddress) {
     return <p className="px-4">No wallet address provided</p>;
   }
@@ -48,12 +50,14 @@ const TransactionList: FC<{ walletAddress: string | null }> = ({ walletAddress }
   const [currentPage, setCurrentPage] = useState(1);
   const [rowsPerPage, setRowsPerPage] = useState(20);
   const [showFilters, setShowFilters] = useState(false);
-  const [dateRange, setDateRange] = useState<[Dayjs | null, Dayjs | null] | null>(null);
+  const [dateRange, setDateRange] = useState<
+    [Dayjs | null, Dayjs | null] | null
+  >(null);
   const [filters, setFilters] = useState<FilterState>({
     status: [],
     direction: [],
     paymentMethod: [],
-    token: []
+    token: [],
   });
 
   // Group transactions by date
@@ -78,119 +82,147 @@ const TransactionList: FC<{ walletAddress: string | null }> = ({ walletAddress }
     yesterday.setDate(yesterday.getDate() - 1);
 
     if (date.toDateString() === today.toDateString()) {
-      return "Today, " + date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+      return (
+        "Today, " +
+        date.toLocaleDateString("en-GB", {
+          day: "numeric",
+          month: "short",
+          year: "numeric",
+        })
+      );
     } else if (date.toDateString() === yesterday.toDateString()) {
-      return "Yesterday, " + date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+      return (
+        "Yesterday, " +
+        date.toLocaleDateString("en-GB", {
+          day: "numeric",
+          month: "short",
+          year: "numeric",
+        })
+      );
     } else {
-      return date.toLocaleDateString('en-GB', {
-        weekday: 'long',
-        day: 'numeric',
-        month: 'short',
-        year: 'numeric'
+      return date.toLocaleDateString("en-GB", {
+        weekday: "long",
+        day: "numeric",
+        month: "short",
+        year: "numeric",
       });
-    }
-  };
-
-  const fetchTransactions = async () => {
-    try {
-      const res = await axios.get<{status: string; message: string; data: Order[];}>
-      (`/api/element-pay/orders/wallet`, {
-        params: { wallet_address: walletAddress },
-      });
-
-      const mapped: ExtendedTx[] = res.data?.data?.map((order: Order) => {
-        const createdDate = new Date(order.created_at);
-        const settlementDate = order.updated_at
-          ? new Date(order.updated_at)
-          : null;
-
-        // Calculate processing time
-        const processingTime = settlementDate
-          ? `${Math.round(
-              (settlementDate.getTime() - createdDate.getTime()) / 1000 / 60
-            )}m`
-          : undefined;
-
-        return {
-          id: order.order_id,
-          name: order.order_type === 0 ? "OnRamp" : "OffRamp",
-          time: createdDate.toLocaleTimeString("en-US", {
-            hour: "numeric",
-            minute: "2-digit",
-            hour12: true,
-          }),
-          date: formatDate(order.created_at),
-          hash: order.settlement_transaction_hash
-            ? `${order.settlement_transaction_hash.slice(
-                0,
-                10
-              )}...${order.settlement_transaction_hash.slice(-6)}`
-            : order.refund_transaction_hash
-            ? `${order.refund_transaction_hash.slice(
-                0,
-                10
-              )}...${order.refund_transaction_hash.slice(-6)}`
-            : order.creation_transaction_hash
-            ? `${order.creation_transaction_hash.slice(
-                0,
-                10
-              )}...${order.creation_transaction_hash.slice(-6)}`
-            : "—",
-          fullHash:
-            order.settlement_transaction_hash ||
-            order.refund_transaction_hash ||
-            order.creation_transaction_hash ||
-            "—",
-          status:
-            order.status === "refunded"
-              ? "FAILED"
-              : order.status.toUpperCase(),
-          description:
-            order.receiver_name || order.phone_number
-              ? `To ${order.receiver_name || order.phone_number}`
-              : `Token: ${order.token}`,
-          amount: `${order.amount_fiat.toFixed(2)} KES`,
-          receiverDisplay:
-            order.receiver_name || order.phone_number || "Unknown",
-
-          // New enhanced fields
-          tokenSymbol: order.token,
-          cryptoAmount: `${order.amount_crypto.toFixed(6)} ${order.token}`,
-          exchangeRate: order.exchange_rate,
-          paymentMethod: "M-pesa",
-          direction: order.order_type === 0 ? "Receive" : "Send",
-          processingTime,
-          receiptNumber: undefined,
-          invoiceId: order.invoice_id,
-          orderType: order.order_type === 0 ? "OnRamp" : "OffRamp",
-          rawDate: createdDate, // Store raw date for filtering
-        };
-      });
-
-      // Sort by created_at in descending order (newest first)
-      mapped.sort((a, b) => {
-        const bOrder = res.data.data.find((o: Order) => o.order_id === b.id);
-        const aOrder = res.data.data.find((o: Order) => o.order_id === a.id);
-        return (
-          new Date(bOrder?.created_at || 0).getTime() -
-          new Date(aOrder?.created_at || 0).getTime()
-        );
-      });
-
-      setTransactions(mapped);
-    } catch (err) {
-      console.error("Failed to fetch transactions", err);
     }
   };
 
   useEffect(() => {
-    const loadTransactions = async () => {
-      setLoading(true);
-      await fetchTransactions();
-      setLoading(false);
+    let ignore = false;
+    const fetchTransactions = async () => {
+      try {
+        const res = await axios.get<{
+          status: string;
+          message: string;
+          data: Order[];
+        }>(`/api/element-pay/orders/wallet`, {
+          params: { wallet_address: walletAddress },
+        });
+
+        const mapped: ExtendedTx[] = res.data?.data?.map((order: Order) => {
+          const createdDate = new Date(order.created_at);
+          const settlementDate = order.updated_at
+            ? new Date(order.updated_at)
+            : null;
+
+          // Calculate processing time
+          const processingTime = settlementDate
+            ? `${Math.round(
+                (settlementDate.getTime() - createdDate.getTime()) / 1000 / 60,
+              )}m`
+            : undefined;
+
+          return {
+            id: order.order_id,
+            name: order.order_type === 0 ? "OnRamp" : "OffRamp",
+            time: createdDate.toLocaleTimeString("en-US", {
+              hour: "numeric",
+              minute: "2-digit",
+              hour12: true,
+            }),
+            date: formatDate(order.created_at),
+            hash: order.settlement_transaction_hash
+              ? `${order.settlement_transaction_hash.slice(
+                  0,
+                  10,
+                )}...${order.settlement_transaction_hash.slice(-6)}`
+              : order.refund_transaction_hash
+                ? `${order.refund_transaction_hash.slice(
+                    0,
+                    10,
+                  )}...${order.refund_transaction_hash.slice(-6)}`
+                : order.creation_transaction_hash
+                  ? `${order.creation_transaction_hash.slice(
+                      0,
+                      10,
+                    )}...${order.creation_transaction_hash.slice(-6)}`
+                  : "—",
+            fullHash:
+              order.settlement_transaction_hash ||
+              order.refund_transaction_hash ||
+              order.creation_transaction_hash ||
+              "—",
+            status:
+              order.status === "refunded"
+                ? "FAILED"
+                : order.status.toUpperCase(),
+            description:
+              order.receiver_name || order.phone_number
+                ? `To ${order.receiver_name || order.phone_number}`
+                : `Token: ${order.token}`,
+            amount: `${order.amount_fiat.toFixed(2)} KES`,
+            receiverDisplay:
+              order.receiver_name || order.phone_number || "Unknown",
+
+            // New enhanced fields
+            tokenSymbol: order.token,
+            cryptoAmount: `${order.amount_crypto.toFixed(6)} ${order.token}`,
+            exchangeRate: order.exchange_rate,
+            paymentMethod: "M-pesa",
+            direction: order.order_type === 0 ? "Receive" : "Send",
+            processingTime,
+            receiptNumber: undefined,
+            invoiceId: order.invoice_id,
+            orderType: order.order_type === 0 ? "OnRamp" : "OffRamp",
+            rawDate: createdDate, // Store raw date for filtering
+          };
+        });
+
+        // Sort by created_at in descending order (newest first)
+        mapped.sort((a, b) => {
+          const bOrder = res.data.data.find((o: Order) => o.order_id === b.id);
+          const aOrder = res.data.data.find((o: Order) => o.order_id === a.id);
+          return (
+            new Date(bOrder?.created_at || 0).getTime() -
+            new Date(aOrder?.created_at || 0).getTime()
+          );
+        });
+
+        if (!ignore) setTransactions(mapped);
+      } catch (err) {
+        if (!ignore) console.error("Failed to fetch transactions", err);
+      } finally {
+        if (!ignore) setLoading(false);
+      }
     };
 
-    if (walletAddress) loadTransactions();
+    if (walletAddress) fetchTransactions();
+
+    // Listen for custom event to refresh transactions
+    const refreshHandler = () => {
+      setLoading(true);
+      fetchTransactions();
+    };
+    window.addEventListener("elementpay:refresh-transactions", refreshHandler);
+    return () => {
+      ignore = true;
+      window.removeEventListener(
+        "elementpay:refresh-transactions",
+        refreshHandler,
+      );
+    };
   }, [walletAddress]);
 
   // Refresh function
@@ -202,20 +234,23 @@ const TransactionList: FC<{ walletAddress: string | null }> = ({ walletAddress }
 
   // Get unique filter options
   const getFilterOptions = () => {
-    const statuses = [...new Set(transactions.map(tx => tx.status))];
-    const directions = [...new Set(transactions.map(tx => tx.direction))];
-    const paymentMethods = [...new Set(transactions.map(tx => tx.paymentMethod))];
-    const tokens = [...new Set(transactions.map(tx => tx.tokenSymbol))];
+    const statuses = [...new Set(transactions.map((tx) => tx.status))];
+    const directions = [...new Set(transactions.map((tx) => tx.direction))];
+    const paymentMethods = [
+      ...new Set(transactions.map((tx) => tx.paymentMethod)),
+    ];
+    const tokens = [...new Set(transactions.map((tx) => tx.tokenSymbol))];
 
     return { statuses, directions, paymentMethods, tokens };
   };
 
   const { statuses, directions, paymentMethods, tokens } = getFilterOptions();
 
-  // Filter transactions based on search term, filters, and date range
-  const filteredTransactions = transactions.filter(tx => {
+  // Filter transactions based on search term and filters
+  const filteredTransactions = transactions.filter((tx) => {
     // Search filter
-    const matchesSearch = searchTerm === "" ||
+    const matchesSearch =
+      searchTerm === "" ||
       tx.receiverDisplay.toLowerCase().includes(searchTerm.toLowerCase()) ||
       tx.hash.toLowerCase().includes(searchTerm.toLowerCase()) ||
       tx.status.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -224,28 +259,36 @@ const TransactionList: FC<{ walletAddress: string | null }> = ({ walletAddress }
       tx.invoiceId?.toLowerCase().includes(searchTerm.toLowerCase());
 
     // Status filter
-    const matchesStatus = filters.status.length === 0 || filters.status.includes(tx.status);
+    const matchesStatus =
+      filters.status.length === 0 || filters.status.includes(tx.status);
 
     // Direction filter
-    const matchesDirection = filters.direction.length === 0 || filters.direction.includes(tx.direction);
+    const matchesDirection =
+      filters.direction.length === 0 ||
+      filters.direction.includes(tx.direction);
 
     // Payment method filter
-    const matchesPaymentMethod = filters.paymentMethod.length === 0 || filters.paymentMethod.includes(tx.paymentMethod);
+    const matchesPaymentMethod =
+      filters.paymentMethod.length === 0 ||
+      filters.paymentMethod.includes(tx.paymentMethod);
 
     // Token filter
-    const matchesToken = filters.token.length === 0 || filters.token.includes(tx.tokenSymbol);
+    const matchesToken =
+      filters.token.length === 0 || filters.token.includes(tx.tokenSymbol);
 
-    // Date range filter
-    const matchesDateRange = !dateRange || !dateRange[0] || !dateRange[1] ||
-      dayjs(tx.rawDate).isBetween(dateRange[0], dateRange[1], 'day', '[]');
-
-    return matchesSearch && matchesStatus && matchesDirection && matchesPaymentMethod && matchesToken && matchesDateRange;
+    return (
+      matchesSearch &&
+      matchesStatus &&
+      matchesDirection &&
+      matchesPaymentMethod &&
+      matchesToken
+    );
   });
 
   // Calculate paginated transactions
   const paginatedTransactions = filteredTransactions.slice(
     (currentPage - 1) * rowsPerPage,
-    currentPage * rowsPerPage
+    currentPage * rowsPerPage,
   );
   const totalPages = Math.ceil(filteredTransactions.length / rowsPerPage);
 
@@ -258,11 +301,11 @@ const TransactionList: FC<{ walletAddress: string | null }> = ({ walletAddress }
 
   // Handle filter changes
   const handleFilterChange = (filterType: keyof FilterState, value: string) => {
-    setFilters(prev => ({
+    setFilters((prev) => ({
       ...prev,
       [filterType]: prev[filterType].includes(value)
-        ? prev[filterType].filter(item => item !== value)
-        : [...prev[filterType], value]
+        ? prev[filterType].filter((item) => item !== value)
+        : [...prev[filterType], value],
     }));
   };
 
@@ -272,13 +315,16 @@ const TransactionList: FC<{ walletAddress: string | null }> = ({ walletAddress }
       status: [],
       direction: [],
       paymentMethod: [],
-      token: []
+      token: [],
     });
     setDateRange(null);
   };
 
-  // Get active filter count (including date range)
-  const activeFilterCount = Object.values(filters).reduce((count, filterArray) => count + filterArray.length, 0) + (dateRange ? 1 : 0);
+  // Get active filter count
+  const activeFilterCount = Object.values(filters).reduce(
+    (count, filterArray) => count + filterArray.length,
+    0,
+  );
 
   if (loading) return <p className="px-4">Loading...</p>;
 
@@ -322,7 +368,8 @@ const TransactionList: FC<{ walletAddress: string | null }> = ({ walletAddress }
             {walletAddress.slice(0, 6)}...{walletAddress.slice(-4)}
           </span>
           <br />
-          Once you send or receive crypto via Element Pay, your activity will appear here.
+          Once you send or receive crypto via Element Pay, your activity will
+          appear here.
         </p>
         <button className="mt-4 px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition">
           Send your first payment
@@ -331,82 +378,92 @@ const TransactionList: FC<{ walletAddress: string | null }> = ({ walletAddress }
     );
   }
 
-    return (
-      <ClientOnly fallback={<div className="p-4">Loading transactions...</div>}>
-        <div className="w-full p-2 sm:p-4 bg-gray-50 min-h-screen">
-          {/* Header with Refresh and Date Range Filter */}
-          <div className="mb-4 bg-white rounded-lg border border-gray-200 p-4 shadow-sm">
-            <div className="flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between">
-              <div className="flex flex-col sm:flex-row gap-3 sm:items-center flex-1">
-                {/* Refresh Button */}
-                <button
-                  onClick={handleRefresh}
-                  disabled={refreshing}
-                  className="inline-flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
-                >
-                  <RefreshCw size={16} className={refreshing ? "animate-spin" : ""} />
-                  <span className="text-sm font-medium">{refreshing ? "Refreshing..." : "Refresh"}</span>
-                </button>
+  return (
+    <ClientOnly fallback={<div className="p-4">Loading transactions...</div>}>
+      <div className="w-full p-2 sm:p-4 bg-gray-50 min-h-screen">
+        {/* Header with Refresh and Date Range Filter */}
+        <div className="mb-4 bg-white rounded-lg border border-gray-200 p-4 shadow-sm">
+          <div className="flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between">
+            <div className="flex flex-col sm:flex-row gap-3 sm:items-center flex-1">
+              {/* Refresh Button */}
+              <button
+                onClick={handleRefresh}
+                disabled={refreshing}
+                className="inline-flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
+              >
+                <RefreshCw
+                  size={16}
+                  className={refreshing ? "animate-spin" : ""}
+                />
+                <span className="text-sm font-medium">
+                  {refreshing ? "Refreshing..." : "Refresh"}
+                </span>
+              </button>
 
-                {/* Date Range Picker */}
-                <div className="flex items-center gap-2 flex-1">
-                  <RangePicker
-                    value={dateRange}
-                    onChange={(dates) => setDateRange(dates as [Dayjs | null, Dayjs | null] | null)}
-                    format="MMM D, YYYY"
-                    className="w-full sm:w-auto"
-                    placeholder={["Start date", "End date"]}
-                    allowClear
-                    style={{ minWidth: '280px' }}
-                  />
-                  {dateRange && (
-                    <button
-                      onClick={() => setDateRange(null)}
-                      className="text-sm text-blue-600 hover:text-blue-800 whitespace-nowrap font-medium"
-                    >
-                      Clear dates
-                    </button>
-                  )}
-                </div>
-              </div>
-
-              {/* Transaction Count */}
-              <div className="text-sm font-medium text-gray-700 bg-gray-50 px-3 py-2 rounded-lg">
-                {filteredTransactions.length} {filteredTransactions.length === 1 ? "transaction" : "transactions"}
+              {/* Date Range Picker */}
+              <div className="flex items-center gap-2 flex-1">
+                <RangePicker
+                  value={dateRange}
+                  onChange={(dates) =>
+                    setDateRange(dates as [Dayjs | null, Dayjs | null] | null)
+                  }
+                  format="MMM D, YYYY"
+                  className="w-full sm:w-auto"
+                  placeholder={["Start date", "End date"]}
+                  allowClear
+                  style={{ minWidth: "280px" }}
+                />
+                {dateRange && (
+                  <button
+                    onClick={() => setDateRange(null)}
+                    className="text-sm text-blue-600 hover:text-blue-800 whitespace-nowrap font-medium"
+                  >
+                    Clear dates
+                  </button>
+                )}
               </div>
             </div>
-          </div>
 
-          <TransactionFilters
-            searchTerm={searchTerm}
-            setSearchTerm={setSearchTerm}
-            showFilters={showFilters}
-            setShowFilters={setShowFilters}
-            filters={filters}
-            setFilters={setFilters}
-            statuses={statuses}
-            directions={directions}
-            paymentMethods={paymentMethods}
-            tokens={tokens}
-            rowsPerPage={rowsPerPage}
-            setRowsPerPage={setRowsPerPage}
-            activeFilterCount={activeFilterCount}
-            handleFilterChange={handleFilterChange}
-            clearFilters={clearFilters}
-          />
-          <TransactionTable
-            groupedTransactions={groupedTransactions}
-            filters={filters}
-            clearFilters={clearFilters}
-            filteredTransactions={filteredTransactions}
-            currentPage={currentPage}
-            setCurrentPage={setCurrentPage}
-            totalPages={totalPages}
-            rowsPerPage={rowsPerPage}
-          />
+            {/* Transaction Count */}
+            <div className="text-sm font-medium text-gray-700 bg-gray-50 px-3 py-2 rounded-lg">
+              {filteredTransactions.length}{" "}
+              {filteredTransactions.length === 1
+                ? "transaction"
+                : "transactions"}
+            </div>
+          </div>
         </div>
-      </ClientOnly>
-    );
-    };
+
+        <TransactionFilters
+          searchTerm={searchTerm}
+          setSearchTerm={setSearchTerm}
+          showFilters={showFilters}
+          setShowFilters={setShowFilters}
+          filters={filters}
+          setFilters={setFilters}
+          statuses={statuses}
+          directions={directions}
+          paymentMethods={paymentMethods}
+          tokens={tokens}
+          rowsPerPage={rowsPerPage}
+          setRowsPerPage={setRowsPerPage}
+          activeFilterCount={activeFilterCount}
+          handleFilterChange={handleFilterChange}
+          clearFilters={clearFilters}
+        />
+        <TransactionTable
+          groupedTransactions={groupedTransactions}
+          filters={filters}
+          clearFilters={clearFilters}
+          filteredTransactions={filteredTransactions}
+          currentPage={currentPage}
+          setCurrentPage={setCurrentPage}
+          totalPages={totalPages}
+          rowsPerPage={rowsPerPage}
+        />
+      </div>
+    </ClientOnly>
+  );
+};
 
 export default TransactionList;

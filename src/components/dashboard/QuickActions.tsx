@@ -3,34 +3,60 @@ import React, { FC, useMemo } from "react";
 import { Bell, MoreHorizontal } from "lucide-react"; // Import icons
 import { useChainId, useBalance } from "wagmi";
 import { useAccount } from "wagmi";
+import dynamic from "next/dynamic";
 
-import SendCryptoModal from "./sendCrypto/SendCryptoModal";
-import DepositCryptoModal from "./depositCrypto/DepositCryptoModal";
 import { SUPPORTED_TOKENS, SupportedToken } from "@/constants/supportedTokens";
 import { useState, useEffect } from "react";
+import {
+  getApiCurrencyFromToken,
+  fetchFeeStructureCached,
+} from "@/utils/feeStructure";
+
+// Dynamically import modals with no SSR to prevent wagmi context issues
+const SendCryptoModal = dynamic(() => import("./sendCrypto/SendCryptoModal"), {
+  ssr: false,
+});
+const SendCryptoModalV2 = dynamic(
+  () => import("./sendCrypto/SendCryptoModalV2"),
+  { ssr: false },
+);
+const DepositCryptoModal = dynamic(
+  () => import("./depositCrypto/DepositCryptoModal"),
+  { ssr: false },
+);
 
 const QuickActions: FC = () => {
   const { address } = useAccount();
   const currentChainId = useChainId();
-  
+
   // Get the current token based on connected chain
   const currentToken = useMemo((): SupportedToken => {
     // Map chain IDs to chain names
     const chainIdToName: Record<number, string> = {
       8453: "Base",
-      1135: "Lisk", 
+      1135: "Lisk",
       534352: "Scroll",
-      42161: "Arbitrum"
+      42161: "Arbitrum",
     };
-    
+
     const chainName = chainIdToName[currentChainId];
-    
+
     // Find a token for the current chain (prefer USDC if available)
-    const tokensForChain = SUPPORTED_TOKENS.filter(token => token.chain === chainName);
-    const preferredToken = tokensForChain.find(token => token.symbol === "USDC") || tokensForChain[0];
-    
+    const tokensForChain = SUPPORTED_TOKENS.filter(
+      (token) => token.chain === chainName,
+    );
+    const preferredToken =
+      tokensForChain.find((token) => token.symbol === "USDC") ||
+      tokensForChain[0];
+
     // Default to Base USDC if no token found for current chain
-    return preferredToken || SUPPORTED_TOKENS.find(token => token.symbol === "USDC" && token.chain === "Base") || SUPPORTED_TOKENS[0];
+    return (
+      preferredToken ||
+      SUPPORTED_TOKENS.find(
+        (token) => token.symbol === "USDC" && token.chain === "Base",
+      ) ||
+      SUPPORTED_TOKENS[0]
+    );
   }, [currentChainId]);
 
   // Fetch balance for the current token
@@ -41,70 +67,63 @@ const QuickActions: FC = () => {
       staleTime: 30_000,
       refetchInterval: 30_000,
       retry: (failureCount, error: any) => {
-        if (error?.code === -32005) return false; 
+        if (error?.code === -32005) return false;
         return failureCount < 2;
       },
       retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 10000),
     },
   });
 
-  // Map token symbol to CoinGecko API ID
-  const getCoinGeckoId = (symbol: string): string => {
-    switch (symbol.toLowerCase()) {
-      case 'usdc':
-        return 'usd-coin';
-      case 'wxm':
-        return 'weatherxm-network';
-      case 'usdt':
-        return 'tether';
-      case 'eth':
-        return 'ethereum';
-      default:
-        return 'usd-coin'; // fallback to USDC
-    }
-  };
+  const tokenBalance = parseFloat(tokenBalanceData?.formatted || "0");
 
-  // Custom hook for CoinGecko exchange rates
-  const [coinGeckoRate, setCoinGeckoRate] = useState<number | null>(null);
+  // Use Element Pay OffRamp rate from fee-structure API (same as SendCryptoModal)
+  const [elementPayRate, setElementPayRate] = useState<number | null>(null);
   const [isLoadingRate, setIsLoadingRate] = useState<boolean>(true);
 
   useEffect(() => {
-    const fetchCoinGeckoRate = async () => {
+    const fetchElementPayRate = async () => {
       setIsLoadingRate(true);
       try {
-        const coinId = getCoinGeckoId(currentToken.symbol);
-        const response = await fetch(
-          `/api/coingecko?coinId=${coinId}&currency=kes`
-        );
-        const data = await response.json();
-        
-        if (data[coinId] && data[coinId].kes) {
-          setCoinGeckoRate(data[coinId].kes);
+        const currency = getApiCurrencyFromToken(currentToken.symbol);
+
+        // Use fee-structure API which provides base_rate (same as SendCryptoModal)
+        const feeData = await fetchFeeStructureCached({
+          token: currency,
+          action: "OffRamp",
+        });
+
+        const rate = feeData.data.base_rate;
+        if (rate && rate > 0) {
+          console.log(
+            "[QuickActions] Fee structure rate:",
+            rate,
+            "KES per",
+            currentToken.symbol,
+          );
+          setElementPayRate(rate);
         } else {
-          setCoinGeckoRate(null);
+          console.warn("[QuickActions] No valid base_rate in fee structure");
+          setElementPayRate(null);
         }
       } catch (error) {
-        console.error("Error fetching CoinGecko rate:", error);
-        setCoinGeckoRate(null);
+        console.error("[QuickActions] Error fetching fee structure:", error);
+        setElementPayRate(null);
       } finally {
         setIsLoadingRate(false);
       }
     };
 
-    fetchCoinGeckoRate();
-    // Refresh every 5 minutes (reduced from 2 minutes to reduce API calls)
-    // Cache on API route will handle more frequent requests
-    const intervalId = setInterval(fetchCoinGeckoRate, 5 * 60 * 1000);
+    fetchElementPayRate();
+    // Refresh every 2 minutes to stay in sync with modal
+    const intervalId = setInterval(fetchElementPayRate, 2 * 60 * 1000);
 
     return () => clearInterval(intervalId);
   }, [currentToken.symbol]);
-  
-  const tokenBalance = parseFloat(tokenBalanceData?.formatted || "0");
-  
-  const rawKesBalance = () => {
-    if (isLoadingRate || !coinGeckoRate) return "Loading...";
 
-    const kesAmount = tokenBalance * coinGeckoRate;
+  const rawKesBalance = () => {
+    if (isLoadingRate || !elementPayRate) return "Loading...";
+
+    const kesAmount = tokenBalance * elementPayRate;
     return kesAmount.toFixed(2);
   };
 
@@ -133,8 +152,9 @@ const QuickActions: FC = () => {
         </div>
       </div>
 
-      <div className="flex gap-3">
+      <div className="flex gap-3 flex-wrap">
         <SendCryptoModal />
+
         <DepositCryptoModal />
       </div>
     </div>

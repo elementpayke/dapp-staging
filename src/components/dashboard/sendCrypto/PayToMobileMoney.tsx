@@ -3,6 +3,9 @@ import type React from "react";
 import { useState, useEffect } from "react";
 import { SupportedToken } from "@/constants/supportedTokens";
 import TokenDropdown from "@/components/ui/TokenDropdown";
+import MaxOfframpButton from "./MaxOfframpButton";
+import KenyanPhoneInput from "@/components/shared/KenyanPhoneInput";
+import { MIN_TRANSACTION_AMOUNT_KES } from "@/utils/feeStructure";
 
 interface PayToMobileMoneyProps {
   selectedToken: SupportedToken;
@@ -23,12 +26,20 @@ interface PayToMobileMoneyProps {
   setCashoutType: (type: "PHONE" | "TILL" | "PAYBILL") => void;
   phoneValidation?: { isValid: boolean; error?: string };
   isValidatingPhone?: boolean;
+  selectedTokenBalance: number;
+  exchangeRate: number | null;
+  account: any;
+  handleMaxAmountSet: (amount: string) => void;
+  transactionChargeKES: number;
+  feeBands: Array<{
+    min_amount: number;
+    max_amount: number | null;
+    fee_amount: number;
+    description: string;
+  }>;
 }
 
-type PaymentMethod =
-  | "Send Money"
-  | "Pay Bill"
-  | "Buy Goods";
+type PaymentMethod = "Send Money" | "Pay Bill" | "Buy Goods";
 
 const PayToMobileMoney: React.FC<PayToMobileMoneyProps> = ({
   selectedToken,
@@ -49,9 +60,21 @@ const PayToMobileMoney: React.FC<PayToMobileMoneyProps> = ({
   setCashoutType,
   phoneValidation = { isValid: false },
   isValidatingPhone = false,
+  selectedTokenBalance,
+  exchangeRate,
+  account,
+  handleMaxAmountSet,
+  transactionChargeKES,
+  feeBands,
 }) => {
   const [paymentMethod, setPaymentMethod] =
     useState<PaymentMethod>("Send Money");
+
+  const [internalPhoneValidation, setInternalPhoneValidation] = useState<{
+    isValid: boolean;
+    error?: string;
+    network?: string;
+  }>({ isValid: false });
 
   useEffect(() => {
     switch (paymentMethod) {
@@ -71,7 +94,7 @@ const PayToMobileMoney: React.FC<PayToMobileMoneyProps> = ({
         setCashoutType("PHONE");
         break;
       default:
-        setCashoutType("PHONE"); // Add default case
+        setCashoutType("PHONE");
         break;
     }
   }, [
@@ -82,10 +105,9 @@ const PayToMobileMoney: React.FC<PayToMobileMoneyProps> = ({
     setAccountNumber,
   ]);
 
-  // Validate input based on payment method
   const validateInput = () => {
-    if (amount && Number.parseFloat(amount) < 10) {
-      return "Minimum amount is 10 KES";
+    if (amount && Number.parseFloat(amount) < MIN_TRANSACTION_AMOUNT_KES) {
+      return `Minimum amount is ${MIN_TRANSACTION_AMOUNT_KES} KES`;
     }
 
     if (paymentMethod === "Pay Bill") {
@@ -116,70 +138,23 @@ const PayToMobileMoney: React.FC<PayToMobileMoneyProps> = ({
         return (
           <>
             <div>
-              <label className="block text-gray-600 mb-2">Phone Number</label>
-              <div className="relative">
-                <input
-                  type="tel"
-                  value={mobileNumber}
-                  autoComplete="false"
-                  onChange={(e) => {
-                    let input = e.target.value
-                      .replace(/[^\d]/g, "")
-                      .substring(0, 12);
-                    // If starts with '2540', prevent entering
-                    if (input.startsWith("2540")) {
-                      // Do not update the value
-                      return;
-                    }
-                    // If input is empty, set default to '254'
-                    if (input === "") {
-                      setMobileNumber("254");
-                      return;
-                    }
-                    // Ensure input always starts with '254'
-                    if (!input.startsWith("254")) {
-                      input = "254" + input.replace(/^254*/, "");
-                    }
-                    setMobileNumber(input);
-                  }}
-                  className={`w-full p-3 bg-gray-50 rounded-lg border-0 text-gray-900 focus:outline-none focus:ring-2 transition-colors ${
-                    phoneValidation.isValid 
-                      ? 'focus:ring-green-500 border-green-200' 
-                      : mobileNumber && !phoneValidation.isValid 
-                      ? 'focus:ring-red-500 border-red-200' 
-                      : 'focus:ring-blue-500'
-                  }`}
-                  placeholder="e.g., 254712345678"
-                />
-                {isValidatingPhone && (
-                  <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-500"></div>
-                  </div>
-                )}
-                {phoneValidation.isValid && !isValidatingPhone && (
-                  <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
-                    <svg className="h-5 w-5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                    </svg>
-                  </div>
-                )}
-              </div>
-              {mobileNumber && !phoneValidation.isValid && phoneValidation.error && (
-                <p className="text-red-500 text-sm mt-1 flex items-center gap-1">
-                  <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                  {phoneValidation.error}
-                </p>
-              )}
-              {phoneValidation.isValid && (
-                <p className="text-green-600 text-sm mt-1 flex items-center gap-1">
-                  <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                  Valid Safaricom number
-                </p>
-              )}
+              <label className="block text-gray-600 mb-2 text-sm sm:text-base">
+                Phone Number
+              </label>
+              {/* ✅ SOLUTION: Use className prop to override default styling */}
+              <KenyanPhoneInput
+                value={mobileNumber}
+                onChange={(value, validation) => {
+                  setMobileNumber(value);
+                  setInternalPhoneValidation(validation);
+                }}
+                disabled={false}
+                placeholder="7XX XXX XXX"
+                className="phone-input-light-mode"
+              />
+              <p className="text-xs text-gray-500 mt-1.5 px-1">
+                Enter your 9-digit Safaricom number
+              </p>
             </div>
           </>
         );
@@ -188,26 +163,29 @@ const PayToMobileMoney: React.FC<PayToMobileMoneyProps> = ({
         return (
           <>
             <div>
-              <label className="block text-gray-600 mb-2">
+              <label className="block text-gray-600 mb-2 text-sm sm:text-base">
                 Business Number
               </label>
               <input
                 type="text"
+                inputMode="numeric"
                 value={paybillNumber}
                 onChange={(e) =>
                   setPaybillNumber(e.target.value.replace(/[^\d]/g, ""))
                 }
-                className="w-full p-3 bg-gray-50 rounded-lg border-0 text-gray-900"
+                className="w-full p-3 bg-gray-50 rounded-lg border-0 text-gray-900 text-base"
                 placeholder="e.g., 888888"
               />
             </div>
-            <div className="mt-4">
-              <label className="block text-gray-600 mb-2">Account Number</label>
+            <div className="mt-3 sm:mt-4">
+              <label className="block text-gray-600 mb-2 text-sm sm:text-base">
+                Account Number
+              </label>
               <input
                 type="text"
                 value={accountNumber}
                 onChange={(e) => setAccountNumber(e.target.value)}
-                className="w-full p-3 bg-gray-50 rounded-lg border-0 text-gray-900"
+                className="w-full p-3 bg-gray-50 rounded-lg border-0 text-gray-900 text-base"
                 placeholder="e.g., Account/Reference number"
               />
             </div>
@@ -218,14 +196,17 @@ const PayToMobileMoney: React.FC<PayToMobileMoneyProps> = ({
         return (
           <>
             <div>
-              <label className="block text-gray-600 mb-2">Till Number</label>
+              <label className="block text-gray-600 mb-2 text-sm sm:text-base">
+                Till Number
+              </label>
               <input
                 type="text"
+                inputMode="numeric"
                 value={tillNumber}
                 onChange={(e) =>
                   setTillNumber(e.target.value.replace(/[^\d]/g, ""))
                 }
-                className="w-full p-3 bg-gray-50 rounded-lg border-0 text-gray-900"
+                className="w-full p-3 bg-gray-50 rounded-lg border-0 text-gray-900 text-base"
                 placeholder="e.g., 567890"
               />
             </div>
@@ -238,105 +219,146 @@ const PayToMobileMoney: React.FC<PayToMobileMoneyProps> = ({
   };
 
   return (
-    <div className="space-y-4">
-      {/* Network and Wallet Selection */}
+    <>
+      {/* ✅ GLOBAL STYLES: Override KenyanPhoneInput dark mode defaults for this form */}
+      <style jsx global>{`
+        .phone-input-light-mode > div {
+          background-color: transparent !important;
+        }
+        .phone-input-light-mode input {
+          background-color: white !important;
+          color: #111827 !important;
+        }
+        .phone-input-light-mode > div > div:first-child {
+          background-color: #f3f4f6 !important;
+          border-color: #e5e7eb !important;
+        }
+        .phone-input-light-mode .dark\\:bg-gray-800,
+        .phone-input-light-mode .dark\\:bg-gray-700 {
+          background-color: white !important;
+        }
+        .phone-input-light-mode .dark\\:text-gray-100,
+        .phone-input-light-mode .dark\\:text-gray-300 {
+          color: #111827 !important;
+        }
+        .phone-input-light-mode .dark\\:border-gray-700,
+        .phone-input-light-mode .dark\\:border-gray-600 {
+          border-color: #e5e7eb !important;
+        }
+      `}</style>
 
-      {/* M-PESA Payment Method Selector */}
-      <div>
-        <label className="block text-gray-600 mb-2">Payment Method</label>
-        <div className="grid grid-cols-3 gap-2">
-          {(
-            [
-              "Send Money",
-              "Pay Bill",
-              "Buy Goods",
-            ] as PaymentMethod[]
-          ).map((method) => {
-            return (
-              <button
-                key={method}
-                type="button"
-                onClick={() => setPaymentMethod(method)}
-                className={`relative p-3 rounded-lg text-center text-sm font-medium transition-colors ${paymentMethod === method
-                  ? "bg-green-100 text-green-800 border-2 border-green-600"
-                  : "bg-gray-50 text-gray-700 border border-gray-200 hover:bg-gray-100"
-                }`}
-              >
-                {method}
-              </button>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* Dynamic Input Fields based on Payment Method */}
-      {renderInputFields()}
-
-      {/* Token and Amount */}
-      <div className="grid grid-cols-2 gap-4">
+      <div className="space-y-3 sm:space-y-4">
+        {/* M-PESA Payment Method Selector */}
         <div>
-          <label className="block text-gray-600 mb-2">Token</label>
-          <TokenDropdown
-            selected={selectedToken}
-            onSelect={setSelectedToken}
-          />
+          <label className="block text-gray-600 mb-2 text-sm sm:text-base">
+            Payment Method
+          </label>
+          <div className="grid grid-cols-3 gap-1.5 sm:gap-2">
+            {(["Send Money", "Pay Bill", "Buy Goods"] as PaymentMethod[]).map(
+              (method) => {
+                return (
+                  <button
+                    key={method}
+                    type="button"
+                    onClick={() => setPaymentMethod(method)}
+                    className={`relative p-2 sm:p-3 rounded-lg text-center text-xs sm:text-sm font-medium transition-colors ${
+                      paymentMethod === method
+                        ? "bg-green-100 text-green-800 border-2 border-green-600"
+                        : "bg-gray-50 text-gray-700 border border-gray-200 hover:bg-gray-100"
+                    }`}
+                  >
+                    {method}
+                  </button>
+                );
+              },
+            )}
+          </div>
         </div>
+
+        {/* Dynamic Input Fields based on Payment Method */}
+        {renderInputFields()}
+
+        {/* Token and Amount */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+          <div>
+            <label className="block text-gray-600 mb-2 text-sm sm:text-base">
+              Token
+            </label>
+            <TokenDropdown
+              selected={selectedToken}
+              onSelect={setSelectedToken}
+            />
+          </div>
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <label className="block text-gray-600 text-sm sm:text-base">
+                Amount in KES
+              </label>
+              <MaxOfframpButton
+                disabled={false}
+                selectedTokenBalance={selectedTokenBalance}
+                exchangeRate={exchangeRate}
+                selectedTokenAddress={selectedToken.tokenAddress}
+                selectedTokenSymbol={selectedToken.symbol}
+                walletAddress={account?.address}
+                onMaxAmountCalculated={handleMaxAmountSet}
+                feeBands={feeBands}
+              />
+            </div>
+            <input
+              type="text"
+              inputMode="decimal"
+              value={amount}
+              onChange={(e) => {
+                const newValue = e.target.value.replace(/[^\d.]/g, "");
+                setAmount(newValue);
+              }}
+              className="w-full p-3 bg-gray-50 rounded-lg border-0 text-gray-900 text-base"
+              placeholder="Enter amount"
+            />
+            {error && (
+              <p className="text-red-500 mt-2 text-xs sm:text-sm">{error}</p>
+            )}
+          </div>
+        </div>
+
+        {/* Payment Reason */}
         <div>
-          <label className="block text-gray-600 mb-2">Amount in KES</label>
+          <label className="block text-gray-600 mb-2 text-sm sm:text-base">
+            {paymentMethod === "Pay Bill"
+              ? "Payment Reference (Optional)"
+              : "Payment Reason (Optional)"}
+          </label>
           <input
             type="text"
-            value={amount}
-            onChange={(e) => {
-              // Allow only numbers and decimal point
-              const newValue = e.target.value.replace(/[^\d.]/g, "");
-              setAmount(newValue);
-            }}
-            className="w-full p-3 bg-gray-50 rounded-lg border-0 text-gray-900"
-            placeholder="Enter amount"
+            value={reason}
+            onChange={(e) => setReason(e.target.value)}
+            className="w-full p-3 bg-gray-50 rounded-lg border-0 text-gray-900 text-base"
+            placeholder={
+              paymentMethod === "Pay Bill"
+                ? "Enter payment reference"
+                : paymentMethod === "Buy Goods"
+                  ? "Enter store name or item purchased"
+                  : "Enter payment reason"
+            }
           />
-          {error && <p className="text-red-500 mt-2 text-sm">{error}</p>}
         </div>
-      </div>
 
-      {/* Payment Reason */}
-      <div>
-        <label className="block text-gray-600 mb-2">
-          {paymentMethod === "Pay Bill"
-            ? "Payment Reference (Optional)"
-            : "Payment Reason (Optional)"}
-        </label>
-        <input
-          type="text"
-          value={reason}
-          onChange={(e) => setReason(e.target.value)}
-          className="w-full p-3 bg-gray-50 rounded-lg border-0 text-gray-900"
-          placeholder={
-            paymentMethod === "Pay Bill"
-              ? "Enter payment reference"
-              : paymentMethod === "Buy Goods"
-                ? "Enter store name or item purchased"
-                : "Enter payment reason"
-          }
-        />
-      </div>
-
-      {/* Balance & Fee Information */}
-      <div className="bg-gray-50 p-3 rounded-lg">
-        <div className="flex justify-between text-sm mb-2">
-          <span className="text-gray-600">Available balance:</span>
-          <span className="font-medium">{totalKES.toFixed(2)} KES</span>
-        </div>
-        <div className="flex justify-between text-sm">
-          <span className="text-gray-600">Transaction fee:</span>
-          <span className="font-medium">
-            {amount
-              ? Math.min(Number.parseFloat(amount) * 0.01, 100).toFixed(2)
-              : "0.00"}{" "}
-            KES
-          </span>
+        {/* Balance & Fee Information */}
+        <div className="bg-gray-50 p-2.5 sm:p-3 rounded-lg">
+          <div className="flex justify-between text-xs sm:text-sm mb-2">
+            <span className="text-gray-600">Available balance:</span>
+            <span className="font-medium">{totalKES.toFixed(2)} KES</span>
+          </div>
+          <div className="flex justify-between text-xs sm:text-sm">
+            <span className="text-gray-600">Transaction fee:</span>
+            <span className="font-medium">
+              {transactionChargeKES.toFixed(2)} KES
+            </span>
+          </div>
         </div>
       </div>
-    </div>
+    </>
   );
 };
 

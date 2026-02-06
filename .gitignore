@@ -2,6 +2,7 @@
 
 # dependencies
 /node_modules
+/node_modules_bak
 /.pnp
 .pnp.*
 .yarn/*
@@ -42,3 +43,4 @@ yarn-error.log*
 next-env.d.ts
 
 pnpm-lock.yaml
+/node_modules_bak

@@ -54,7 +54,7 @@ const Hero = () => {
                 fallback={
                   <div className="w-full">
                     <button 
-                      className="w-full bg-gradient-to-r from-[#0514eb] to-[#de0413] text-white px-8 py-4 rounded-full text-base sm:text-lg font-medium"
+                      className="w-fit bg-gradient-to-r from-[#0514eb] to-[#de0413] text-white px-8 py-4 rounded-full text-base sm:text-lg font-medium"
                       disabled
                     >
                       Loading...
