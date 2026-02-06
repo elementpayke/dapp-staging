@@ -59,14 +59,15 @@ export function Providers(props: { children: ReactNode }) {
           accentColor: "#0514eb",
           logo: LogoImage.src,
           showWalletLoginFirst: true,
-          // Show these wallets first in the modal (in order)
-          // Mobile-friendly order: WalletConnect first for mobile users
+          // Show these wallets first in the modal (prioritized order)
           walletList: [
-            "wallet_connect", // WalletConnect first for mobile wallet connections
+            "coinbase_wallet", // Base chain support via Coinbase Wallet
             "metamask",
-            "coinbase_wallet",
-            "rainbow",
             "phantom",
+            "rabby",
+            "trust",
+            "wallet_connect", // WalletConnect for mobile wallet connections
+            "rainbow",
             "detected_ethereum_wallets", // Show any other detected wallets
           ],
         },
