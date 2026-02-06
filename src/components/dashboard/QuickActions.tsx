@@ -2,7 +2,6 @@
 import React, { FC, useMemo } from "react";
 import { Bell, MoreHorizontal } from "lucide-react"; // Import icons
 import { useChainId } from "wagmi";
-import { useAccount } from "wagmi";
 import dynamic from "next/dynamic";
 
 import { SUPPORTED_TOKENS, SupportedToken } from "@/constants/supportedTokens";
