@@ -9,10 +9,12 @@ const OverviewPage = () => {
   const { address } = useWallet();
 
   return (
-    <div className="p-4 sm:p-8 space-y-6 overflow-y-auto max-h-[calc(100vh-64px)]">
-      <DashboardHeader />
-      <CryptoPrices />
-      <QuickActions />
+    <div className="space-y-6 overflow-y-auto max-h-[calc(100vh-64px)]">
+      <div className="p-4 sm:p-8 space-y-6">
+        <DashboardHeader />
+        <CryptoPrices />
+        <QuickActions />
+      </div>
       {address && <TransactionList walletAddress={address} />}
     </div>
   );

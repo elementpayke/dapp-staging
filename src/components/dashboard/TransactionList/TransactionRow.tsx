@@ -1,8 +1,10 @@
 "use client";
 
 import React, { FC } from "react";
-import { Copy, MoreHorizontal } from "lucide-react";
+import { Copy, MoreHorizontal, ExternalLink } from "lucide-react";
 import ClientOnly from "@/components/shared/ClientOnly";
+import TransactionDetailModal from "./TransactionDetailModal";
+import { useState } from "react";
 
 interface ExtendedTx {
   [key: string]: any;
@@ -41,6 +43,7 @@ const Arrow = ({ direction }: { direction: 'in' | 'out' }) => (
 );
 
 const TransactionRow: FC<TransactionRowProps> = ({ tx }: { tx: ExtendedTx }) => {
+  const [showModal, setShowModal] = useState(false);
   // Copy to clipboard helper
   const copyToClipboard = async (text: string, type: string = 'text') => {
     try {
@@ -48,6 +51,13 @@ const TransactionRow: FC<TransactionRowProps> = ({ tx }: { tx: ExtendedTx }) => 
       // Optionally, show a toast or tooltip
     } catch (err) {
       // Optionally, show an error toast
+    }
+  };
+  // Open transaction in blockchain explorer
+  const handleOpenExplorer = (e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent modal from opening
+    if (tx.fullHash && tx.fullHash !== "—") {
+      window.open(`https://basescan.org/tx/${tx.fullHash}`, "_blank");
     }
   };
 
@@ -85,7 +95,10 @@ const TransactionRow: FC<TransactionRowProps> = ({ tx }: { tx: ExtendedTx }) => 
   return (
     <ClientOnly>
       {/* Desktop/tablet row */}
-      <div className="transaction-desktop hidden sm:grid sm:grid-cols-12 gap-4 items-center px-6 py-4 hover:bg-gray-50 transition-colors text-sm border-b border-gray-100">
+      <div 
+      onClick={() => setShowModal(true)}
+      className="transaction-desktop hidden sm:grid sm:grid-cols-12 gap-4 items-center px-6 py-4 hover:bg-gray-50 transition-colors text-sm border-b border-gray-100 cursor-pointer"
+      >
         {/* Transaction (arrow, description, date) */}
         <div className="col-span-3 flex items-center min-w-0">
           <Arrow direction={isReceive ? 'in' : 'out'} />
@@ -96,10 +109,15 @@ const TransactionRow: FC<TransactionRowProps> = ({ tx }: { tx: ExtendedTx }) => 
             <div className="text-xs text-gray-500 mt-0.5">
               {displayValue(tx.time)} • {displayValue(tx.date)}
             </div>
-            {tx.hash && (
-              <div className="text-xs text-blue-500 font-mono truncate cursor-pointer hover:underline mt-0.5" title="View on Explorer">
+            {tx.hash && tx.hash !== '—' && (
+              <button
+                onClick={handleOpenExplorer}
+                className="text-xs text-blue-500 font-mono truncate hover:underline mt-0.5 flex items-center gap-1"
+                title="View on Explorer"
+              >
                 {displayValue(tx.hash)}
-              </div>
+                <ExternalLink size={12} />
+              </button>
             )}
           </div>
         </div>
@@ -119,7 +137,10 @@ const TransactionRow: FC<TransactionRowProps> = ({ tx }: { tx: ExtendedTx }) => 
               Ref: {tx.receiptNumber}
               <button
                 className="p-0.5 rounded hover:bg-gray-100"
-                onClick={() => copyToClipboard(tx.receiptNumber, 'M-Pesa reference')}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  copyToClipboard(tx.receiptNumber, 'M-Pesa reference');
+                }}
                 title="Copy M-Pesa reference number"
                 aria-label="Copy M-Pesa reference number"
               >
@@ -136,7 +157,10 @@ const TransactionRow: FC<TransactionRowProps> = ({ tx }: { tx: ExtendedTx }) => 
         <div className="col-span-2 flex items-center gap-2 justify-end">
           <button
             className="p-1 rounded hover:bg-gray-100"
-            onClick={() => copyToClipboard(tx.fullHash, 'Transaction hash')}
+            onClick={(e) => {
+              e.stopPropagation();
+              copyToClipboard(tx.fullHash, 'Transaction hash');
+            }}
             title="Copy transaction hash"
             aria-label="Copy transaction hash"
           >
@@ -144,6 +168,7 @@ const TransactionRow: FC<TransactionRowProps> = ({ tx }: { tx: ExtendedTx }) => 
           </button>
           <button
             className="p-1 rounded hover:bg-gray-100"
+            onClick={(e) => e.stopPropagation()}
             title="More actions"
             aria-label="More actions"
           >
@@ -152,7 +177,10 @@ const TransactionRow: FC<TransactionRowProps> = ({ tx }: { tx: ExtendedTx }) => 
         </div>
       </div>
       {/* Mobile row (user-friendly, minimal) */}
-      <div className="transaction-mobile flex sm:hidden flex-col gap-2 px-3 py-4 border-b border-gray-100 bg-white rounded-lg shadow-sm mb-2">
+      <div 
+         onClick={() => setShowModal(true)}
+        className="transaction-mobile flex sm:hidden flex-col gap-2 px-3 py-4 border-b border-gray-100 bg-white rounded-lg shadow-sm mb-2 cursor-pointer"
+      >
         {/* Row 1: Arrow, Display Name, Status */}
         <div className="flex items-center justify-between">
           <div className="flex items-center min-w-0">
@@ -173,7 +201,10 @@ const TransactionRow: FC<TransactionRowProps> = ({ tx }: { tx: ExtendedTx }) => 
               Ref: {tx.receiptNumber}
               <button
                 className="p-0.5 rounded hover:bg-gray-100"
-                onClick={() => copyToClipboard(tx.receiptNumber, 'M-Pesa reference')}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  copyToClipboard(tx.receiptNumber, 'M-Pesa reference');
+                }}
                 title="Copy M-Pesa reference number"
                 aria-label="Copy M-Pesa reference number"
               >
@@ -186,7 +217,10 @@ const TransactionRow: FC<TransactionRowProps> = ({ tx }: { tx: ExtendedTx }) => 
         <div className="flex items-center gap-2 justify-end mt-1">
           <button
             className="p-1 rounded hover:bg-gray-100"
-            onClick={() => copyToClipboard(tx.fullHash, 'Transaction hash')}
+            onClick={(e) => {
+              e.stopPropagation();
+              copyToClipboard(tx.fullHash, 'Transaction hash');
+            }}
             title="Copy transaction hash"
             aria-label="Copy transaction hash"
           >
@@ -194,6 +228,7 @@ const TransactionRow: FC<TransactionRowProps> = ({ tx }: { tx: ExtendedTx }) => 
           </button>
           <button
             className="p-1 rounded hover:bg-gray-100"
+            onClick={(e) => e.stopPropagation()}
             title="More actions"
             aria-label="More actions"
           >
@@ -201,6 +236,14 @@ const TransactionRow: FC<TransactionRowProps> = ({ tx }: { tx: ExtendedTx }) => 
           </button>
         </div>
       </div>
+      {/* Transaction Detail Modal */}
+      {showModal && (
+        <TransactionDetailModal
+          transaction={tx}
+          isOpen={showModal}
+          onClose={() => setShowModal(false)}
+        />
+      )}
     </ClientOnly>
   );
 };
