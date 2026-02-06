@@ -11,6 +11,7 @@ import {
   getApiCurrencyFromToken,
   fetchFeeStructureCached,
 } from "@/utils/feeStructure";
+import TokenDropdown from "@/components/ui/TokenDropdown";
 
 // Dynamically import modals with no SSR to prevent wagmi context issues
 const SendCryptoModal = dynamic(() => import("./sendCrypto/SendCryptoModal"), {
@@ -29,7 +30,12 @@ const QuickActions: FC = () => {
   const { address } = useAccount();
   const currentChainId = useChainId();
 
-  // Get the current token based on connected chain
+  // State to manage selected token (similar to modals)
+  const [selectedToken, setSelectedToken] = useState<SupportedToken>(
+    SUPPORTED_TOKENS[0],
+  );
+
+  // Get the current token based on connected chain (for initial value)
   const currentToken = useMemo((): SupportedToken => {
     // Map chain IDs to chain names
     const chainIdToName: Record<number, string> = {
@@ -59,10 +65,15 @@ const QuickActions: FC = () => {
     );
   }, [currentChainId]);
 
-  // Fetch balance for the current token
+  // Initialize selectedToken with currentToken on mount or chain change
+  useEffect(() => {
+    setSelectedToken(currentToken);
+  }, [currentToken]);
+
+  // Fetch balance for the selected token (not currentToken)
   const { data: tokenBalanceData } = useBalance({
     address: address,
-    token: currentToken.tokenAddress as `0x${string}`,
+    token: selectedToken.tokenAddress as `0x${string}`,
     query: {
       staleTime: 30_000,
       refetchInterval: 30_000,
@@ -84,7 +95,7 @@ const QuickActions: FC = () => {
     const fetchElementPayRate = async () => {
       setIsLoadingRate(true);
       try {
-        const currency = getApiCurrencyFromToken(currentToken.symbol);
+        const currency = getApiCurrencyFromToken(selectedToken.symbol);
 
         // Use fee-structure API which provides base_rate (same as SendCryptoModal)
         const feeData = await fetchFeeStructureCached({
@@ -98,7 +109,7 @@ const QuickActions: FC = () => {
             "[QuickActions] Fee structure rate:",
             rate,
             "KES per",
-            currentToken.symbol,
+            selectedToken.symbol,
           );
           setElementPayRate(rate);
         } else {
@@ -118,7 +129,7 @@ const QuickActions: FC = () => {
     const intervalId = setInterval(fetchElementPayRate, 2 * 60 * 1000);
 
     return () => clearInterval(intervalId);
-  }, [currentToken.symbol]);
+  }, [selectedToken.symbol]);
 
   const rawKesBalance = () => {
     if (isLoadingRate || !elementPayRate) return "Loading...";
@@ -132,14 +143,14 @@ const QuickActions: FC = () => {
       <div className="flex items-center justify-between mb-6">
         <div>
           <p className="text-sm text-gray-600 mb-1">
-            Wallet Balance ({currentToken.symbol} on {currentToken.chain})
+            Wallet Balance ({selectedToken.symbol} on {selectedToken.chain})
           </p>
           <p className="text-3xl font-bold text-gray-900">
             <span>KES </span>
             <span className="text-emerald-600">{rawKesBalance()}</span>
           </p>
           <p className="text-sm text-gray-500 mt-1">
-            {tokenBalance.toFixed(16)} {currentToken.symbol}
+            {tokenBalance.toFixed(16)} {selectedToken.symbol}
           </p>
         </div>
         <div className="flex gap-2">
@@ -150,6 +161,14 @@ const QuickActions: FC = () => {
             <MoreHorizontal size={18} className="text-gray-600" />
           </button>
         </div>
+      </div>
+
+      {/* Network/Token Selector */}
+      <div className="mb-4">
+        <label className="block text-sm text-gray-600 mb-2">
+          Select Network
+        </label>
+        <TokenDropdown selected={selectedToken} onSelect={setSelectedToken} />
       </div>
 
       <div className="flex gap-3 flex-wrap">
