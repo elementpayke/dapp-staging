@@ -67,8 +67,7 @@ export function Providers(props: { children: ReactNode }) {
             "coinbase_wallet",
             "rainbow",
             "phantom",
-            "rabby_wallet",
-            "detected_wallets", // Show any other detected wallets
+            "detected_ethereum_wallets", // Show any other detected wallets
           ],
         },
         loginMethods: ["wallet"],
@@ -76,7 +75,9 @@ export function Providers(props: { children: ReactNode }) {
         defaultChain: base,
         supportedChains: [base, arbitrum, lisk, scroll],
         embeddedWallets: {
-          createOnLogin: "users-without-wallets",
+          ethereum: {
+            createOnLogin: "users-without-wallets",
+          },
         },
         // Enhanced WalletConnect configuration for mobile
         externalWallets: {
