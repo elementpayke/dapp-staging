@@ -7,6 +7,26 @@ import TransactionDetailModal from "./TransactionDetailModal";
 import { useState } from "react";
 
 interface ExtendedTx {
+  id: string;
+  name: string;
+  time: string;
+  date: string;
+  hash: string;
+  fullHash: string;
+  status: string;
+  description: string;
+  amount: string;
+  receiverDisplay: string;
+  tokenSymbol: string;
+  cryptoAmount: string;
+  exchangeRate?: number;
+  paymentMethod: string;
+  direction: 'Send' | 'Receive';
+  processingTime?: string;
+  receiptNumber?: string;
+  invoiceId?: string;
+  orderType: string;
+  rawDate?: Date;
   [key: string]: any;
 }
 
@@ -139,7 +159,7 @@ const TransactionRow: FC<TransactionRowProps> = ({ tx }: { tx: ExtendedTx }) => 
                 className="p-0.5 rounded hover:bg-gray-100"
                 onClick={(e) => {
                   e.stopPropagation();
-                  copyToClipboard(tx.receiptNumber, 'M-Pesa reference');
+                  copyToClipboard(tx.receiptNumber ?? '', 'M-Pesa reference');
                 }}
                 title="Copy M-Pesa reference number"
                 aria-label="Copy M-Pesa reference number"
@@ -203,7 +223,7 @@ const TransactionRow: FC<TransactionRowProps> = ({ tx }: { tx: ExtendedTx }) => 
                 className="p-0.5 rounded hover:bg-gray-100"
                 onClick={(e) => {
                   e.stopPropagation();
-                  copyToClipboard(tx.receiptNumber, 'M-Pesa reference');
+                  copyToClipboard(tx.receiptNumber ?? '', 'M-Pesa reference');
                 }}
                 title="Copy M-Pesa reference number"
                 aria-label="Copy M-Pesa reference number"
