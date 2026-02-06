@@ -25,6 +25,7 @@ interface TransactionTableProps {
   setCurrentPage: (n: number) => void;
   totalPages: number;
   rowsPerPage: number;
+  hidePagination?: boolean;
 }
 
 const TransactionTable: FC<TransactionTableProps> = ({
@@ -36,6 +37,7 @@ const TransactionTable: FC<TransactionTableProps> = ({
   setCurrentPage,
   totalPages,
   rowsPerPage,
+  hidePagination = false,
 }) => {
   return (
     <div className="w-full">
@@ -68,8 +70,8 @@ const TransactionTable: FC<TransactionTableProps> = ({
         </div>
       )}
       
-      {/* Pagination */}
-      {filteredTransactions.length > 0 && totalPages > 1 && (
+      {/* Pagination - only show if not hidden */}
+      {!hidePagination && filteredTransactions.length > 0 && totalPages > 1 && (
         <div className="flex flex-wrap justify-center items-center gap-1 sm:gap-2 mt-6 sm:mt-8 px-4">
           <button
             className="w-8 h-8 flex items-center justify-center rounded hover:bg-gray-100 text-gray-600 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
