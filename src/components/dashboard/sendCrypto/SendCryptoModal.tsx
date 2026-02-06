@@ -1585,7 +1585,7 @@ const SendCryptoModal: React.FC = () => {
             </div>
 
             {/* Right Column - Transaction Summary */}
-            <div className="lg:col-span-1 order-first lg:order-last">
+            <div className="lg:col-span-1 order-last">
               <div className="bg-gray-50 p-3 sm:p-4 rounded-xl h-fit lg:sticky lg:top-4">
                 <h3 className="text-base sm:text-lg font-semibold mb-3 sm:mb-4 text-gray-900">
                   Transaction Summary
