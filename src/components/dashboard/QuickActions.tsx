@@ -1,7 +1,7 @@
 "use client";
 import React, { FC, useMemo } from "react";
 import { Bell, MoreHorizontal } from "lucide-react"; // Import icons
-import { useChainId } from "wagmi";
+import { useChainId, useSwitchChain } from "wagmi";
 import dynamic from "next/dynamic";
 
 import { SUPPORTED_TOKENS, SupportedToken } from "@/constants/supportedTokens";
@@ -26,8 +26,17 @@ const DepositCryptoModal = dynamic(
   { ssr: false },
 );
 
+
+const chainNameToId: Record<string, number> = {
+  Base: 8453,
+  Lisk: 1135,
+  Scroll: 534352,
+  Arbitrum: 42161,
+};
+
 const QuickActions: FC = () => {
   const currentChainId = useChainId();
+  const { switchChainAsync } = useSwitchChain();
 
   // State to manage selected token (similar to modals)
   const [selectedToken, setSelectedToken] = useState<SupportedToken>(
@@ -64,10 +73,25 @@ const QuickActions: FC = () => {
     );
   }, [currentChainId]);
 
+
   // Initialize selectedToken with currentToken on mount or chain change
   useEffect(() => {
     setSelectedToken(currentToken);
   }, [currentToken]);
+
+  // Handle network switch on token selection
+  const handleSelectToken = async (token: SupportedToken) => {
+    setSelectedToken(token);
+    const requiredChainId = chainNameToId[token.chain];
+    if (requiredChainId && currentChainId !== requiredChainId && switchChainAsync) {
+      try {
+        await switchChainAsync({ chainId: requiredChainId });
+      } catch (err) {
+        // Optionally show a toast or log error
+        // console.error('Network switch failed', err);
+      }
+    }
+  };
 
   // Fetch balance for the selected token using useTokenBalance hook
   const { balance: selectedTokenBalance, isCorrectNetwork } = useTokenBalance({
@@ -162,7 +186,7 @@ const QuickActions: FC = () => {
         <label className="block text-sm text-gray-600 mb-2">
           Select Network
         </label>
-        <TokenDropdown selected={selectedToken} onSelect={setSelectedToken} />
+        <TokenDropdown selected={selectedToken} onSelect={handleSelectToken} />
       </div>
 
       <div className="flex gap-3 flex-wrap">
