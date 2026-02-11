@@ -26,7 +26,6 @@ const DepositCryptoModal = dynamic(
   { ssr: false },
 );
 
-
 const chainNameToId: Record<string, number> = {
   Base: 8453,
   Lisk: 1135,
@@ -73,7 +72,6 @@ const QuickActions: FC = () => {
     );
   }, [currentChainId]);
 
-
   // Initialize selectedToken with currentToken on mount or chain change
   useEffect(() => {
     setSelectedToken(currentToken);
@@ -83,7 +81,11 @@ const QuickActions: FC = () => {
   const handleSelectToken = async (token: SupportedToken) => {
     setSelectedToken(token);
     const requiredChainId = chainNameToId[token.chain];
-    if (requiredChainId && currentChainId !== requiredChainId && switchChainAsync) {
+    if (
+      requiredChainId &&
+      currentChainId !== requiredChainId &&
+      switchChainAsync
+    ) {
       try {
         await switchChainAsync({ chainId: requiredChainId });
       } catch (err) {
