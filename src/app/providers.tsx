@@ -64,7 +64,7 @@ export function Providers(props: { children: ReactNode }) {
             "coinbase_wallet", // Base chain support via Coinbase Wallet
             "metamask",
             "phantom",
-            "rabby",
+            "rabby_wallet",
             "trust",
             "wallet_connect", // WalletConnect for mobile wallet connections
             "rainbow",
