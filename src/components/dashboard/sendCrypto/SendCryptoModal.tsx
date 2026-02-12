@@ -74,7 +74,7 @@ const SendCryptoModal: React.FC = () => {
   );
   const [amount, setAmount] = useState("");
   const [mobileNumber, setMobileNumber] = useState("");
-  const [reason, setReason] = useState("Transport");
+  const [reason, setReason] = useState(""); // Optional reason for payment
   const [isApproving, setIsApproving] = useState(false);
   const [, setIsProcessing] = useState(false);
 
@@ -141,9 +141,7 @@ const SendCryptoModal: React.FC = () => {
 
   const [showValidationModal, setShowValidationModal] = useState(false);
   const [validatedAccountInfo, setValidatedAccountInfo] = useState("");
-  const [proceedAfterValidation, setProceedAfterValidation] = useState<
-    () => void
-  >(() => () => {});
+  const [proceedAfterValidation, setProceedAfterValidation] = useState<() => void>(() => () => {});
   const [modalMode, setModalMode] = useState<"confirm" | "error">("confirm");
   const [isMainDialogOpen, setIsMainDialogOpen] = useState(false);
 
@@ -201,14 +199,10 @@ const SendCryptoModal: React.FC = () => {
   }, [paybillNumber, accountNumber, tillNumber]);
 
   const handleMaxAmountSet = useCallback((maxAmount: string) => {
-    console.log("💰 Setting max offramp amount:", maxAmount, "KES");
     setAmount(maxAmount);
   }, []);
 
   const validateAccount = async () => {
-    console.log(
-      "✓ Skipping pre-validation - Element Pay will validate during order creation",
-    );
 
     const cashoutType = getCashoutType();
     if (cashoutType === "PAYBILL") {
@@ -1153,102 +1147,22 @@ const SendCryptoModal: React.FC = () => {
         return;
       }
 
-      const orderDetails = {
-        user_address: account.address as string,
-        token: selectedToken.tokenAddress,
-        order_type: 1,
-        fiat_payload: {
-          amount_fiat: Number(amount),
-          cashout_type: getCashoutType(),
-          currency: "KES",
-          phone_number: getCashoutType() === "PHONE" ? mobileNumber : undefined,
-          paybill_number:
-            getCashoutType() === "PAYBILL" ? paybillNumber : undefined,
-          account_number:
-            getCashoutType() === "PAYBILL" ? accountNumber : undefined,
-          till_number: getCashoutType() === "TILL" ? tillNumber : undefined,
-        },
-        message_hash: messageHash,
-        reason: reason,
-      };
-
-      let _signature;
-      try {
-        if (!walletClient) {
-          throw new Error(
-            "Wallet not connected. Please reconnect your wallet.",
-          );
-        }
-
-        const message = JSON.stringify(orderDetails);
-
-        // For mobile wallets, show guidance before signing
-        if (isMobileWalletFlow) {
-          toast.info("Please sign the message in your wallet app.", {
-            autoClose: 15000,
-          });
-        }
-
-        const signPromise = walletClient.signMessage({
-          message,
-          account: account.address as `0x${string}`,
-        });
-
-        // Longer timeout for mobile wallets
-        const timeoutDuration = isMobileWalletFlow ? 180000 : 120000; // 3 min for mobile, 2 min for desktop
-        const signTimeout = new Promise<never>((_, reject) =>
-          setTimeout(
-            () =>
-              reject(
-                new Error(
-                  isMobileWalletFlow
-                    ? "Signature request timed out. Please make sure your wallet app is open and try again."
-                    : "Signature request timed out after 2 minutes. Please check your wallet.",
-                ),
-              ),
-            timeoutDuration,
-          ),
-        );
-
-        _signature = await Promise.race([signPromise, signTimeout]);
-      } catch (signError: any) {
-        console.error("Signature rejected or failed:", signError);
-        setShowProcessingPopup(false);
-
-        let errorMessage = "Signature rejected or failed. Please try again.";
-        if (signError?.message?.includes("timed out")) {
-          errorMessage = isMobileWalletFlow
-            ? "Signature request timed out. Please make sure your wallet app is open and try again."
-            : "Signature request timed out. Please check your wallet and try again.";
-        } else if (signError?.code === 4001) {
-          errorMessage = "Signature rejected by user. Please try again.";
-        } else if (signError?.message) {
-          errorMessage = signError.message;
-        }
-
-        toast.error(errorMessage);
-        setIsApproving(false);
-        setIsProcessing(false);
-        return;
-      }
-
       let apiResponse;
       try {
-        const fiatPayload = orderDetails.fiat_payload;
-
+       
         apiResponse = await Promise.race([
           createOffRampOrder({
-            userAddress: orderDetails.user_address,
-            tokenAddress: orderDetails.token,
-            amount: Number(fiatPayload.amount_fiat),
-            amountFiat: Number(fiatPayload.amount_fiat),
-            phoneNumber: fiatPayload.phone_number || "",
-            messageHash: orderDetails.message_hash,
-            reason: orderDetails.reason,
-            cashoutType: fiatPayload.cashout_type,
-            paybillNumber: fiatPayload.paybill_number || "",
-            accountNumber: fiatPayload.account_number || "",
-            tillNumber: fiatPayload.till_number || "",
+            userAddress: account.address as string,
+            tokenAddress: selectedToken.tokenAddress,
+            amount: Number(amount),
+            amountFiat: Number(amount),
+            phoneNumber: getCashoutType() === "PHONE" ? mobileNumber : "",
+            messageHash: messageHash,
+            reason: reason || "", // ✅ TASK 2: Custom reason included
+            cashoutType: getCashoutType(),
+            paybillNumber: getCashoutType() === "PAYBILL" ? paybillNumber : "",
+            accountNumber: getCashoutType() === "PAYBILL" ? accountNumber : "",
+            tillNumber: getCashoutType() === "TILL" ? tillNumber : "",
           }),
           new Promise((_, reject) =>
             setTimeout(
@@ -1262,6 +1176,8 @@ const SendCryptoModal: React.FC = () => {
             ),
           ),
         ]);
+        
+    
       } catch (apiError) {
         console.error("❌ Offramp API call failed:", apiError);
         setShowProcessingPopup(false);
@@ -1282,10 +1198,22 @@ const SendCryptoModal: React.FC = () => {
         return;
       }
 
-      const orderId =
-        (apiResponse as any)?.data.tx_hash ||
-        (apiResponse as any)?.order_id ||
-        "";
+      console.log("📥 [API] Full response received:", apiResponse);
+
+      // Extract order ID from response (tx_hash is the order ID)
+      const orderId = (apiResponse as any)?.data?.tx_hash || "";
+
+      console.log("🎫 [ORDER] Extracted order ID:", orderId);
+
+      if (!orderId) {
+        console.error("❌ [ORDER] No tx_hash in response data!");
+        console.error("❌ [ORDER] Response structure:", JSON.stringify(apiResponse, null, 2));
+        toast.error("Order created but no transaction hash returned. Please check your transaction history.");
+        setShowProcessingPopup(false);
+        setIsApproving(false);
+        setIsProcessing(false);
+        return;
+      }
       setOrderId(orderId);
 
       setTransactionReciept((prev) => ({
@@ -1441,29 +1369,6 @@ const SendCryptoModal: React.FC = () => {
       status: 0,
       transactionHash: "",
     });
-
-  useEffect(() => {
-    console.log(
-      "[FINAL TRANSACTION DATA] finalTransactionData changed to:",
-      finalTransactionData,
-    );
-    console.log(
-      "[FINAL TRANSACTION DATA] transactionReciept status:",
-      transactionReciept.status,
-    );
-    console.log(
-      "[FINAL TRANSACTION DATA] isPollingComplete:",
-      isPollingComplete,
-    );
-    console.log(
-      "[FINAL TRANSACTION DATA] paymentStatus would be:",
-      transactionReciept.status === 1
-        ? "Settled"
-        : transactionReciept.status === 2
-          ? "Failed"
-          : "Processing",
-    );
-  }, [finalTransactionData, transactionReciept.status, isPollingComplete]);
 
   useEffect(() => {
     if (isBrowser) {
