@@ -199,14 +199,10 @@ const SendCryptoModal: React.FC = () => {
   }, [paybillNumber, accountNumber, tillNumber]);
 
   const handleMaxAmountSet = useCallback((maxAmount: string) => {
-    console.log("💰 Setting max offramp amount:", maxAmount, "KES");
     setAmount(maxAmount);
   }, []);
 
   const validateAccount = async () => {
-    console.log(
-      "✓ Skipping pre-validation - Element Pay will validate during order creation",
-    );
 
     const cashoutType = getCashoutType();
     if (cashoutType === "PAYBILL") {
@@ -1151,15 +1147,9 @@ const SendCryptoModal: React.FC = () => {
         return;
       }
 
- //  TASK 1 FIX: Signature step removed - not required by backend confirmed in aggregator.ts
-      console.log("ℹ️ [SIGNATURE] Skipping signature step - backend only requires approval + message_hash");
-      console.log("✅ [FLOW] Proceeding directly to order creation");
-
       let apiResponse;
       try {
-        console.log("📦 [ORDER] Building order payload...");
-        console.log("🌐 [API] Calling createOffRampOrder...");
-        
+       
         apiResponse = await Promise.race([
           createOffRampOrder({
             userAddress: account.address as string,
@@ -1187,7 +1177,7 @@ const SendCryptoModal: React.FC = () => {
           ),
         ]);
         
-        console.log("✅ [API] Order created successfully");
+    
       } catch (apiError) {
         console.error("❌ Offramp API call failed:", apiError);
         setShowProcessingPopup(false);
@@ -1379,29 +1369,6 @@ const SendCryptoModal: React.FC = () => {
       status: 0,
       transactionHash: "",
     });
-
-  useEffect(() => {
-    console.log(
-      "[FINAL TRANSACTION DATA] finalTransactionData changed to:",
-      finalTransactionData,
-    );
-    console.log(
-      "[FINAL TRANSACTION DATA] transactionReciept status:",
-      transactionReciept.status,
-    );
-    console.log(
-      "[FINAL TRANSACTION DATA] isPollingComplete:",
-      isPollingComplete,
-    );
-    console.log(
-      "[FINAL TRANSACTION DATA] paymentStatus would be:",
-      transactionReciept.status === 1
-        ? "Settled"
-        : transactionReciept.status === 2
-          ? "Failed"
-          : "Processing",
-    );
-  }, [finalTransactionData, transactionReciept.status, isPollingComplete]);
 
   useEffect(() => {
     if (isBrowser) {
