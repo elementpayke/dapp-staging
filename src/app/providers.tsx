@@ -65,7 +65,6 @@ export function Providers(props: { children: ReactNode }) {
             "metamask",
             "phantom",
             "rabby_wallet",
-            "trust",
             "wallet_connect", // WalletConnect for mobile wallet connections
             "rainbow",
             "detected_ethereum_wallets", // Show any other detected wallets
