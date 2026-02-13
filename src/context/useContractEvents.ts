@@ -1,7 +1,12 @@
 import { useEffect, useState, useCallback, useRef } from "react";
-import { ethers, BigNumberish } from "ethers";
+import { ethers, BigNumberish, EventLog, Log } from "ethers";
 import { CONTRACT_ABI } from "@/app/api/abi";
 import { base } from "wagmi/chains";
+
+// Type guard to check if log is an EventLog (has args)
+const isEventLog = (log: EventLog | Log): log is EventLog => {
+  return 'args' in log && log.args !== undefined;
+};
 
 // RPC URLs from environment variables (matching wagmi-config.ts)
 const BASE_RPC_URLS = [
@@ -99,7 +104,7 @@ export const useContractEvents = (
               if (processedEventsRef.current.has(eventKey)) continue;
               processedEventsRef.current.add(eventKey);
 
-              if (log.args) {
+              if (isEventLog(log)) {
                 const [orderId, token, requester, amount, messageHash, rate, orderType] = log.args;
                 const hexOrderId = ethers.hexlify(orderId);
                 const event = {
@@ -129,7 +134,7 @@ export const useContractEvents = (
               if (processedEventsRef.current.has(eventKey)) continue;
               processedEventsRef.current.add(eventKey);
 
-              if (log.args) {
+              if (isEventLog(log)) {
                 const [orderId] = log.args;
                 console.log("[ContractEvents] Order settled:", orderId);
                 onOrderSettled({ orderId });
@@ -149,7 +154,7 @@ export const useContractEvents = (
               if (processedEventsRef.current.has(eventKey)) continue;
               processedEventsRef.current.add(eventKey);
 
-              if (log.args) {
+              if (isEventLog(log)) {
                 const [orderId] = log.args;
                 console.log("[ContractEvents] Order refunded:", orderId);
                 onOrderRefunded(orderId);
