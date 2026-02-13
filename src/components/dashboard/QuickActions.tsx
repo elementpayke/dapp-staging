@@ -1,16 +1,14 @@
 "use client";
-import React, { FC, useMemo } from "react";
-import { Bell, MoreHorizontal } from "lucide-react"; // Import icons
-import { useChainId, useBalance } from "wagmi";
-import { useAccount } from "wagmi";
+import React, { FC, useState, useEffect } from "react";
+import { Bell, MoreHorizontal } from "lucide-react";
+import { useBalance, useAccount } from "wagmi";
 import dynamic from "next/dynamic";
-
-import { SUPPORTED_TOKENS, SupportedToken } from "@/constants/supportedTokens";
-import { useState, useEffect } from "react";
 import {
   getApiCurrencyFromToken,
   fetchFeeStructureCached,
 } from "@/utils/feeStructure";
+import { useSelectedToken } from "@/context/TokenContext";
+import TokenDropdown from "@/components/ui/TokenDropdown";
 
 // Dynamically import modals with no SSR to prevent wagmi context issues
 const SendCryptoModal = dynamic(() => import("./sendCrypto/SendCryptoModal"), {
@@ -27,43 +25,16 @@ const DepositCryptoModal = dynamic(
 
 const QuickActions: FC = () => {
   const { address } = useAccount();
-  const currentChainId = useChainId();
+  
+  // Use shared token context for consistent token selection across modals
+  const { selectedToken, selectTokenAndSwitchChain, isCorrectNetwork, isSwitchingChain } = useSelectedToken();
 
-  // Get the current token based on connected chain
-  const currentToken = useMemo((): SupportedToken => {
-    // Map chain IDs to chain names
-    const chainIdToName: Record<number, string> = {
-      8453: "Base",
-      1135: "Lisk",
-      534352: "Scroll",
-      42161: "Arbitrum",
-    };
-
-    const chainName = chainIdToName[currentChainId];
-
-    // Find a token for the current chain (prefer USDC if available)
-    const tokensForChain = SUPPORTED_TOKENS.filter(
-      (token) => token.chain === chainName,
-    );
-    const preferredToken =
-      tokensForChain.find((token) => token.symbol === "USDC") ||
-      tokensForChain[0];
-
-    // Default to Base USDC if no token found for current chain
-    return (
-      preferredToken ||
-      SUPPORTED_TOKENS.find(
-        (token) => token.symbol === "USDC" && token.chain === "Base",
-      ) ||
-      SUPPORTED_TOKENS[0]
-    );
-  }, [currentChainId]);
-
-  // Fetch balance for the current token
-  const { data: tokenBalanceData } = useBalance({
+  // Fetch balance for the selected token
+  const { data: tokenBalanceData, isLoading: isBalanceLoading } = useBalance({
     address: address,
-    token: currentToken.tokenAddress as `0x${string}`,
+    token: selectedToken.tokenAddress as `0x${string}`,
     query: {
+      enabled: isCorrectNetwork && !!address,
       staleTime: 30_000,
       refetchInterval: 30_000,
       retry: (failureCount, error: any) => {
@@ -84,7 +55,7 @@ const QuickActions: FC = () => {
     const fetchElementPayRate = async () => {
       setIsLoadingRate(true);
       try {
-        const currency = getApiCurrencyFromToken(currentToken.symbol);
+        const currency = getApiCurrencyFromToken(selectedToken.symbol);
 
         // Use fee-structure API which provides base_rate (same as SendCryptoModal)
         const feeData = await fetchFeeStructureCached({
@@ -98,7 +69,7 @@ const QuickActions: FC = () => {
             "[QuickActions] Fee structure rate:",
             rate,
             "KES per",
-            currentToken.symbol,
+            selectedToken.symbol,
           );
           setElementPayRate(rate);
         } else {
@@ -118,9 +89,12 @@ const QuickActions: FC = () => {
     const intervalId = setInterval(fetchElementPayRate, 2 * 60 * 1000);
 
     return () => clearInterval(intervalId);
-  }, [currentToken.symbol]);
+  }, [selectedToken.symbol]);
 
   const rawKesBalance = () => {
+    if (isSwitchingChain) return "Switching...";
+    if (!isCorrectNetwork) return "Switch network";
+    if (isBalanceLoading) return "Loading...";
     if (isLoadingRate || !elementPayRate) return "Loading...";
 
     const kesAmount = tokenBalance * elementPayRate;
@@ -129,17 +103,27 @@ const QuickActions: FC = () => {
 
   return (
     <div className="p-6 bg-white shadow-lg rounded-2xl border border-gray-100">
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-center justify-between mb-4">
         <div>
           <p className="text-sm text-gray-600 mb-1">
-            Wallet Balance ({currentToken.symbol} on {currentToken.chain})
+            Wallet Balance
           </p>
           <p className="text-3xl font-bold text-gray-900">
             <span>KES </span>
-            <span className="text-emerald-600">{rawKesBalance()}</span>
+            <span className={`${isCorrectNetwork ? 'text-emerald-600' : 'text-yellow-600'}`}>
+              {rawKesBalance()}
+            </span>
           </p>
           <p className="text-sm text-gray-500 mt-1">
-            {tokenBalance.toFixed(16)} {currentToken.symbol}
+            {isCorrectNetwork ? (
+              <>
+                {tokenBalance.toFixed(6)} {selectedToken.symbol}
+              </>
+            ) : (
+              <span className="text-yellow-600">
+                Please switch to {selectedToken.chain} network
+              </span>
+            )}
           </p>
         </div>
         <div className="flex gap-2">
@@ -149,6 +133,24 @@ const QuickActions: FC = () => {
           <button className="p-2 rounded-full border border-gray-200 hover:bg-gray-50">
             <MoreHorizontal size={18} className="text-gray-600" />
           </button>
+        </div>
+      </div>
+
+      {/* Token/Network Selector */}
+      <div className="mb-4">
+        <label className="block text-sm text-gray-600 mb-2">Select Token & Network</label>
+        <div className="relative">
+          <TokenDropdown
+            selected={selectedToken}
+            onSelect={selectTokenAndSwitchChain}
+          />
+          {isSwitchingChain && (
+            <div className="absolute inset-0 bg-white/50 flex items-center justify-center rounded-lg">
+              <span className="text-sm text-blue-600 font-medium animate-pulse">
+                Switching network...
+              </span>
+            </div>
+          )}
         </div>
       </div>
 

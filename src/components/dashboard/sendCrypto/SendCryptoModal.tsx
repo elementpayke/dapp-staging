@@ -34,11 +34,11 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { useTokenBalance } from "@/hooks/useTokenBalance";
-import { SUPPORTED_TOKENS, SupportedToken } from "@/constants/supportedTokens";
 import {
   validateKenyanPhoneNumber,
   validatePhoneWithAPI,
 } from "@/utils/phoneValidation";
+
 import { createOffRampOrder, fetchOrderQuote } from "@/app/api/aggregator";
 import { ethers } from "ethers";
 import { getTokenConfig } from "@/constants/tokenConfig";
@@ -50,6 +50,7 @@ import {
   DEFAULT_FEE_BANDS,
   MIN_TRANSACTION_AMOUNT_KES,
 } from "@/utils/feeStructure";
+import { useSelectedToken, CHAIN_ID_TO_NAME } from "@/context/TokenContext";
 
 interface TransactionReceipt {
   amount: string;
@@ -69,18 +70,31 @@ interface QuoteValidation {
 }
 
 const SendCryptoModal: React.FC = () => {
-  const [selectedToken, setSelectedToken] = useState<SupportedToken>(
-    SUPPORTED_TOKENS[0],
-  );
+  // Use shared token context for consistent token selection across modals
+  const { selectedToken, setSelectedToken } = useSelectedToken();
+  
   const [amount, setAmount] = useState("");
   const [mobileNumber, setMobileNumber] = useState("");
   const [reason, setReason] = useState(""); // Optional reason for payment
   const [isApproving, setIsApproving] = useState(false);
   const [, setIsProcessing] = useState(false);
 
-  const { balance: selectedTokenBalance } = useTokenBalance({
+  const { 
+    balance: selectedTokenBalance, 
+    isLoading: isBalanceLoading,
+    refetch: refetchBalance,
+    isCorrectNetwork,
+  } = useTokenBalance({
     token: selectedToken,
   });
+
+  // Refetch balance when token changes or when we switch to the correct network
+  useEffect(() => {
+    if (isCorrectNetwork && selectedToken) {
+      console.log(`[BALANCE] Refetching balance for ${selectedToken.symbol} on ${selectedToken.chain}`);
+      refetchBalance();
+    }
+  }, [selectedToken, isCorrectNetwork, refetchBalance]);
 
   const [exchangeRate, setExchangeRate] = useState<number | null>(null);
   const [rateMeta, setRateMeta] = useState<{
@@ -466,6 +480,7 @@ const SendCryptoModal: React.FC = () => {
   }, [mobileNumber]);
 
   // Validate amount with quote when amount changes (debounced)
+  // Uses local validation first for instant feedback, then confirms with API
   useEffect(() => {
     if (!amount || !account.address) {
       setQuoteValidation({
@@ -479,12 +494,47 @@ const SendCryptoModal: React.FC = () => {
       return;
     }
 
+    const amountNum = Number.parseFloat(amount);
+    
+    // Instant local validation for obvious errors
+    if (isNaN(amountNum) || amountNum < MIN_TRANSACTION_AMOUNT_KES) {
+      setQuoteValidation({
+        isValidating: false,
+        isValid: false,
+        error: amountNum < MIN_TRANSACTION_AMOUNT_KES 
+          ? `Minimum amount is ${MIN_TRANSACTION_AMOUNT_KES} KES` 
+          : "Amount must be a valid number",
+        requiredAmount: null,
+        availableBalance: null,
+        hasSufficientBalance: null,
+      });
+      return;
+    }
+
+    // Quick local balance check using exchange rate (if available)
+    // This provides instant feedback while API call is in progress
+    if (exchangeRate && selectedTokenBalance > 0) {
+      const estimatedTokenAmount = amountNum / exchangeRate;
+      if (estimatedTokenAmount > selectedTokenBalance * 1.01) { // 1% buffer for fees
+        setQuoteValidation({
+          isValidating: false,
+          isValid: false,
+          error: `Insufficient balance. Estimated: ${estimatedTokenAmount.toFixed(6)} ${selectedToken.symbol}, Available: ${selectedTokenBalance.toFixed(6)} ${selectedToken.symbol}`,
+          requiredAmount: estimatedTokenAmount,
+          availableBalance: selectedTokenBalance,
+          hasSufficientBalance: false,
+        });
+        return;
+      }
+    }
+
+    // Debounce API call for final validation
     const timeoutId = setTimeout(() => {
       validateAmountWithQuote();
-    }, 800); // Debounce for 800ms
+    }, 500); // Reduced from 800ms to 500ms since we have caching now
 
     return () => clearTimeout(timeoutId);
-  }, [amount, selectedToken, account.address, validateAmountWithQuote]);
+  }, [amount, selectedToken, account.address, validateAmountWithQuote, exchangeRate, selectedTokenBalance]);
 
   // ✅ FIXED: Use dynamic fee structure instead of hardcoded 1% fee
   const transactionSummary = useMemo(() => {
@@ -565,6 +615,8 @@ const SendCryptoModal: React.FC = () => {
     // Common validations
     if (!amount || Number.parseFloat(amount) < MIN_TRANSACTION_AMOUNT_KES)
       return false;
+    if (isBalanceLoading) return false; // Don't allow submission while balance is loading
+    if (!isCorrectNetwork) return false; // Must be on correct network
     if (quoteValidation.isValidating) return false; // Don't allow submission while validating
     if (!quoteValidation.isValid) return false; // Must pass quote validation
     if (transactionSummary.totalUSDC <= 0) return false;
@@ -583,6 +635,8 @@ const SendCryptoModal: React.FC = () => {
   }, [
     getCashoutType,
     amount,
+    isBalanceLoading,
+    isCorrectNetwork,
     quoteValidation.isValidating,
     quoteValidation.isValid,
     transactionSummary.totalUSDC,
@@ -700,6 +754,18 @@ const SendCryptoModal: React.FC = () => {
   const { switchChainAsync } = useSwitchChain();
   const currentChainId = useChainId();
 
+  // Reset quote validation when token changes (chain sync is handled by TokenContext)
+  useEffect(() => {
+    setQuoteValidation({
+      isValidating: false,
+      isValid: false,
+      error: null,
+      requiredAmount: null,
+      availableBalance: null,
+      hasSufficientBalance: null,
+    });
+  }, [selectedToken]);
+
   const getTargetChainId = () => {
     switch (selectedToken.chain) {
       case "Base":
@@ -781,7 +847,7 @@ const SendCryptoModal: React.FC = () => {
   const pollOrderStatus = async (txHash: string) => {
     let attempts = 0;
     const maxAttempts = 30;
-    const delay = 3000;
+    const delay = 2000; // 2 seconds between polls
     console.log("🔄 Starting order status polling for:", txHash);
 
     while (attempts < maxAttempts) {
@@ -801,52 +867,55 @@ const SendCryptoModal: React.FC = () => {
           const orderData = data.data;
           console.log("📋 Order data found:", orderData);
 
-          const isFinalState =
-            orderData.status &&
-            ["SETTLED", "FAILED", "SETTLED_UNVERIFIED", "COMPLETED"].includes(
-              orderData.status,
-            );
+          // Normalize status to uppercase for comparison (API may return lowercase)
+          const statusUpper = orderData.status?.toUpperCase() || "";
+          
+          // Check for final states - these indicate the order has completed processing
+          const isFinalState = [
+            "SETTLED", 
+            "FAILED", 
+            "SETTLED_UNVERIFIED", 
+            "COMPLETED",
+            "REFUNDED"
+          ].includes(statusUpper);
 
-          const hasReceiptNumber = !!(
-            orderData.receipt_number ||
-            orderData.mpesa_receipt_number ||
-            orderData.file_id
-          );
-          const hasTransactionHash = !!(
-            orderData.transaction_hashes?.settlement ||
-            orderData.transaction_hashes?.creation
-          );
+          // Check for M-Pesa receipt - this is the definitive proof of successful payment
+          const hasMpesaReceipt = !!(orderData.mpesa_receipt_number);
+          
+          // Check for settlement hash - this indicates on-chain settlement
+          const hasSettlementHash = !!(orderData.transaction_hashes?.settlement);
+          
+          // Note: creation hash alone does NOT mean settled - it just means order was created
+          // file_id alone does NOT mean settled - it's generated on order creation
+          // We need mpesa_receipt_number OR settlement hash OR a final status
 
           console.log("📋 Status check:", {
             status: orderData.status,
+            statusUpper,
             isFinalState,
-            hasReceiptNumber,
-            hasTransactionHash,
-            receiptNumber: orderData.receipt_number,
+            hasMpesaReceipt,
+            hasSettlementHash,
             mpesaReceiptNumber: orderData.mpesa_receipt_number,
+            settlementHash: orderData.transaction_hashes?.settlement,
+            creationHash: orderData.transaction_hashes?.creation,
             fileId: orderData.file_id,
           });
 
-          if (
-            isFinalState ||
-            (attempts > 10 && (hasReceiptNumber || hasTransactionHash))
-          ) {
+          // Only return if we have:
+          // 1. A final status (settled, failed, completed, refunded)
+          // 2. OR an M-Pesa receipt number (definitive proof of payment)
+          // 3. OR a settlement transaction hash (on-chain proof)
+          if (isFinalState || hasMpesaReceipt || hasSettlementHash) {
             console.log("✅ Final order status received:", orderData);
 
             let normalizedStatus = "SETTLED";
 
-            if (
-              orderData.status === "FAILED" ||
-              orderData.status === "REJECTED" ||
-              orderData.status === "CANCELLED"
-            ) {
+            if (["FAILED", "REJECTED", "CANCELLED"].includes(statusUpper)) {
               normalizedStatus = "FAILED";
             } else if (
-              orderData.status === "SETTLED" ||
-              orderData.status === "COMPLETED" ||
-              orderData.status === "SETTLED_UNVERIFIED" ||
-              hasReceiptNumber ||
-              hasTransactionHash
+              ["SETTLED", "COMPLETED", "SETTLED_UNVERIFIED"].includes(statusUpper) ||
+              hasMpesaReceipt ||
+              hasSettlementHash
             ) {
               normalizedStatus = "SETTLED";
             }
@@ -854,8 +923,8 @@ const SendCryptoModal: React.FC = () => {
             console.log("📋 Status normalization:", {
               originalStatus: orderData.status,
               normalizedStatus,
-              hasReceiptNumber,
-              hasTransactionHash,
+              hasMpesaReceipt,
+              hasSettlementHash,
             });
 
             return {
@@ -1068,21 +1137,26 @@ const SendCryptoModal: React.FC = () => {
       }
 
       try {
+        // Skip cache for actual transaction to get fresh quote
         const quoteResponse = await fetchOrderQuote({
           amountFiat: Number(amount),
           tokenAddress: selectedToken.tokenAddress,
           walletAddress: walletAddress,
           orderType: 1,
           currency: "KES",
+          skipCache: true, // Fresh quote for actual transaction
         });
 
         if (quoteResponse.status === "success" && quoteResponse.data) {
           const quoteData = quoteResponse.data;
           const tokenConfig = getTokenConfig(selectedToken.tokenAddress);
           const decimals = tokenConfig?.decimals || 6;
-          requiredApprovalAmount = (
-            quoteData.required_token_amount_raw / Math.pow(10, decimals)
-          ).toFixed(decimals);
+          // Add 0.5% buffer to approval amount to account for rate fluctuations during transaction
+          const APPROVAL_BUFFER_PERCENT = 0.005; // 0.5%
+          const baseAmount = quoteData.required_token_amount_raw / Math.pow(10, decimals);
+          const bufferedAmount = baseAmount * (1 + APPROVAL_BUFFER_PERCENT);
+          requiredApprovalAmount = bufferedAmount.toFixed(decimals);
+          console.log(`📋 Approval amount: ${baseAmount.toFixed(decimals)} + 0.5% buffer = ${requiredApprovalAmount} ${selectedToken.symbol}`);
           hasSufficientAllowance = quoteData.has_sufficient_allowance ?? false;
         } else {
           throw new Error("Failed to get quote from API");
@@ -1478,13 +1552,17 @@ const SendCryptoModal: React.FC = () => {
                   type="button"
                   className="w-full py-3.5 sm:py-3 bg-gradient-to-r from-blue-600 to-red-600 text-white rounded-full font-medium hover:opacity-90 transition-opacity disabled:opacity-50 text-base sm:text-sm shadow-lg"
                 >
-                  {quoteValidation.isValidating
-                    ? "Validating..."
-                    : isApproving
-                      ? "Approving..."
-                      : isValidatingPhone
+                  {isBalanceLoading
+                    ? "Loading balance..."
+                    : !isCorrectNetwork
+                      ? `Switch to ${selectedToken.chain}`
+                      : quoteValidation.isValidating
                         ? "Validating..."
-                        : "Confirm Payment"}
+                        : isApproving
+                          ? "Approving..."
+                          : isValidatingPhone
+                            ? "Validating..."
+                            : "Confirm Payment"}
                 </button>
               </div>
             </div>
@@ -1496,6 +1574,15 @@ const SendCryptoModal: React.FC = () => {
                   Transaction Summary
                 </h3>
 
+                {/* Network mismatch warning */}
+                {!isCorrectNetwork && (
+                  <div className="mb-3 sm:mb-4 p-2 sm:p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                    <p className="text-xs sm:text-sm text-yellow-700 font-medium">
+                      ⚠️ Please switch to {selectedToken.chain} network in your wallet
+                    </p>
+                  </div>
+                )}
+
                 {/* Main Summary */}
                 <div className="space-y-2 sm:space-y-3 mb-3 sm:mb-4">
                   <div className="flex justify-between items-center">
@@ -1503,8 +1590,14 @@ const SendCryptoModal: React.FC = () => {
                       Wallet balance
                     </span>
                     <span className="text-green-600 font-medium text-sm">
-                      {selectedToken.symbol}{" "}
-                      {transactionSummary.usdcBalance.toFixed(6)}
+                      {isBalanceLoading ? (
+                        <span className="animate-pulse">Loading...</span>
+                      ) : (
+                        <>
+                          {selectedToken.symbol}{" "}
+                          {transactionSummary.usdcBalance.toFixed(6)}
+                        </>
+                      )}
                     </span>
                   </div>
                   <div className="flex justify-between items-center">
@@ -1559,11 +1652,17 @@ const SendCryptoModal: React.FC = () => {
                     type="button"
                     className="w-full py-3 bg-gradient-to-r from-blue-600 to-red-600 text-white rounded-full font-medium hover:opacity-90 transition-opacity disabled:opacity-50 text-sm"
                   >
-                    {isApproving
-                      ? "Approving..."
-                      : isValidatingPhone
-                        ? "Validating..."
-                        : "Confirm Payment"}
+                    {isBalanceLoading
+                      ? "Loading balance..."
+                      : !isCorrectNetwork
+                        ? `Switch to ${selectedToken.chain}`
+                        : quoteValidation.isValidating
+                          ? "Validating..."
+                          : isApproving
+                            ? "Approving..."
+                            : isValidatingPhone
+                              ? "Validating..."
+                              : "Confirm Payment"}
                   </button>
                 </div>
 

@@ -299,7 +299,7 @@ export const createOnRampOrder = async ({
       return result;
     });
     const endTime = Date.now();
-    console.log(`✅ Order created successfully in ${endTime - startTime}ms`);
+    console.log(`✅ Order created successfully in ${response}`);
     return response.data;
   } catch (error: any) {
     console.error("❌ Failed to create onramp order after retries:", {
@@ -535,7 +535,16 @@ export const createOffRampOrder = async ({
 };
 
 /**
+ * Quote cache for faster validation
+ * Cache key: `${amountFiat}-${tokenAddress}-${walletAddress}-${orderType}`
+ * TTL: 30 seconds (rates don't change that fast)
+ */
+const quoteCache = new Map<string, { data: OrderQuoteResponse; timestamp: number }>();
+const QUOTE_CACHE_TTL = 30000; // 30 seconds
+
+/**
  * Fetch order quote to get exact approval amount required
+ * Results are cached for 30 seconds to speed up repeated validations
  */
 export const fetchOrderQuote = async ({
   amountFiat,
@@ -543,13 +552,26 @@ export const fetchOrderQuote = async ({
   walletAddress,
   orderType = 1, // OffRamp
   currency = "KES",
+  skipCache = false,
 }: {
   amountFiat: number;
   tokenAddress: string;
   walletAddress: string;
   orderType?: number;
   currency?: string;
+  skipCache?: boolean;
 }): Promise<OrderQuoteResponse> => {
+  const cacheKey = `${amountFiat}-${tokenAddress}-${walletAddress}-${orderType}-${currency}`;
+  
+  // Check cache first (unless skipCache is true)
+  if (!skipCache) {
+    const cached = quoteCache.get(cacheKey);
+    if (cached && Date.now() - cached.timestamp < QUOTE_CACHE_TTL) {
+      console.log("💰 Using cached quote:", cacheKey);
+      return cached.data;
+    }
+  }
+
   try {
     const payload = {
       amount_fiat: amountFiat,
@@ -559,12 +581,22 @@ export const fetchOrderQuote = async ({
       wallet_address: walletAddress,
     };
 
-    console.log(" Fetching order quote with payload:", payload);
+    console.log("💰 Fetching order quote with payload:", payload);
     const response = await clientApi.post<OrderQuoteResponse>(
       "/quote/order",
       payload
     );
-    console.log(" Order quote response:", response.data);
+    console.log("💰 Order quote response:", response.data);
+    
+    // Cache the response
+    quoteCache.set(cacheKey, { data: response.data, timestamp: Date.now() });
+    
+    // Clean old cache entries (keep max 50)
+    if (quoteCache.size > 50) {
+      const oldestKey = quoteCache.keys().next().value;
+      if (oldestKey) quoteCache.delete(oldestKey);
+    }
+    
     return response.data;
   } catch (error: any) {
     console.error("Error fetching order quote:", error);

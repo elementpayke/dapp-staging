@@ -10,6 +10,7 @@ import LogoImage from "@/assets/logo.png";
 import { useEffect } from "react";
 import { PrivyProvider } from "@privy-io/react-auth";
 import { WagmiProvider } from "@privy-io/wagmi";
+import { TokenProvider } from "@/context/TokenContext";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -111,7 +112,9 @@ export function Providers(props: { children: ReactNode }) {
               },
             }}
           >
-            {props.children}
+            <TokenProvider>
+              {props.children}
+            </TokenProvider>
           </OnchainKitProvider>
         </WagmiProvider>
       </QueryClientProvider>

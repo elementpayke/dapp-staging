@@ -29,6 +29,7 @@ import {
   getApiCurrencyFromToken,
   fetchFeeStructureCached,
 } from "@/utils/feeStructure";
+import { useSelectedToken } from "@/context/TokenContext";
 
 interface CreateOrderResponse {
   status: string;
@@ -54,9 +55,9 @@ const DepositCryptoModal: React.FC = () => {
   const [isMounted, setIsMounted] = useState(false);
   const [isTransactionModalOpen, setIsTransactionModalOpen] = useState(false);
   const [isReceiptModalOpen, setIsReceiptModalOpen] = useState(false);
-  const [selectedToken, setSelectedToken] = useState<SupportedToken>(
-    SUPPORTED_TOKENS[0],
-  );
+  
+  // Use shared token context for consistent token selection across modals
+  const { selectedToken, setSelectedToken } = useSelectedToken();
 
   // Ensure component only renders on client after mount
   useEffect(() => {

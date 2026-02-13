@@ -44,14 +44,20 @@ const getProvider = (): ethers.JsonRpcProvider => {
   return provider;
 };
 
-// Hook for Listening to Contract Events
+// Polling interval in ms (5 seconds)
+const POLLING_INTERVAL = 5000;
+// How many blocks to look back when starting
+const INITIAL_BLOCK_LOOKBACK = 50;
+
+// Hook for Listening to Contract Events using polling (avoids eth_getFilterChanges errors)
 export const useContractEvents = (
   contractAddress: string,
   onOrderCreated: (order: any) => void,
   onOrderSettled: (order: any) => void,
   onOrderRefunded: (orderId: any) => void,
 ) => {
-  const contractRef = useRef<ethers.Contract | null>(null);
+  const lastBlockRef = useRef<number | null>(null);
+  const processedEventsRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
     if (!contractAddress) return;
@@ -62,53 +68,123 @@ export const useContractEvents = (
       CONTRACT_ABI,
       httpProvider,
     );
-    contractRef.current = contract;
 
-    // Event listeners
-    const orderCreatedListener = (
-      orderId: string,
-      token: string,
-      requester: string,
-      amount: BigNumberish,
-      messageHash: string,
-      rate: BigNumberish,
-      orderType: number,
-    ) => {
-      const hexOrderId = ethers.hexlify(orderId);
-      const event = {
-        orderId: hexOrderId,
-        token,
-        requester,
-        amount: ethers.formatUnits(amount, 6),
-        messageHash,
-        rate,
-        orderType,
-      };
-      console.log("Order created:", event);
-      onOrderCreated(event);
+    let isActive = true;
+    let pollTimeout: NodeJS.Timeout | null = null;
+
+    const pollEvents = async () => {
+      if (!isActive) return;
+
+      try {
+        const currentBlock = await httpProvider.getBlockNumber();
+        
+        // Initialize lastBlock on first run
+        if (lastBlockRef.current === null) {
+          lastBlockRef.current = Math.max(0, currentBlock - INITIAL_BLOCK_LOOKBACK);
+          console.log(`[ContractEvents] Starting to poll from block ${lastBlockRef.current}`);
+        }
+
+        // Only query if there are new blocks
+        if (currentBlock > lastBlockRef.current) {
+          const fromBlock = lastBlockRef.current + 1;
+          const toBlock = currentBlock;
+
+          // Query OrderCreated events
+          try {
+            const orderCreatedFilter = contract.filters.OrderCreated();
+            const createdLogs = await contract.queryFilter(orderCreatedFilter, fromBlock, toBlock);
+            
+            for (const log of createdLogs) {
+              const eventKey = `created-${log.transactionHash}-${log.index}`;
+              if (processedEventsRef.current.has(eventKey)) continue;
+              processedEventsRef.current.add(eventKey);
+
+              if (log.args) {
+                const [orderId, token, requester, amount, messageHash, rate, orderType] = log.args;
+                const hexOrderId = ethers.hexlify(orderId);
+                const event = {
+                  orderId: hexOrderId,
+                  token,
+                  requester,
+                  amount: ethers.formatUnits(amount, 6),
+                  messageHash,
+                  rate,
+                  orderType: Number(orderType),
+                };
+                console.log("[ContractEvents] Order created:", event);
+                onOrderCreated(event);
+              }
+            }
+          } catch (err) {
+            console.warn("[ContractEvents] Error querying OrderCreated:", err);
+          }
+
+          // Query OrderSettled events
+          try {
+            const orderSettledFilter = contract.filters.OrderSettled();
+            const settledLogs = await contract.queryFilter(orderSettledFilter, fromBlock, toBlock);
+            
+            for (const log of settledLogs) {
+              const eventKey = `settled-${log.transactionHash}-${log.index}`;
+              if (processedEventsRef.current.has(eventKey)) continue;
+              processedEventsRef.current.add(eventKey);
+
+              if (log.args) {
+                const [orderId] = log.args;
+                console.log("[ContractEvents] Order settled:", orderId);
+                onOrderSettled({ orderId });
+              }
+            }
+          } catch (err) {
+            console.warn("[ContractEvents] Error querying OrderSettled:", err);
+          }
+
+          // Query OrderRefunded events
+          try {
+            const orderRefundedFilter = contract.filters.OrderRefunded();
+            const refundedLogs = await contract.queryFilter(orderRefundedFilter, fromBlock, toBlock);
+            
+            for (const log of refundedLogs) {
+              const eventKey = `refunded-${log.transactionHash}-${log.index}`;
+              if (processedEventsRef.current.has(eventKey)) continue;
+              processedEventsRef.current.add(eventKey);
+
+              if (log.args) {
+                const [orderId] = log.args;
+                console.log("[ContractEvents] Order refunded:", orderId);
+                onOrderRefunded(orderId);
+              }
+            }
+          } catch (err) {
+            console.warn("[ContractEvents] Error querying OrderRefunded:", err);
+          }
+
+          lastBlockRef.current = toBlock;
+        }
+      } catch (err) {
+        console.warn("[ContractEvents] Polling error (will retry):", err);
+      }
+
+      // Schedule next poll
+      if (isActive) {
+        pollTimeout = setTimeout(pollEvents, POLLING_INTERVAL);
+      }
     };
 
-    const orderSettledListener = (orderId: string) => {
-      console.log("Order settled:", orderId);
-      const event = { orderId };
-      onOrderSettled(event);
-    };
+    // Start polling
+    pollEvents();
 
-    const orderRefundedListener = (orderId: string) => {
-      console.log("Order refunded:", orderId);
-      onOrderRefunded(orderId);
-    };
-
-    // Subscribe to events
-    contract.on("OrderCreated", orderCreatedListener);
-    contract.on("OrderSettled", orderSettledListener);
-    contract.on("OrderRefunded", orderRefundedListener);
-
+    // Cleanup: stop polling on unmount or deps change
     return () => {
-      // Cleanup listeners
-      contract.off("OrderCreated", orderCreatedListener);
-      contract.off("OrderSettled", orderSettledListener);
-      contract.off("OrderRefunded", orderRefundedListener);
+      isActive = false;
+      if (pollTimeout) {
+        clearTimeout(pollTimeout);
+      }
+      // Clear processed events on cleanup to avoid memory leaks
+      // Keep a reasonable size limit
+      if (processedEventsRef.current.size > 1000) {
+        processedEventsRef.current.clear();
+      }
     };
   }, [contractAddress, onOrderCreated, onOrderSettled, onOrderRefunded]);
 };
