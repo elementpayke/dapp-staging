@@ -5,6 +5,7 @@ import { Copy, MoreHorizontal, ExternalLink } from "lucide-react";
 import ClientOnly from "@/components/shared/ClientOnly";
 import TransactionDetailModal from "./TransactionDetailModal";
 import { useState } from "react";
+import { getExplorerInfo } from "@/utils/explorerUtils";
 
 interface ExtendedTx {
   id: string;
@@ -47,13 +48,11 @@ const Arrow = ({ direction }: { direction: 'in' | 'out' }) => (
     aria-label={direction === 'in' ? 'Received' : 'Sent'}
   >
     {direction === 'in' ? (
-      // Down-left arrow (↙), mirroring the up-right arrow
       <svg className="w-5 h-5 text-green-500" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" d="M7 17L17 7" />
         <path strokeLinecap="round" strokeLinejoin="round" d="M7 7v10h10" />
       </svg>
     ) : (
-      // Up-right arrow (↗)
       <svg className="w-5 h-5 text-red-500" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" d="M17 7L7 17" />
         <path strokeLinecap="round" strokeLinejoin="round" d="M17 17V7H7" />
@@ -64,36 +63,34 @@ const Arrow = ({ direction }: { direction: 'in' | 'out' }) => (
 
 const TransactionRow: FC<TransactionRowProps> = ({ tx }: { tx: ExtendedTx }) => {
   const [showModal, setShowModal] = useState(false);
-  // Copy to clipboard helper
+
   const copyToClipboard = async (text: string, type: string = 'text') => {
     try {
       await navigator.clipboard.writeText(text);
-      // Optionally, show a toast or tooltip
     } catch (err) {
-      // Optionally, show an error toast
-    }
-  };
-  // Open transaction in blockchain explorer
-  const handleOpenExplorer = (e: React.MouseEvent) => {
-    e.stopPropagation(); // Prevent modal from opening
-    if (tx.fullHash && tx.fullHash !== "—") {
-      window.open(`https://basescan.org/tx/${tx.fullHash}`, "_blank");
+      // silently fail
     }
   };
 
-  // Helper for missing data
-  const displayValue = (val: any) => (val === undefined || val === null || val === '' || val === '—') ? 'N/A' : val;
+  const handleOpenExplorer = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (tx.fullHash && tx.fullHash !== "—") {
+      window.open(getExplorerInfo(tx.tokenSymbol, tx.fullHash).url, "_blank");
+    }
+  };
+
+  const displayValue = (val: any) =>
+    val === undefined || val === null || val === '' || val === '—' ? 'N/A' : val;
+
   const round2 = (val: any) => {
     if (val === undefined || val === null || val === '' || isNaN(Number(val))) return 'N/A';
     return Number(val).toFixed(2);
   };
 
-  // Amount color and sign
   const isReceive = tx.direction === 'Receive';
   const amountColor = isReceive ? 'text-green-600' : 'text-red-600';
   const amountSign = isReceive ? '+' : '-';
 
-  // Status badge color
   const statusBadge = (
     <span className={`px-2 py-1 text-xs rounded-full ml-2 ${
       tx.status === 'FAILED' || tx.status === 'DECLINED'
@@ -104,7 +101,6 @@ const TransactionRow: FC<TransactionRowProps> = ({ tx }: { tx: ExtendedTx }) => 
     </span>
   );
 
-  // Mobile display name logic
   let mobileDisplayName = 'OnRamp';
   if (!isReceive && tx.receiverDisplay) {
     mobileDisplayName = tx.receiverDisplay;
@@ -115,11 +111,11 @@ const TransactionRow: FC<TransactionRowProps> = ({ tx }: { tx: ExtendedTx }) => 
   return (
     <ClientOnly>
       {/* Desktop/tablet row */}
-      <div 
-      onClick={() => setShowModal(true)}
-      className="transaction-desktop hidden sm:grid sm:grid-cols-12 gap-4 items-center px-6 py-4 hover:bg-gray-50 transition-colors text-sm border-b border-gray-100 cursor-pointer"
+      <div
+        onClick={() => setShowModal(true)}
+        className="transaction-desktop hidden sm:grid sm:grid-cols-12 gap-4 items-center px-6 py-4 hover:bg-gray-50 transition-colors text-sm border-b border-gray-100 cursor-pointer"
       >
-        {/* Transaction (arrow, description, date) */}
+        {/* Transaction */}
         <div className="col-span-3 flex items-center min-w-0">
           <Arrow direction={isReceive ? 'in' : 'out'} />
           <div className="min-w-0">
@@ -143,15 +139,25 @@ const TransactionRow: FC<TransactionRowProps> = ({ tx }: { tx: ExtendedTx }) => 
         </div>
         {/* Amount */}
         <div className="col-span-2 text-left">
-          <div className={`font-semibold ${amountColor}`}>{amountSign}KE {round2(tx.amount ? tx.amount.replace(' KES', '') : undefined)}</div>
+          <div className={`font-semibold ${amountColor}`}>
+            {amountSign}KE {round2(tx.amount ? tx.amount.replace(' KES', '') : undefined)}
+          </div>
         </div>
         {/* Crypto Value */}
         <div className="col-span-2 text-left">
-          <div className="font-mono">{round2(tx.cryptoAmount?.split(' ')[0])} {formatTokenDisplay(displayValue(tx.tokenSymbol))}</div>
+          <div className="font-mono">
+            {round2(tx.cryptoAmount?.split(' ')[0])} {formatTokenDisplay(displayValue(tx.tokenSymbol))}
+          </div>
         </div>
         {/* Method & M-Pesa Ref */}
         <div className="col-span-2 text-center flex flex-col items-center gap-1">
-          <span className={`px-2 py-1 text-xs rounded-full ${tx.paymentMethod === 'M-Pesa' ? 'bg-green-50 text-green-600 border border-green-200' : 'bg-blue-50 text-blue-600 border border-blue-200'}`}>{displayValue(tx.paymentMethod)}</span>
+          <span className={`px-2 py-1 text-xs rounded-full ${
+            tx.paymentMethod === 'M-Pesa'
+              ? 'bg-green-50 text-green-600 border border-green-200'
+              : 'bg-blue-50 text-blue-600 border border-blue-200'
+          }`}>
+            {displayValue(tx.paymentMethod)}
+          </span>
           {tx.paymentMethod === 'M-Pesa' && tx.receiptNumber && (
             <span className="text-xs text-gray-500 font-mono flex items-center gap-1">
               Ref: {tx.receiptNumber}
@@ -170,9 +176,7 @@ const TransactionRow: FC<TransactionRowProps> = ({ tx }: { tx: ExtendedTx }) => 
           )}
         </div>
         {/* Status */}
-        <div className="col-span-1 text-center">
-          {statusBadge}
-        </div>
+        <div className="col-span-1 text-center">{statusBadge}</div>
         {/* Actions */}
         <div className="col-span-2 flex items-center gap-2 justify-end">
           <button
@@ -196,12 +200,12 @@ const TransactionRow: FC<TransactionRowProps> = ({ tx }: { tx: ExtendedTx }) => 
           </button>
         </div>
       </div>
-      {/* Mobile row (user-friendly, minimal) */}
-      <div 
-         onClick={() => setShowModal(true)}
+
+      {/* Mobile row */}
+      <div
+        onClick={() => setShowModal(true)}
         className="transaction-mobile flex sm:hidden flex-col gap-2 px-3 py-4 border-b border-gray-100 bg-white rounded-lg shadow-sm mb-2 cursor-pointer"
       >
-        {/* Row 1: Arrow, Display Name, Status */}
         <div className="flex items-center justify-between">
           <div className="flex items-center min-w-0">
             <Arrow direction={isReceive ? 'in' : 'out'} />
@@ -211,9 +215,9 @@ const TransactionRow: FC<TransactionRowProps> = ({ tx }: { tx: ExtendedTx }) => 
             {statusBadge}
           </div>
         </div>
-        {/* Row 2: Amount */}
-        <div className={`font-bold text-lg ${amountColor} mt-1`}>{amountSign}KE {round2(tx.amount ? tx.amount.replace(' KES', '') : undefined)}</div>
-        {/* Row 3: Date & Time, M-Pesa Ref */}
+        <div className={`font-bold text-lg ${amountColor} mt-1`}>
+          {amountSign}KE {round2(tx.amount ? tx.amount.replace(' KES', '') : undefined)}
+        </div>
         <div className="flex items-center gap-2 text-xs text-gray-500">
           <span>{displayValue(tx.time)} • {displayValue(tx.date)}</span>
           {tx.paymentMethod === 'M-Pesa' && tx.receiptNumber && (
@@ -233,7 +237,6 @@ const TransactionRow: FC<TransactionRowProps> = ({ tx }: { tx: ExtendedTx }) => 
             </span>
           )}
         </div>
-        {/* Row 4: Actions */}
         <div className="flex items-center gap-2 justify-end mt-1">
           <button
             className="p-1 rounded hover:bg-gray-100"
@@ -256,6 +259,7 @@ const TransactionRow: FC<TransactionRowProps> = ({ tx }: { tx: ExtendedTx }) => 
           </button>
         </div>
       </div>
+
       {/* Transaction Detail Modal */}
       {showModal && (
         <TransactionDetailModal
@@ -268,4 +272,4 @@ const TransactionRow: FC<TransactionRowProps> = ({ tx }: { tx: ExtendedTx }) => 
   );
 };
 
-export default TransactionRow; 
+export default TransactionRow;

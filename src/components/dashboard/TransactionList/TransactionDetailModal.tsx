@@ -1,5 +1,6 @@
 import { FC, useState } from "react";
 import { X, Copy, ExternalLink, CheckCircle, Clock, XCircle, AlertCircle } from "lucide-react";
+import { getExplorerInfo } from "@/utils/explorerUtils";
 
 interface TransactionDetailModalProps {
   transaction: {
@@ -28,6 +29,7 @@ interface TransactionDetailModalProps {
   onClose: () => void;
 }
 
+
 const TransactionDetailModal: FC<TransactionDetailModalProps> = ({
   transaction,
   isOpen,
@@ -35,60 +37,64 @@ const TransactionDetailModal: FC<TransactionDetailModalProps> = ({
 }) => {
   if (!isOpen) return null;
 
-  // Copy to clipboard helper
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
   };
 
-  // Get status icon and styling
   const getStatusInfo = (status: string) => {
     switch (status.toUpperCase()) {
       case "SETTLED":
         return {
-          icon: <CheckCircle className="w-6 h-6" />,
+          icon: <CheckCircle className="w-5 h-5" />,
           color: "text-green-600",
           bgColor: "bg-green-50",
+          borderColor: "border-green-100",
           label: "Success",
         };
       case "PENDING":
         return {
-          icon: <Clock className="w-6 h-6" />,
+          icon: <Clock className="w-5 h-5" />,
           color: "text-yellow-600",
           bgColor: "bg-yellow-50",
+          borderColor: "border-yellow-100",
           label: "Pending",
         };
       case "PROCESSING":
         return {
-          icon: <Clock className="w-6 h-6" />,
+          icon: <Clock className="w-5 h-5" />,
           color: "text-blue-600",
           bgColor: "bg-blue-50",
+          borderColor: "border-blue-100",
           label: "Processing",
         };
       case "FAILED":
       case "REFUNDED":
         return {
-          icon: <XCircle className="w-6 h-6" />,
+          icon: <XCircle className="w-5 h-5" />,
           color: "text-red-600",
           bgColor: "bg-red-50",
+          borderColor: "border-red-100",
           label: status === "FAILED" ? "Declined" : "Refunded",
         };
       default:
         return {
-          icon: <AlertCircle className="w-6 h-6" />,
+          icon: <AlertCircle className="w-5 h-5" />,
           color: "text-gray-600",
           bgColor: "bg-gray-50",
+          borderColor: "border-gray-100",
           label: status,
         };
     }
   };
 
   const statusInfo = getStatusInfo(transaction.status);
+  const explorerInfo =
+    transaction.fullHash && transaction.fullHash !== "—"
+      ? getExplorerInfo(transaction.tokenSymbol, transaction.fullHash)
+      : null;
 
-  // Open in explorer
   const openInExplorer = () => {
-    if (transaction.fullHash && transaction.fullHash !== "—") {
-      window.open(`https://basescan.org/tx/${transaction.fullHash}`, "_blank");
-    }
+    if (explorerInfo) window.open(explorerInfo.url, "_blank");
   };
 
   return (
@@ -115,61 +121,45 @@ const TransactionDetailModal: FC<TransactionDetailModalProps> = ({
 
         {/* Body */}
         <div className="p-6 space-y-6">
-          {/* Status Section */}
-          <div className={`${statusInfo.bgColor} rounded-xl p-6 flex items-center justify-between`}>
-            <div className="flex items-center gap-4">
-              <div className={statusInfo.color}>{statusInfo.icon}</div>
-              <div>
-                <p className="text-sm text-gray-600">Status</p>
-                <p className={`text-2xl font-bold ${statusInfo.color}`}>
+
+          {/* ── Combined Status + Amounts Card (single row, 3 columns) ─── */}
+          <div className={`${statusInfo.bgColor} border ${statusInfo.borderColor} rounded-xl grid grid-cols-3 divide-x divide-gray-200`}>
+            {/* Col 1 – Status */}
+            <div className="flex items-center gap-2.5 px-4 py-4">
+              <span className={`flex-shrink-0 ${statusInfo.color}`}>{statusInfo.icon}</span>
+              <div className="min-w-0">
+                <p className="text-xs text-gray-500 leading-none mb-0.5">Status</p>
+                <p className={`text-sm font-bold leading-snug ${statusInfo.color}`}>
                   {statusInfo.label}
                 </p>
               </div>
             </div>
-            {transaction.processingTime && (
-              <div className="text-right">
-                <p className="text-sm text-gray-600">Processing Time</p>
-                <p className="text-lg font-semibold text-gray-900">
-                  {transaction.processingTime}
-                </p>
-              </div>
-            )}
-          </div>
-
-          {/* Amount Section */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="bg-gray-50 rounded-xl p-4">
-              <p className="text-sm text-gray-600 mb-1">Fiat Amount</p>
-              <p className="text-2xl font-bold text-gray-900">{transaction.amount}</p>
+            {/* Col 2 – Fiat Amount */}
+            <div className="px-4 py-4">
+              <p className="text-xs text-gray-500 mb-0.5">Fiat Amount</p>
+              <p className="text-sm font-semibold text-gray-900 leading-snug">
+                {transaction.amount}
+              </p>
             </div>
-            <div className="bg-gray-50 rounded-xl p-4">
-              <p className="text-sm text-gray-600 mb-1">Crypto Amount</p>
-              <p className="text-2xl font-bold text-gray-900">
+            {/* Col 3 – Crypto Amount */}
+            <div className="px-4 py-4">
+              <p className="text-xs text-gray-500 mb-0.5">Crypto Amount</p>
+              <p className="text-sm font-semibold text-gray-900 leading-snug break-all">
                 {transaction.cryptoAmount}
               </p>
             </div>
           </div>
+          {/* ─────────────────────────────────────────────────────────────── */}
 
           {/* Transaction Info */}
           <div className="space-y-4">
-            <h3 className="text-lg font-semibold text-gray-900">Transaction Information</h3>
-            
-            <DetailRow
-              label="Order ID"
-              value={transaction.id}
-              copyable
-            />
-            
-            <DetailRow
-              label="Type"
-              value={transaction.orderType}
-            />
-            
-            <DetailRow
-              label="Direction"
-              value={transaction.direction}
-            />
-            
+            <h3 className="text-lg font-semibold text-gray-900">
+              Transaction Information
+            </h3>
+
+            <DetailRow label="Order ID" value={transaction.id} copyable />
+            <DetailRow label="Type" value={transaction.orderType} />
+            <DetailRow label="Direction" value={transaction.direction} />
             <DetailRow
               label="Date & Time"
               value={`${transaction.date} at ${transaction.time}`}
@@ -182,24 +172,14 @@ const TransactionDetailModal: FC<TransactionDetailModalProps> = ({
               />
             )}
 
-            <DetailRow
-              label="Payment Method"
-              value={transaction.paymentMethod}
-            />
+            <DetailRow label="Payment Method" value={transaction.paymentMethod} />
 
             {transaction.receiverDisplay !== "Unknown" && (
-              <DetailRow
-                label="Recipient"
-                value={transaction.receiverDisplay}
-              />
+              <DetailRow label="Recipient" value={transaction.receiverDisplay} />
             )}
 
             {transaction.invoiceId && (
-              <DetailRow
-                label="Invoice ID"
-                value={transaction.invoiceId}
-                copyable
-              />
+              <DetailRow label="Invoice ID" value={transaction.invoiceId} copyable />
             )}
 
             {transaction.receiptNumber && (
@@ -212,10 +192,12 @@ const TransactionDetailModal: FC<TransactionDetailModalProps> = ({
           </div>
 
           {/* Blockchain Info */}
-          {transaction.fullHash !== "—" && (
+          {transaction.fullHash !== "—" && explorerInfo && (
             <div className="space-y-4">
-              <h3 className="text-lg font-semibold text-gray-900">Blockchain Information</h3>
-              
+              <h3 className="text-lg font-semibold text-gray-900">
+                Blockchain Information
+              </h3>
+
               <div className="bg-gray-50 rounded-xl p-4">
                 <p className="text-sm text-gray-600 mb-2">Transaction Hash</p>
                 <div className="flex items-center gap-2 flex-wrap">
@@ -232,35 +214,28 @@ const TransactionDetailModal: FC<TransactionDetailModalProps> = ({
                   <button
                     onClick={openInExplorer}
                     className="p-2 hover:bg-gray-200 rounded-lg transition flex-shrink-0"
-                    title="View on explorer"
+                    title={`View on ${explorerInfo.name}`}
                   >
                     <ExternalLink size={16} className="text-blue-600" />
                   </button>
                 </div>
               </div>
 
-              <DetailRow
-                label="Network"
-                value="Base"
-              />
-              
-              <DetailRow
-                label="Token"
-                value={transaction.tokenSymbol}
-              />
+              <DetailRow label="Network" value={explorerInfo.network} />
+              <DetailRow label="Token" value={transaction.tokenSymbol} />
             </div>
           )}
         </div>
 
         {/* Footer */}
         <div className="sticky bottom-0 bg-gray-50 border-t border-gray-200 px-6 py-4 flex gap-3 rounded-b-2xl">
-          {transaction.fullHash !== "—" && (
+          {transaction.fullHash !== "—" && explorerInfo && (
             <button
               onClick={openInExplorer}
               className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition font-medium"
             >
               <ExternalLink size={18} />
-              View on Explorer
+              View on {explorerInfo.name}
             </button>
           )}
           <button
@@ -275,7 +250,7 @@ const TransactionDetailModal: FC<TransactionDetailModalProps> = ({
   );
 };
 
-// Detail Row Component
+// ── Detail Row Component ─────────────────────────────────────────────────────
 interface DetailRowProps {
   label: string;
   value: string;
