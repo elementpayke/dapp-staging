@@ -5,6 +5,7 @@ import { Copy, MoreHorizontal, ExternalLink } from "lucide-react";
 import ClientOnly from "@/components/shared/ClientOnly";
 import TransactionDetailModal from "./TransactionDetailModal";
 import { useState } from "react";
+import { getExplorerInfo } from "@/utils/explorerUtils";
 
 interface ExtendedTx {
   id: string;
@@ -33,28 +34,6 @@ interface ExtendedTx {
 interface TransactionRowProps {
   tx: ExtendedTx;
 }
-
-// ─── Multi-chain explorer helper ────────────────────────────────────────────
-const getExplorerUrl = (tokenSymbol: string, hash: string): string => {
-  const symbol = (tokenSymbol ?? "").toUpperCase();
-
-  if (symbol.includes("SCROLL"))
-    return `https://scrollscan.com/tx/${hash}`;
-  if (symbol.includes("LISK"))
-    return `https://blockscout.lisk.com/tx/${hash}`;
-  if (symbol.includes("ETH") && !symbol.includes("BASE"))
-    return `https://etherscan.io/tx/${hash}`;
-  if (symbol.includes("POLYGON") || symbol.includes("MATIC"))
-    return `https://polygonscan.com/tx/${hash}`;
-  if (symbol.includes("ARB"))
-    return `https://arbiscan.io/tx/${hash}`;
-  if (symbol.includes("OP") || symbol.includes("OPTIMISM"))
-    return `https://optimistic.etherscan.io/tx/${hash}`;
-
-  // Default → Base
-  return `https://basescan.org/tx/${hash}`;
-};
-// ────────────────────────────────────────────────────────────────────────────
 
 // Helper function to format token display
 const formatTokenDisplay = (token: string) => {
@@ -96,7 +75,7 @@ const TransactionRow: FC<TransactionRowProps> = ({ tx }: { tx: ExtendedTx }) => 
   const handleOpenExplorer = (e: React.MouseEvent) => {
     e.stopPropagation();
     if (tx.fullHash && tx.fullHash !== "—") {
-      window.open(getExplorerUrl(tx.tokenSymbol, tx.fullHash), "_blank");
+      window.open(getExplorerInfo(tx.tokenSymbol, tx.fullHash).url, "_blank");
     }
   };
 

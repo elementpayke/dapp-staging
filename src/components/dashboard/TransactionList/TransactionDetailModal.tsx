@@ -1,5 +1,6 @@
 import { FC, useState } from "react";
 import { X, Copy, ExternalLink, CheckCircle, Clock, XCircle, AlertCircle } from "lucide-react";
+import { getExplorerInfo } from "@/utils/explorerUtils";
 
 interface TransactionDetailModalProps {
   transaction: {
@@ -28,60 +29,6 @@ interface TransactionDetailModalProps {
   onClose: () => void;
 }
 
-// ─── Multi-chain explorer helper ────────────────────────────────────────────
-const getExplorerInfo = (tokenSymbol: string, hash: string) => {
-  const symbol = (tokenSymbol ?? "").toUpperCase();
-
-  if (symbol.includes("SCROLL")) {
-    return {
-      url: `https://scrollscan.com/tx/${hash}`,
-      name: "Scrollscan",
-      network: "Scroll",
-    };
-  }
-  if (symbol.includes("LISK")) {
-    return {
-      url: `https://blockscout.lisk.com/tx/${hash}`,
-      name: "Lisk Explorer",
-      network: "Lisk",
-    };
-  }
-  if (symbol.includes("ETH") && !symbol.includes("BASE")) {
-    return {
-      url: `https://etherscan.io/tx/${hash}`,
-      name: "Etherscan",
-      network: "Ethereum",
-    };
-  }
-  if (symbol.includes("POLYGON") || symbol.includes("MATIC")) {
-    return {
-      url: `https://polygonscan.com/tx/${hash}`,
-      name: "Polygonscan",
-      network: "Polygon",
-    };
-  }
-  if (symbol.includes("ARB")) {
-    return {
-      url: `https://arbiscan.io/tx/${hash}`,
-      name: "Arbiscan",
-      network: "Arbitrum",
-    };
-  }
-  if (symbol.includes("OP") || symbol.includes("OPTIMISM")) {
-    return {
-      url: `https://optimistic.etherscan.io/tx/${hash}`,
-      name: "Optimism Explorer",
-      network: "Optimism",
-    };
-  }
-  // Default → Base
-  return {
-    url: `https://basescan.org/tx/${hash}`,
-    name: "Basescan",
-    network: "Base",
-  };
-};
-// ────────────────────────────────────────────────────────────────────────────
 
 const TransactionDetailModal: FC<TransactionDetailModalProps> = ({
   transaction,
