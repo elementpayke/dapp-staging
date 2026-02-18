@@ -18,6 +18,7 @@ interface ExtendedTx {
   description: string;
   amount: string;
   receiverDisplay: string;
+  receiverName?: string;          // e.g. "Anita Wambui"
   tokenSymbol: string;
   cryptoAmount: string;
   exchangeRate?: number;
@@ -25,6 +26,7 @@ interface ExtendedTx {
   direction: 'Send' | 'Receive';
   processingTime?: string;
   receiptNumber?: string;
+  mpesaReceiptNumber?: string;    // M-Pesa payment ID — e.g. "QKL2J9X8YZ"
   invoiceId?: string;
   orderType: string;
   rawDate?: Date;
@@ -110,7 +112,7 @@ const TransactionRow: FC<TransactionRowProps> = ({ tx }: { tx: ExtendedTx }) => 
 
   return (
     <ClientOnly>
-      {/* Desktop/tablet row */}
+      {/* ── Desktop / tablet row ──────────────────────────────────────── */}
       <div
         onClick={() => setShowModal(true)}
         className="transaction-desktop hidden sm:grid sm:grid-cols-12 gap-4 items-center px-6 py-4 hover:bg-gray-50 transition-colors text-sm border-b border-gray-100 cursor-pointer"
@@ -137,18 +139,21 @@ const TransactionRow: FC<TransactionRowProps> = ({ tx }: { tx: ExtendedTx }) => 
             )}
           </div>
         </div>
+
         {/* Amount */}
         <div className="col-span-2 text-left">
           <div className={`font-semibold ${amountColor}`}>
             {amountSign}KE {round2(tx.amount ? tx.amount.replace(' KES', '') : undefined)}
           </div>
         </div>
+
         {/* Crypto Value */}
         <div className="col-span-2 text-left">
           <div className="font-mono">
             {round2(tx.cryptoAmount?.split(' ')[0])} {formatTokenDisplay(displayValue(tx.tokenSymbol))}
           </div>
         </div>
+
         {/* Method & M-Pesa Ref */}
         <div className="col-span-2 text-center flex flex-col items-center gap-1">
           <span className={`px-2 py-1 text-xs rounded-full ${
@@ -158,14 +163,15 @@ const TransactionRow: FC<TransactionRowProps> = ({ tx }: { tx: ExtendedTx }) => 
           }`}>
             {displayValue(tx.paymentMethod)}
           </span>
-          {tx.paymentMethod === 'M-Pesa' && tx.receiptNumber && (
+          {/* ✅ Use mpesaReceiptNumber (the real M-Pesa ID) */}
+          {tx.paymentMethod === 'M-Pesa' && tx.mpesaReceiptNumber && (
             <span className="text-xs text-gray-500 font-mono flex items-center gap-1">
-              Ref: {tx.receiptNumber}
+              Ref: {tx.mpesaReceiptNumber}
               <button
                 className="p-0.5 rounded hover:bg-gray-100"
                 onClick={(e) => {
                   e.stopPropagation();
-                  copyToClipboard(tx.receiptNumber ?? '', 'M-Pesa reference');
+                  copyToClipboard(tx.mpesaReceiptNumber ?? '', 'M-Pesa reference');
                 }}
                 title="Copy M-Pesa reference number"
                 aria-label="Copy M-Pesa reference number"
@@ -175,8 +181,10 @@ const TransactionRow: FC<TransactionRowProps> = ({ tx }: { tx: ExtendedTx }) => 
             </span>
           )}
         </div>
+
         {/* Status */}
         <div className="col-span-1 text-center">{statusBadge}</div>
+
         {/* Actions */}
         <div className="col-span-2 flex items-center gap-2 justify-end">
           <button
@@ -201,7 +209,7 @@ const TransactionRow: FC<TransactionRowProps> = ({ tx }: { tx: ExtendedTx }) => 
         </div>
       </div>
 
-      {/* Mobile row */}
+      {/* ── Mobile row ────────────────────────────────────────────────── */}
       <div
         onClick={() => setShowModal(true)}
         className="transaction-mobile flex sm:hidden flex-col gap-2 px-3 py-4 border-b border-gray-100 bg-white rounded-lg shadow-sm mb-2 cursor-pointer"
@@ -215,19 +223,22 @@ const TransactionRow: FC<TransactionRowProps> = ({ tx }: { tx: ExtendedTx }) => 
             {statusBadge}
           </div>
         </div>
+
         <div className={`font-bold text-lg ${amountColor} mt-1`}>
           {amountSign}KE {round2(tx.amount ? tx.amount.replace(' KES', '') : undefined)}
         </div>
+
         <div className="flex items-center gap-2 text-xs text-gray-500">
           <span>{displayValue(tx.time)} • {displayValue(tx.date)}</span>
-          {tx.paymentMethod === 'M-Pesa' && tx.receiptNumber && (
+          {/* ✅ Use mpesaReceiptNumber (the real M-Pesa ID) */}
+          {tx.paymentMethod === 'M-Pesa' && tx.mpesaReceiptNumber && (
             <span className="flex items-center gap-1 bg-green-50 text-green-700 px-2 py-0.5 rounded-full ml-2">
-              Ref: {tx.receiptNumber}
+              Ref: {tx.mpesaReceiptNumber}
               <button
                 className="p-0.5 rounded hover:bg-gray-100"
                 onClick={(e) => {
                   e.stopPropagation();
-                  copyToClipboard(tx.receiptNumber ?? '', 'M-Pesa reference');
+                  copyToClipboard(tx.mpesaReceiptNumber ?? '', 'M-Pesa reference');
                 }}
                 title="Copy M-Pesa reference number"
                 aria-label="Copy M-Pesa reference number"
@@ -237,6 +248,7 @@ const TransactionRow: FC<TransactionRowProps> = ({ tx }: { tx: ExtendedTx }) => 
             </span>
           )}
         </div>
+
         <div className="flex items-center gap-2 justify-end mt-1">
           <button
             className="p-1 rounded hover:bg-gray-100"
@@ -260,7 +272,7 @@ const TransactionRow: FC<TransactionRowProps> = ({ tx }: { tx: ExtendedTx }) => 
         </div>
       </div>
 
-      {/* Transaction Detail Modal */}
+      {/* ── Transaction Detail Modal ───────────────────────────────────── */}
       {showModal && (
         <TransactionDetailModal
           transaction={tx}

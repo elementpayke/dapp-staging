@@ -12,7 +12,7 @@ dayjs.extend(isBetween);
 interface ExtendedTx extends Tx {
   receiverDisplay: string;
   date: string;
-  // New enhanced fields
+  // Enhanced fields
   tokenSymbol: string;
   cryptoAmount: string;
   exchangeRate?: number;
@@ -20,6 +20,8 @@ interface ExtendedTx extends Tx {
   direction: "Send" | "Receive";
   processingTime?: string;
   receiptNumber?: string;
+  mpesaReceiptNumber?: string;  // from order.mpesa_receipt_number — the M-Pesa payment ID
+  receiverName?: string;        // from order.receiver_name — e.g. "Anita Wambui"
   invoiceId?: string;
   orderType: string;
   rawDate: Date; // For date filtering
@@ -171,7 +173,7 @@ const TransactionList: FC<{ walletAddress: string | null }> = ({
           receiverDisplay:
             order.receiver_name || order.phone_number || "Unknown",
 
-          // New enhanced fields
+          // Enhanced fields
           tokenSymbol: order.token,
           cryptoAmount: `${order.amount_crypto.toFixed(6)} ${order.token}`,
           exchangeRate: order.exchange_rate,
@@ -179,9 +181,11 @@ const TransactionList: FC<{ walletAddress: string | null }> = ({
           direction: order.order_type === 0 ? "Receive" : "Send",
           processingTime,
           receiptNumber: undefined,
+          mpesaReceiptNumber: order.mpesa_receipt_number || undefined, // ✅ M-Pesa payment ID
+          receiverName: order.receiver_name || undefined,              // ✅ e.g. "Anita Wambui"
           invoiceId: order.invoice_id,
           orderType: order.order_type === 0 ? "OnRamp" : "OffRamp",
-          rawDate: createdDate, // Store raw date for filtering
+          rawDate: createdDate,
         };
       });
 
@@ -273,6 +277,8 @@ const TransactionList: FC<{ walletAddress: string | null }> = ({
           direction: order.order_type === 0 ? "Receive" : "Send",
           processingTime,
           receiptNumber: undefined,
+          mpesaReceiptNumber: order.mpesa_receipt_number || undefined, // ✅ M-Pesa payment ID
+          receiverName: order.receiver_name || undefined,              // ✅ e.g. "Anita Wambui"
           invoiceId: order.invoice_id,
           orderType: order.order_type === 0 ? "OnRamp" : "OffRamp",
           rawDate: createdDate,
@@ -347,12 +353,14 @@ const TransactionList: FC<{ walletAddress: string | null }> = ({
       searchTerm === "" ||
       tx.receiverDisplay.toLowerCase().includes(searchLower) ||
       tx.hash.toLowerCase().includes(searchLower) ||
-      tx.fullHash.toLowerCase().includes(searchLower) || // Search full hash
+      tx.fullHash.toLowerCase().includes(searchLower) ||
       tx.status.toLowerCase().includes(searchLower) ||
       tx.receiptNumber?.toLowerCase().includes(searchLower) ||
+      tx.mpesaReceiptNumber?.toLowerCase().includes(searchLower) || // ✅ search by MPESA ID
+      tx.receiverName?.toLowerCase().includes(searchLower) ||        // ✅ search by receiver name
       tx.tokenSymbol.toLowerCase().includes(searchLower) ||
       tx.invoiceId?.toLowerCase().includes(searchLower) ||
-      tx.id.toLowerCase().includes(searchLower); // Search by order ID
+      tx.id.toLowerCase().includes(searchLower);
 
     // Status filter
     const matchesStatus =

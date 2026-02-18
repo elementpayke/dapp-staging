@@ -14,6 +14,7 @@ interface TransactionDetailModalProps {
     description: string;
     amount: string;
     receiverDisplay: string;
+    receiverName?: string;          // from orderData.receiver_name — e.g. "Anita Wambui"
     tokenSymbol: string;
     cryptoAmount: string;
     exchangeRate?: number;
@@ -21,6 +22,7 @@ interface TransactionDetailModalProps {
     direction: 'Send' | 'Receive';
     processingTime?: string;
     receiptNumber?: string;
+    mpesaReceiptNumber?: string;    // from orderData.mpesa_receipt_number — the actual MPESA ID
     invoiceId?: string;
     orderType: string;
     rawDate?: Date;
@@ -28,7 +30,6 @@ interface TransactionDetailModalProps {
   isOpen: boolean;
   onClose: () => void;
 }
-
 
 const TransactionDetailModal: FC<TransactionDetailModalProps> = ({
   transaction,
@@ -97,6 +98,8 @@ const TransactionDetailModal: FC<TransactionDetailModalProps> = ({
     if (explorerInfo) window.open(explorerInfo.url, "_blank");
   };
 
+  const hasBlockchain = transaction.fullHash !== "—" && explorerInfo;
+
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50"
@@ -106,65 +109,142 @@ const TransactionDetailModal: FC<TransactionDetailModalProps> = ({
         className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Header */}
+        {/* ── Header ──────────────────────────────────────────────────────── */}
         <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between rounded-t-2xl">
-          <h2 className="text-xl font-semibold text-gray-900">
-            Transaction Details
-          </h2>
-          <button
-            onClick={onClose}
-            className="p-2 hover:bg-gray-100 rounded-full transition"
-          >
+          <h2 className="text-xl font-semibold text-gray-900">Transaction Details</h2>
+          <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-full transition">
             <X size={20} className="text-gray-500" />
           </button>
         </div>
 
-        {/* Body */}
+        {/* ── Body ────────────────────────────────────────────────────────── */}
         <div className="p-6 space-y-6">
 
-          {/* ── Combined Status + Amounts Card (single row, 3 columns) ─── */}
-          <div className={`${statusInfo.bgColor} border ${statusInfo.borderColor} rounded-xl grid grid-cols-3 divide-x divide-gray-200`}>
-            {/* Col 1 – Status */}
-            <div className="flex items-center gap-2.5 px-4 py-4">
-              <span className={`flex-shrink-0 ${statusInfo.color}`}>{statusInfo.icon}</span>
-              <div className="min-w-0">
-                <p className="text-xs text-gray-500 leading-none mb-0.5">Status</p>
-                <p className={`text-sm font-bold leading-snug ${statusInfo.color}`}>
-                  {statusInfo.label}
+          {/* ── Summary Card ──────────────────────────────────────────────── */}
+          {/* Row 1: Status | Fiat Amount | Crypto Amount */}
+          {/* Row 2: Receiver Name (orderData.receiver_name) | MPESA ID (orderData.mpesa_receipt_number) */}
+          <div className={`${statusInfo.bgColor} border ${statusInfo.borderColor} rounded-xl divide-y divide-gray-200`}>
+
+            {/* Row 1 */}
+            <div className="grid grid-cols-3 divide-x divide-gray-200">
+              {/* Status */}
+              <div className="flex items-center gap-2.5 px-4 py-4">
+                <span className={`flex-shrink-0 ${statusInfo.color}`}>{statusInfo.icon}</span>
+                <div className="min-w-0">
+                  <p className="text-xs text-gray-500 leading-none mb-0.5">Status</p>
+                  <p className={`text-sm font-bold leading-snug ${statusInfo.color}`}>
+                    {statusInfo.label}
+                  </p>
+                </div>
+              </div>
+              {/* Fiat Amount */}
+              <div className="px-4 py-4">
+                <p className="text-xs text-gray-500 mb-0.5">Fiat Amount</p>
+                <p className="text-sm font-semibold text-gray-900 leading-snug">
+                  {transaction.amount}
+                </p>
+              </div>
+              {/* Crypto Amount */}
+              <div className="px-4 py-4">
+                <p className="text-xs text-gray-500 mb-0.5">Crypto Amount</p>
+                <p className="text-sm font-semibold text-gray-900 leading-snug break-all">
+                  {transaction.cryptoAmount}
                 </p>
               </div>
             </div>
-            {/* Col 2 – Fiat Amount */}
-            <div className="px-4 py-4">
-              <p className="text-xs text-gray-500 mb-0.5">Fiat Amount</p>
-              <p className="text-sm font-semibold text-gray-900 leading-snug">
-                {transaction.amount}
-              </p>
-            </div>
-            {/* Col 3 – Crypto Amount */}
-            <div className="px-4 py-4">
-              <p className="text-xs text-gray-500 mb-0.5">Crypto Amount</p>
-              <p className="text-sm font-semibold text-gray-900 leading-snug break-all">
-                {transaction.cryptoAmount}
-              </p>
-            </div>
+
+            {/* Row 2 — Receiver Name + MPESA ID (only if at least one is present) */}
+            {/* Always shown for OffRamp. Falls back to phone number if registered
+                M-Pesa name (receiver_name) is not yet available from backend. */}
+            {(transaction.orderType === "OffRamp" || transaction.receiverName || transaction.mpesaReceiptNumber) && (
+              <div className="grid grid-cols-2 divide-x divide-gray-200">
+                {/* Receiver — shows name e.g. "Anita Wambui", falls back to phone */}
+                <div className="px-4 py-3">
+                  <p className="text-xs text-gray-500 mb-0.5">Receiver</p>
+                  <p className="text-sm font-semibold text-gray-900 leading-snug">
+                    {transaction.receiverName || transaction.receiverDisplay || "—"}
+                  </p>
+                </div>
+                {/* MPESA ID */}
+                <div className="px-4 py-3">
+                  <p className="text-xs text-gray-500 mb-0.5">MPESA ID</p>
+                  <p className="text-sm font-semibold text-gray-900 leading-snug">
+                    {transaction.mpesaReceiptNumber ?? "—"}
+                  </p>
+                </div>
+              </div>
+            )}
           </div>
           {/* ─────────────────────────────────────────────────────────────── */}
 
-          {/* Transaction Info */}
-          <div className="space-y-4">
-            <h3 className="text-lg font-semibold text-gray-900">
-              Transaction Information
-            </h3>
+          {/* ── Transaction Information ───────────────────────────────────── */}
+          <div className="space-y-1">
+            <h3 className="text-lg font-semibold text-gray-900 mb-3">Transaction Information</h3>
 
-            <DetailRow label="Order ID" value={transaction.id} copyable />
-            <DetailRow label="Type" value={transaction.orderType} />
-            <DetailRow label="Direction" value={transaction.direction} />
+            {/* Order ID — truncated on mobile */}
             <DetailRow
-              label="Date & Time"
-              value={`${transaction.date} at ${transaction.time}`}
+              label="Order ID"
+              value={transaction.id}
+              copyable
+              truncate
             />
 
+            {/* Type + orderType on same line — no Direction row */}
+            <DetailRow label="Type" value={transaction.orderType} />
+
+            {/* Payment Method */}
+            <DetailRow label="Payment Method" value={transaction.paymentMethod} />
+
+            {/* Recipient */}
+            {transaction.receiverDisplay !== "Unknown" && (
+              <DetailRow label="Recipient" value={transaction.receiverDisplay} />
+            )}
+
+    {/* Invoice ID */}
+            {transaction.invoiceId && (
+              <DetailRow label="Invoice ID" value={transaction.invoiceId} copyable />
+            )}
+
+            {/* ── Blockchain Information (moved up for priority) ──────────── */}
+            {hasBlockchain && (
+              <div className="pt-4 space-y-3">
+                <h3 className="text-lg font-semibold text-gray-900">Blockchain Information</h3>
+
+                <div className="bg-gray-50 rounded-xl p-4">
+                  <p className="text-sm text-gray-600 mb-2">Transaction Hash</p>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <code className="text-sm font-mono text-gray-900 flex-1 break-all sm:break-normal" title={transaction.fullHash}>
+                      {/* Truncated on mobile, full on desktop */}
+                      <span className="sm:hidden">
+                        {transaction.fullHash.length > 20
+                          ? `${transaction.fullHash.slice(0, 10)}...${transaction.fullHash.slice(-6)}`
+                          : transaction.fullHash}
+                      </span>
+                      <span className="hidden sm:inline">{transaction.fullHash}</span>
+                    </code>
+                    <button
+                      onClick={() => copyToClipboard(transaction.fullHash)}
+                      className="p-2 hover:bg-gray-200 rounded-lg transition flex-shrink-0"
+                      title="Copy hash"
+                    >
+                      <Copy size={16} className="text-gray-600" />
+                    </button>
+                    <button
+                      onClick={openInExplorer}
+                      className="p-2 hover:bg-gray-200 rounded-lg transition flex-shrink-0"
+                      title={`View on ${explorerInfo!.name}`}
+                    >
+                      <ExternalLink size={16} className="text-blue-600" />
+                    </button>
+                  </div>
+                </div>
+
+                <DetailRow label="Network" value={explorerInfo!.network} />
+                <DetailRow label="Token" value={transaction.tokenSymbol} />
+              </div>
+            )}
+
+            {/* ── De-prioritised fields — moved to bottom ─────────────────── */}
             {transaction.exchangeRate && (
               <DetailRow
                 label="Exchange Rate"
@@ -172,70 +252,22 @@ const TransactionDetailModal: FC<TransactionDetailModalProps> = ({
               />
             )}
 
-            <DetailRow label="Payment Method" value={transaction.paymentMethod} />
-
-            {transaction.receiverDisplay !== "Unknown" && (
-              <DetailRow label="Recipient" value={transaction.receiverDisplay} />
-            )}
-
-            {transaction.invoiceId && (
-              <DetailRow label="Invoice ID" value={transaction.invoiceId} copyable />
-            )}
-
-            {transaction.receiptNumber && (
-              <DetailRow
-                label="Receipt Number"
-                value={transaction.receiptNumber}
-                copyable
-              />
-            )}
+            <DetailRow
+              label="Date & Time"
+              value={`${transaction.date} at ${transaction.time}`}
+            />
           </div>
-
-          {/* Blockchain Info */}
-          {transaction.fullHash !== "—" && explorerInfo && (
-            <div className="space-y-4">
-              <h3 className="text-lg font-semibold text-gray-900">
-                Blockchain Information
-              </h3>
-
-              <div className="bg-gray-50 rounded-xl p-4">
-                <p className="text-sm text-gray-600 mb-2">Transaction Hash</p>
-                <div className="flex items-center gap-2 flex-wrap">
-                  <code className="text-sm font-mono text-gray-900 break-all flex-1">
-                    {transaction.fullHash}
-                  </code>
-                  <button
-                    onClick={() => copyToClipboard(transaction.fullHash)}
-                    className="p-2 hover:bg-gray-200 rounded-lg transition flex-shrink-0"
-                    title="Copy hash"
-                  >
-                    <Copy size={16} className="text-gray-600" />
-                  </button>
-                  <button
-                    onClick={openInExplorer}
-                    className="p-2 hover:bg-gray-200 rounded-lg transition flex-shrink-0"
-                    title={`View on ${explorerInfo.name}`}
-                  >
-                    <ExternalLink size={16} className="text-blue-600" />
-                  </button>
-                </div>
-              </div>
-
-              <DetailRow label="Network" value={explorerInfo.network} />
-              <DetailRow label="Token" value={transaction.tokenSymbol} />
-            </div>
-          )}
         </div>
 
-        {/* Footer */}
+        {/* ── Footer ──────────────────────────────────────────────────────── */}
         <div className="sticky bottom-0 bg-gray-50 border-t border-gray-200 px-6 py-4 flex gap-3 rounded-b-2xl">
-          {transaction.fullHash !== "—" && explorerInfo && (
+          {hasBlockchain && (
             <button
               onClick={openInExplorer}
               className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition font-medium"
             >
               <ExternalLink size={18} />
-              View on {explorerInfo.name}
+              View on {explorerInfo!.name}
             </button>
           )}
           <button
@@ -255,9 +287,11 @@ interface DetailRowProps {
   label: string;
   value: string;
   copyable?: boolean;
+  /** Truncates long values on small screens (e.g. Order ID) */
+  truncate?: boolean;
 }
 
-const DetailRow: FC<DetailRowProps> = ({ label, value, copyable }) => {
+const DetailRow: FC<DetailRowProps> = ({ label, value, copyable, truncate }) => {
   const [copied, setCopied] = useState(false);
 
   const handleCopy = () => {
@@ -268,9 +302,14 @@ const DetailRow: FC<DetailRowProps> = ({ label, value, copyable }) => {
 
   return (
     <div className="flex items-start justify-between py-3 border-b border-gray-100 last:border-0">
-      <span className="text-sm text-gray-600 font-medium">{label}</span>
-      <div className="flex items-center gap-2">
-        <span className="text-sm text-gray-900 text-right max-w-xs break-words">
+      <span className="text-sm text-gray-600 font-medium flex-shrink-0 mr-4">{label}</span>
+      <div className="flex items-center gap-2 min-w-0">
+        <span
+          className={`text-sm text-gray-900 text-right break-words ${
+            truncate ? "truncate max-w-[120px] sm:max-w-xs" : "max-w-xs"
+          }`}
+          title={truncate ? value : undefined}
+        >
           {value}
         </span>
         {copyable && (

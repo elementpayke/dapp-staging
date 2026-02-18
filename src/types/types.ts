@@ -216,6 +216,7 @@ export type Order = {
   file_id?: string;
   phone_number?: string;
   receiver_name?: string;
+  mpesa_receipt_number?: string;  // ✅ M-Pesa payment ID — e.g. "QKL2J9X8YZ"
   creation_transaction_hash?: string;
   settlement_transaction_hash?: string;
   refund_transaction_hash?: string;
