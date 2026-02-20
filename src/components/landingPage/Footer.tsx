@@ -24,13 +24,13 @@ const Footer = () => {
             {/* Contact Info */}
             <div className="space-y-3">
               <div className="flex items-center space-x-3 text-gray-600">
-                <Mail className="w-5 h-5 text-blue-600" />
+                <Mail className="w-5 h-5 text-[var(--landing-accent)]" />
                 <a href="mailto:elementpay.info@gmail.com" className="hover:text-gray-900 transition-colors">
                   elementpay.info@gmail.com
                 </a>
               </div>
               <div className="flex items-center space-x-3 text-gray-600">
-                <MapPin className="w-5 h-5 text-blue-600" />
+                <MapPin className="w-5 h-5 text-[var(--landing-accent)]" />
                 <span>Nairobi, Kenya</span>
               </div>
             </div>

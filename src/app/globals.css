@@ -202,8 +202,39 @@
 
     --chart-5: 27 87% 67%;
 
-    --radius: 0.5rem
+    --radius: 0.5rem;
+
+    /* Landing: Editorial + brand purple #4339CA */
+    --landing-bg: #f8f6fc;
+    --landing-bg-subtle: #efeef7;
+    --landing-heading: #1a1a1a;
+    --landing-body: #4a4845;
+    --landing-muted: #78716c;
+    --landing-accent: #4339CA;
+    --landing-accent-hover: #3630a3;
+    --landing-card-bg: #ffffff;
+    --landing-card-fg: #1a1a1a;
+    --landing-card-border: #e5e3ef;
+    --landing-card-shadow: 0 4px 24px rgba(67, 57, 202, 0.08);
+    --landing-input-bg: #faf9fc;
+    --landing-input-border: #e5e3ef;
+    --landing-cta-bg: #4339CA;
+    --landing-cta-fg: #ffffff;
   }
+
+  .landing-page {
+    font-family: var(--font-landing-body), var(--font-geist-sans), system-ui, sans-serif;
+  }
+
+  .landing-display {
+    font-family: var(--font-landing-display), var(--font-landing-body), system-ui, sans-serif;
+  }
+
+  .landing-page input:focus {
+    outline: none;
+    box-shadow: 0 0 0 2px var(--landing-bg), 0 0 0 4px var(--landing-accent);
+  }
+
   .dark {
 
     --background: 0 0% 3.9%;

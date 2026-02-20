@@ -1,6 +1,7 @@
 "use client";
 import React, { useState } from "react";
 import { ChevronDown, MessageCircle } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
 
 interface FAQItem {
   question: string;
@@ -16,17 +17,17 @@ const faqs: FAQItem[] = [
   {
     question: "How do I spend my crypto with ElementPay?",
     answer:
-      "Spending crypto is simple with ElementPay! Pay directly with Ethereum or stablecoins. If the merchant doesn’t accept crypto, ElementPay converts it to fiat and sends it to their M-Pesa or bank account.",
+      "Spending crypto is simple! Pay directly with Ethereum or stablecoins. If the merchant doesn't accept crypto, ElementPay converts it to fiat and sends it to their M-Pesa or bank account.",
   },
   {
     question: "What are the fees?",
     answer:
-      "At ElementPay, we believe in making crypto accessible for everyone. Our fees start as low as just 1 KES! Whether you're buying a coffee, paying for transport, or doing a larger transaction, our low fees ensure you get the most value out of every payment.",
+      "Our fees start as low as just 1 KES! Whether you're buying a coffee, paying for transport, or doing a larger transaction, our low fees ensure you get the most value out of every payment.",
   },
   {
     question: "What do I need to sign up?",
     answer:
-      "Nothing! There’s no complicated sign-up process. Just go to our website, link your wallet, and start using it immediately.",
+      "Just your email and a crypto wallet. Enter your email, verify with a one-time code, connect your wallet, and complete a quick identity check. That's it.",
   },
   {
     question: "Can I withdraw my crypto back to fiat?",
@@ -36,17 +37,17 @@ const faqs: FAQItem[] = [
   {
     question: "Do I need a specific wallet to use ElementPay?",
     answer:
-      "Any Ethereum-compatible wallet, like MetaMask, Trust Wallet, or Coinbase Wallet, works with ElementPay. Just connect and start transacting seamlessly.",
+      "Any Ethereum-compatible wallet works, like MetaMask, Trust Wallet, or Coinbase Wallet. Just connect and start transacting.",
   },
   {
-    question: "Can I use ElementPay for small payments like KES 10 or less?",
+    question: "Can I use ElementPay for small payments like KES 10?",
     answer:
-      "Absolutely! ElementPay is built for micropayments. You can pay as little as KES 1 using your crypto wallet. Perfect for everyday spending — and no need to worry about high gas fees, we've got you covered.",
+      "Absolutely! ElementPay is built for micropayments. Pay as little as KES 1 using your crypto wallet. Perfect for everyday spending.",
   },
   {
     question: "I have another question.",
     answer:
-      "We are always happy to help! Reach out to us via email or connect with us on our social media platforms for any further questions or assistance.",
+      "We are always happy to help! Reach out to us via email or connect with us on our social media platforms for assistance.",
   },
 ];
 
@@ -58,104 +59,115 @@ const FAQSection = () => {
   };
 
   return (
-    <div className="min-h-screen bg-white py-16 md:py-24">
-      <div className="max-w-[1800px] mx-auto px-4 lg:px-8">
-        {/* Section Title */}
-        <div className="text-center mb-12">
-          <h2 className="text-4xl font-semibold text-gray-900 mb-4">
-            Got a Question?
-          </h2>
-          <p className="text-lg text-gray-600">
-            <span className="text-blue-600 hover:underline cursor-pointer">
+    <section id="faqs" className="bg-white py-20 md:py-28">
+      <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
+        {/* Section Header */}
+        <div className="text-center mb-14">
+          <motion.p
+            initial={{ opacity: 0, y: 10 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.4 }}
+            className="text-sm font-medium tracking-widest uppercase text-[var(--landing-accent)] mb-3"
+            style={{ fontFamily: "var(--font-landing-body)" }}
+          >
+            FAQ
+          </motion.p>
+          <motion.h2
+            initial={{ opacity: 0, y: 10 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.4, delay: 0.1 }}
+            className="text-2xl md:text-3xl lg:text-4xl font-bold text-[var(--landing-heading)] mb-3"
+            style={{ fontFamily: "var(--font-landing-display)" }}
+          >
+            Got a question?
+          </motion.h2>
+          <motion.p
+            initial={{ opacity: 0, y: 10 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.4, delay: 0.15 }}
+            className="text-[var(--landing-muted)]"
+            style={{ fontFamily: "var(--font-landing-body)" }}
+          >
+            <a
+              href="mailto:elementpay.info@gmail.com"
+              className="text-[var(--landing-accent)] hover:underline"
+            >
               Contact us
-            </span>{" "}
+            </a>{" "}
             if your question has not been answered.
-          </p>
+          </motion.p>
         </div>
 
         {/* FAQ Items */}
-        <div className="max-w-3xl mx-auto">
+        <div className="divide-y divide-gray-100">
           {faqs.map((faq, index) => (
-            <div
+            <motion.div
               key={index}
-              className={`${
-                openIndex === index
-                  ? "border-b-2 border-gradient"
-                  : "border-b border-gray-200"
+              initial={{ opacity: 0, y: 10 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.3, delay: index * 0.05 }}
+              className={`transition-colors duration-200 ${
+                openIndex === index ? "border-l-2 border-l-[var(--landing-accent)] -ml-px pl-px" : ""
               }`}
-              style={{
-                ...(openIndex === index
-                  ? {
-                      borderImage:
-                        "linear-gradient(to right, #0514eb, #de0413) 1",
-                    }
-                  : {}),
-              }}
             >
               <button
-                className={`w-full text-left py-6 flex items-center justify-between transition-colors duration-200 hover:bg-gray-50`}
+                className="w-full text-left py-5 px-1 flex items-center justify-between group"
                 onClick={() => toggleAccordion(index)}
               >
-                <div className="flex items-center gap-4">
+                <div className="flex items-center gap-3">
                   <MessageCircle
-                    className={`w-6 h-6 ${
+                    className={`w-5 h-5 flex-shrink-0 transition-colors ${
                       openIndex === index
-                        ? "text-transparent bg-clip-text"
-                        : "text-gray-400"
-                    } flex-shrink-0`}
-                    style={{
-                      ...(openIndex === index && {
-                        background:
-                          "linear-gradient(to right, #0514eb, #de0413)",
-                        WebkitBackgroundClip: "text",
-                      }),
-                    }}
+                        ? "text-[var(--landing-accent)]"
+                        : "text-gray-300 group-hover:text-gray-400"
+                    }`}
                   />
                   <span
-                    className={`text-lg ${
+                    className={`text-base font-medium transition-colors ${
                       openIndex === index
-                        ? "text-transparent bg-clip-text"
-                        : "text-gray-900"
+                        ? "text-[var(--landing-heading)]"
+                        : "text-[var(--landing-body)] group-hover:text-[var(--landing-heading)]"
                     }`}
-                    style={{
-                      ...(openIndex === index && {
-                        background:
-                          "linear-gradient(to right, #0514eb, #de0413)",
-                        WebkitBackgroundClip: "text",
-                      }),
-                    }}
+                    style={{ fontFamily: "var(--font-landing-body)" }}
                   >
                     {faq.question}
                   </span>
                 </div>
                 <ChevronDown
-                  className={`w-6 h-6 ${
+                  className={`w-5 h-5 flex-shrink-0 transition-all duration-200 ${
                     openIndex === index
-                      ? "text-transparent bg-clip-text"
-                      : "text-gray-400"
-                  } transform transition-transform duration-200 ${
-                    openIndex === index ? "rotate-180" : ""
+                      ? "text-[var(--landing-accent)] rotate-180"
+                      : "text-gray-300"
                   }`}
-                  style={{
-                    ...(openIndex === index && {
-                      background: "linear-gradient(to right, #0514eb, #de0413)",
-                      WebkitBackgroundClip: "text",
-                    }),
-                  }}
                 />
               </button>
-              <div
-                className={`overflow-hidden transition-all duration-200 ${
-                  openIndex === index ? "max-h-48 mb-6" : "max-h-0"
-                }`}
-              >
-                <div className="pl-10 pr-4 text-gray-600">{faq.answer}</div>
-              </div>
-            </div>
+              <AnimatePresence>
+                {openIndex === index && (
+                  <motion.div
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: "auto", opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    transition={{ duration: 0.2 }}
+                    className="overflow-hidden"
+                  >
+                    <div
+                      className="pl-9 pr-4 pb-5 text-sm text-[var(--landing-muted)] leading-relaxed"
+                      style={{ fontFamily: "var(--font-landing-body)" }}
+                    >
+                      {faq.answer}
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </motion.div>
           ))}
         </div>
       </div>
-    </div>
+    </section>
   );
 };
 

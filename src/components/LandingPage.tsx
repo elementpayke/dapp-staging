@@ -8,7 +8,7 @@ import WhyWeRock from "./landingPage/WhyWeRock";
 
 const LandingPage = () => {
   return (
-    <div>
+    <div className="landing-page">
       <HeroSection />
       <WhyWeRock />
       <FeaturesSection />

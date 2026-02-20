@@ -1,178 +1,171 @@
 "use client";
-import React from "react";
-import Image from "next/image";
-import { CircleCheckIcon, Sparkles } from "lucide-react";
-import happyCouple from "@/assets/happy-couple.png";
-import ethereumLogo from "@/assets/ethereum-logo.svg";
-import bitcoinLogo from "@/assets/bitcoin-logo.svg";
-import WalletConnection from "../wallet-connection/wallet-connection";
-import { useIsMobile } from "@/hooks/useIsMobile";
-import ClientOnly from "@/components/shared/ClientOnly";
 
-const IMAGES = {
-  heroMain: {
-    src: happyCouple,
-    alt: "Happy couple using ElementPay",
-    width: 600,
-    height: 700,
-  },
-  ethereumLogo: {
-    src: ethereumLogo,
-    alt: "Ethereum",
-    width: 64,
-    height: 64,
-  },
-  bitcoinLogo: {
-    src: bitcoinLogo,
-    alt: "Bitcoin",
-    width: 64,
-    height: 64,
-  },
+import React, { useRef, useCallback } from "react";
+import { motion } from "framer-motion";
+import { ArrowDown } from "lucide-react";
+import PreviewForm from "./PreviewForm";
+import { useAuthModalStore } from "@/stores/authModalStore";
+import { useAuthStore } from "@/stores/authStore";
+
+const HERO = {
+  eyebrow: "Crypto ? Mobile Money",
+  headline: "Pay for anything\nwith crypto, instantly.",
+  supporting:
+    "Send to M-Pesa, banks, or buy crypto with clean pricing, low fees, and fast settlement across Africa.",
+  cta: "Start transacting",
+  ctaSecondary: "See how it works",
 };
 
-const Hero = () => {
-  const isMobile = useIsMobile();
-  
+const stagger = {
+  hidden: { opacity: 0, y: 24 },
+  visible: (i: number) => ({
+    opacity: 1,
+    y: 0,
+    transition: {
+      duration: 0.55,
+      delay: 0.1 * i,
+      ease: [0.25, 0.46, 0.45, 0.94] as [number, number, number, number],
+    },
+  }),
+};
+
+const HeroSection = () => {
+  const formRef = useRef<HTMLDivElement>(null);
+  const openAuthModal = useAuthModalStore((s) => s.openAuthModal);
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+
+  const scrollToForm = useCallback(() => {
+    formRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+  }, []);
+
+  const handleCTA = useCallback(() => {
+    if (isAuthenticated) {
+      scrollToForm();
+    } else {
+      openAuthModal();
+    }
+  }, [isAuthenticated, openAuthModal, scrollToForm]);
+
   return (
-    <div className="bg-gradient-to-r from-white to-[#c7c7ff] min-h-[calc(100vh-64px)] overflow-x-hidden">
-      <div className="max-w-[2000px] mx-auto h-full px-4 sm:px-6 lg:px-8 xl:px-12 py-6 md:py-8 relative">
-        {/* Main Content Grid */}
-        <div className="grid lg:grid-cols-2 gap-8 xl:gap-12 mt-6 sm:mt-8">
-          {/* Left Column */}
-          <div className="flex flex-col justify-center max-w-3xl">
-            <h1 className="text-3xl sm:text-4xl md:text-5xl xl:text-6xl font-bold leading-tight mb-4 sm:mb-6 text-black/90">
-              Pay for anything with Crypto, as simply as saying Cheese!
-            </h1>
-            <p className="text-base sm:text-lg xl:text-xl text-gray-600 mb-6 sm:mb-8">
-              ElementPay is removing the mystery from crypto by making your
-              tokens pay for your every day expenditures. Pay for anything
-              instantly, easily.
-            </p>
+    <section className="landing-page relative h-fit overflow-x-hidden" aria-label="Hero">
+      <div
+        className="absolute inset-0 z-0"
+        style={{
+          background: `
+            radial-gradient(ellipse 70% 50% at 75% 30%, rgba(67, 57, 202, 0.04) 0%, transparent 60%),
+            radial-gradient(ellipse 50% 40% at 15% 80%, rgba(67, 57, 202, 0.03) 0%, transparent 60%),
+            linear-gradient(180deg, #ffffff 0%, var(--landing-bg) 100%)
+          `,
+        }}
+      />
 
-            <div className="flex flex-col md:flex-row md:items-center gap-4 sm:gap-6 lg:gap-8 mb-8 sm:mb-12 md:mb-16 px-4 sm:px-6 lg:p-0">
-              <ClientOnly
-                fallback={
-                  <div className="w-full">
-                    <button 
-                      className="w-fit bg-gradient-to-r from-[#0514eb] to-[#de0413] text-white px-8 py-4 rounded-full text-base sm:text-lg font-medium"
-                      disabled
-                    >
-                      Loading...
-                    </button>
-                  </div>
-                }
+      <div className="relative z-10 mx-auto max-w-6xl px-4 pb-20 pt-20 sm:px-6 lg:px-8 lg:pb-32 lg:pt-28">
+        <div className="grid items-center gap-16 lg:grid-cols-[1fr_1.1fr] lg:gap-20">
+          <div className="max-w-[32rem]">
+            <motion.p
+              custom={0}
+              variants={stagger}
+              initial="hidden"
+              animate="visible"
+              className="landing-display mb-5 text-xs font-semibold uppercase tracking-[0.22em] text-[var(--landing-accent)]"
+            >
+              {HERO.eyebrow}
+            </motion.p>
+
+            <motion.h1
+              custom={1}
+              variants={stagger}
+              initial="hidden"
+              animate="visible"
+              className="landing-display mb-6 whitespace-pre-line text-[2.4rem] font-bold leading-[1.14] tracking-[-0.015em] text-[var(--landing-heading)] sm:text-[2.95rem] lg:text-[3.1rem]"
+            >
+              {HERO.headline}
+            </motion.h1>
+
+            <motion.p
+              custom={2}
+              variants={stagger}
+              initial="hidden"
+              animate="visible"
+              className="mb-10 max-w-md text-[1.04rem] leading-relaxed text-[var(--landing-body)] opacity-90 sm:text-[1.1rem]"
+            >
+              {HERO.supporting}
+            </motion.p>
+
+            <motion.div
+              custom={3}
+              variants={stagger}
+              initial="hidden"
+              animate="visible"
+              className="flex flex-col gap-4 sm:flex-row sm:items-center"
+            >
+              <button
+                type="button"
+                onClick={handleCTA}
+                className="
+                  inline-flex items-center justify-center rounded-full
+                  px-8 py-3.5 text-base font-semibold
+                  text-white bg-[var(--landing-accent)] hover:bg-[var(--landing-accent-hover)]
+                  shadow-[0_2px_16px_rgba(67,57,202,0.25)] hover:shadow-[0_4px_24px_rgba(67,57,202,0.35)]
+                  transition-all duration-200
+                  focus:outline-none focus:ring-2 focus:ring-[var(--landing-accent)]/40 focus:ring-offset-2 focus:ring-offset-white
+                "
               >
-                <WalletConnection isMobile={isMobile} isHero />
-              </ClientOnly>
-              <div className="flex items-center gap-2 sm:gap-3 text-gray-600">
-                <CircleCheckIcon
-                  color="#0514eb"
-                  className="w-5 h-5 sm:w-6 sm:h-6"
-                />
-                <span className="text-sm sm:text-base lg:text-lg font-medium">
-                  Fast sign-up.
-                </span>
-              </div>
-            </div>
+                {HERO.cta}
+              </button>
 
-            {/* Stats */}
-            <div className="grid grid-cols-3 gap-4 sm:gap-8">
-              <div>
-                <h3 className="text-2xl sm:text-3xl font-bold mb-1 bg-gradient-to-r from-[#0514eb] to-[#de0413] bg-clip-text text-transparent">
-                  3 Taps
-                </h3>
-                <p className="text-xs sm:text-sm text-[#6B7280]">
-                  From crypto to coffee
-                </p>
+              <button
+                type="button"
+                onClick={scrollToForm}
+                className="
+                  inline-flex items-center justify-center gap-2 rounded-full
+                  px-6 py-3.5 text-base font-medium
+                  text-[var(--landing-body)] hover:text-[var(--landing-heading)]
+                  border border-[var(--landing-card-border)] hover:border-[var(--landing-accent)]/30
+                  transition-all duration-200
+                "
+              >
+                {HERO.ctaSecondary}
+                <ArrowDown className="h-4 w-4" />
+              </button>
+            </motion.div>
+
+            <motion.div
+              custom={4}
+              variants={stagger}
+              initial="hidden"
+              animate="visible"
+              className="mt-10 flex items-center gap-3"
+            >
+              <div className="flex -space-x-2">
+                {[0, 1, 2, 3].map((i) => (
+                  <div
+                    key={i}
+                    className="h-8 w-8 rounded-full border-2 border-white bg-gradient-to-br from-[var(--landing-accent)]/20 to-[var(--landing-accent)]/5"
+                  />
+                ))}
               </div>
-              <div>
-                <h3 className="text-2xl sm:text-3xl font-bold mb-1 bg-gradient-to-r from-[#0514eb] to-[#de0413] bg-clip-text text-transparent">
-                  97%
-                </h3>
-                <p className="text-xs sm:text-sm text-[#6B7280]">
-                  Lower fees than banks
-                </p>
-              </div>
-              <div>
-                <h3 className="text-2xl sm:text-3xl font-bold mb-1 bg-gradient-to-r from-[#0514eb] to-[#de0413] bg-clip-text text-transparent">
-                  Instant
-                </h3>
-                <p className="text-xs sm:text-sm text-[#6B7280]">
-                  No waiting periods
-                </p>
-              </div>
-            </div>
+              <p className="text-sm text-[var(--landing-muted)]">
+                Trusted by <span className="font-medium text-[var(--landing-heading)]">2,000+</span> users across Kenya
+              </p>
+            </motion.div>
           </div>
 
-          {/* Right Column - Image */}
-          <div className="relative w-full min-h-[400px] lg:h-full flex items-center justify-center lg:justify-end mt-8 lg:mt-0">
-            <div className="relative w-full max-w-md lg:max-w-none h-[400px] lg:h-[600px]">
-              <Image
-                src={IMAGES.heroMain.src}
-                alt={IMAGES.heroMain.alt}
-                fill
-                className="object-contain object-center lg:object-right rounded-2xl"
-                priority
-                sizes="(max-width: 1024px) 90vw, 45vw"
-              />
-
-              {/* Floating Card */}
-              <div className="absolute bottom-4 sm:bottom-8 right-4 sm:right-8 bg-[#2f0238] text-white p-3 sm:p-4 rounded-xl shadow-lg w-64 sm:w-72 scale-90 sm:scale-100">
-                <div className="flex items-center gap-2 mb-3 sm:mb-4">
-                  <div className="w-5 h-5 sm:w-6 sm:h-6 bg-[#36B37E] rounded-full"></div>
-                  <span className="text-xs sm:text-sm font-medium">
-                    LEDGER LIVE
-                  </span>
-                </div>
-                <div className="flex items-center justify-between mb-2">
-                  <div className="flex items-center gap-2">
-                    <div className="w-3 h-3 sm:w-4 sm:h-4 bg-[#3366FF] rounded-full"></div>
-                    <span className="text-xs sm:text-sm">USDC:</span>
-                    <span className="text-xs sm:text-sm opacity-60">
-                      $09.98
-                    </span>
-                  </div>
-                  <span className="text-xs sm:text-sm">8x1</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <div className="w-3 h-3 sm:w-4 sm:h-4 bg-[#F7931A] rounded-full"></div>
-                    <span className="text-xs sm:text-sm">BTC:</span>
-                    <span className="text-xs sm:text-sm opacity-60">
-                      0.00000025
-                    </span>
-                  </div>
-                  <span className="text-xl sm:text-2xl font-bold">
-                    $2679.90
-                  </span>
-                </div>
-              </div>
-
-              {/* Crypto Logos */}
-              <div className="absolute left-4 sm:left-8 bottom-32 sm:bottom-44 scale-75 sm:scale-100">
-                <Image
-                  src={IMAGES.ethereumLogo.src}
-                  alt={IMAGES.ethereumLogo.alt}
-                  width={IMAGES.ethereumLogo.width}
-                  height={IMAGES.ethereumLogo.height}
-                  className="animate-bounce"
-                />
-              </div>
-              <div className="absolute left-16 sm:left-24 bottom-20 sm:bottom-28 scale-75 sm:scale-100">
-                <Image
-                  src={IMAGES.bitcoinLogo.src}
-                  alt={IMAGES.bitcoinLogo.alt}
-                  width={IMAGES.bitcoinLogo.width}
-                  height={IMAGES.bitcoinLogo.height}
-                  className="animate-bounce [animation-delay:200ms]"
-                />
-              </div>
+          <motion.div
+            ref={formRef}
+            initial={{ opacity: 0, y: 28 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.65, delay: 0.25, ease: [0.25, 0.46, 0.45, 0.94] }}
+            className="flex justify-center lg:justify-end"
+          >
+            <div className="w-full min-w-[18rem] max-w-[28rem] sm:max-w-[30rem]">
+              <PreviewForm />
             </div>
-          </div>
+          </motion.div>
         </div>
       </div>
-    </div>
+    </section>
   );
 };
 
-export default Hero;
+export default HeroSection;

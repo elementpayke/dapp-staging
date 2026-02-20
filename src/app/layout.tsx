@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Geist, Geist_Mono, Plus_Jakarta_Sans, Figtree } from "next/font/google";
 import "./globals.css";
 import { Providers } from "./providers";
 import "@coinbase/onchainkit/styles.css";
@@ -14,6 +14,19 @@ const geistSans = Geist({
 
 const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
+  subsets: ["latin"],
+});
+
+/** Editorial landing: display (headlines) — Plus Jakarta Sans is bold, clean & highly readable */
+const plusJakarta = Plus_Jakarta_Sans({
+  variable: "--font-landing-display",
+  subsets: ["latin"],
+  weight: ["600", "700", "800"],
+});
+
+/** Editorial landing: body */
+const figtree = Figtree({
+  variable: "--font-landing-body",
   subsets: ["latin"],
 });
 
@@ -82,7 +95,7 @@ export default function RootLayout({
         <link rel="apple-touch-icon" href="/elementpay.png" sizes="180x180" />
       </head>
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+        className={`${geistSans.variable} ${geistMono.variable} ${plusJakarta.variable} ${figtree.variable} antialiased`}
         suppressHydrationWarning
       >
         <Web3ErrorBoundary>

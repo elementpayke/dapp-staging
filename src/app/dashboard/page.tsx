@@ -10,6 +10,8 @@ import Image from "next/image";
 import avatarPlaceholder from "@/assets/avatar-placeholder.svg";
 import { useRouter } from "next/navigation";
 import { useWallet } from "@/hooks/useWallet";
+import { useAuthStore } from "@/stores/authStore";
+import { checkKYCStatus } from "@/services/auth";
 
 type PageComponent =
   | "overview"
@@ -19,21 +21,86 @@ type PageComponent =
   | "support-email";
 
 export default function Dashboard() {
-  const { isConnected, ensName, address, disconnectWallet, disconnect } =
+  const { isConnected, ensName, address, disconnect } =
     useWallet();
+  const { isAuthenticated, clearAuth, token, user, updateKYCStatus } = useAuthStore();
   const [currentPage, setCurrentPage] = useState<PageComponent>("overview");
   const [showDropdown, setShowDropdown] = useState(false);
   const router = useRouter();
 
-  // Redirect to home when wallet is disconnected
+  // Redirect to home when neither wallet-connected nor authenticated
   useEffect(() => {
-    if (!isConnected) {
+    if (!isConnected && !isAuthenticated) {
       router.push("/");
     }
-  }, [isConnected, router]);
+  }, [isConnected, isAuthenticated, router]);
+
+  /**
+   * KYC status polling on dashboard entry.
+   * Best point to GET /kyc/status:
+   * - On dashboard mount (here) — catches users returning from SmileLinks
+   * - On KYC callback page (already implemented)
+   * - Could also poll periodically if status is "pending"
+   *
+   * The user profile isn't fully set up until kyc_status === "verified".
+   * Until then, transaction limits may be restricted by the backend.
+   */
+  useEffect(() => {
+    if (!token || !isAuthenticated) return;
+    if (user?.kyc_status === "verified") return; // Already verified, skip
+
+    const sessionId =
+      typeof window !== "undefined"
+        ? localStorage.getItem("elementpay-kyc-session")
+        : null;
+
+    if (!sessionId) {
+      console.log("[Dashboard] No KYC session found — user may not have completed KYC yet");
+      console.log("[Dashboard] Current KYC status:", user?.kyc_status ?? "unknown");
+      return;
+    }
+
+    const pollKYC = async () => {
+      try {
+        const res = await checkKYCStatus(token, sessionId);
+        console.log("[Dashboard] KYC poll result:", res);
+        updateKYCStatus(res.kyc_status);
+
+        if (res.kyc_status === "verified") {
+          console.log("[Dashboard] KYC verified — user profile is now complete");
+          localStorage.removeItem("elementpay-kyc-session");
+        } else if (res.kyc_status === "pending") {
+          // Poll again in 10 seconds
+          console.log("[Dashboard] KYC still pending — will poll again in 10s");
+          setTimeout(pollKYC, 10_000);
+        }
+      } catch (err) {
+        console.warn("[Dashboard] KYC status check failed:", err);
+      }
+    };
+
+    pollKYC();
+  }, [token, isAuthenticated, user?.kyc_status, updateKYCStatus]);
+
+  // Pre-fill: restore pending transaction from KYC callback flow
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const pendingTx = localStorage.getItem("elementpay-pending-tx");
+    if (pendingTx) {
+      try {
+        const txData = JSON.parse(pendingTx);
+        // Import the onboarding store and pre-populate
+        // The OverviewPage will pick these up automatically
+        localStorage.removeItem("elementpay-pending-tx");
+        console.log("[Dashboard] Restored pending transaction:", txData);
+      } catch {
+        localStorage.removeItem("elementpay-pending-tx");
+      }
+    }
+  }, []);
 
   // Show nothing while redirecting to avoid flicker
-  if (!isConnected) {
+  if (!isConnected && !isAuthenticated) {
     return null;
   }
 
@@ -56,6 +123,7 @@ export default function Dashboard() {
   const handleDisconnect = async () => {
     setShowDropdown(false);
     await disconnect();
+    clearAuth();
     router.push("/");
   };
 

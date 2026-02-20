@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useCallback } from "react";
+import React, { useCallback } from "react";
 import {
   Wallet,
   WalletDropdown,
@@ -15,7 +15,7 @@ import {
   EthBalance,
 } from "@coinbase/onchainkit/identity";
 import { twMerge } from "tailwind-merge";
-import { usePathname, useRouter } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { usePrivy } from "@privy-io/react-auth";
 import { useDisconnect } from "wagmi";
 import { LogOut } from "lucide-react";
@@ -44,15 +44,7 @@ const WalletConnection = ({
   const { login, logout: privyLogout, authenticated, ready, user } = usePrivy();
   const { disconnect: wagmiDisconnect } = useDisconnect();
   const { disconnect: storeDisconnect } = useWalletStore();
-  const pathname = usePathname();
   const router = useRouter();
-
-  // Redirect to dashboard when authenticated on landing page
-  useEffect(() => {
-    if (authenticated && pathname === "/") {
-      router.push("/dashboard");
-    }
-  }, [authenticated, pathname, router]);
 
   /**
    * Unified disconnect: Privy logout (async) → wagmi disconnect → store cleanup

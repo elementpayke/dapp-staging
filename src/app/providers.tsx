@@ -62,16 +62,16 @@ export function Providers(props: { children: ReactNode }) {
           showWalletLoginFirst: true,
           // Show these wallets first in the modal (prioritized order)
           walletList: [
-            "coinbase_wallet", // Base chain support via Coinbase Wallet
             "metamask",
+            "coinbase_wallet", // Base chain support via Coinbase Wallet
             "phantom",
             "rabby_wallet",
             "wallet_connect", // WalletConnect for mobile wallet connections
             "rainbow",
-            "detected_ethereum_wallets", // Show any other detected wallets
+            "detected_wallets", // Show any other detected wallets
           ],
         },
-        loginMethods: ["wallet"],
+        loginMethods: ["wallet", "email"],
         // Support multiple chains
         defaultChain: base,
         supportedChains: [base, arbitrum, lisk, scroll],
