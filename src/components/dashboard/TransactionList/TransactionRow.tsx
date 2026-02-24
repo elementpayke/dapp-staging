@@ -19,6 +19,10 @@ interface ExtendedTx {
   amount: string;
   receiverDisplay: string;
   receiverName?: string;          // e.g. "Anita Wambui"
+  phoneNumber?: string;           // e.g. "254115096868"
+  tillNumber?: string;            // Buy Goods till
+  paybillNumber?: string;         // PayBill business number
+  accountNumber?: string;         // PayBill account
   tokenSymbol: string;
   cryptoAmount: string;
   exchangeRate?: number;

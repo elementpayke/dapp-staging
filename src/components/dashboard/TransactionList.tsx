@@ -22,6 +22,10 @@ interface ExtendedTx extends Tx {
   receiptNumber?: string;
   mpesaReceiptNumber?: string;  // from order.mpesa_receipt_number — the M-Pesa payment ID
   receiverName?: string;        // from order.receiver_name — e.g. "Anita Wambui"
+  phoneNumber?: string;         // from order.phone_number — e.g. "254115096868"
+  tillNumber?: string;          // from order.till_number — for Buy Goods
+  paybillNumber?: string;       // from order.paybill_number — for PayBill
+  accountNumber?: string;       // from order.account_number — for PayBill
   invoiceId?: string;
   orderType: string;
   rawDate: Date; // For date filtering
@@ -118,6 +122,11 @@ const TransactionList: FC<{ walletAddress: string | null }> = ({
         params: { wallet_address: walletAddress },
       });
 
+      // 🔍 DEBUG: Log first order to see what fields API returns
+      if (res.data?.data?.length > 0) {
+        console.log("🔍 RAW ORDER DATA FROM API:", JSON.stringify(res.data.data[0], null, 2));
+      }
+
       const mapped: ExtendedTx[] = res.data?.data?.map((order: Order) => {
         const createdDate = new Date(order.created_at);
         const settlementDate = order.updated_at
@@ -181,8 +190,12 @@ const TransactionList: FC<{ walletAddress: string | null }> = ({
           direction: order.order_type === 0 ? "Receive" : "Send",
           processingTime,
           receiptNumber: undefined,
+          tillNumber: order.till_number || undefined,                  // ✅ Buy Goods till
+          paybillNumber: order.paybill_number || undefined,            // ✅ PayBill business number
+          accountNumber: order.account_number || undefined,            // ✅ PayBill account
           mpesaReceiptNumber: order.mpesa_receipt_number || undefined, // ✅ M-Pesa payment ID
           receiverName: order.receiver_name || undefined,              // ✅ e.g. "Anita Wambui"
+          phoneNumber: order.phone_number || undefined,                // ✅ e.g. "254115096868"
           invoiceId: order.invoice_id,
           orderType: order.order_type === 0 ? "OnRamp" : "OffRamp",
           rawDate: createdDate,
@@ -279,6 +292,10 @@ const TransactionList: FC<{ walletAddress: string | null }> = ({
           receiptNumber: undefined,
           mpesaReceiptNumber: order.mpesa_receipt_number || undefined, // ✅ M-Pesa payment ID
           receiverName: order.receiver_name || undefined,              // ✅ e.g. "Anita Wambui"
+          phoneNumber: order.phone_number || undefined,                // ✅ e.g. "254115096868"
+          tillNumber: order.till_number || undefined,                  // ✅ Buy Goods till
+          paybillNumber: order.paybill_number || undefined,            // ✅ PayBill business number
+          accountNumber: order.account_number || undefined,            // ✅ PayBill account
           invoiceId: order.invoice_id,
           orderType: order.order_type === 0 ? "OnRamp" : "OffRamp",
           rawDate: createdDate,

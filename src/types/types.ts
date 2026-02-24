@@ -217,6 +217,9 @@ export type Order = {
   phone_number?: string;
   receiver_name?: string;
   mpesa_receipt_number?: string;  // ✅ M-Pesa payment ID — e.g. "QKL2J9X8YZ"
+  till_number?: string;            // ✅ Buy Goods till number
+  paybill_number?: string;         // ✅ PayBill business number
+  account_number?: string;         // ✅ PayBill account number
   creation_transaction_hash?: string;
   settlement_transaction_hash?: string;
   refund_transaction_hash?: string;

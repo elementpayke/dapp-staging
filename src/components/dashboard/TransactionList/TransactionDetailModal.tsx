@@ -15,6 +15,10 @@ interface TransactionDetailModalProps {
     amount: string;
     receiverDisplay: string;
     receiverName?: string;          // from orderData.receiver_name — e.g. "Anita Wambui"
+    phoneNumber?: string;           // from orderData.phone_number — e.g. "254115096868"
+    tillNumber?: string;            // from orderData.till_number — Buy Goods
+    paybillNumber?: string;         // from orderData.paybill_number — PayBill business
+    accountNumber?: string;         // from orderData.account_number — PayBill account
     tokenSymbol: string;
     cryptoAmount: string;
     exchangeRate?: number;
@@ -158,11 +162,11 @@ const TransactionDetailModal: FC<TransactionDetailModalProps> = ({
                 M-Pesa name (receiver_name) is not yet available from backend. */}
             {(transaction.orderType === "OffRamp" || transaction.receiverName || transaction.mpesaReceiptNumber) && (
               <div className="grid grid-cols-2 divide-x divide-gray-200">
-                {/* Receiver — shows name e.g. "Anita Wambui", falls back to phone */}
+                {/* Receiver — only shows registered M-Pesa name, no phone fallback */}
                 <div className="px-4 py-3">
-                  <p className="text-xs text-gray-500 mb-0.5">Receiver</p>
+                  <p className="text-xs text-gray-500 mb-0.5">Receiver Name</p>
                   <p className="text-sm font-semibold text-gray-900 leading-snug">
-                    {transaction.receiverName || transaction.receiverDisplay || "—"}
+                    {transaction.receiverName || "—"}
                   </p>
                 </div>
                 {/* MPESA ID */}
@@ -195,10 +199,22 @@ const TransactionDetailModal: FC<TransactionDetailModalProps> = ({
             {/* Payment Method */}
             <DetailRow label="Payment Method" value={transaction.paymentMethod} />
 
-            {/* Recipient */}
-            {transaction.receiverDisplay !== "Unknown" && (
-              <DetailRow label="Recipient" value={transaction.receiverDisplay} />
-            )}
+            {/* Recipient - shows phone, PayBill, or Till based on transaction type */}
+            {(() => {
+              if (transaction.phoneNumber) {
+                return <DetailRow label="Recipient" value={transaction.phoneNumber} />;
+              } else if (transaction.paybillNumber && transaction.accountNumber) {
+                return (
+                  <DetailRow
+                    label="Recipient"
+                    value={`PayBill: ${transaction.paybillNumber} - Account: ${transaction.accountNumber}`}
+                  />
+                );
+              } else if (transaction.tillNumber) {
+                return <DetailRow label="Recipient" value={`Till: ${transaction.tillNumber}`} />;
+              }
+              return null;
+            })()}
 
     {/* Invoice ID */}
             {transaction.invoiceId && (
