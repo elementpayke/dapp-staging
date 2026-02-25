@@ -6,6 +6,7 @@ import { ArrowDown } from "lucide-react";
 import PreviewForm from "./PreviewForm";
 import { useAuthModalStore } from "@/stores/authModalStore";
 import { useAuthStore } from "@/stores/authStore";
+import { useRouter } from "next/navigation";  
 
 const HERO = {
   eyebrow: "Crypto ? Mobile Money",
@@ -33,18 +34,25 @@ const HeroSection = () => {
   const formRef = useRef<HTMLDivElement>(null);
   const openAuthModal = useAuthModalStore((s) => s.openAuthModal);
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+  const navigation = useRouter();
 
   const scrollToForm = useCallback(() => {
     formRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
   }, []);
 
-  const handleCTA = useCallback(() => {
+  
+
+  const handleCTA = () => {
+    console.log("CTA clicked. Current auth state:", {
+      isAuthenticated,
+    });
     if (isAuthenticated) {
-      scrollToForm();
+      console.log("[HeroSection] User is authenticated, redirecting to dashboard");
+      navigation?.push("/dashboard");
     } else {
       openAuthModal();
     }
-  }, [isAuthenticated, openAuthModal, scrollToForm]);
+  }
 
   return (
     <section className="landing-page relative h-fit overflow-x-hidden" aria-label="Hero">

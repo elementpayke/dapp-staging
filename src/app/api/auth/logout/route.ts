@@ -1,16 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
-
-const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL;
+import { createBackendErrorResponse, fetchBackend } from "@/lib/backend-fetch";
 
 export async function POST(req: NextRequest) {
   try {
     const authHeader = req.headers.get("Authorization") ?? "";
+    const token = authHeader.replace(/^Bearer\s+/i, "");
 
-    const res = await fetch(`${BACKEND_URL}/auth/logout`, {
+    const res = await fetchBackend("/auth/logout", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: authHeader,
+        Bearer: token,
       },
     });
 
@@ -18,9 +18,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(data, { status: res.status });
   } catch (error: any) {
     console.error("[logout] Error:", error);
-    return NextResponse.json(
-      { success: false, message: "Internal server error" },
-      { status: 500 },
-    );
+    return createBackendErrorResponse(error);
   }
 }

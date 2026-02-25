@@ -13,6 +13,7 @@
  */
 
 import { useEffect, useRef } from "react";
+import { useRouter } from "next/navigation";
 import { usePrivy } from "@privy-io/react-auth";
 import { connectWallet } from "@/services/auth";
 import { useAuthStore } from "@/stores/authStore";
@@ -20,18 +21,22 @@ import { useAuthModalStore } from "@/stores/authModalStore";
 
 export default function PrivyWalletListener() {
   const { authenticated, user: privyUser } = usePrivy();
+  const router = useRouter();
   const token = useAuthStore((s) => s.token);
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+  const addConnectedWallet = useAuthStore((s) => s.addConnectedWallet);
   const isOpen = useAuthModalStore((s) => s.isOpen);
   const walletConnecting = useAuthModalStore((s) => s.walletConnecting);
-  const setWalletConnecting = useAuthModalStore((s) => s.setWalletConnecting);
   const linkingRef = useRef(false);
   const linkedRef = useRef(false);
 
-  // Extract wallet address from Privy user
-  // Privy stores the wallet address in linkedAccounts array
-  const walletAccount = privyUser?.linkedAccounts?.find((account) => account.type === 'wallet');
-  const walletAddress = walletAccount && 'address' in walletAccount ? walletAccount.address : null;
+  // Extract wallet address from Privy user.
+  // Prefer linkedAccounts but fall back to user.wallet for connector variants.
+  const walletAccount = privyUser?.linkedAccounts?.find((account) => account.type === "wallet");
+  const walletAddress =
+    (walletAccount && "address" in walletAccount ? walletAccount.address : null) ??
+    privyUser?.wallet?.address ??
+    null;
 
   useEffect(() => {
     // Only act when:
@@ -73,28 +78,27 @@ export default function PrivyWalletListener() {
         const res = await connectWallet(token, walletAddress, "evm");
         console.log("[PrivyWalletListener] connectWallet response:", JSON.stringify(res, null, 2));
         linkedRef.current = true;
+        // Persist the wallet address locally so the rest of the app knows
+        addConnectedWallet(walletAddress);
       } catch (err: any) {
         console.error("[PrivyWalletListener] connectWallet error:", err);
         // "already linked" is fine — treat as success
         if (err.message?.includes("already")) {
           linkedRef.current = true;
+          addConnectedWallet(walletAddress);
         }
       } finally {
         linkingRef.current = false;
       }
 
-      // Re-open our modal at the KYC step
+      // Wallet linked — close modal and go to dashboard
       if (linkedRef.current) {
         const store = useAuthModalStore.getState();
-        // Reset wallet connecting flag
         store.setWalletConnecting(false);
-        if (!store.isOpen) {
-          store.openAuthModal();
-        }
-        // Small delay so modal mounts, then advance
-        setTimeout(() => {
-          useAuthModalStore.getState().setStep("kyc-redirect");
-        }, 100);
+        store.closeAuthModal();
+        store.reset();
+        console.log("[PrivyWalletListener] Wallet linked — redirecting to dashboard");
+        router.push("/dashboard");
       } else {
         // Error — re-open at wallet step so user can retry
         const store = useAuthModalStore.getState();
@@ -109,7 +113,7 @@ export default function PrivyWalletListener() {
     };
 
     link();
-  }, [authenticated, walletAddress, token, isAuthenticated, walletConnecting, privyUser, isOpen]);
+  }, [authenticated, walletAddress, token, isAuthenticated, walletConnecting, privyUser, isOpen, addConnectedWallet, router]);
 
   // Reset refs when walletConnecting goes false (new flow started)
   useEffect(() => {

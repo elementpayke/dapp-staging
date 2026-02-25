@@ -1,7 +1,7 @@
 "use client";
 
 import type React from "react";
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { ArrowUpRight } from "lucide-react";
 import { toast } from "react-toastify";
 import PayToMobileMoney from "./PayToMobileMoney";
@@ -20,7 +20,6 @@ import {
   useWalletClient,
 } from "wagmi";
 import { erc20Abi } from "@/app/api/abi";
-import { isSmartWallet, safeChainSwitch } from "@/lib/wallet-utils";
 
 import { encryptMessageDetailed } from "@/services/encryption";
 import { useContractEvents } from "@/context/useContractEvents";
@@ -39,9 +38,13 @@ import {
   validatePhoneWithAPI,
 } from "@/utils/phoneValidation";
 
-import { createOffRampOrder, fetchOrderQuote } from "@/app/api/aggregator";
+import { fetchOrderQuote } from "@/app/api/aggregator";
+import { extractKYCLimitSnapshot } from "@/services/kycError";
+import { useKYCModalStore } from "@/stores/kycModalStore";
 import { ethers } from "ethers";
+import { SUPPORTED_TOKENS } from "@/constants/supportedTokens";
 import { getTokenConfig } from "@/constants/tokenConfig";
+import { useOnboardingStore } from "@/stores/onboardingStore";
 import {
   FeeBand,
   fetchFeeStructureCached,
@@ -50,7 +53,12 @@ import {
   DEFAULT_FEE_BANDS,
   MIN_TRANSACTION_AMOUNT_KES,
 } from "@/utils/feeStructure";
-import { useSelectedToken, CHAIN_ID_TO_NAME } from "@/context/TokenContext";
+import { useSelectedToken } from "@/context/TokenContext";
+import {
+  executeOfframpOrder as executeOfframpOrderFlow,
+  getOfframpContractAddress,
+  mapOffRampMethodToPaymentMethod,
+} from "@/utils/offrampExecution";
 
 interface TransactionReceipt {
   amount: string;
@@ -72,10 +80,24 @@ interface QuoteValidation {
 const SendCryptoModal: React.FC = () => {
   // Use shared token context for consistent token selection across modals
   const { selectedToken, setSelectedToken } = useSelectedToken();
+  const landingFlow = useOnboardingStore((s) => s.flow);
+  const landingOffRampMethod = useOnboardingStore((s) => s.offRampMethod);
+  const landingAmount = useOnboardingStore((s) => s.amount);
+  const landingPhoneNumber = useOnboardingStore((s) => s.phoneNumber);
+  const landingPaybillNumber = useOnboardingStore((s) => s.paybillNumber);
+  const landingAccountNumber = useOnboardingStore((s) => s.accountNumber);
+  const landingTillNumber = useOnboardingStore((s) => s.tillNumber);
+  const landingTokenSymbol = useOnboardingStore((s) => s.tokenSymbol);
+  const initiatedFromLanding = useOnboardingStore((s) => s.initiatedFromLanding);
+  const setInitiatedFromLanding = useOnboardingStore((s) => s.setInitiatedFromLanding);
+  const landingPrefillAppliedRef = useRef(false);
   
   const [amount, setAmount] = useState("");
   const [mobileNumber, setMobileNumber] = useState("");
   const [reason, setReason] = useState(""); // Optional reason for payment
+  const [initialPaymentMethod, setInitialPaymentMethod] = useState<
+    "Send Money" | "Pay Bill" | "Buy Goods" | undefined
+  >(undefined);
   const [isApproving, setIsApproving] = useState(false);
   const [, setIsProcessing] = useState(false);
 
@@ -178,7 +200,7 @@ const SendCryptoModal: React.FC = () => {
   const isWalletConnect = useMemo(() => {
     return (
       connector?.id === "walletConnect" ||
-      connector?.name?.toLowerCase().includes("walletconnect")
+      Boolean(connector?.name?.toLowerCase().includes("walletconnect"))
     );
   }, [connector]);
 
@@ -231,6 +253,47 @@ const SendCryptoModal: React.FC = () => {
   useEffect(() => {
     setIsBrowser(true);
   }, []);
+
+  useEffect(() => {
+    if (!isBrowser) return;
+    if (landingPrefillAppliedRef.current) return;
+    if (!initiatedFromLanding || landingFlow !== "offramp") return;
+
+    landingPrefillAppliedRef.current = true;
+
+    if (landingAmount) setAmount(landingAmount);
+    if (landingPhoneNumber) setMobileNumber(landingPhoneNumber);
+    if (landingPaybillNumber) setPaybillNumber(landingPaybillNumber);
+    if (landingAccountNumber) setAccountNumber(landingAccountNumber);
+    if (landingTillNumber) setTillNumber(landingTillNumber);
+
+    setInitialPaymentMethod(mapOffRampMethodToPaymentMethod(landingOffRampMethod));
+
+    if (landingTokenSymbol) {
+      const matchedToken = SUPPORTED_TOKENS.find(
+        (token) => token.symbol === landingTokenSymbol,
+      );
+      if (matchedToken) {
+        setSelectedToken(matchedToken);
+      }
+    }
+
+    setIsMainDialogOpen(true);
+    setInitiatedFromLanding(false);
+  }, [
+    isBrowser,
+    initiatedFromLanding,
+    landingFlow,
+    landingAmount,
+    landingPhoneNumber,
+    landingPaybillNumber,
+    landingAccountNumber,
+    landingTillNumber,
+    landingTokenSymbol,
+    landingOffRampMethod,
+    setSelectedToken,
+    setInitiatedFromLanding,
+  ]);
 
   // Fetch both exchange rate AND fee bands from the fee-structure API (single source of truth)
   useEffect(() => {
@@ -699,14 +762,7 @@ const SendCryptoModal: React.FC = () => {
     tillNumber,
   ]);
 
-  // Map chain names to their contract addresses from env
-  const CONTRACT_ADDRESS_MAP: Record<string, string> = {
-    Base: process.env.NEXT_PUBLIC_CONTRACT_ADDRESS_BASE!,
-    Lisk: process.env.NEXT_PUBLIC_CONTRACT_ADDRESS_LISK!,
-    Scroll: process.env.NEXT_PUBLIC_CONTRACT_ADDRESS_SCROLL!,
-    Arbitrum: process.env.NEXT_PUBLIC_CONTRACT_ADDRESS_ARBITRUM!,
-  };
-  const contractAddress = CONTRACT_ADDRESS_MAP[selectedToken.chain];
+  const contractAddress = getOfframpContractAddress(selectedToken.chain);
 
   useContractEvents(
     contractAddress,
@@ -765,21 +821,6 @@ const SendCryptoModal: React.FC = () => {
       hasSufficientBalance: null,
     });
   }, [selectedToken]);
-
-  const getTargetChainId = () => {
-    switch (selectedToken.chain) {
-      case "Base":
-        return 8453;
-      case "Lisk":
-        return 1135;
-      case "Scroll":
-        return 534352;
-      case "Arbitrum":
-        return 42161;
-      default:
-        return 8453;
-    }
-  };
 
   const approveTokenIfNeeded = async (spender: string, amount: string) => {
     try {
@@ -844,520 +885,49 @@ const SendCryptoModal: React.FC = () => {
     }
   };
 
-  const pollOrderStatus = async (txHash: string) => {
-    let attempts = 0;
-    const maxAttempts = 30;
-    const delay = 2000; // 2 seconds between polls
-    console.log("🔄 Starting order status polling for:", txHash);
-
-    while (attempts < maxAttempts) {
-      try {
-        const res = await fetch(
-          `/api/element-pay/orders/status?txHash=${encodeURIComponent(txHash)}`,
-        );
-        const data = await res.json();
-        console.log(
-          `📋 Poll attempt ${
-            attempts + 1
-          }/${maxAttempts} - Order status response:`,
-          data,
-        );
-
-        if (data?.data) {
-          const orderData = data.data;
-          console.log("📋 Order data found:", orderData);
-
-          // Normalize status to uppercase for comparison (API may return lowercase)
-          const statusUpper = orderData.status?.toUpperCase() || "";
-          
-          // Check for final states - these indicate the order has completed processing
-          const isFinalState = [
-            "SETTLED", 
-            "FAILED", 
-            "SETTLED_UNVERIFIED", 
-            "COMPLETED",
-            "REFUNDED"
-          ].includes(statusUpper);
-
-          // Check for M-Pesa receipt - this is the definitive proof of successful payment
-          const hasMpesaReceipt = !!(orderData.mpesa_receipt_number);
-          
-          // Check for settlement hash - this indicates on-chain settlement
-          const hasSettlementHash = !!(orderData.transaction_hashes?.settlement);
-          
-          // Note: creation hash alone does NOT mean settled - it just means order was created
-          // file_id alone does NOT mean settled - it's generated on order creation
-          // We need mpesa_receipt_number OR settlement hash OR a final status
-
-          console.log("📋 Status check:", {
-            status: orderData.status,
-            statusUpper,
-            isFinalState,
-            hasMpesaReceipt,
-            hasSettlementHash,
-            mpesaReceiptNumber: orderData.mpesa_receipt_number,
-            settlementHash: orderData.transaction_hashes?.settlement,
-            creationHash: orderData.transaction_hashes?.creation,
-            fileId: orderData.file_id,
-          });
-
-          // Only return if we have:
-          // 1. A final status (settled, failed, completed, refunded)
-          // 2. OR an M-Pesa receipt number (definitive proof of payment)
-          // 3. OR a settlement transaction hash (on-chain proof)
-          if (isFinalState || hasMpesaReceipt || hasSettlementHash) {
-            console.log("✅ Final order status received:", orderData);
-
-            let normalizedStatus = "SETTLED";
-
-            if (["FAILED", "REJECTED", "CANCELLED"].includes(statusUpper)) {
-              normalizedStatus = "FAILED";
-            } else if (
-              ["SETTLED", "COMPLETED", "SETTLED_UNVERIFIED"].includes(statusUpper) ||
-              hasMpesaReceipt ||
-              hasSettlementHash
-            ) {
-              normalizedStatus = "SETTLED";
-            }
-
-            console.log("📋 Status normalization:", {
-              originalStatus: orderData.status,
-              normalizedStatus,
-              hasMpesaReceipt,
-              hasSettlementHash,
-            });
-
-            return {
-              ...orderData,
-              status: normalizedStatus,
-              transaction_hash:
-                orderData.transaction_hashes?.settlement ||
-                orderData.transaction_hashes?.creation ||
-                txHash,
-              receipt_number:
-                orderData.mpesa_receipt_number ||
-                orderData.receipt_number ||
-                orderData.file_id ||
-                "",
-              receiver_name: orderData.receiver_name || "",
-              mpesa_receipt_number: orderData.mpesa_receipt_number || "",
-              created_at: orderData.created_at || new Date().toISOString(),
-              amount_fiat: orderData.amount_fiat,
-            };
-          }
-        }
-      } catch (e) {
-        console.log(`⚠️ Poll attempt ${attempts + 1} failed:`, e);
-      }
-      await new Promise((r) => setTimeout(r, delay));
-      attempts++;
-    }
-    console.log(
-      "❌ Order status polling timed out after",
-      maxAttempts,
-      "attempts",
-    );
-    return null;
-  };
-
   const executeOfframpOrder = async () => {
-    const targetChainId = getTargetChainId();
-
-    if (currentChainId !== targetChainId) {
-      console.log(
-        `🔄 Network switch needed: ${currentChainId} -> ${targetChainId} (${selectedToken.chain})`,
-      );
-      console.log(
-        `📱 Mobile wallet flow: ${isMobileWalletFlow}, Device: ${isMobileDevice}, WalletConnect: ${isWalletConnect}`,
-      );
-
-      const isSmartWalletConnected = isSmartWallet(connector);
-
-      if (isSmartWalletConnected) {
-        console.log(
-          `📱 Smart wallet detected (${connector?.name}), proceeding without chain switch`,
-        );
-        toast.info(
-          `Smart wallet detected. Proceeding with ${selectedToken.chain} transaction.`,
-        );
-      } else {
-        // For mobile wallets, show guidance before switching
-        if (isMobileWalletFlow) {
-          toast.info(
-            `Switching to ${selectedToken.chain}. Please approve in your wallet app.`,
-            { autoClose: 5000 },
-          );
-        }
-
-        showNetworkSwitchNotification(selectedToken.chain, "switching");
-
-        try {
-          const switchResult = await safeChainSwitch({
-            connector,
-            currentChainId,
-            targetChainId,
-            switchChainAsyncFn: switchChainAsync,
-            chainName: selectedToken.chain,
-          });
-
-          if (switchResult.success) {
-            if (switchResult.method === "switched") {
-              // Wait longer for mobile wallets to complete the switch
-              const waitTime = isMobileWalletFlow ? 3000 : 1000;
-              await new Promise((resolve) => setTimeout(resolve, waitTime));
-              showNetworkSwitchNotification(selectedToken.chain, "success");
-              console.log(`✅ ${switchResult.message}`);
-
-              // ✅ CRITICAL FIX: For desktop, show toast and return (existing behavior)
-              // For mobile, continue with the transaction flow
-              if (!isMobileWalletFlow) {
-                toast.success(
-                  `Switched to ${selectedToken.chain}. Please try again.`,
-                );
-                return;
-              }
-              // Mobile: Continue with transaction - don't return
-              console.log(
-                "📱 Mobile wallet: Continuing transaction after network switch",
-              );
-            } else if (switchResult.method === "manual-required") {
-              showNetworkSwitchNotification(selectedToken.chain, "error");
-              toast.warning(switchResult.message);
-              return;
-            }
-            // For 'skipped' or 'already-on-chain', continue with transaction
-          } else {
-            showNetworkSwitchNotification(selectedToken.chain, "error");
-            toast.error(switchResult.message);
-            return;
-          }
-        } catch (err) {
-          console.error("❌ Network switch failed:", err);
-          showNetworkSwitchNotification(selectedToken.chain, "error");
-          toast.error(`Please switch to ${selectedToken.chain} to continue.`);
-          return;
-        }
-      }
-    }
-
-    try {
-      setIsApproving(true);
-
-      // ✅ FIXED: Validate balance before proceeding
-      if (!transactionSummary.canAfford) {
-        toast.error(
-          `Insufficient balance. You need ${transactionSummary.totalUSDC.toFixed(6)} ${selectedToken.symbol} but only have ${selectedTokenBalance.toFixed(6)} ${selectedToken.symbol}`,
-        );
-        setIsApproving(false);
-        setIsProcessing(false);
-        return;
-      }
-
-      const cashoutType = getCashoutType();
-      let validationError = "";
-
-      if (
-        !account.address ||
-        !selectedToken.tokenAddress ||
-        !amount ||
-        !messageHash
-      ) {
-        validationError =
-          "Missing required order details. Please fill all fields and connect your wallet.";
-      } else if (cashoutType === "PHONE" && !mobileNumber) {
-        validationError = "Phone number is required for Send Money.";
-      } else if (
-        cashoutType === "PAYBILL" &&
-        (!paybillNumber || !accountNumber)
-      ) {
-        validationError =
-          "Business number and account number are required for Pay Bill.";
-      } else if (cashoutType === "TILL" && !tillNumber) {
-        validationError = "Till number is required for Buy Goods.";
-      }
-
-      if (validationError) {
-        console.error("Missing required order details:", {
-          user_address: account.address,
-          token: selectedToken.tokenAddress,
-          amount,
-          mobileNumber,
-          messageHash,
-          cashoutType,
-          paybillNumber,
-          accountNumber,
-          tillNumber,
-          error: validationError,
-        });
-        toast.error(validationError);
-        setIsApproving(false);
-        setIsProcessing(false);
-        return;
-      }
-
-      // Show processing popup - earlier for mobile to give visual feedback
-      setShowProcessingPopup(true);
-
-      // For mobile wallets, show guidance
-      if (isMobileWalletFlow) {
-        toast.info("Please check your wallet app to approve the transaction.", {
-          autoClose: 10000,
-        });
-      }
-
-      const initialReceiptData = {
-        amount: amount,
-        amountUSDC: transactionSummary.usdcAmount,
-        phoneNumber:
-          getCashoutType() === "PHONE"
-            ? mobileNumber
-            : getCashoutType() === "PAYBILL"
-              ? `${paybillNumber} - ${accountNumber}`
-              : tillNumber,
-        address: account.address || "",
-        transactionHash: "",
-        status: 0,
-      };
-
-      console.log("📋 Initial transaction receipt data:", initialReceiptData);
-      setTransactionReciept((prev) => ({
-        ...prev,
-        ...initialReceiptData,
-      }));
-
-      let requiredApprovalAmount: string;
-      let hasSufficientAllowance = false;
-
-      const walletAddress = account.address;
-      if (!walletAddress) {
-        toast.error("Wallet address not found. Please connect your wallet.");
-        setIsApproving(false);
-        setIsProcessing(false);
-        return;
-      }
-
-      try {
-        // Skip cache for actual transaction to get fresh quote
-        const quoteResponse = await fetchOrderQuote({
-          amountFiat: Number(amount),
-          tokenAddress: selectedToken.tokenAddress,
-          walletAddress: walletAddress,
-          orderType: 1,
-          currency: "KES",
-          skipCache: true, // Fresh quote for actual transaction
-        });
-
-        if (quoteResponse.status === "success" && quoteResponse.data) {
-          const quoteData = quoteResponse.data;
-          const tokenConfig = getTokenConfig(selectedToken.tokenAddress);
-          const decimals = tokenConfig?.decimals || 6;
-          // Add 0.5% buffer to approval amount to account for rate fluctuations during transaction
-          const APPROVAL_BUFFER_PERCENT = 0.005; // 0.5%
-          const baseAmount = quoteData.required_token_amount_raw / Math.pow(10, decimals);
-          const bufferedAmount = baseAmount * (1 + APPROVAL_BUFFER_PERCENT);
-          requiredApprovalAmount = bufferedAmount.toFixed(decimals);
-          console.log(`📋 Approval amount: ${baseAmount.toFixed(decimals)} + 0.5% buffer = ${requiredApprovalAmount} ${selectedToken.symbol}`);
-          hasSufficientAllowance = quoteData.has_sufficient_allowance ?? false;
-        } else {
-          throw new Error("Failed to get quote from API");
-        }
-      } catch (quoteError: any) {
-        console.error("Failed to fetch order quote:", quoteError);
-        setShowProcessingPopup(false);
-        setIsApproving(false);
-        setIsProcessing(false);
-        toast.error(
-          quoteError?.response?.data?.message ||
-            quoteError?.message ||
-            "Failed to calculate required approval amount. Please try again.",
-        );
-        return;
-      }
-
-      const spender = contractAddress;
-      const tokenConfig = getTokenConfig(selectedToken.tokenAddress);
-      const decimals = tokenConfig?.decimals || 6;
-
-      if (!hasSufficientAllowance) {
-        // For mobile wallets, show additional guidance
-        if (isMobileWalletFlow) {
-          toast.info("Approval needed. Please approve in your wallet app.", {
-            autoClose: 15000,
-          });
-        }
-
-        const approveTxHash = await approveTokenIfNeeded(
-          spender,
-          requiredApprovalAmount,
-        );
-
-        if (!approveTxHash) {
-          setShowProcessingPopup(false);
-          setIsApproving(false);
-          setIsProcessing(false);
-          toast.error(
-            "Token approval failed. Cannot proceed with order creation.",
-          );
-          return;
-        }
-
-        // Wait a bit after approval for mobile wallets
-        if (isMobileWalletFlow) {
-          await new Promise((resolve) => setTimeout(resolve, 2000));
-          toast.info("Approval successful! Now signing the transaction...", {
-            autoClose: 10000,
-          });
-        }
-      }
-
-      if (!messageHash) {
-        console.error(
-          "Message hash is missing! Cannot proceed with order creation.",
-        );
-        setShowProcessingPopup(false);
-        setIsApproving(false);
-        setIsProcessing(false);
-        toast.error("Order details are incomplete. Please try again.");
-        return;
-      }
-
-      let apiResponse;
-      try {
-       
-        apiResponse = await Promise.race([
-          createOffRampOrder({
-            userAddress: account.address as string,
-            tokenAddress: selectedToken.tokenAddress,
-            amount: Number(amount),
-            amountFiat: Number(amount),
-            phoneNumber: getCashoutType() === "PHONE" ? mobileNumber : "",
-            messageHash: messageHash,
-            reason: reason || "", // ✅ TASK 2: Custom reason included
-            cashoutType: getCashoutType(),
-            paybillNumber: getCashoutType() === "PAYBILL" ? paybillNumber : "",
-            accountNumber: getCashoutType() === "PAYBILL" ? accountNumber : "",
-            tillNumber: getCashoutType() === "TILL" ? tillNumber : "",
-          }),
-          new Promise((_, reject) =>
-            setTimeout(
-              () =>
-                reject(
-                  new Error(
-                    "API request timed out after 45 seconds. The Element Pay service may be experiencing high load. Please try again in a few moments or contact support if the issue persists.",
-                  ),
-                ),
-              45000,
-            ),
-          ),
-        ]);
-        
-    
-      } catch (apiError) {
-        console.error("❌ Offramp API call failed:", apiError);
-        setShowProcessingPopup(false);
-
-        const errorMessage =
-          (apiError as any)?.message ||
-          "Payment processing failed. Please try again.";
-        if (errorMessage.includes("timed out")) {
-          toast.error(
-            "The payment is taking longer than expected. Please check your transaction history in a few minutes or contact support if needed.",
-          );
-        } else {
-          toast.error(errorMessage);
-        }
-
-        setIsApproving(false);
-        setIsProcessing(false);
-        return;
-      }
-
-      console.log("📥 [API] Full response received:", apiResponse);
-
-      // Extract order ID from response (tx_hash is the order ID)
-      const orderId = (apiResponse as any)?.data?.tx_hash || "";
-
-      console.log("🎫 [ORDER] Extracted order ID:", orderId);
-
-      if (!orderId) {
-        console.error("❌ [ORDER] No tx_hash in response data!");
-        console.error("❌ [ORDER] Response structure:", JSON.stringify(apiResponse, null, 2));
-        toast.error("Order created but no transaction hash returned. Please check your transaction history.");
-        setShowProcessingPopup(false);
-        setIsApproving(false);
-        setIsProcessing(false);
-        return;
-      }
-      setOrderId(orderId);
-
-      setTransactionReciept((prev) => ({
-        ...prev,
-        transactionHash: orderId,
-      }));
-
-      const statusData = await pollOrderStatus(orderId);
-      if (statusData) {
-        const isSettled = statusData.status === "SETTLED";
-        const isFailed = statusData.status === "FAILED";
-
-        setFinalTransactionData(statusData);
-        setIsPollingComplete(true);
-
-        const finalReceiptData = {
-          status: isSettled ? 1 : isFailed ? 2 : 0,
-          transactionHash: statusData.transaction_hash || orderId,
-        };
-
-        console.log("📋 Final transaction receipt data:", finalReceiptData);
-        setTransactionReciept((prev) => ({
-          ...prev,
-          ...finalReceiptData,
-        }));
-
-        // Refresh transaction list after completion
-        refreshTransactionList();
-
-        if (isSettled) {
-          toast.success(
-            `Payment completed! ${
-              statusData.mpesa_receipt_number
-                ? `M-Pesa Receipt: ${statusData.mpesa_receipt_number}`
-                : ""
-            }`,
-          );
-        } else if (isFailed) {
-          toast.error(
-            `Payment failed: ${
-              statusData.failure_reason ||
-              "Transaction was not completed successfully"
-            }`,
-          );
-        }
-      } else {
-        console.log("⏰ Order status polling timed out");
-        setIsPollingComplete(true);
-        setTransactionReciept((prev) => ({
-          ...prev,
-          status: 2,
-        }));
-        // Refresh transaction list even on timeout (order may have been created)
-        refreshTransactionList();
-        toast.error(
-          "Payment is taking longer than expected. Please check your transaction history or contact support.",
-        );
-      }
-    } catch (err: any) {
-      console.error("❌ Transaction process failed:", err);
-      setShowProcessingPopup(false);
-      // Refresh transaction list on error as well (partial state may exist)
-      refreshTransactionList();
-      toast.error(err?.message || "Transaction failed. Please try again.");
-    } finally {
-      setIsApproving(false);
-      setIsProcessing(false);
-    }
+    await executeOfframpOrderFlow({
+      selectedToken,
+      currentChainId: currentChainId ?? 0,
+      connector,
+      switchChainAsync,
+      isMobileWalletFlow,
+      accountAddress: account.address,
+      amountFiat: amount,
+      messageHash,
+      reason,
+      mobileNumber,
+      paybillNumber,
+      accountNumber,
+      tillNumber,
+      contractAddress,
+      transactionSummary,
+      selectedTokenBalance,
+      getCashoutType,
+      approveTokenIfNeeded,
+      setApproving: setIsApproving,
+      setProcessing: setIsProcessing,
+      setShowProcessingPopup,
+      setOrderId,
+      setFinalTransactionData,
+      setPollingComplete: setIsPollingComplete,
+      setTransactionReceipt: setTransactionReciept,
+      refreshTransactionList,
+      notify: {
+        info: toast.info,
+        success: toast.success,
+        warning: toast.warning,
+        error: toast.error,
+      },
+      onKycRequired: (apiError) => {
+        setIsMainDialogOpen(false);
+        useKYCModalStore
+          .getState()
+          .openKYCModal(extractKYCLimitSnapshot(apiError.details));
+      },
+      showNetworkSwitchNotification,
+    });
   };
-
   const handleApproveToken = async () => {
     if (!account.address) {
       toast.error("Please connect your wallet first");
@@ -1484,6 +1054,15 @@ const SendCryptoModal: React.FC = () => {
     account.address,
   ]);
 
+  console.log(
+    "🔍 Form validation state:",
+    {
+      isApproving,
+      isFormValid: isFormValid(),
+      quoteValidation: quoteValidation.isValidating,
+    }
+  );
+
   return (
     <>
       <Dialog open={isMainDialogOpen} onOpenChange={setIsMainDialogOpen}>
@@ -1534,6 +1113,7 @@ const SendCryptoModal: React.FC = () => {
                 handleMaxAmountSet={handleMaxAmountSet}
                 transactionChargeKES={transactionSummary.transactionChargeKES}
                 feeBands={feeBands}
+                initialPaymentMethod={initialPaymentMethod}
               />
 
               {/* Mobile Confirm Button - Only shown on small screens */}

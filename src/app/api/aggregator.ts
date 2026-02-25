@@ -1,5 +1,7 @@
 import axios from "axios";
 
+import { KYCRequiredError } from "@/services/kycError";
+import { useAuthStore } from "@/stores/authStore";
 import type {
   RatePayload,
   RateResponse,
@@ -45,6 +47,71 @@ interface OrderQuoteResponse {
     balance_check_error?: string;
   };
 }
+
+type KYCSignal = {
+  isMatch: boolean;
+  message?: string;
+  code?: string;
+};
+
+const parseKYCSignal = (responseData: any): KYCSignal => {
+  if (!responseData || typeof responseData !== "object") {
+    return { isMatch: false };
+  }
+
+  const messageParts = [
+    responseData?.message,
+    responseData?.error,
+    responseData?.data?.message,
+    responseData?.data?.error,
+  ]
+    .filter(Boolean)
+    .map((value) => String(value).toLowerCase());
+
+  const codeParts = [
+    responseData?.code,
+    responseData?.error_code,
+    responseData?.status,
+    responseData?.error,
+    responseData?.data?.code,
+    responseData?.data?.error_code,
+    responseData?.data?.error,
+  ]
+    .filter(Boolean)
+    .map((value) => String(value).toLowerCase());
+
+  const hasKycCode = codeParts.some((code) =>
+    ["kyc_required", "limit_exceeded"].includes(code),
+  );
+  const hasKycMessage = messageParts.some((msg) => msg.includes("kyc"));
+  const hasLimitMessage = messageParts.some(
+    (msg) =>
+      msg.includes("limit exceeded") ||
+      msg.includes("exceeds transaction limit") ||
+      msg.includes("transaction limit"),
+  );
+
+  if (!hasKycCode && !hasKycMessage && !hasLimitMessage) {
+    return { isMatch: false };
+  }
+
+  const selectedCode =
+    codeParts.find((code) =>
+      ["kyc_required", "limit_exceeded"].includes(code),
+    ) || "kyc_required";
+
+  const selectedMessage =
+    responseData?.message ||
+    responseData?.error ||
+    responseData?.data?.message ||
+    "You've reached your transaction limit. Please verify your identity to continue.";
+
+  return {
+    isMatch: true,
+    message: selectedMessage,
+    code: selectedCode,
+  };
+};
 
 export const fetchRate = async ({
   token,
@@ -170,6 +237,16 @@ const clientApi = axios.create({
   timeout: 30000,
 });
 
+// Attach auth token to every outgoing request
+clientApi.interceptors.request.use((config) => {
+  const token = useAuthStore.getState().token;
+  if (token) {
+    config.headers = config.headers || {};
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
+});
+
 // Retry logic for API calls with improved timeout handling
 const retryRequest = async <T>(
   fn: () => Promise<T>,
@@ -266,6 +343,7 @@ export const createOnRampOrder = async ({
   amount,
   phoneNumber,
   reason,
+  
 }: {
   userAddress: string;
   tokenAddress: string;
@@ -318,6 +396,16 @@ export const createOnRampOrder = async ({
       },
     });
 
+    const kycSignal = parseKYCSignal(error.response?.data);
+    if (kycSignal.isMatch) {
+      throw new KYCRequiredError(
+        kycSignal.message ||
+          "You've reached your transaction limit. Please verify your identity to continue.",
+        kycSignal.code || "kyc_required",
+        error.response?.data,
+      );
+    }
+
     // Provide more specific error messages for WXM orders
     if (error.code === "ECONNABORTED" || error.message?.includes("timeout")) {
       console.error("⏰ Request timeout - API may be down or slow");
@@ -361,19 +449,38 @@ export const createOnRampOrder = async ({
     }
 
     if (error.response?.status === 429) {
-      throw new Error("Too many requests. Please wait a moment and try again.");
+      const serverMsg = error.response?.data?.message || error.response?.data?.error;
+      throw new Error(serverMsg || "Too many requests. Please wait a moment and try again.");
     }
 
     if (error.response?.status === 422) {
       const errorMessage =
-        error.response?.data?.message || "Invalid request data";
+        error.response?.data?.message || error.response?.data?.error || "Invalid request data";
       throw new Error(`Validation error: ${errorMessage}`);
     }
 
     if (error.response?.status === 401) {
-      throw new Error(
-        "Authentication failed. Please check server API key configuration."
-      );
+      const serverMsg = error.response?.data?.message || error.response?.data?.error;
+      throw new Error(serverMsg || "Authentication failed. Please log in again.");
+    }
+
+    if (error.response?.status === 403) {
+      const serverMsg = error.response?.data?.message || error.response?.data?.error;
+      const errorCode = error.response?.data?.code || error.response?.data?.error_code;
+      if (
+        errorCode === "kyc_required" ||
+        errorCode === "limit_exceeded" ||
+        serverMsg?.toLowerCase().includes("kyc") ||
+        serverMsg?.toLowerCase().includes("limit exceeded") ||
+        serverMsg?.toLowerCase().includes("exceeds transaction limit")
+      ) {
+        throw new KYCRequiredError(
+          serverMsg || "You've reached your transaction limit. Please verify your identity to continue.",
+          errorCode || "kyc_required",
+          error.response?.data,
+        );
+      }
+      throw new Error(serverMsg || "You do not have permission to perform this action.");
     }
 
     if (error.response?.status === 0) {
@@ -383,9 +490,11 @@ export const createOnRampOrder = async ({
       );
     }
 
+    // Relay any other server error message as-is
+    const serverMessage = error.response?.data?.message || error.response?.data?.error;
     console.error("❌ Unknown error:", error);
     throw new Error(
-      error.response?.data?.message ||
+      serverMessage ||
         error.message ||
         "Failed to create onramp order"
     );
@@ -478,6 +587,16 @@ export const createOffRampOrder = async ({
       },
     });
 
+    const kycSignal = parseKYCSignal(error.response?.data);
+    if (kycSignal.isMatch) {
+      throw new KYCRequiredError(
+        kycSignal.message ||
+          "You've reached your transaction limit. Please verify your identity to continue.",
+        kycSignal.code || "kyc_required",
+        error.response?.data,
+      );
+    }
+
     // Provide more specific error messages
     if (error.code === "ECONNABORTED" || error.message?.includes("timeout")) {
       console.error("⏰ Request timeout - API may be down or slow");
@@ -503,19 +622,38 @@ export const createOffRampOrder = async ({
     }
 
     if (error.response?.status === 429) {
-      throw new Error("Too many requests. Please wait a moment and try again.");
+      const serverMsg = error.response?.data?.message || error.response?.data?.error;
+      throw new Error(serverMsg || "Too many requests. Please wait a moment and try again.");
     }
 
     if (error.response?.status === 422) {
       const errorMessage =
-        error.response?.data?.message || "Invalid request data";
+        error.response?.data?.message || error.response?.data?.error || "Invalid request data";
       throw new Error(`Validation error: ${errorMessage}`);
     }
 
     if (error.response?.status === 401) {
-      throw new Error(
-        "Authentication failed. Please check server API key configuration."
-      );
+      const serverMsg = error.response?.data?.message || error.response?.data?.error;
+      throw new Error(serverMsg || "Authentication failed. Please log in again.");
+    }
+
+    if (error.response?.status === 403) {
+      const serverMsg = error.response?.data?.message || error.response?.data?.error;
+      const errorCode = error.response?.data?.code || error.response?.data?.error_code;
+      if (
+        errorCode === "kyc_required" ||
+        errorCode === "limit_exceeded" ||
+        serverMsg?.toLowerCase().includes("kyc") ||
+        serverMsg?.toLowerCase().includes("limit exceeded") ||
+        serverMsg?.toLowerCase().includes("exceeds transaction limit")
+      ) {
+        throw new KYCRequiredError(
+          serverMsg || "You've reached your transaction limit. Please verify your identity to continue.",
+          errorCode || "kyc_required",
+          error.response?.data,
+        );
+      }
+      throw new Error(serverMsg || "You do not have permission to perform this action.");
     }
 
     if (error.response?.status === 0) {
@@ -525,9 +663,11 @@ export const createOffRampOrder = async ({
       );
     }
 
+    // Relay any other server error message as-is
+    const serverMessage = error.response?.data?.message || error.response?.data?.error;
     console.error("❌ Unknown error:", error);
     throw new Error(
-      error.response?.data?.message ||
+      serverMessage ||
         error.message ||
         "Failed to create offramp order"
     );

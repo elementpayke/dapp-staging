@@ -5,7 +5,6 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Loader2, CheckCircle2, XCircle } from "lucide-react";
 import { checkKYCStatus } from "@/services/auth";
 import { useAuthStore } from "@/stores/authStore";
-import { useOnboardingStore } from "@/stores/onboardingStore";
 
 type Status = "loading" | "success" | "failed";
 
@@ -17,16 +16,15 @@ export default function KYCCallbackPage() {
 
   const token = useAuthStore((s) => s.token);
   const updateKYCStatus = useAuthStore((s) => s.updateKYCStatus);
-  const setLandingForm = useOnboardingStore((s) => s.setLandingForm);
 
   useEffect(() => {
     const verify = async () => {
       try {
         // Session ID from URL params or localStorage
         const sessionId =
-          searchParams.get("session_id") ??
+          searchParams.get("ref_id") ??
           (typeof window !== "undefined"
-            ? localStorage.getItem("elementpay-kyc-session")
+            ? localStorage.getItem("elementpay-kyc-ref")
             : null);
 
         if (!sessionId || !token) {
@@ -39,19 +37,9 @@ export default function KYCCallbackPage() {
         console.log("[KYC Callback] checkKYCStatus response:", JSON.stringify(res, null, 2));
         updateKYCStatus(res.kyc_status);
 
-        // Restore pending transaction data
+        // Clean up KYC ref from localStorage
         if (typeof window !== "undefined") {
-          const pendingRaw = localStorage.getItem("elementpay-pending-tx");
-          if (pendingRaw) {
-            try {
-              const pending = JSON.parse(pendingRaw);
-              setLandingForm(pending);
-              localStorage.removeItem("elementpay-pending-tx");
-            } catch {
-              /* ignore corrupt data */
-            }
-          }
-          localStorage.removeItem("elementpay-kyc-session");
+          localStorage.removeItem("elementpay-kyc-ref");
         }
 
         if (res.kyc_status === "verified") {
@@ -73,7 +61,7 @@ export default function KYCCallbackPage() {
     };
 
     verify();
-  }, [token, searchParams, updateKYCStatus, setLandingForm, router]);
+  }, [token, searchParams, updateKYCStatus, router]);
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-[var(--landing-bg)] px-4">

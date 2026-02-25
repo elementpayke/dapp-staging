@@ -1,12 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-
-const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL;
+import { createBackendErrorResponse, fetchBackend } from "@/lib/backend-fetch";
 
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
 
-    const res = await fetch(`${BACKEND_URL}/auth/verify-otp`, {
+    const res = await fetchBackend("/auth/verify-otp", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
@@ -24,9 +23,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(data);
   } catch (error: any) {
     console.error("[verify-otp] Error:", error);
-    return NextResponse.json(
-      { success: false, message: "Internal server error" },
-      { status: 500 },
-    );
+    return createBackendErrorResponse(error);
   }
 }

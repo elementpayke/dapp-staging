@@ -9,7 +9,7 @@ import type { AuthUser } from "@/services/auth";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
-export type AuthStep = "email" | "otp" | "wallet" | "kyc-redirect";
+export type AuthStep = "email" | "otp" | "wallet";
 
 interface AuthState {
   /** JWT access token from backend */
@@ -24,6 +24,8 @@ interface AuthState {
   pendingEmail: string | null;
   /** OTP entered during auth flow (kept for wallet step verification) */
   pendingOTP: string | null;
+  /** All wallet addresses linked to this account */
+  connectedWallets: string[];
 }
 
 interface AuthActions {
@@ -41,6 +43,10 @@ interface AuthActions {
   setPendingOTP: (otp: string) => void;
   /** Clear pending auth flow data */
   clearPending: () => void;
+  /** Add a wallet address to the connected wallets array (deduped) */
+  addConnectedWallet: (address: string) => void;
+  /** Remove a wallet address from the connected wallets array */
+  removeConnectedWallet: (address: string) => void;
 }
 
 export type AuthStore = AuthState & AuthActions;
@@ -57,6 +63,7 @@ export const useAuthStore = create<AuthStore>()(
       isAuthenticated: false,
       pendingEmail: null,
       pendingOTP: null,
+      connectedWallets: [],
 
       // ── Actions ────────────────────────────────────────────────────────
       setAuth: (token, user, refreshToken) =>
@@ -77,6 +84,7 @@ export const useAuthStore = create<AuthStore>()(
           isAuthenticated: false,
           pendingEmail: null,
           pendingOTP: null,
+          connectedWallets: [],
         }),
 
       updateKYCStatus: (status) =>
@@ -91,6 +99,18 @@ export const useAuthStore = create<AuthStore>()(
       setPendingOTP: (otp) => set({ pendingOTP: otp }),
 
       clearPending: () => set({ pendingEmail: null, pendingOTP: null }),
+
+      addConnectedWallet: (address) =>
+        set((s) => ({
+          connectedWallets: s.connectedWallets.includes(address)
+            ? s.connectedWallets
+            : [...s.connectedWallets, address],
+        })),
+
+      removeConnectedWallet: (address) =>
+        set((s) => ({
+          connectedWallets: s.connectedWallets.filter((a) => a !== address),
+        })),
     }),
     {
       name: STORAGE_KEY,
@@ -99,6 +119,7 @@ export const useAuthStore = create<AuthStore>()(
         refreshToken: s.refreshToken,
         user: s.user,
         isAuthenticated: s.isAuthenticated,
+        connectedWallets: s.connectedWallets,
       }),
     },
   ),

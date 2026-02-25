@@ -1,14 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
-
-const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL;
+import { createBackendErrorResponse, fetchBackend } from "@/lib/backend-fetch";
 
 export async function GET(req: NextRequest) {
   try {
     const authHeader = req.headers.get("authorization") ?? "";
+    const token = authHeader.replace(/^Bearer\s+/i, "");
 
-    const res = await fetch(`${BACKEND_URL}/auth/wallets`, {
+    const res = await fetchBackend("/auth/wallets", {
       headers: {
-        Authorization: authHeader,
+        Bearer: token,
       },
     });
 
@@ -24,9 +24,6 @@ export async function GET(req: NextRequest) {
     return NextResponse.json(data);
   } catch (error: any) {
     console.error("[wallets] Error:", error);
-    return NextResponse.json(
-      { success: false, message: "Internal server error" },
-      { status: 500 },
-    );
+    return createBackendErrorResponse(error);
   }
 }

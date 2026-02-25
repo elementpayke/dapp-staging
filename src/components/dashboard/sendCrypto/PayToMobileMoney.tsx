@@ -37,6 +37,7 @@ interface PayToMobileMoneyProps {
     fee_amount: number;
     description: string;
   }>;
+  initialPaymentMethod?: PaymentMethod;
 }
 
 type PaymentMethod = "Send Money" | "Pay Bill" | "Buy Goods";
@@ -66,9 +67,11 @@ const PayToMobileMoney: React.FC<PayToMobileMoneyProps> = ({
   handleMaxAmountSet,
   transactionChargeKES,
   feeBands,
+  initialPaymentMethod,
 }) => {
-  const [paymentMethod, setPaymentMethod] =
-    useState<PaymentMethod>("Send Money");
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>(
+    initialPaymentMethod ?? "Send Money",
+  );
 
   const [internalPhoneValidation, setInternalPhoneValidation] = useState<{
     isValid: boolean;
@@ -104,6 +107,11 @@ const PayToMobileMoney: React.FC<PayToMobileMoneyProps> = ({
     setPaybillNumber,
     setAccountNumber,
   ]);
+
+  useEffect(() => {
+    if (!initialPaymentMethod) return;
+    setPaymentMethod(initialPaymentMethod);
+  }, [initialPaymentMethod]);
 
   const validateInput = () => {
     if (amount && Number.parseFloat(amount) < MIN_TRANSACTION_AMOUNT_KES) {

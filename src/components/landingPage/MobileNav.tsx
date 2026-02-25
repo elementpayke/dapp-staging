@@ -3,9 +3,11 @@ import React, { useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { X, LogOut, LayoutDashboard } from "lucide-react";
 import { usePrivy } from "@privy-io/react-auth";
+import { useDisconnect } from "wagmi";
 import { useMenuStore } from "@/lib/useMobileNav";
 import { useAuthModalStore } from "@/stores/authModalStore";
 import { useAuthStore } from "@/stores/authStore";
+import { useWalletStore } from "@/lib/useWallet";
 
 const NAV_LINKS = [
   { href: "/#services", label: "Services" },
@@ -23,14 +25,19 @@ const MobileNav = () => {
   const { openAuthModal } = useAuthModalStore();
   const { isAuthenticated, user, clearAuth } = useAuthStore();
   const { logout: privyLogout } = usePrivy();
+  const { disconnect: wagmiDisconnect } = useDisconnect();
+  const { disconnect: storeDisconnect } = useWalletStore();
   const router = useRouter();
 
   const handleLogout = useCallback(async () => {
     setIsMenuOpen(false);
-    try { await privyLogout(); } catch {}
+    try { await privyLogout(); } catch (err) { console.warn("[MobileNav] Privy logout error:", err); }
+    wagmiDisconnect();
+    storeDisconnect();
     clearAuth();
+    localStorage.removeItem("wallet-storage");
     router.push("/");
-  }, [setIsMenuOpen, privyLogout, clearAuth, router]);
+  }, [setIsMenuOpen, privyLogout, wagmiDisconnect, storeDisconnect, clearAuth, router]);
 
   if (!isMenuOpen) return null;
 

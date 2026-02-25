@@ -5,11 +5,13 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Menu, X, LayoutDashboard, LogOut, Wallet, UserCircle } from "lucide-react";
 import { usePrivy } from "@privy-io/react-auth";
+import { useDisconnect } from "wagmi";
 import { useLockBodyScroll } from "@/lib/useScroll";
 import MobileNav from "./MobileNav";
 import { useMenuStore } from "@/lib/useMobileNav";
 import { useAuthModalStore } from "@/stores/authModalStore";
 import { useAuthStore } from "@/stores/authStore";
+import { useWalletStore } from "@/lib/useWallet";
 
 const NAV_LINKS = [
   { href: "/#services", label: "Services" },
@@ -30,6 +32,8 @@ const Header = () => {
   const userEmail = useAuthStore((s) => s.user?.email);
   const clearAuth = useAuthStore((s) => s.clearAuth);
   const { logout: privyLogout } = usePrivy();
+  const { disconnect: wagmiDisconnect } = useDisconnect();
+  const { disconnect: storeDisconnect } = useWalletStore();
   const router = useRouter();
 
   const [dropdownOpen, setDropdownOpen] = useState(false);
@@ -49,10 +53,13 @@ const Header = () => {
 
   const handleLogout = useCallback(async () => {
     setDropdownOpen(false);
-    try { await privyLogout(); } catch {}
+    try { await privyLogout(); } catch (err) { console.warn("[Header] Privy logout error:", err); }
+    wagmiDisconnect();
+    storeDisconnect();
     clearAuth();
+    localStorage.removeItem("wallet-storage");
     router.push("/");
-  }, [privyLogout, clearAuth, router]);
+  }, [privyLogout, wagmiDisconnect, storeDisconnect, clearAuth, router]);
 
   // Avatar initials from email
   const initials = userEmail ? userEmail.charAt(0).toUpperCase() : "U";

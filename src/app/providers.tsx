@@ -53,7 +53,7 @@ function StoreHydration() {
 export function Providers(props: { children: ReactNode }) {
   return (
     <PrivyProvider
-      appId={process.env.NEXT_PUBLIC_PRIVY_APP_ID || ""}
+      appId={"cmkn2mzls02apjp0cvfjkr4ab"}
       config={{
         appearance: {
           theme: "dark",
@@ -71,7 +71,7 @@ export function Providers(props: { children: ReactNode }) {
             "detected_wallets", // Show any other detected wallets
           ],
         },
-        loginMethods: ["wallet", "email"],
+        loginMethods: ["wallet"],
         // Support multiple chains
         defaultChain: base,
         supportedChains: [base, arbitrum, lisk, scroll],

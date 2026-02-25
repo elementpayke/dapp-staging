@@ -8,16 +8,14 @@ import { useAuthStore } from "@/stores/authStore";
 import EmailStep from "./EmailStep";
 import OTPStep from "./OTPStep";
 import WalletStep from "./WalletStep";
-import KYCRedirectStep from "./KYCRedirectStep";
 
-const STEP_LABELS = {
+const STEP_LABELS: Record<string, string> = {
   email: "Email",
   otp: "Verify",
   wallet: "Wallet",
-  "kyc-redirect": "Identity",
 } as const;
 
-const STEPS: (keyof typeof STEP_LABELS)[] = ["email", "otp", "wallet", "kyc-redirect"];
+const STEPS = ["email", "otp", "wallet"] as const;
 
 const AuthModal = () => {
   const isOpen = useAuthModalStore((s) => s.isOpen);
@@ -55,7 +53,7 @@ const AuthModal = () => {
 
   if (!isOpen) return null;
 
-  const currentIdx = STEPS.indexOf(step);
+  const currentIdx = (STEPS as readonly string[]).indexOf(step);
 
   return (
     <div className={`fixed inset-0 z-[100] flex items-center justify-center transition-opacity duration-150 ${walletConnecting ? 'opacity-0 pointer-events-none' : ''}`}>
@@ -137,7 +135,6 @@ const AuthModal = () => {
             {step === "email" && <EmailStep key="email" />}
             {step === "otp" && <OTPStep key="otp" />}
             {step === "wallet" && <WalletStep key="wallet" />}
-            {step === "kyc-redirect" && <KYCRedirectStep key="kyc" />}
           </AnimatePresence>
         </div>
       </motion.div>

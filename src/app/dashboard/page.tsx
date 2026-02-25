@@ -5,13 +5,13 @@ import OverviewPage from "@/components/dashboard/pages/OverviewPage";
 import TransactionsPage from "@/components/dashboard/pages/TransactionsPage";
 import WhatsAppPage from "@/components/dashboard/pages/WhatsAppPage";
 import EmailPage from "@/components/dashboard/pages/EmailPage";
+import KYCRequiredModal from "@/components/dashboard/KYCRequiredModal";
 import { Bell, ChevronDown, LogOut } from "lucide-react";
 import Image from "next/image";
 import avatarPlaceholder from "@/assets/avatar-placeholder.svg";
 import { useRouter } from "next/navigation";
 import { useWallet } from "@/hooks/useWallet";
 import { useAuthStore } from "@/stores/authStore";
-import { checkKYCStatus } from "@/services/auth";
 
 type PageComponent =
   | "overview"
@@ -21,9 +21,9 @@ type PageComponent =
   | "support-email";
 
 export default function Dashboard() {
-  const { isConnected, ensName, address, disconnect } =
-    useWallet();
-  const { isAuthenticated, clearAuth, token, user, updateKYCStatus } = useAuthStore();
+  const { isConnected, disconnect } = useWallet();
+  const { isAuthenticated, clearAuth, user } = useAuthStore();
+  // user: { firstName, email, status }
   const [currentPage, setCurrentPage] = useState<PageComponent>("overview");
   const [showDropdown, setShowDropdown] = useState(false);
   const router = useRouter();
@@ -34,53 +34,6 @@ export default function Dashboard() {
       router.push("/");
     }
   }, [isConnected, isAuthenticated, router]);
-
-  /**
-   * KYC status polling on dashboard entry.
-   * Best point to GET /kyc/status:
-   * - On dashboard mount (here) — catches users returning from SmileLinks
-   * - On KYC callback page (already implemented)
-   * - Could also poll periodically if status is "pending"
-   *
-   * The user profile isn't fully set up until kyc_status === "verified".
-   * Until then, transaction limits may be restricted by the backend.
-   */
-  useEffect(() => {
-    if (!token || !isAuthenticated) return;
-    if (user?.kyc_status === "verified") return; // Already verified, skip
-
-    const sessionId =
-      typeof window !== "undefined"
-        ? localStorage.getItem("elementpay-kyc-session")
-        : null;
-
-    if (!sessionId) {
-      console.log("[Dashboard] No KYC session found — user may not have completed KYC yet");
-      console.log("[Dashboard] Current KYC status:", user?.kyc_status ?? "unknown");
-      return;
-    }
-
-    const pollKYC = async () => {
-      try {
-        const res = await checkKYCStatus(token, sessionId);
-        console.log("[Dashboard] KYC poll result:", res);
-        updateKYCStatus(res.kyc_status);
-
-        if (res.kyc_status === "verified") {
-          console.log("[Dashboard] KYC verified — user profile is now complete");
-          localStorage.removeItem("elementpay-kyc-session");
-        } else if (res.kyc_status === "pending") {
-          // Poll again in 10 seconds
-          console.log("[Dashboard] KYC still pending — will poll again in 10s");
-          setTimeout(pollKYC, 10_000);
-        }
-      } catch (err) {
-        console.warn("[Dashboard] KYC status check failed:", err);
-      }
-    };
-
-    pollKYC();
-  }, [token, isAuthenticated, user?.kyc_status, updateKYCStatus]);
 
   // Pre-fill: restore pending transaction from KYC callback flow
   useEffect(() => {
@@ -100,7 +53,7 @@ export default function Dashboard() {
   }, []);
 
   // Show nothing while redirecting to avoid flicker
-  if (!isConnected && !isAuthenticated) {
+  if (!isAuthenticated) {
     return null;
   }
 
@@ -120,16 +73,17 @@ export default function Dashboard() {
     }
   };
 
-  const handleDisconnect = async () => {
+  const handleLogout = async () => {
     setShowDropdown(false);
-    await disconnect();
     clearAuth();
+    localStorage.removeItem("wallet-storage");
     router.push("/");
   };
 
-  const truncateAddress = (addr: string | null | undefined): string => {
-    if (!addr) return "";
-    return `${addr.slice(0, 6)}...${addr.slice(-4)}`;
+  // Helper for avatar initial from email
+  const getAvatarInitial = (email: string | undefined) => {
+    if (!email) return "?";
+    return email[0].toUpperCase();
   };
 
   return (
@@ -147,56 +101,60 @@ export default function Dashboard() {
               <Bell className="w-5 h-5 text-gray-600" />
             </button>
 
+            {/* Profile avatar and dropdown */}
             <div className="flex items-center gap-3 relative">
-              <div className="w-8 h-8">
-                <Image
-                  src={avatarPlaceholder}
-                  alt="Profile"
-                  width={32}
-                  height={32}
-                  className="rounded-full"
-                />
+              <div className="w-8 h-8 flex items-center justify-center bg-gray-200 rounded-full text-gray-700 font-semibold text-lg">
+                {getAvatarInitial(user?.email)}
               </div>
-              {address && (
-                <div className="relative">
-                  <button
-                    className="flex items-center gap-1 hover:bg-gray-100 px-2 py-1 rounded-lg transition-colors"
-                    onClick={() => setShowDropdown(!showDropdown)}
-                    aria-haspopup="true"
-                    aria-expanded={showDropdown}
+              <div className="relative">
+                <button
+                  className="flex items-center gap-1 hover:bg-gray-100 px-2 py-1 rounded-lg transition-colors"
+                  onClick={() => setShowDropdown(!showDropdown)}
+                  aria-haspopup="true"
+                  aria-expanded={showDropdown}
+                >
+                  <span
+                    className="font-medium text-sm text-gray-900 truncate max-w-[120px]"
+                    title={user?.email || ""}
                   >
-                    <span
-                      className="font-medium text-sm text-gray-900 truncate max-w-[120px]"
-                      title={address}
-                    >
-                      {ensName || truncateAddress(address)}
-                    </span>
-                    <ChevronDown
-                      className={`w-4 h-4 text-gray-600 transition-transform ${
-                        showDropdown ? "rotate-180" : ""
-                      }`}
-                    />
-                  </button>
+                    {user?.email || ""}
+                  </span>
+                  <ChevronDown
+                    className={`w-4 h-4 text-gray-600 transition-transform ${showDropdown ? "rotate-180" : ""}`}
+                  />
+                </button>
 
-                  {showDropdown && (
-                    <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 ring-1 ring-black ring-opacity-5 focus:outline-none z-dropdown">
-                      <button
-                        onClick={handleDisconnect}
-                        className="flex items-center gap-2 w-full px-4 py-2 text-sm text-red-600 hover:bg-gray-100"
-                      >
-                        <LogOut className="w-4 h-4" />
-                        Disconnect Wallet
-                      </button>
+                {showDropdown && (
+                  <div className="absolute right-0 mt-2 w-64 bg-white rounded-md shadow-lg py-2 ring-1 ring-black ring-opacity-5 focus:outline-none z-dropdown">
+                    <div className="px-4 py-2 border-b">
+                      <div className="font-semibold text-base text-gray-900">{user?.email || ""}</div>
+                      <div className="text-sm text-gray-500"> Status: {"Signed In"}</div>
                     </div>
-                  )}
-                </div>
-              )}
+                    <button
+                      className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                      onClick={() => {/* Profile button logic */}}
+                    >
+                      Profile
+                    </button>
+                    <button
+                      className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-gray-100"
+                      onClick={handleLogout}
+                    >
+                      <LogOut className="w-4 h-4 inline mr-2" />
+                      Log Out
+                    </button>
+                  </div>
+                )}
+              </div>
             </div>
           </nav>
         </div>
 
         {renderPage()}
       </div>
+
+      {/* KYC verification modal — triggered when a transaction exceeds limits */}
+      <KYCRequiredModal />
     </div>
   );
 }

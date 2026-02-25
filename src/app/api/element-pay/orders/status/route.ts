@@ -23,22 +23,36 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    // Forward the client's Authorization header to the backend
+    const authHeader = request.headers.get("authorization");
+    const headers: Record<string, string> = {
+      "x-api-key": apiKey,
+      "Content-Type": "application/json",
+    };
+    if (authHeader) {
+      headers["Authorization"] = authHeader;
+    }
+
     // Make the request to Element Pay API from server
     const response = await fetch(`${apiUrl}/orders/tx/${txHash}`, {
-      headers: {
-        "x-api-key": apiKey,
-        "Content-Type": "application/json",
-      },
+      headers,
     });
 
-    const data = await response.json();
+    let data: unknown;
+    const contentType = response.headers.get("content-type") || "";
+    if (contentType.includes("application/json")) {
+      data = await response.json();
+    } else {
+      const text = await response.text();
+      data = { error: text || response.statusText };
+    }
 
     // Return the data to the client
     return NextResponse.json(data, { status: response.status });
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error fetching order status:", error);
     return NextResponse.json(
-      { error: "Failed to fetch order status" },
+      { error: error?.message || "Failed to fetch order status" },
       { status: 500 }
     );
   }

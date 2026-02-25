@@ -92,8 +92,15 @@ const OTPStep = () => {
       // Call verify-otp which returns JWT tokens + user data
       const res = await verifyOTP(pendingEmail, otp);
       console.log("[OTPStep] verifyOTP response:", JSON.stringify(res, null, 2));
+
+      const accessToken = res.access_token;
+      console.log("[OTPStep] access_token:", accessToken ? accessToken.slice(0, 20) + "..." : "MISSING!");
       console.log("[OTPStep] User KYC status:", res.user?.kyc_status ?? "not returned");
       console.log("[OTPStep] User wallets:", res.user?.wallets ?? "not returned");
+
+      if (!accessToken) {
+        throw new Error("No access token received — cannot proceed.");
+      }
 
       // Store auth — user profile may be incomplete until KYC is done
       // kyc_status defaults to "none" if backend doesn't send it yet
@@ -101,10 +108,9 @@ const OTPStep = () => {
         ...res.user,
         kyc_status: res.user?.kyc_status ?? "none",
       };
-      setAuth(res.access_token, user, res.refresh_token);
-      
-      // Proceed to wallet connection step
-      // User will connect their wallet via Privy in the next step
+      setAuth(accessToken, user, res.refresh_token);
+
+      // Move to wallet connection step
       console.log("[OTPStep] Moving to wallet connection step");
       setStep("wallet");
     } catch (err: any) {

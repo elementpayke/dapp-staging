@@ -3,23 +3,16 @@
 import React, { useCallback } from "react";
 import { Wallet } from "lucide-react";
 import { motion } from "framer-motion";
-import { usePrivy } from "@privy-io/react-auth";
 import { useAuthModalStore } from "@/stores/authModalStore";
+import WalletConnection from "../wallet-connection/wallet-connection";
 
 const WalletStep = () => {
-  const { login, ready, authenticated } = usePrivy();
   const closeAuthModal = useAuthModalStore((s) => s.closeAuthModal);
   const setWalletConnecting = useAuthModalStore((s) => s.setWalletConnecting);
 
-  const handleConnect = useCallback(() => {
-    if (!ready) {
-      console.log("[WalletStep] Privy not ready yet");
-      return;
-    }
-    
+  const handleConnect = useCallback((login: () => void) => {
     console.log("[WalletStep] Starting wallet connection flow");
-    console.log("[WalletStep] Privy authenticated:", authenticated);
-    
+
     // Flag that we're in wallet-connection mode (PrivyWalletListener will pick up the result)
     setWalletConnecting(true);
     // Close our modal so Privy's portal has zero z-index conflicts
@@ -29,7 +22,7 @@ const WalletStep = () => {
     setTimeout(() => {
       login();
     }, 200);
-  }, [ready, authenticated, login, closeAuthModal, setWalletConnecting]);
+  }, [closeAuthModal, setWalletConnecting]);
 
   return (
     <motion.div
@@ -51,21 +44,17 @@ const WalletStep = () => {
         Link a crypto wallet to your account. This is how you&apos;ll send and receive funds.
       </p>
 
-      <button
-        type="button"
-        onClick={handleConnect}
-        disabled={!ready}
-        className="
-          w-full max-w-sm flex items-center justify-center gap-2
-          rounded-xl py-3.5 text-base font-semibold
-          text-white bg-[var(--landing-accent)] hover:bg-[var(--landing-accent-hover)]
-          disabled:opacity-50 disabled:cursor-not-allowed
-          transition-colors focus:outline-none focus:ring-2 focus:ring-[var(--landing-accent)]/40
+      <WalletConnection
+        isMobile={false}
+        isHero={false}
+        showDebugBanner={false}
+        onConnectWalletClick={handleConnect}
+        buttonClassName="
+          w-full max-w-sm justify-center
+          rounded-lg px-6 py-3.5 text-base font-semibold
+          focus:outline-none focus:ring-2 focus:ring-[var(--landing-accent)]/40
         "
-      >
-        <Wallet className="w-5 h-5" />
-        {!ready ? "Loading..." : "Connect Wallet"}
-      </button>
+      />
 
       <p className="mt-6 text-xs text-[var(--landing-muted)] max-w-xs">
         We support MetaMask, Coinbase Wallet, Phantom, and other Ethereum-compatible wallets.

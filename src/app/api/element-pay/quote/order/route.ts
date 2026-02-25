@@ -2,7 +2,15 @@ import { NextRequest, NextResponse } from "next/server";
 
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json();
+    let body: unknown;
+    try {
+      body = await request.json();
+    } catch {
+      return NextResponse.json(
+        { error: "Invalid or empty request body" },
+        { status: 400 }
+      );
+    }
 
     const apiUrl = process.env.NEXT_PUBLIC_API_URL;
     const apiKey = process.env.NEXT_PRIVATE_AGGR_API_KEY;
@@ -15,21 +23,36 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Forward the client's Authorization header to the backend
+    const authHeader = request.headers.get("authorization");
+    const headers: Record<string, string> = {
+      "x-api-key": apiKey,
+      "Content-Type": "application/json",
+    };
+    if (authHeader) {
+      headers["Authorization"] = authHeader;
+    }
+
     const res = await fetch(`${apiUrl}/quote/order`, {
       method: "POST",
-      headers: {
-        "x-api-key": apiKey,
-        "Content-Type": "application/json",
-      },
+      headers,
       body: JSON.stringify(body),
     });
 
-    const data = await res.json();
+    let data: unknown;
+    const contentType = res.headers.get("content-type") || "";
+    if (contentType.includes("application/json")) {
+      data = await res.json();
+    } else {
+      const text = await res.text();
+      data = { error: text || res.statusText };
+    }
+
     return NextResponse.json(data, { status: res.status });
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error proxying quote/order:", error);
     return NextResponse.json(
-      { error: "Failed to fetch order quote" },
+      { error: error?.message || "Failed to fetch order quote" },
       { status: 500 }
     );
   }

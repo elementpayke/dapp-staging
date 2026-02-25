@@ -1,16 +1,20 @@
 import { NextRequest, NextResponse } from "next/server";
-
-const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL;
+import { createBackendErrorResponse, fetchBackend } from "@/lib/backend-fetch";
 
 export async function POST(req: NextRequest) {
   try {
     const authHeader = req.headers.get("Authorization") ?? "";
+    // Extract the raw token from "Bearer <token>"
+    const token = authHeader.replace(/^Bearer\s+/i, "");
 
-    const res = await fetch(`${BACKEND_URL}/kyc/initiate`, {
+    //logging token
+    console.log("[kyc/initiate] Received token:", token);
+
+    const res = await fetchBackend("/kyc/initiate", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: authHeader,
+        "Authorization": `Bearer ${token}`
       },
     });
 
@@ -26,9 +30,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(data);
   } catch (error: any) {
     console.error("[kyc/initiate] Error:", error);
-    return NextResponse.json(
-      { success: false, message: "Internal server error" },
-      { status: 500 },
-    );
+    return createBackendErrorResponse(error);
   }
 }

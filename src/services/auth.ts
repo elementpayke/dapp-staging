@@ -56,8 +56,14 @@ export interface OTPVerifyResponse {
 }
 
 export interface KYCInitiateResponse {
-  session_id: string;
-  smile_link_url: string;
+  status: string;
+  message: string;
+  data: {
+    url: string;
+    expires_at: string;
+    ref_id: string;
+    reused: boolean;
+  };
 }
 
 // ─── API calls ───────────────────────────────────────────────────────────────
@@ -107,8 +113,23 @@ export async function verifyOTP(
     throw new Error(err.message ?? "Invalid OTP");
   }
 
-  const data = await res.json();
-  console.log("[auth] verifyOTP response:", { ...data, access_token: data.access_token?.slice(0, 20) + "..." });
+  const raw = await res.json();
+  console.log("[auth] verifyOTP raw response:", JSON.stringify(raw, null, 2));
+
+  // Backend may wrap in { status, message, data: { access_token, ... } }
+  const data: OTPVerifyResponse = raw.data?.access_token ? raw.data : raw;
+
+  console.log("[auth] verifyOTP normalised:", {
+    access_token: data.access_token ? data.access_token.slice(0, 20) + "..." : "MISSING",
+    refresh_token: data.refresh_token ? "present" : "missing",
+    user: data.user ? { email: data.user.email, kyc_status: data.user.kyc_status } : "MISSING",
+  });
+
+  if (!data.access_token) {
+    console.error("[auth] verifyOTP — no access_token in response! Full payload:", JSON.stringify(raw));
+    throw new Error("No access token received from server");
+  }
+
   return data;
 }
 
@@ -194,6 +215,7 @@ export async function logout(token: string): Promise<void> {
 export async function initiateKYC(
   token: string,
 ): Promise<KYCInitiateResponse> {
+  console.log("[auth] initiateKYC -> token:", token ? token.slice(0, 20) + "..." : "MISSING!");
   const res = await fetch("/api/kyc/initiate", {
     method: "POST",
     headers: { ...headers, Authorization: `Bearer ${token}` },

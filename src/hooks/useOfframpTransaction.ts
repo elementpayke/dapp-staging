@@ -36,6 +36,8 @@ import { FeeBand, getTotalCost } from "@/utils/feeStructure";
 import { encryptMessageDetailed } from "@/services/encryption";
 import { erc20Abi } from "@/app/api/abi";
 import { createOffRampOrder, fetchOrderQuote } from "@/app/api/aggregator";
+import { KYCRequiredError, extractKYCLimitSnapshot } from "@/services/kycError";
+import { useKYCModalStore } from "@/stores/kycModalStore";
 import { isSmartWallet, safeChainSwitch } from "@/lib/wallet-utils";
 import { getTokenConfig } from "@/constants/tokenConfig";
 
@@ -404,6 +406,19 @@ export function useOfframpTransaction(): UseOfframpTransactionReturn {
         console.error("[useOfframpTransaction] Error:", err);
 
         const errorMessage = err?.message || "Transaction failed";
+
+        // Handle KYC required (transaction limit exceeded)
+        if (err instanceof KYCRequiredError) {
+          console.log("🛡️ [KYC] Transaction limit exceeded — opening KYC modal");
+          useKYCModalStore
+            .getState()
+            .openKYCModal(extractKYCLimitSnapshot(err.details));
+          fail({
+            code: "KYC_REQUIRED",
+            message: err.message || "Transaction limit exceeded. Please verify your identity.",
+          });
+          return;
+        }
 
         // Handle user rejection
         if (

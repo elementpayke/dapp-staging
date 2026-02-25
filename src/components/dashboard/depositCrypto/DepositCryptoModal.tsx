@@ -8,6 +8,8 @@ import { isSmartWallet, safeChainSwitch } from "@/lib/wallet-utils";
 import TransactionInProgressModal from "./TranactionInProgress";
 import DepositCryptoReceipt from "./DepositCryptoReciept";
 import { createOnRampOrder, fetchOrderQuote } from "@/app/api/aggregator";
+import { KYCRequiredError, extractKYCLimitSnapshot } from "@/services/kycError";
+import { useKYCModalStore } from "@/stores/kycModalStore";
 import {
   validateKenyanPhoneNumber,
   formatKenyanPhoneNumber,
@@ -522,6 +524,16 @@ const DepositCryptoModal: React.FC = () => {
 
         // Reset loading state
         setIsLoading(false);
+
+        // Check if KYC verification is required (transaction limit exceeded)
+        if (error instanceof KYCRequiredError) {
+          console.log("🛡️ [KYC] Transaction limit exceeded — opening KYC modal");
+          setIsConfirmModalOpen(false);
+          useKYCModalStore
+            .getState()
+            .openKYCModal(extractKYCLimitSnapshot(error.details));
+          return;
+        }
 
         // Provide more specific error messages based on error type and token
         if (

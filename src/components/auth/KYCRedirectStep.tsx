@@ -5,50 +5,63 @@ import { ScanFace, Loader2, ExternalLink } from "lucide-react";
 import { motion } from "framer-motion";
 import { initiateKYC } from "@/services/auth";
 import { useAuthStore } from "@/stores/authStore";
-import { useAuthModalStore } from "@/stores/authModalStore";
+import { useKYCModalStore } from "@/stores/kycModalStore";
 import { useOnboardingStore } from "@/stores/onboardingStore";
 
 const KYCRedirectStep = () => {
-  const [loading, setLoading] = useState(false);
+  const [retrying, setRetrying] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const token = useAuthStore((s) => s.token);
-  const closeAuthModal = useAuthModalStore((s) => s.closeAuthModal);
+  const kycUrl = useKYCModalStore((s) => s.kycUrl);
+  const kycRefId = useKYCModalStore((s) => s.kycRefId);
+  const setKycLink = useKYCModalStore((s) => s.setKycLink);
   const onboarding = useOnboardingStore();
 
-  const handleStartKYC = useCallback(async () => {
+  const urlReady = Boolean(kycUrl);
+
+  /** Retry fetching the KYC link if it wasn't obtained during OTP step. */
+  const handleRetry =async () => {
     if (!token) return;
-    setLoading(true);
+    setRetrying(true);
     setError(null);
-
     try {
+      console.log("[KYC Redirect] Retrying to fetch KYC link with token as :", token);
       const res = await initiateKYC(token);
-
-      // Persist pending transaction so we can pre-fill on return
-      const pendingTx = {
-        flow: onboarding.flow,
-        offRampMethod: onboarding.offRampMethod,
-        amount: onboarding.amount,
-        phoneNumber: onboarding.phoneNumber,
-        paybillNumber: onboarding.paybillNumber,
-        accountNumber: onboarding.accountNumber,
-        tillNumber: onboarding.tillNumber,
-        tokenSymbol: onboarding.tokenSymbol,
-        initiatedFromLanding: true,
-      };
-
-      if (typeof window !== "undefined") {
-        localStorage.setItem("elementpay-kyc-session", res.session_id);
-        localStorage.setItem("elementpay-pending-tx", JSON.stringify(pendingTx));
-      }
-
-      // Redirect to SmileID SmileLinks
-      window.location.href = res.smile_link_url;
+      const { url, ref_id } = res.data;
+      setKycLink(url, ref_id);
     } catch (err: any) {
-      setError(err.message ?? "Failed to start verification. Try again.");
-      setLoading(false);
+      setError(err.message ?? "Failed to get verification link. Try again.");
+    } finally {
+      setRetrying(false);
     }
-  }, [token, onboarding, closeAuthModal]);
+  }
+
+  /** Persist pending tx data and redirect to SmileID. */
+  const handleRedirect = () => {
+    if (!kycUrl) return;
+
+    // Persist pending transaction so we can pre-fill on return
+    const pendingTx = {
+      flow: onboarding.flow,
+      offRampMethod: onboarding.offRampMethod,
+      amount: onboarding.amount,
+      phoneNumber: onboarding.phoneNumber,
+      paybillNumber: onboarding.paybillNumber,
+      accountNumber: onboarding.accountNumber,
+      tillNumber: onboarding.tillNumber,
+      tokenSymbol: onboarding.tokenSymbol,
+      initiatedFromLanding: true,
+    };
+
+    if (typeof window !== "undefined") {
+      if (kycRefId) localStorage.setItem("elementpay-kyc-ref", kycRefId);
+      localStorage.setItem("elementpay-pending-tx", JSON.stringify(pendingTx));
+    }
+
+    // Redirect to SmileID SmileLinks on new tab
+    window.open(kycUrl, "_blank");
+  }
 
   return (
     <motion.div
@@ -90,27 +103,43 @@ const KYCRedirectStep = () => {
         </ul>
       </div>
 
-      <button
-        type="button"
-        onClick={handleStartKYC}
-        disabled={loading}
-        className="
-          w-full max-w-sm flex items-center justify-center gap-2
-          rounded-xl py-3.5 text-base font-semibold
-          text-white bg-[var(--landing-accent)] hover:bg-[var(--landing-accent-hover)]
-          disabled:opacity-50 disabled:cursor-not-allowed
-          transition-colors focus:outline-none focus:ring-2 focus:ring-[var(--landing-accent)]/40
-        "
-      >
-        {loading ? (
-          <Loader2 className="w-5 h-5 animate-spin" />
-        ) : (
-          <>
-            Start Verification
-            <ExternalLink className="w-4 h-4" />
-          </>
-        )}
-      </button>
+      {urlReady ? (
+        <button
+          type="button"
+          onClick={handleRedirect}
+          className="
+            w-full max-w-sm flex items-center justify-center gap-2
+            rounded-xl py-3.5 text-base font-semibold
+            text-white bg-[var(--landing-accent)] hover:bg-[var(--landing-accent-hover)]
+            transition-colors focus:outline-none focus:ring-2 focus:ring-[var(--landing-accent)]/40
+          "
+        >
+          Start Verification
+          <ExternalLink className="w-4 h-4" />
+        </button>
+      ) : (
+        <button
+          type="button"
+          onClick={handleRetry}
+          disabled={retrying}
+          className="
+            w-full max-w-sm flex items-center justify-center gap-2
+            rounded-xl py-3.5 text-base font-semibold
+            text-white bg-[var(--landing-accent)] hover:bg-[var(--landing-accent-hover)]
+            disabled:opacity-50 disabled:cursor-not-allowed
+            transition-colors focus:outline-none focus:ring-2 focus:ring-[var(--landing-accent)]/40
+          "
+        >
+          {retrying ? (
+            <Loader2 className="w-5 h-5 animate-spin" />
+          ) : (
+            <>
+              Retry Loading Link
+              <Loader2 className="w-4 h-4" />
+            </>
+          )}
+        </button>
+      )}
 
       {error && (
         <p className="mt-4 text-xs text-red-500" role="alert">

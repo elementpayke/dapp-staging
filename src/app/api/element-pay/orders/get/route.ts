@@ -23,19 +23,34 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    // Forward the client's Authorization header to the backend
+    const authHeader = request.headers.get("authorization");
+    const headers: Record<string, string> = {
+      "x-api-key": apiKey,
+      "Content-Type": "application/json",
+    };
+    if (authHeader) {
+      headers["Authorization"] = authHeader;
+    }
+
     const res = await fetch(`${apiUrl}/orders/${orderId}`, {
-      headers: {
-        "x-api-key": apiKey,
-        "Content-Type": "application/json",
-      },
+      headers,
     });
 
-    const data = await res.json();
+    let data: unknown;
+    const contentType = res.headers.get("content-type") || "";
+    if (contentType.includes("application/json")) {
+      data = await res.json();
+    } else {
+      const text = await res.text();
+      data = { error: text || res.statusText };
+    }
+
     return NextResponse.json(data, { status: res.status });
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error proxying orders get:", error);
     return NextResponse.json(
-      { error: "Failed to get order status" },
+      { error: error?.message || "Failed to get order status" },
       { status: 500 }
     );
   }
