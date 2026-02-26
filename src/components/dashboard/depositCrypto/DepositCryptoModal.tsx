@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { ArrowUpRight } from "lucide-react";
+import { ArrowDownLeft } from "lucide-react";
 import { toast } from "react-toastify";
 import { useAccount, useSwitchChain, useChainId } from "wagmi";
 import { isSmartWallet, safeChainSwitch } from "@/lib/wallet-utils";
@@ -611,10 +611,11 @@ const DepositCryptoModal: React.FC = () => {
     <>
       <Dialog open={isConfirmModalOpen} onOpenChange={setIsConfirmModalOpen}>
         <DialogTrigger
-          className="flex items-center gap-2 bg-gradient-to-r from-green-500 to-teal-400  text-white text-sm font-medium py-3 px-4 rounded-xl hover:bg-purple-700 transition-colors"
+          className="flex items-center gap-2 bg-gradient-to-r from-green-500 to-teal-400 text-white text-sm font-medium py-3 px-4 rounded-xl hover:bg-purple-700 transition-colors"
           onClick={() => setIsConfirmModalOpen(true)}
         >
-          <ArrowUpRight size={24} />
+          {/* ── Arrow now points inward (down-left) for deposit ── */}
+          <ArrowDownLeft size={24} />
           Deposit Crypto
         </DialogTrigger>
 

@@ -1,5 +1,6 @@
 import { FC, useEffect, useState, useCallback } from "react";
 import axios from "axios";
+import { History } from "lucide-react";
 import { Order, Tx } from "@/types/types";
 import TransactionFilters from "./TransactionList/TransactionFilters";
 import TransactionTable from "./TransactionList/TransactionTable";
@@ -477,6 +478,15 @@ const TransactionList: FC<{ walletAddress: string | null }> = ({
   return (
     <ClientOnly fallback={<div className="p-4">Loading transactions...</div>}>
       <div className="w-full p-2 sm:p-4 bg-gray-50 min-h-screen">
+
+        {/* ── Transaction History Section Title ── */}
+        <div className="flex items-center gap-2 mb-4 px-1 -mt-8">
+          <History className="w-6 h-6 text-gray-900" strokeWidth={2.5} />
+          <h2 className="text-2xl font-bold text-gray-900 antialiased">
+            Transaction History
+          </h2>
+        </div>
+
         <TransactionFilters
           searchTerm={searchTerm}
           setSearchTerm={setSearchTerm}

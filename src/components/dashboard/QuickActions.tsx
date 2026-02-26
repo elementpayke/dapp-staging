@@ -1,6 +1,6 @@
 "use client";
 import React, { FC, useState, useEffect } from "react";
-import { Bell, MoreHorizontal } from "lucide-react";
+import { Bell, MoreHorizontal, Wallet } from "lucide-react";
 import { useBalance, useAccount } from "wagmi";
 import dynamic from "next/dynamic";
 import {
@@ -102,7 +102,15 @@ const QuickActions: FC = () => {
   };
 
   return (
-    <div className="p-6 bg-white shadow-lg rounded-2xl border border-gray-100">
+    <div>
+      {/* ── My Wallet title — outside the card ── */}
+      <div className="flex items-center gap-2 mb-3">
+        <Wallet size={22} className="text-gray-900" />
+        <h2 className="text-2xl font-bold text-gray-900 antialiased">My Wallet</h2>
+      </div>
+
+    <div className="p-6 bg-white rounded-2xl border border-gray-200">
+
       <div className="flex items-center justify-between mb-4">
         <div>
           <p className="text-sm text-gray-600 mb-1">
@@ -156,9 +164,9 @@ const QuickActions: FC = () => {
 
       <div className="flex gap-3 flex-wrap">
         <SendCryptoModal />
-
         <DepositCryptoModal />
       </div>
+    </div>
     </div>
   );
 };
