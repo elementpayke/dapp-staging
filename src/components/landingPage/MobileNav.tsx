@@ -23,7 +23,7 @@ const NAV_LINKS = [
 const MobileNav = () => {
   const { isMenuOpen, setIsMenuOpen } = useMenuStore();
   const { openAuthModal } = useAuthModalStore();
-  const { isAuthenticated, user, clearAuth } = useAuthStore();
+  const { isAuthenticated, user, clearAuth, isOtpVerified, isWalletRegistered } = useAuthStore();
   const { logout: privyLogout } = usePrivy();
   const { disconnect: wagmiDisconnect } = useDisconnect();
   const { disconnect: storeDisconnect } = useWalletStore();
@@ -125,7 +125,7 @@ const MobileNav = () => {
           </div>
 
           <div className="pt-6 border-t border-[var(--landing-card-border)] space-y-3">
-            {isAuthenticated ? (
+            {isAuthenticated && isOtpVerified && isWalletRegistered ? (
               <>
                 <p className="text-sm text-[var(--landing-muted)] mb-3">
                   Signed in as {user?.email}

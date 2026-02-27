@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef } from "react";
 import {
   Wallet,
   WalletDropdown,
@@ -52,72 +52,44 @@ const WalletConnection = ({
   const { login, logout: privyLogout, authenticated, ready, user } = usePrivy();
   const { disconnect: wagmiDisconnect } = useDisconnect();
   const { disconnect: storeDisconnect } = useWalletStore();
+
   const router = useRouter();
 
   // ─── Derived wallet state ──────────────────────────────────────────
   const walletAddress = user?.wallet?.address;
-  const walletChain =  "base";
   const linkedAccounts = user?.linkedAccounts;
-
-  // Example: Assume OTP verification status and user fields are stored in local state or context
-  // Replace with actual logic as needed
-  const [otpVerified, setOtpVerified] = useState(false);
-  const [userFields, setUserFields] = useState<any>({});
-
-  // Example: Simulate OTP verification and user fields retrieval
-  useEffect(() => {
-    // TODO: Replace with actual OTP verification and user field retrieval logic
-    // For demonstration, set OTP as verified and some dummy fields
-    if (authenticated && walletAddress) {
-      setOtpVerified(true); // Replace with real check
-      setUserFields({ email: user?.email, phone: user?.phone }); // Replace with real fields
-    }
-  }, [authenticated, walletAddress, user]);
 
   // ─── App-level auth state (bearer token / access token) ────────────
   const isAppAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const appToken = useAuthStore((s) => s.token);
   const openAuthModal = useAuthModalStore((s) => s.openAuthModal);
-  // ─── Register wallet with backend ──────────────────────────────────
-  const registerWallet = useCallback(async () => {
-    if (!walletAddress || !appToken) return;
-    try {
-      const res = await fetch("/api/auth/connect-wallet", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${appToken}`,
-        },
-        body: JSON.stringify({
-          address: walletAddress,
-          chain: walletChain || "base",
-        }),
-      });
-      if (!res.ok) {
-        throw new Error("Failed to register wallet");
-      }
-      // Optionally handle response
-      // const data = await res.json();
-      console.log("[WalletConnection] Wallet registered with backend.");
-    } catch (err) {
-      console.error("[WalletConnection] Wallet registration error:", err);
-    }
-  }, [walletAddress, appToken, walletChain]);
+
 
   // ─── Stale Privy session cleanup ──────────────────────────────────
   // If the app says "logged out" (no bearer token) but Privy still
   // thinks the user is authenticated, force-logout Privy to prevent
   // phantom wallet state.
+  // IMPORTANT: Skip cleanup when walletConnecting is true (user is
+  // actively linking a wallet) or isOtpVerified is true (mid-auth flow).
   const cleanupAttempted = useRef(false);
+  const walletConnecting = useAuthModalStore((s) => s.walletConnecting);
+  const isOtpVerified = useAuthStore((s) => s.isOtpVerified);
 
   useEffect(() => {
-    if (!ready) return; // Privy hasn't initialised yet
-    if (isAppAuthenticated && appToken) return; // Everything is in sync
+    if (!ready) return;
+    if (appToken) return;
+
+    // Don't nuke Privy while the user is in the wallet-connect flow
+    // or has just verified OTP (token may not have hydrated yet)
+    if (walletConnecting || isOtpVerified) {
+      console.log("[WalletConnection] Skipping stale-session cleanup — auth flow in progress");
+      return;
+    }
 
     if (authenticated && !cleanupAttempted.current) {
       cleanupAttempted.current = true;
       console.warn(
-        "[WalletConnection] Stale Privy session detected — app is logged out but Privy is still authenticated. Forcing Privy logout."
+        "[WalletConnection] Stale Privy session detected — app has no token but Privy is still authenticated. Forcing Privy logout."
       );
       (async () => {
         try {
@@ -125,6 +97,7 @@ const WalletConnection = ({
           wagmiDisconnect();
           storeDisconnect();
           localStorage.removeItem("wallet-storage");
+          
           console.log("[WalletConnection] Stale Privy session cleared.");
         } catch (err) {
           console.error("[WalletConnection] Failed to clear stale Privy session:", err);
@@ -132,11 +105,10 @@ const WalletConnection = ({
       })();
     }
 
-    // Reset flag when app re-authenticates so cleanup can fire again later
-    if (isAppAuthenticated && appToken) {
+    if (appToken) {
       cleanupAttempted.current = false;
     }
-  }, [ready, authenticated, isAppAuthenticated, appToken, privyLogout, wagmiDisconnect, storeDisconnect]);
+  }, [ready, authenticated, appToken, walletConnecting, isOtpVerified, privyLogout, wagmiDisconnect, storeDisconnect]);
 
   // ─── Debug: log full state on every render ─────────────────────────
   useEffect(() => {
@@ -154,13 +126,6 @@ const WalletConnection = ({
     console.log("isMobile:", isMobile, "isHero:", isHero);
     console.groupEnd();
   }, [ready, authenticated, isAppAuthenticated, appToken, user, walletAddress, linkedAccounts, isMobile, isHero]);
-
-  // Register wallet once prerequisites are available.
-  useEffect(() => {
-    if (!isAppAuthenticated || !appToken) return;
-    if (!authenticated || !walletAddress) return;
-    void registerWallet();
-  }, [isAppAuthenticated, appToken, authenticated, walletAddress, registerWallet]);
 
   /**
    * Unified disconnect: Privy logout (async) → wagmi disconnect → store cleanup → app auth clear.
@@ -231,20 +196,6 @@ const WalletConnection = ({
             </button>
           </WalletDropdown>
         </Wallet>
-        {/* Show dashboard link if OTP is verified */}
-        {otpVerified && (
-          <button
-            className={twMerge(getButtonClassName(), "mt-3 bg-[var(--landing-accent)] hover:bg-[var(--landing-accent-hover)]")}
-            onClick={() => {
-              // Pass userFields as query params or via state
-              // Here, we use query params for demonstration
-              const params = new URLSearchParams(userFields).toString();
-              router.push(`/dashboard${params ? `?${params}` : ""}`);
-            }}
-          >
-            Start Transacting
-          </button>
-        )}
       </>
     );
   };
@@ -299,9 +250,9 @@ const WalletConnection = ({
     <div className="text-[10px] text-gray-400 mt-1 font-mono">
       privy: {ready ? "ready" : "loading"} | privy-auth: {authenticated ? "yes" : "no"} |
       app-auth: {isAppAuthenticated ? "yes" : "no"} |
-      wallet: {walletAddress ? walletAddress.slice(0, 6) + "…" + walletAddress.slice(-4) : "none"}
-      {/* Stale session warning */}
-      {!isAppAuthenticated && authenticated && (
+      wallet: {walletAddress ? walletAddress.slice(0, 6) + "…" + walletAddress.slice(-4) : "none"} |
+      isAuthenticated: {useAuthStore.getState().isAuthenticated ? "yes" : "no"}
+      {!appToken && authenticated && (
         <span className="text-amber-500 ml-1">⚠ stale privy session</span>
       )}
     </div>
@@ -319,8 +270,23 @@ const WalletConnection = ({
     }
 
     // User is NOT signed in to the app (no bearer token)
-    if (!isAppAuthenticated || !appToken) {
+    if (!appToken) {
       return renderSignInButton();
+    }
+
+    // Wallet registration in progress — PrivyWalletListener is calling the API
+    if (walletConnecting) {
+      return (
+        <button className={getButtonClassName()} disabled>
+          <span className="flex items-center gap-2">
+            <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+            </svg>
+            Registering Wallet…
+          </span>
+        </button>
+      );
     }
 
     // User IS signed in to the app, AND has a connected wallet via Privy
@@ -344,7 +310,7 @@ const WalletConnection = ({
     >
       <div className="w-full">
         {renderContent()}
-        {/* {debugBanner} */}
+        {debugBanner}
       </div>
     </ClientOnly>
   );

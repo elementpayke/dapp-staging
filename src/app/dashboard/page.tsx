@@ -22,18 +22,21 @@ type PageComponent =
 
 export default function Dashboard() {
   const { isConnected, disconnect } = useWallet();
-  const { isAuthenticated, clearAuth, user } = useAuthStore();
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+  const clearAuth = useAuthStore((s) => s.clearAuth);
+  const user = useAuthStore((s) => s.user);
   // user: { firstName, email, status }
   const [currentPage, setCurrentPage] = useState<PageComponent>("overview");
   const [showDropdown, setShowDropdown] = useState(false);
   const router = useRouter();
 
-  // Redirect to home when neither wallet-connected nor authenticated
+  // Redirect to home when not fully authenticated (OTP + wallet)
+  // This is reactive — if isAuthenticated changes to false, user is bounced
   useEffect(() => {
-    if (!isConnected && !isAuthenticated) {
+    if (!isAuthenticated) {
       router.push("/");
     }
-  }, [isConnected, isAuthenticated, router]);
+  }, [isAuthenticated, router]);
 
   // Pre-fill: restore pending transaction from KYC callback flow
   useEffect(() => {

@@ -262,7 +262,15 @@ const SendCryptoModal: React.FC = () => {
     landingPrefillAppliedRef.current = true;
 
     if (landingAmount) setAmount(landingAmount);
-    if (landingPhoneNumber) setMobileNumber(landingPhoneNumber);
+    if (landingPhoneNumber) {
+      // PreviewForm stores only the local 9-digit part (e.g. "712345678").
+      // Normalize to "254XXXXXXXXX" (12 chars) so the length >= 12 branch
+      // in the phone-validation effect triggers backend validation.
+      const normalized = /^\d{9}$/.test(landingPhoneNumber)
+        ? `254${landingPhoneNumber}`
+        : landingPhoneNumber;
+      setMobileNumber(normalized);
+    }
     if (landingPaybillNumber) setPaybillNumber(landingPaybillNumber);
     if (landingAccountNumber) setAccountNumber(landingAccountNumber);
     if (landingTillNumber) setTillNumber(landingTillNumber);

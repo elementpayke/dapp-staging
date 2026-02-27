@@ -20,6 +20,7 @@ const OTPStep = () => {
   const pendingEmail = useAuthStore((s) => s.pendingEmail);
   const setAuth = useAuthStore((s) => s.setAuth);
   const setStep = useAuthModalStore((s) => s.setStep);
+  const setModalError = useAuthModalStore((s) => s.setErrorMessage);
 
   // Countdown timer for resend
   useEffect(() => {
@@ -41,13 +42,14 @@ const OTPStep = () => {
       next[idx] = digit;
       setDigits(next);
       if (error) setError(null);
+      setModalError(null);
 
       // Auto-advance to next input
       if (digit && idx < OTP_LENGTH - 1) {
         inputsRef.current[idx + 1]?.focus();
       }
     },
-    [digits, error],
+    [digits, error, setModalError],
   );
 
   const handleKeyDown = useCallback(
@@ -88,6 +90,7 @@ const OTPStep = () => {
     }
 
     setLoading(true);
+    setModalError(null);
     try {
       // Call verify-otp which returns JWT tokens + user data
       const res = await verifyOTP(pendingEmail, otp);
@@ -108,7 +111,10 @@ const OTPStep = () => {
         ...res.user,
         kyc_status: res.user?.kyc_status ?? "none",
       };
+
       setAuth(accessToken, user, res.refresh_token);
+      // OTP is now verified, but wallet is not yet registered
+      // isAuthenticated will only be true after wallet registration
 
       // Move to wallet connection step
       console.log("[OTPStep] Moving to wallet connection step");
@@ -118,20 +124,21 @@ const OTPStep = () => {
     } finally {
       setLoading(false);
     }
-  }, [digits, pendingEmail, setAuth, setStep]);
+  }, [digits, pendingEmail, setAuth, setStep, setModalError]);
 
   const handleResend = useCallback(async () => {
     if (cooldown > 0 || !pendingEmail) return;
     try {
       const { requestOTP } = await import("@/services/auth");
       await requestOTP(pendingEmail);
+      setModalError(null);
       setCooldown(RESEND_COOLDOWN);
       setDigits(Array(OTP_LENGTH).fill(""));
       inputsRef.current[0]?.focus();
     } catch {
       setError("Failed to resend. Try again.");
     }
-  }, [cooldown, pendingEmail]);
+  }, [cooldown, pendingEmail, setModalError]);
 
   const otp = digits.join("");
   const isComplete = otp.length === OTP_LENGTH;

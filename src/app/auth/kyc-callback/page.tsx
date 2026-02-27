@@ -42,11 +42,13 @@ export default function KYCCallbackPage() {
           localStorage.removeItem("elementpay-kyc-ref");
         }
 
-        if (res.kyc_status === "verified") {
+        const { isAuthenticated } = useAuthStore.getState();
+
+        if (res.kyc_status === "verified" && isAuthenticated) {
           setStatus("success");
           setMessage("Identity verified! Redirecting to your dashboard…");
           setTimeout(() => router.push("/dashboard"), 1500);
-        } else if (res.kyc_status === "pending") {
+        } else if (res.kyc_status === "pending" && isAuthenticated) {
           setStatus("loading");
           setMessage("Verification is still processing. You'll be notified when it's complete.");
           setTimeout(() => router.push("/dashboard"), 3000);

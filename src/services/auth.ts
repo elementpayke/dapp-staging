@@ -5,6 +5,14 @@
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
+import {
+  isWalletOwnershipConflictError as isWalletOwnershipConflictErrorFromPolicy,
+  isWalletOwnershipConflictResponse,
+  normalizeWalletConnectFailure,
+  WALLET_OWNERSHIP_CONFLICT_CODE,
+  WALLET_OWNERSHIP_CONFLICT_MESSAGE,
+} from "@/lib/wallet-link-policy";
+
 export interface AuthUser {
   id: string;
   email: string;
@@ -67,6 +75,35 @@ export interface KYCInitiateResponse {
 }
 
 // ─── API calls ───────────────────────────────────────────────────────────────
+
+export class AuthApiError extends Error {
+  status: number;
+  code?: string;
+  shouldClearSession: boolean;
+
+  constructor(
+    message: string,
+    options: {
+      status: number;
+      code?: string;
+      shouldClearSession?: boolean;
+    },
+  ) {
+    super(message);
+    this.name = "AuthApiError";
+    this.status = options.status;
+    this.code = options.code;
+    this.shouldClearSession = options.shouldClearSession ?? false;
+  }
+}
+
+export {
+  WALLET_OWNERSHIP_CONFLICT_CODE,
+  WALLET_OWNERSHIP_CONFLICT_MESSAGE,
+};
+
+export const isWalletOwnershipConflictError = (error: unknown): boolean =>
+  isWalletOwnershipConflictErrorFromPolicy(error);
 
 const headers = { "Content-Type": "application/json" };
 
@@ -148,16 +185,26 @@ export async function connectWallet(
     headers: { ...headers, Authorization: `Bearer ${token}` },
     body: JSON.stringify({ address, chain }),
   });
+  const data = await res.json().catch(() => ({}));
+  const backendReportedFailure =
+    (typeof data?.success === "boolean" && data.success === false) ||
+    data?.status === "error";
 
   if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    console.error("[auth] connectWallet error:", res.status, err);
-    throw new Error(err.message ?? "Failed to connect wallet");
+   
+    if (res.status === 409 || res.status === 403) {
+      console.log("[auth] connectWallet ownership conflict:", res.status, data);
+    }
+      // If the error is a 409 (conflict) or 403 (forbidden), it's likely a wallet ownership conflict
+      throw new AuthApiError(data.message || "Failed to connect wallet", {
+        status: res.status,
+        code: data.code,
+        shouldClearSession: data.shouldClearSession ?? false,
+      });
   }
 
-  const data = await res.json();
   console.log("[auth] connectWallet response:", data);
-  return data;
+  return data as ConnectWalletResponse;
 }
 
 /**

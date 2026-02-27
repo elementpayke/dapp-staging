@@ -27,6 +27,7 @@ import { useModalOverlay } from "@/hooks/useModalOverlay";
 import { TransactionReceipt } from "@/types/types";
 import TokenDropdown from "@/components/ui/TokenDropdown";
 import { SUPPORTED_TOKENS, SupportedToken } from "@/constants/supportedTokens";
+import { useOnboardingStore } from "@/stores/onboardingStore";
 import {
   getApiCurrencyFromToken,
   fetchFeeStructureCached,
@@ -57,14 +58,51 @@ const DepositCryptoModal: React.FC = () => {
   const [isMounted, setIsMounted] = useState(false);
   const [isTransactionModalOpen, setIsTransactionModalOpen] = useState(false);
   const [isReceiptModalOpen, setIsReceiptModalOpen] = useState(false);
-  
+
   // Use shared token context for consistent token selection across modals
   const { selectedToken, setSelectedToken } = useSelectedToken();
+
+  // ── Landing page prefill (onramp flow) ────────────────────────────────────
+  const landingInitiated = useOnboardingStore((s) => s.initiatedFromLanding);
+  const landingFlow = useOnboardingStore((s) => s.flow);
+  const landingAmount = useOnboardingStore((s) => s.amount);
+  const landingTokenSymbol = useOnboardingStore((s) => s.tokenSymbol);
+  const setLandingInitiated = useOnboardingStore((s) => s.setInitiatedFromLanding);
+  const landingPrefillAppliedRef = useRef(false);
 
   // Ensure component only renders on client after mount
   useEffect(() => {
     setIsMounted(true);
   }, []);
+
+  // Apply landing-page prefill once for onramp flow
+  useEffect(() => {
+    if (!isMounted) return;
+    if (landingPrefillAppliedRef.current) return;
+    if (!landingInitiated || landingFlow !== "onramp") return;
+
+    landingPrefillAppliedRef.current = true;
+
+    if (landingAmount) setAmount(landingAmount);
+
+    if (landingTokenSymbol) {
+      const matchedToken = SUPPORTED_TOKENS.find(
+        (t) => t.symbol === landingTokenSymbol,
+      );
+      if (matchedToken) setSelectedToken(matchedToken);
+    }
+
+    setIsConfirmModalOpen(true);
+    setLandingInitiated(false);
+  }, [
+    isMounted,
+    landingInitiated,
+    landingFlow,
+    landingAmount,
+    landingTokenSymbol,
+    setSelectedToken,
+    setLandingInitiated,
+  ]);
 
   // Get balance for the selected token dynamically
   const {

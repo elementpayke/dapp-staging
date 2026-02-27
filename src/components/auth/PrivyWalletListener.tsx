@@ -1,128 +1,233 @@
 "use client";
 
-/**
- * PrivyWalletListener — lives outside the AuthModal so it survives modal close/reopen.
- *
- * Flow:
- * 1. User completes OTP verification and authenticates with Privy via email
- * 2. WalletStep calls Privy's linkWallet() to add a wallet to the authenticated session
- * 3. User connects wallet in Privy's modal
- * 4. This listener detects Privy authenticated + wallet address
- * 5. Calls backend connectWallet API to link wallet to backend user
- * 6. Re-opens our AuthModal at the kyc-redirect step
- */
-
 import { useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { usePrivy } from "@privy-io/react-auth";
-import { connectWallet } from "@/services/auth";
+import { useDisconnect } from "wagmi";
+import {
+  connectWallet,
+  isWalletOwnershipConflictError,
+  WALLET_OWNERSHIP_CONFLICT_MESSAGE,
+} from "@/services/auth";
 import { useAuthStore } from "@/stores/authStore";
 import { useAuthModalStore } from "@/stores/authModalStore";
+import { useWalletStore } from "@/lib/useWallet";
+import { toast } from "sonner";
 
+/**
+ * Global listener — watches Privy state and calls the backend to register
+ * the wallet once all 4 conditions are met:
+ *   1. walletConnecting — user clicked "Connect Wallet" in the auth modal
+ *   2. token           — OTP verified, we have a JWT
+ *   3. authenticated   — Privy says user is logged in
+ *   4. walletAddress   — Privy has a wallet address
+ *
+ * Also detects when the user dismisses the Privy modal without connecting,
+ * and re-opens our auth modal at the wallet step so they can retry.
+ *
+ * Mounted in Providers so it persists across all route changes.
+ */
 export default function PrivyWalletListener() {
-  const { authenticated, user: privyUser } = usePrivy();
+  const { authenticated, user, logout: privyLogout } = usePrivy();
+  const { disconnect: wagmiDisconnect } = useDisconnect();
+  const { disconnect: storeDisconnect } = useWalletStore();
   const router = useRouter();
-  const token = useAuthStore((s) => s.token);
-  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
-  const addConnectedWallet = useAuthStore((s) => s.addConnectedWallet);
-  const isOpen = useAuthModalStore((s) => s.isOpen);
-  const walletConnecting = useAuthModalStore((s) => s.walletConnecting);
-  const linkingRef = useRef(false);
-  const linkedRef = useRef(false);
 
-  // Extract wallet address from Privy user.
-  // Prefer linkedAccounts but fall back to user.wallet for connector variants.
-  const walletAccount = privyUser?.linkedAccounts?.find((account) => account.type === "wallet");
-  const walletAddress =
-    (walletAccount && "address" in walletAccount ? walletAccount.address : null) ??
-    privyUser?.wallet?.address ??
-    null;
+  const token = useAuthStore((s) => s.token);
+  const addConnectedWallet = useAuthStore((s) => s.addConnectedWallet);
+  const setWalletRegistered = useAuthStore((s) => s.setWalletRegistered);
+
+  const walletConnecting = useAuthModalStore((s) => s.walletConnecting);
+
+  const walletAddress = user?.wallet?.address ?? null;
+
+  // Guard against double-fire
+  const calledRef = useRef(false);
+  // Track whether the component is still mounted (prevents state updates after unmount)
+  const mountedRef = useRef(true);
 
   useEffect(() => {
-    // Only act when:
-    // - Our auth store has a token (user passed OTP)
-    // - Privy is authenticated (user authenticated via email)
-    // - We flagged that wallet connection is in progress
-    // - We haven't already linked
-    
-    console.log("[PrivyWalletListener] State check:", {
-      walletConnecting,
-      isAuthenticated,
-      token: token ? "present" : "missing",
-      privyAuthenticated: authenticated,
-      walletAddress,
-      linkingInProgress: linkingRef.current,
-      alreadyLinked: linkedRef.current,
-    });
-
-    if (!walletConnecting || !isAuthenticated || !token) {
-      console.log("[PrivyWalletListener] Skipping: wallet connection not in progress or user not authenticated");
-      return;
-    }
-    if (!authenticated || !walletAddress) {
-      console.log("[PrivyWalletListener] Skipping: Privy not authenticated or no wallet address");
-      return;
-    }
-    if (linkingRef.current || linkedRef.current) {
-      console.log("[PrivyWalletListener] Skipping: already linking or linked");
-      return;
-    }
-
-    linkingRef.current = true;
-
-    console.log("[PrivyWalletListener] Privy wallet connected:", walletAddress);
-    console.log("[PrivyWalletListener] Privy user:", JSON.stringify(privyUser, null, 2));
-
-    const link = async () => {
-      try {
-        const res = await connectWallet(token, walletAddress, "evm");
-        console.log("[PrivyWalletListener] connectWallet response:", JSON.stringify(res, null, 2));
-        linkedRef.current = true;
-        // Persist the wallet address locally so the rest of the app knows
-        addConnectedWallet(walletAddress);
-      } catch (err: any) {
-        console.error("[PrivyWalletListener] connectWallet error:", err);
-        // "already linked" is fine — treat as success
-        if (err.message?.includes("already")) {
-          linkedRef.current = true;
-          addConnectedWallet(walletAddress);
-        }
-      } finally {
-        linkingRef.current = false;
-      }
-
-      // Wallet linked — close modal and go to dashboard
-      if (linkedRef.current) {
-        const store = useAuthModalStore.getState();
-        store.setWalletConnecting(false);
-        store.closeAuthModal();
-        store.reset();
-        console.log("[PrivyWalletListener] Wallet linked — redirecting to dashboard");
-        router.push("/dashboard");
-      } else {
-        // Error — re-open at wallet step so user can retry
-        const store = useAuthModalStore.getState();
-        store.setWalletConnecting(false);
-        if (!store.isOpen) {
-          store.openAuthModal();
-        }
-        setTimeout(() => {
-          useAuthModalStore.getState().setStep("wallet");
-        }, 100);
-      }
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
     };
+  }, []);
 
-    link();
-  }, [authenticated, walletAddress, token, isAuthenticated, walletConnecting, privyUser, isOpen, addConnectedWallet, router]);
-
-  // Reset refs when walletConnecting goes false (new flow started)
+  // Reset the guard when walletConnecting goes back to false
   useEffect(() => {
     if (!walletConnecting) {
-      console.log("[PrivyWalletListener] Resetting state - wallet connection flow ended");
-      linkingRef.current = false;
-      linkedRef.current = false;
+      calledRef.current = false;
     }
   }, [walletConnecting]);
 
-  return null; // Invisible — just a state listener
+  // ── Privy dismiss detection ────────────────────────────────────────────
+  // Track whether Privy's `authenticated` was ever true during this
+  // walletConnecting session. Only treat it as a "dismiss" when it
+  // transitions from true → false (user actually connected then closed).
+  const wasAuthenticatedRef = useRef(false);
+
+  useEffect(() => {
+    if (!walletConnecting) {
+      wasAuthenticatedRef.current = false;
+      return;
+    }
+    if (authenticated) {
+      wasAuthenticatedRef.current = true;
+      return;
+    }
+    // walletConnecting=true, authenticated=false
+    // Only treat as dismiss if we previously saw authenticated=true
+    if (!wasAuthenticatedRef.current) return;
+
+    const id = setTimeout(() => {
+      if (!mountedRef.current) return;
+      const modal = useAuthModalStore.getState();
+      if (!modal.isOpen) {
+        console.log("[WALLET-LINK] Privy dismissed after auth — resuming at wallet step");
+        modal.setWalletConnecting(false);
+        modal.setStep("wallet");
+        modal.resumeAuthModal();
+      }
+    }, 600);
+
+    return () => clearTimeout(id);
+  }, [walletConnecting, authenticated]);
+
+  // Main effect: watch all 4 conditions
+  useEffect(() => {
+    console.log("[WALLET-LINK] CHECKPOINT 2: effect deps changed", {
+      walletConnecting,
+      hasToken: !!token,
+      authenticated,
+      walletAddress: walletAddress ?? "null",
+      alreadyCalled: calledRef.current,
+    });
+
+    // All 4 conditions must be truthy
+    if (!walletConnecting) {
+      console.log("[WALLET-LINK] ⏳ skipping — walletConnecting is false");
+      return;
+    }
+    if (!token) {
+      console.log("[WALLET-LINK] ⏳ skipping — no token");
+      return;
+    }
+    if (!authenticated) {
+      console.log("[WALLET-LINK] ⏳ skipping — Privy not authenticated");
+      return;
+    }
+    if (!walletAddress) {
+      console.log("[WALLET-LINK] ⏳ skipping — no wallet address yet");
+      return;
+    }
+    if (calledRef.current) {
+      console.log("[WALLET-LINK] ⏳ skipping — API already called");
+      return;
+    }
+
+    // All conditions met — show the linking step, then call the API
+    calledRef.current = true;
+    console.log("[WALLET-LINK] CHECKPOINT 3: all conditions met, calling API", {
+      walletAddress,
+    });
+
+    // Open the modal at wallet-linking step to show the spinner.
+    // Use direct setters instead of resumeAuthModal to avoid changing
+    // walletConnecting (which is in our deps and would trigger cleanup).
+    const modal = useAuthModalStore.getState();
+    modal.setStep("wallet-linking");
+    modal.resumeAuthModal();
+
+    connectWallet(token, walletAddress, "base")
+      .then((res) => {
+        if (!mountedRef.current) return;
+
+        // If the user cancelled while the API was in-flight, bail out.
+        const ms = useAuthModalStore.getState();
+        if (!ms.walletConnecting) {
+          console.log("[WALLET-LINK] API succeeded but linking was cancelled — ignoring");
+          return;
+        }
+
+        console.log("[WALLET-LINK] CHECKPOINT 4: API success", res);
+
+        addConnectedWallet(walletAddress);
+        setWalletRegistered(true);
+
+        // Success — close modal and go to dashboard
+        const m = useAuthModalStore.getState();
+        m.setWalletConnecting(false);
+        m.closeAuthModal();
+        m.reset();
+
+        // Double-check that store reflects fully authenticated before navigating
+        const { isAuthenticated: nowAuthed } = useAuthStore.getState();
+        if (nowAuthed) {
+          router.push("/dashboard");
+        } else {
+          console.warn("[WALLET-LINK] isAuthenticated still false after setWalletRegistered — not redirecting");
+        }
+      })
+      .catch(async (error) => {
+        if (!mountedRef.current) return;
+
+        // If the user cancelled while the API was in-flight, bail out.
+        const mState = useAuthModalStore.getState();
+        if (!mState.walletConnecting) {
+          console.log("[WALLET-LINK] API failed but linking was cancelled — ignoring");
+          return;
+        }
+
+        console.error("[WALLET-LINK] CHECKPOINT 4: API error", error);
+
+        const m = useAuthModalStore.getState();
+        m.setWalletConnecting(false);
+
+        const isConflict = isWalletOwnershipConflictError(error);
+        const errorMsg = isConflict
+          ? WALLET_OWNERSHIP_CONFLICT_MESSAGE
+          : error instanceof Error
+            ? error.message
+            : "We couldn't link your wallet. Please try again.";
+
+        toast.error(errorMsg);
+
+        // Disconnect Privy + wagmi so the user can pick a different wallet
+        try {
+          if (authenticated) await privyLogout();
+        } catch (logoutErr) {
+          console.warn("[WALLET-LINK] Privy logout error (non-fatal):", logoutErr);
+        }
+        wagmiDisconnect();
+        storeDisconnect();
+        if (typeof window !== "undefined") {
+          localStorage.removeItem("wallet-storage");
+        }
+
+        // Keep the user's OTP session intact — only send them back to the
+        // wallet step so they can immediately try a different wallet.
+        m.setStep("wallet");
+        m.setErrorMessage(errorMsg);
+        m.resumeAuthModal();
+      });
+
+    return () => {
+      // No-op: we intentionally do NOT cancel in-flight API calls.
+      // The calledRef guard prevents duplicate calls, and mountedRef
+      // prevents state updates after unmount.
+    };
+  }, [
+    walletConnecting,
+    token,
+    authenticated,
+    walletAddress,
+    addConnectedWallet,
+    setWalletRegistered,
+    privyLogout,
+    wagmiDisconnect,
+    storeDisconnect,
+    router,
+  ]);
+
+  return null;
 }

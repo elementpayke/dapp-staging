@@ -9,7 +9,7 @@ import type { AuthUser } from "@/services/auth";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
-export type AuthStep = "email" | "otp" | "wallet";
+export type AuthStep = "email" | "otp" | "wallet" | "wallet-linking";
 
 interface AuthState {
   /** JWT access token from backend */
@@ -18,7 +18,11 @@ interface AuthState {
   refreshToken: string | null;
   /** Authenticated user profile */
   user: AuthUser | null;
-  /** Derived convenience flag */
+  /** Derived convenience flag: OTP verified */
+  isOtpVerified: boolean;
+  /** Derived convenience flag: wallet registered */
+  isWalletRegistered: boolean;
+  /** Derived convenience flag: both OTP and wallet registered */
   isAuthenticated: boolean;
   /** Email entered during auth flow (kept for OTP step) */
   pendingEmail: string | null;
@@ -31,6 +35,8 @@ interface AuthState {
 interface AuthActions {
   /** Store credentials after successful verify-OTP */
   setAuth: (token: string, user: AuthUser, refreshToken?: string) => void;
+  /** Set wallet registration status */
+  setWalletRegistered: (registered: boolean) => void;
   /** Clear all auth state (logout) */
   clearAuth: () => void;
   /** Update user's KYC status after SmileLinks callback */
@@ -60,27 +66,41 @@ export const useAuthStore = create<AuthStore>()(
       token: null,
       refreshToken: null,
       user: null,
+      isOtpVerified: false,
+      isWalletRegistered: false,
       isAuthenticated: false,
       pendingEmail: null,
       pendingOTP: null,
       connectedWallets: [],
 
       // ── Actions ────────────────────────────────────────────────────────
+
       setAuth: (token, user, refreshToken) =>
-        set({
+        set((state) => ({
           token,
           refreshToken: refreshToken ?? null,
           user,
-          isAuthenticated: true,
+          isOtpVerified: true,
+          // isWalletRegistered will be set after wallet registration
+          isWalletRegistered: state.isWalletRegistered,
+          isAuthenticated: true && state.isWalletRegistered, // Only true if both are true
           pendingEmail: null,
           pendingOTP: null,
-        }),
+        })),
+
+      setWalletRegistered: (registered: boolean) =>
+        set((state) => ({
+          isWalletRegistered: registered,
+          isAuthenticated: state.isOtpVerified && registered,
+        })),
 
       clearAuth: () =>
         set({
           token: null,
           refreshToken: null,
           user: null,
+          isOtpVerified: false,
+          isWalletRegistered: false,
           isAuthenticated: false,
           pendingEmail: null,
           pendingOTP: null,
@@ -118,6 +138,8 @@ export const useAuthStore = create<AuthStore>()(
         token: s.token,
         refreshToken: s.refreshToken,
         user: s.user,
+        isOtpVerified: s.isOtpVerified,
+        isWalletRegistered: s.isWalletRegistered,
         isAuthenticated: s.isAuthenticated,
         connectedWallets: s.connectedWallets,
       }),

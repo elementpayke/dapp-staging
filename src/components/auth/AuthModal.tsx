@@ -8,28 +8,32 @@ import { useAuthStore } from "@/stores/authStore";
 import EmailStep from "./EmailStep";
 import OTPStep from "./OTPStep";
 import WalletStep from "./WalletStep";
+import WalletLinkingStep from "./WalletLinkingStep";
 
 const STEP_LABELS: Record<string, string> = {
   email: "Email",
   otp: "Verify",
   wallet: "Wallet",
+  "wallet-linking": "Linking",
 } as const;
 
-const STEPS = ["email", "otp", "wallet"] as const;
+const STEPS = ["email", "otp", "wallet", "wallet-linking"] as const;
 
 const AuthModal = () => {
   const isOpen = useAuthModalStore((s) => s.isOpen);
   const step = useAuthModalStore((s) => s.step);
-  const walletConnecting = useAuthModalStore((s) => s.walletConnecting);
+  const errorMessage = useAuthModalStore((s) => s.errorMessage);
   const closeAuthModal = useAuthModalStore((s) => s.closeAuthModal);
   const clearPending = useAuthStore((s) => s.clearPending);
 
+  const isLinking = step === "wallet-linking";
+
   const handleClose = useCallback(() => {
+    if (isLinking) return; // block close while API is in-flight
     closeAuthModal();
     clearPending();
-  }, [closeAuthModal, clearPending]);
+  }, [isLinking, closeAuthModal, clearPending]);
 
-  // Esc to close
   useEffect(() => {
     if (!isOpen) return;
     const onKey = (e: KeyboardEvent) => {
@@ -39,7 +43,6 @@ const AuthModal = () => {
     return () => window.removeEventListener("keydown", onKey);
   }, [isOpen, handleClose]);
 
-  // Lock body scroll when open
   useEffect(() => {
     if (isOpen) {
       document.body.style.overflow = "hidden";
@@ -56,8 +59,7 @@ const AuthModal = () => {
   const currentIdx = (STEPS as readonly string[]).indexOf(step);
 
   return (
-    <div className={`fixed inset-0 z-[100] flex items-center justify-center transition-opacity duration-150 ${walletConnecting ? 'opacity-0 pointer-events-none' : ''}`}>
-      {/* Backdrop */}
+    <div className="fixed inset-0 z-[100] flex items-center justify-center">
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
@@ -66,7 +68,6 @@ const AuthModal = () => {
         onClick={handleClose}
       />
 
-      {/* Modal panel */}
       <motion.div
         initial={{ opacity: 0, scale: 0.96, y: 12 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -82,29 +83,21 @@ const AuthModal = () => {
         aria-modal="true"
         aria-label="Authentication"
       >
-        {/* Header with close & progress */}
         <div className="flex items-center justify-between px-6 pt-5 pb-2">
-          {/* Progress dots */}
           <div className="flex items-center gap-2">
             {STEPS.map((s, i) => (
               <div key={s} className="flex items-center gap-2">
                 <div
                   className={`
                     w-2 h-2 rounded-full transition-colors
-                    ${i <= currentIdx
-                      ? "bg-[var(--landing-accent)]"
-                      : "bg-[var(--landing-input-border)]"
-                    }
+                    ${i <= currentIdx ? "bg-[var(--landing-accent)]" : "bg-[var(--landing-input-border)]"}
                   `}
                 />
                 {i < STEPS.length - 1 && (
                   <div
                     className={`
                       w-6 h-px transition-colors
-                      ${i < currentIdx
-                        ? "bg-[var(--landing-accent)]"
-                        : "bg-[var(--landing-input-border)]"
-                      }
+                      ${i < currentIdx ? "bg-[var(--landing-accent)]" : "bg-[var(--landing-input-border)]"}
                     `}
                   />
                 )}
@@ -112,29 +105,35 @@ const AuthModal = () => {
             ))}
           </div>
 
-          <button
-            type="button"
-            onClick={handleClose}
-            className="p-1.5 rounded-lg text-[var(--landing-muted)] hover:text-[var(--landing-heading)] hover:bg-[var(--landing-input-bg)] transition-colors"
-            aria-label="Close"
-          >
-            <X className="w-5 h-5" />
-          </button>
+          {!isLinking && (
+            <button
+              type="button"
+              onClick={handleClose}
+              className="p-1.5 rounded-lg text-[var(--landing-muted)] hover:text-[var(--landing-heading)] hover:bg-[var(--landing-input-bg)] transition-colors"
+              aria-label="Close"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          )}
         </div>
 
-        {/* Step label */}
         <div className="px-6 pb-2">
           <p className="text-xs font-medium text-[var(--landing-muted)] uppercase tracking-wider">
-            Step {currentIdx + 1} of {STEPS.length} · {STEP_LABELS[step]}
+            Step {currentIdx + 1} of {STEPS.length} - {STEP_LABELS[step]}
           </p>
+          {errorMessage && (
+            <p className="mt-2 text-xs text-red-500" role="alert">
+              {errorMessage}
+            </p>
+          )}
         </div>
 
-        {/* Step content */}
         <div className="px-6 pt-4 pb-8">
           <AnimatePresence mode="wait">
             {step === "email" && <EmailStep key="email" />}
             {step === "otp" && <OTPStep key="otp" />}
             {step === "wallet" && <WalletStep key="wallet" />}
+            {step === "wallet-linking" && <WalletLinkingStep key="wallet-linking" />}
           </AnimatePresence>
         </div>
       </motion.div>

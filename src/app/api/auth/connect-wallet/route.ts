@@ -1,5 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createBackendErrorResponse, fetchBackend } from "@/lib/backend-fetch";
+import {
+  normalizeWalletConnectFailure,
+  isWalletOwnershipConflictResponse,
+} from "@/lib/wallet-link-policy";
 
 export async function POST(req: NextRequest) {
   try {
@@ -18,10 +22,31 @@ export async function POST(req: NextRequest) {
 
     const data = await res.json().catch(() => ({}));
 
-    if (!res.ok) {
+    const backendReportedFailure =
+      (typeof data?.success === "boolean" && data.success === false) ||
+      data?.status === "error";
+
+    if (!res.ok || backendReportedFailure) {
+      const normalized = normalizeWalletConnectFailure(res.status, data);
       return NextResponse.json(
-        { success: false, message: data.message ?? "Failed to connect wallet" },
-        { status: res.status },
+        {
+          success: false,
+          message: normalized.message,
+          code: normalized.code,
+        },
+        { status: normalized.status },
+      );
+    }
+
+    if (isWalletOwnershipConflictResponse(res.status, data)) {
+      const normalized = normalizeWalletConnectFailure(res.status, data);
+      return NextResponse.json(
+        {
+          success: false,
+          message: normalized.message,
+          code: normalized.code,
+        },
+        { status: normalized.status },
       );
     }
 

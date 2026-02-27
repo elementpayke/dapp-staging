@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   Zap,
   Send,
@@ -21,9 +21,6 @@ import { useAuthModalStore } from "@/stores/authModalStore";
 import { useAuthStore } from "@/stores/authStore";
 import { SUPPORTED_TOKENS } from "@/constants/supportedTokens";
 import { fetchFeeStructureCached, getFeeForAmount } from "@/utils/feeStructure";
-import { usePrivy } from "@privy-io/react-auth";
-import { connectWallet } from "@/services/auth";
-import WalletConnection from "../wallet-connection/wallet-connection";
 
 interface ConverterToken {
   id: string;
@@ -165,10 +162,24 @@ const PreviewForm = ({ className = "" }: PreviewFormProps) => {
   } = useOnboardingStore();
 
   const openAuthModal = useAuthModalStore((s) => s.openAuthModal);
+  const resumeAuthModal = useAuthModalStore((s) => s.resumeAuthModal);
+  const setStep = useAuthModalStore((s) => s.setStep);
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
-  const appToken = useAuthStore((s) => s.token);
-  const addConnectedWallet = useAuthStore((s) => s.addConnectedWallet);
+  const isOtpVerified = useAuthStore((s) => s.isOtpVerified);
+  const isWalletRegistered = useAuthStore((s) => s.isWalletRegistered);
   const router = useRouter();
+
+  const handleCtaClick = () => {
+    setInitiatedFromLanding(true);
+    if (isAuthenticated) {
+      router.push("/dashboard");
+    } else if (isOtpVerified && !isWalletRegistered) {
+      setStep("wallet");
+      resumeAuthModal();
+    } else {
+      openAuthModal();
+    }
+  };
 
   const [availableTokens, setAvailableTokens] = useState<ConverterToken[]>(FALLBACK_TOKENS);
   const [selectedTokenId, setSelectedTokenId] = useState<string>(FALLBACK_TOKENS[0]?.id || "");
@@ -180,14 +191,6 @@ const PreviewForm = ({ className = "" }: PreviewFormProps) => {
   const [typedValue, setTypedValue] = useState(amount || "");
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
-  const { login, ready, authenticated, user } = usePrivy();
-  const walletAccount = user?.linkedAccounts?.find((account) => account.type === "wallet");
-  const walletAddress = (walletAccount && "address" in walletAccount ? walletAccount.address : null) ?? user?.wallet?.address ?? null;
-  const hasConnectedWallet = Boolean(walletAddress);
-  const connectAndRedirectInFlight = useRef(false);
-  const lastLinkedWalletRef = useRef<string | null>(null);
-  
-
   const selectedToken =
     availableTokens.find((token) => token.id === selectedTokenId) ||
     availableTokens.find((token) => token.symbol === tokenSymbol) ||
@@ -304,100 +307,8 @@ const PreviewForm = ({ className = "" }: PreviewFormProps) => {
     return getFeeForAmount(kesAmount, feeBands).fee;
   }, [kesAmount, feeBands]);
 
-  const handleAuthenticatedWalletFlow = useCallback(async () => {
-    if (!isAuthenticated || !appToken || !hasConnectedWallet || !walletAddress) {
-      return;
-    }
-    if (connectAndRedirectInFlight.current) return;
-    if (lastLinkedWalletRef.current === walletAddress) {
-      router.push("/dashboard");
-      return;
-    }
-
-    connectAndRedirectInFlight.current = true;
-    try {
-      await connectWallet(appToken, walletAddress, "evm");
-      addConnectedWallet(walletAddress);
-      lastLinkedWalletRef.current = walletAddress;
-    } catch (err: any) {
-      const message = String(err?.message ?? "").toLowerCase();
-      if (message.includes("already")) {
-        addConnectedWallet(walletAddress);
-        lastLinkedWalletRef.current = walletAddress;
-      } else {
-        console.error("[PreviewForm] Failed to connect wallet before redirect:", err);
-        return;
-      }
-    } finally {
-      connectAndRedirectInFlight.current = false;
-    }
-
-    router.push("/dashboard");
-  }, [isAuthenticated, appToken, hasConnectedWallet, walletAddress, addConnectedWallet, router]);
-
-  useEffect(() => {
-    if (!ready) return;
-    if (!initiatedFromLanding) return;
-    if (!isAuthenticated || !appToken) return;
-    if (!authenticated || !hasConnectedWallet) return;
-    handleAuthenticatedWalletFlow();
-  }, [
-    ready,
-    initiatedFromLanding,
-    isAuthenticated,
-    appToken,
-    authenticated,
-    hasConnectedWallet,
-    handleAuthenticatedWalletFlow,
-  ]);
-
-  const handleCtaClick = useCallback(async () => {
-
-    console.log("[PreviewForm] CTA clicked with state:", {
-      ready,
-      initiatedFromLanding,
-      isAuthenticated,
-      appToken: Boolean(appToken),
-      authenticated,
-      hasConnectedWallet,
-    }
-    )
-    setInitiatedFromLanding(true);
-
-    if (!isAuthenticated || !appToken) {
-      openAuthModal();
-      return;
-    }
-
-    if (!authenticated || !hasConnectedWallet) {
-      console.log("[PreviewForm] Triggering wallet connection flow via Privy login");
-      login();
-      return;
-    }
-
-    console.log("[PreviewForm] All conditions met for authenticated wallet flow, proceeding to connect and redirect");
-    await handleAuthenticatedWalletFlow();
-  }, [
-    ready,
-    isAuthenticated,
-    appToken,
-    authenticated,
-    hasConnectedWallet,
-    login,
-    openAuthModal,
-    handleAuthenticatedWalletFlow,
-    setInitiatedFromLanding,
-  ]);
-
-  const shouldShowConnectWallet =
-    ready &&
-    isAuthenticated &&
-    Boolean(appToken) &&
-    (!authenticated || !hasConnectedWallet);
-
-  const ctaLabel = shouldShowConnectWallet
-    ? "Connect Wallet"
-    : flow === "offramp"
+  const ctaLabel =
+    flow === "offramp"
       ? "Send Money"
       : "Buy Crypto";
 
@@ -676,11 +587,7 @@ const PreviewForm = ({ className = "" }: PreviewFormProps) => {
         </div>
       </div>
 
-      <WalletConnection
-        buttonClassName="!w-full !items-center !flex !justify-center"
-      />
-
-      {/* <button
+      <button
         type="button"
         onClick={handleCtaClick}
         className="
@@ -694,7 +601,7 @@ const PreviewForm = ({ className = "" }: PreviewFormProps) => {
       >
         {ctaLabel}
         <ArrowRight className="h-4 w-4" />
-      </button> */}
+      </button>
     </motion.article>
   );
 };

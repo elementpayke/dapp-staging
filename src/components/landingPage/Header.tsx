@@ -28,7 +28,11 @@ const Header = () => {
   const { toggleMenu, isMenuOpen } = useMenuStore();
   useLockBodyScroll(isMenuOpen);
   const openAuthModal = useAuthModalStore((s) => s.openAuthModal);
+  const resumeAuthModal = useAuthModalStore((s) => s.resumeAuthModal);
+  const setStep = useAuthModalStore((s) => s.setStep);
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+  const isOtpVerified = useAuthStore((s) => s.isOtpVerified);
+  const isWalletRegistered = useAuthStore((s) => s.isWalletRegistered);
   const userEmail = useAuthStore((s) => s.user?.email);
   const clearAuth = useAuthStore((s) => s.clearAuth);
   const { logout: privyLogout } = usePrivy();
@@ -38,6 +42,20 @@ const Header = () => {
 
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  console.log("Auth status:", 
+    isOtpVerified, 
+    isWalletRegistered
+  )
+
+  /** Open the auth modal, resuming at the wallet step if OTP is already done */
+  const handleAuthClick = useCallback(() => {
+    if (isOtpVerified && !isWalletRegistered) {
+      setStep("wallet");
+      resumeAuthModal();
+    } else {
+      openAuthModal();
+    }
+  }, [isOtpVerified, isWalletRegistered, setStep, resumeAuthModal, openAuthModal]);
 
   // Close dropdown on outside click
   useEffect(() => {
@@ -140,7 +158,7 @@ const Header = () => {
 
           <div className="flex-1" />
           <div className="flex items-center gap-3">
-            {isAuthenticated ? (
+            { isOtpVerified ? (
               <div className="relative hidden md:block" ref={dropdownRef}>
                 <button
                   type="button"
@@ -167,11 +185,19 @@ const Header = () => {
                       <p className="text-sm font-medium text-[var(--landing-heading)] truncate">
                         {userEmail}
                       </p>
-                      <p className="text-xs text-[var(--landing-muted)] mt-0.5">Signed in</p>
+                      <div className="flex flex-row items-center mt-0.5">
+                        <span 
+                         className={`w-2.5 h-2.5 rounded-full mr-2 ${isOtpVerified && isWalletRegistered ? "bg-green-500" : "bg-yellow-500 animate-pulse"}`}
+                        ></span>
+                      <p className="text-xs text-[var(--landing-muted)]">{isOtpVerified && isWalletRegistered ? "Signed in" : "Awaiting Wallet Connection"}</p>
+                      </div>
                     </div>
 
-                    <Link
-                      href="/dashboard"
+                    {
+                      isOtpVerified && isWalletRegistered && (
+                      <>
+                      <Link
+                      href={isOtpVerified && isWalletRegistered ? "/dashboard" : ""}
                       onClick={() => setDropdownOpen(false)}
                       className="flex items-center gap-3 px-4 py-2.5 text-sm text-[var(--landing-body)] hover:bg-[var(--landing-input-bg)] hover:text-[var(--landing-heading)] transition-colors"
                     >
@@ -180,7 +206,7 @@ const Header = () => {
                     </Link>
 
                     <Link
-                      href="/dashboard"
+                      href="#"
                       onClick={() => setDropdownOpen(false)}
                       className="flex items-center gap-3 px-4 py-2.5 text-sm text-[var(--landing-body)] hover:bg-[var(--landing-input-bg)] hover:text-[var(--landing-heading)] transition-colors"
                     >
@@ -189,13 +215,15 @@ const Header = () => {
                     </Link>
 
                     <Link
-                      href="/dashboard"
+                      href="#"
                       onClick={() => setDropdownOpen(false)}
                       className="flex items-center gap-3 px-4 py-2.5 text-sm text-[var(--landing-body)] hover:bg-[var(--landing-input-bg)] hover:text-[var(--landing-heading)] transition-colors"
                     >
                       <UserCircle className="w-4 h-4" />
                       Profile
-                    </Link>
+                    </Link></>
+                      )
+                    }
 
                     <div className="border-t border-[var(--landing-card-border)] mt-1 pt-1">
                       <button
@@ -215,14 +243,14 @@ const Header = () => {
                 {/* Not authenticated: Sign In (ghost) + Get Started (primary) */}
                 <button
                   type="button"
-                  onClick={openAuthModal}
+                  onClick={handleAuthClick}
                   className="hidden md:inline-flex items-center justify-center px-4 py-2 rounded-full text-sm font-medium text-[var(--landing-body)] hover:text-[var(--landing-heading)] transition-colors"
                 >
                   Sign In
                 </button>
                 <button
                   type="button"
-                  onClick={openAuthModal}
+                  onClick={handleAuthClick}
                   className="hidden md:inline-flex items-center justify-center px-5 py-2 rounded-full text-sm font-semibold text-white bg-[var(--landing-accent)] hover:bg-[var(--landing-accent-hover)] transition-colors shadow-sm"
                 >
                   Get Started

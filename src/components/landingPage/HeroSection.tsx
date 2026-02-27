@@ -33,7 +33,11 @@ const stagger = {
 const HeroSection = () => {
   const formRef = useRef<HTMLDivElement>(null);
   const openAuthModal = useAuthModalStore((s) => s.openAuthModal);
+  const resumeAuthModal = useAuthModalStore((s) => s.resumeAuthModal);
+  const setStep = useAuthModalStore((s) => s.setStep);
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+  const isOtpVerified = useAuthStore((s) => s.isOtpVerified);
+  const isWalletRegistered = useAuthStore((s) => s.isWalletRegistered);
   const navigation = useRouter();
 
   const scrollToForm = useCallback(() => {
@@ -45,10 +49,16 @@ const HeroSection = () => {
   const handleCTA = () => {
     console.log("CTA clicked. Current auth state:", {
       isAuthenticated,
+      isOtpVerified,
+      isWalletRegistered,
     });
-    if (isAuthenticated) {
-      console.log("[HeroSection] User is authenticated, redirecting to dashboard");
+    if (isAuthenticated && isOtpVerified && isWalletRegistered) {
+      console.log("[HeroSection] User is fully authenticated, redirecting to dashboard");
       navigation?.push("/dashboard");
+    } else if (isOtpVerified && !isWalletRegistered) {
+      // OTP done but wallet not yet linked — resume at wallet step
+      setStep("wallet");
+      resumeAuthModal();
     } else {
       openAuthModal();
     }

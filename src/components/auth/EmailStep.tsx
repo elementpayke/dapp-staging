@@ -16,11 +16,13 @@ const EmailStep = () => {
 
   const setPendingEmail = useAuthStore((s) => s.setPendingEmail);
   const setStep = useAuthModalStore((s) => s.setStep);
+  const setModalError = useAuthModalStore((s) => s.setErrorMessage);
 
   const handleSubmit = useCallback(
     async (e: React.FormEvent) => {
       e.preventDefault();
       setError(null);
+      setModalError(null);
 
       const trimmed = email.trim().toLowerCase();
       if (!EMAIL_RE.test(trimmed)) {
@@ -39,7 +41,7 @@ const EmailStep = () => {
         setLoading(false);
       }
     },
-    [email, setPendingEmail, setStep],
+    [email, setPendingEmail, setStep, setModalError],
   );
 
   return (
@@ -78,6 +80,7 @@ const EmailStep = () => {
             onChange={(e) => {
               setEmail(e.target.value);
               if (error) setError(null);
+              setModalError(null);
             }}
             className={`
               w-full rounded-xl border px-4 py-3.5 text-base
