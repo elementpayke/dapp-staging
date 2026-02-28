@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getTokenFromCookies } from "@/lib/auth-cookies";
 
 export async function GET(request: NextRequest) {
   try {
@@ -13,7 +14,7 @@ export async function GET(request: NextRequest) {
     }
 
     const apiUrl = process.env.NEXT_PUBLIC_API_URL;
-   const apiKey = process.env.NEXT_PRIVATE_AGGR_API_KEY;
+    const apiKey = process.env.NEXT_PRIVATE_AGGR_API_KEY;
 
     if (!apiUrl || !apiKey) {
       console.error("Missing API configuration (apiUrl or apiKey).");
@@ -23,14 +24,14 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Forward the client's Authorization header to the backend
-    const authHeader = request.headers.get("authorization");
+    // Read token from HTTP-only cookie
+    const token = await getTokenFromCookies();
     const headers: Record<string, string> = {
       "x-api-key": apiKey,
       "Content-Type": "application/json",
     };
-    if (authHeader) {
-      headers["Authorization"] = authHeader;
+    if (token) {
+      headers["Authorization"] = `Bearer ${token}`;
     }
 
     // Make the request to Element Pay API from server with API key

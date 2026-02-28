@@ -13,7 +13,6 @@ export const useAuth = () => {
   const {
     isAuthenticated,
     user,
-    token,
     clearAuth,
   } = useAuthStore();
   const { openAuthModal } = useAuthModalStore();
@@ -35,8 +34,6 @@ export const useAuth = () => {
     isLoggedIn: isAuthenticated || isConnected,
     /** The authenticated user profile (null if not authed) */
     user,
-    /** Access token */
-    token,
     /** Open the auth modal (email → OTP → wallet → KYC) */
     login: openAuthModal,
     /** Clear auth state */

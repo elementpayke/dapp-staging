@@ -19,7 +19,7 @@ const WalletStep = () => {
   const { authenticated, user, logout: privyLogout } = usePrivy();
   const { disconnect: wagmiDisconnect } = useDisconnect();
   const { disconnect: storeDisconnect } = useWalletStore();
-  const token = useAuthStore((s) => s.token);
+  const isOtpVerified = useAuthStore((s) => s.isOtpVerified);
   const walletAddress = user?.wallet?.address ?? null;
 
   const [copied, setCopied] = useState(false);
@@ -27,7 +27,7 @@ const WalletStep = () => {
 
   // True when Privy already has a connected wallet but we haven't
   // registered it with our backend yet.
-  const walletAlreadyConnected = !!(authenticated && walletAddress && token);
+  const walletAlreadyConnected = !!(authenticated && walletAddress && isOtpVerified);
 
   const handleCopyAddress = useCallback(async () => {
     if (!walletAddress) return;

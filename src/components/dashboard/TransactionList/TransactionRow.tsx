@@ -43,7 +43,7 @@ const formatTokenDisplay = (token: string) => {
 const Arrow = ({ direction }: { direction: 'in' | 'out' }) => (
   <span
     className={`inline-flex items-center justify-center rounded-full p-1 mr-2 transition-transform duration-200 group-hover:scale-110 ${
-      direction === 'in' ? 'bg-green-50' : 'bg-red-50'
+      direction === 'in' ? 'bg-green-50' : 'bg-[var(--ep-accent-muted)]'
     }`}
     aria-label={direction === 'in' ? 'Received' : 'Sent'}
   >
@@ -53,7 +53,7 @@ const Arrow = ({ direction }: { direction: 'in' | 'out' }) => (
         <path strokeLinecap="round" strokeLinejoin="round" d="M7 7v10h10" />
       </svg>
     ) : (
-      <svg className="w-5 h-5 text-red-500" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+      <svg className="w-5 h-5 text-[var(--ep-accent)]" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" d="M17 7L7 17" />
         <path strokeLinecap="round" strokeLinejoin="round" d="M17 17V7H7" />
       </svg>
@@ -88,7 +88,7 @@ const TransactionRow: FC<TransactionRowProps> = ({ tx }: { tx: ExtendedTx }) => 
   };
 
   const isReceive = tx.direction === 'Receive';
-  const amountColor = isReceive ? 'text-green-600' : 'text-red-600';
+  const amountColor = isReceive ? 'text-green-600' : 'text-[var(--ep-accent)]';
   const amountSign = isReceive ? '+' : '-';
 
   const statusBadge = (
@@ -113,22 +113,22 @@ const TransactionRow: FC<TransactionRowProps> = ({ tx }: { tx: ExtendedTx }) => 
       {/* Desktop/tablet row */}
       <div
         onClick={() => setShowModal(true)}
-        className="transaction-desktop hidden sm:grid sm:grid-cols-12 gap-4 items-center px-6 py-4 hover:bg-gray-50 transition-colors text-sm border-b border-gray-100 cursor-pointer"
+        className="transaction-desktop hidden sm:grid sm:grid-cols-12 gap-4 items-center px-6 py-4 hover:bg-[var(--ep-accent-subtle)] transition-colors text-sm border-b border-[var(--ep-border)] cursor-pointer"
       >
         {/* Transaction */}
         <div className="col-span-3 flex items-center min-w-0">
           <Arrow direction={isReceive ? 'in' : 'out'} />
           <div className="min-w-0">
-            <div className="font-medium text-gray-900 truncate">
+            <div className="font-medium text-[var(--ep-heading)] truncate">
               {isReceive ? 'Received from OnRamp' : `Sent to ${displayValue(tx.receiverDisplay)}`}
             </div>
-            <div className="text-xs text-gray-500 mt-0.5">
+            <div className="text-xs text-[var(--ep-muted)] mt-0.5">
               {displayValue(tx.time)} • {displayValue(tx.date)}
             </div>
             {tx.hash && tx.hash !== '—' && (
               <button
                 onClick={handleOpenExplorer}
-                className="text-xs text-blue-500 font-mono truncate hover:underline mt-0.5 flex items-center gap-1"
+                className="text-xs text-[var(--ep-accent)] font-mono truncate hover:underline mt-0.5 flex items-center gap-1"
                 title="View on Explorer"
               >
                 {displayValue(tx.hash)}
@@ -154,15 +154,15 @@ const TransactionRow: FC<TransactionRowProps> = ({ tx }: { tx: ExtendedTx }) => 
           <span className={`px-2 py-1 text-xs rounded-full ${
             tx.paymentMethod === 'M-Pesa'
               ? 'bg-green-50 text-green-600 border border-green-200'
-              : 'bg-blue-50 text-blue-600 border border-blue-200'
+              : 'bg-[var(--ep-accent-muted)] text-[var(--ep-accent)] border border-[var(--ep-accent)]/20'
           }`}>
             {displayValue(tx.paymentMethod)}
           </span>
           {tx.paymentMethod === 'M-Pesa' && tx.receiptNumber && (
-            <span className="text-xs text-gray-500 font-mono flex items-center gap-1">
+            <span className="text-xs text-[var(--ep-muted)] font-mono flex items-center gap-1">
               Ref: {tx.receiptNumber}
               <button
-                className="p-0.5 rounded hover:bg-gray-100"
+                className="p-0.5 rounded hover:bg-[var(--ep-accent-subtle)]"
                 onClick={(e) => {
                   e.stopPropagation();
                   copyToClipboard(tx.receiptNumber ?? '', 'M-Pesa reference');
@@ -170,7 +170,7 @@ const TransactionRow: FC<TransactionRowProps> = ({ tx }: { tx: ExtendedTx }) => 
                 title="Copy M-Pesa reference number"
                 aria-label="Copy M-Pesa reference number"
               >
-                <Copy className="w-4 h-4 text-gray-400 hover:text-blue-500" />
+                <Copy className="w-4 h-4 text-[var(--ep-muted)] hover:text-[var(--ep-accent)]" />
               </button>
             </span>
           )}
@@ -180,7 +180,7 @@ const TransactionRow: FC<TransactionRowProps> = ({ tx }: { tx: ExtendedTx }) => 
         {/* Actions */}
         <div className="col-span-2 flex items-center gap-2 justify-end">
           <button
-            className="p-1 rounded hover:bg-gray-100"
+            className="p-1 rounded hover:bg-[var(--ep-accent-subtle)]"
             onClick={(e) => {
               e.stopPropagation();
               copyToClipboard(tx.fullHash, 'Transaction hash');
@@ -188,15 +188,15 @@ const TransactionRow: FC<TransactionRowProps> = ({ tx }: { tx: ExtendedTx }) => 
             title="Copy transaction hash"
             aria-label="Copy transaction hash"
           >
-            <Copy className="w-5 h-5 text-gray-400 hover:text-blue-500" />
+            <Copy className="w-5 h-5 text-[var(--ep-muted)] hover:text-[var(--ep-accent)]" />
           </button>
           <button
-            className="p-1 rounded hover:bg-gray-100"
+            className="p-1 rounded hover:bg-[var(--ep-accent-subtle)]"
             onClick={(e) => e.stopPropagation()}
             title="More actions"
             aria-label="More actions"
           >
-            <MoreHorizontal className="w-5 h-5 text-gray-400" />
+            <MoreHorizontal className="w-5 h-5 text-[var(--ep-muted)]" />
           </button>
         </div>
       </div>
@@ -204,12 +204,12 @@ const TransactionRow: FC<TransactionRowProps> = ({ tx }: { tx: ExtendedTx }) => 
       {/* Mobile row */}
       <div
         onClick={() => setShowModal(true)}
-        className="transaction-mobile flex sm:hidden flex-col gap-2 px-3 py-4 border-b border-gray-100 bg-white rounded-lg shadow-sm mb-2 cursor-pointer"
+        className="transaction-mobile flex sm:hidden flex-col gap-2 px-3 py-4 border-b border-[var(--ep-border)] bg-[var(--ep-bg-card)] rounded-xl shadow-[var(--ep-card-shadow)] mb-2 cursor-pointer"
       >
         <div className="flex items-center justify-between">
           <div className="flex items-center min-w-0">
             <Arrow direction={isReceive ? 'in' : 'out'} />
-            <span className="font-medium text-gray-900 truncate">
+            <span className="font-medium text-[var(--ep-heading)] truncate">
               {displayValue(mobileDisplayName)}
             </span>
             {statusBadge}
@@ -218,13 +218,13 @@ const TransactionRow: FC<TransactionRowProps> = ({ tx }: { tx: ExtendedTx }) => 
         <div className={`font-bold text-lg ${amountColor} mt-1`}>
           {amountSign}KE {round2(tx.amount ? tx.amount.replace(' KES', '') : undefined)}
         </div>
-        <div className="flex items-center gap-2 text-xs text-gray-500">
+        <div className="flex items-center gap-2 text-xs text-[var(--ep-muted)]">
           <span>{displayValue(tx.time)} • {displayValue(tx.date)}</span>
           {tx.paymentMethod === 'M-Pesa' && tx.receiptNumber && (
             <span className="flex items-center gap-1 bg-green-50 text-green-700 px-2 py-0.5 rounded-full ml-2">
               Ref: {tx.receiptNumber}
               <button
-                className="p-0.5 rounded hover:bg-gray-100"
+                className="p-0.5 rounded hover:bg-[var(--ep-accent-subtle)]"
                 onClick={(e) => {
                   e.stopPropagation();
                   copyToClipboard(tx.receiptNumber ?? '', 'M-Pesa reference');
@@ -232,14 +232,14 @@ const TransactionRow: FC<TransactionRowProps> = ({ tx }: { tx: ExtendedTx }) => 
                 title="Copy M-Pesa reference number"
                 aria-label="Copy M-Pesa reference number"
               >
-                <Copy className="w-4 h-4 text-gray-400 hover:text-blue-500" />
+                <Copy className="w-4 h-4 text-[var(--ep-muted)] hover:text-[var(--ep-accent)]" />
               </button>
             </span>
           )}
         </div>
         <div className="flex items-center gap-2 justify-end mt-1">
           <button
-            className="p-1 rounded hover:bg-gray-100"
+            className="p-1 rounded hover:bg-[var(--ep-accent-subtle)]"
             onClick={(e) => {
               e.stopPropagation();
               copyToClipboard(tx.fullHash, 'Transaction hash');
@@ -247,15 +247,15 @@ const TransactionRow: FC<TransactionRowProps> = ({ tx }: { tx: ExtendedTx }) => 
             title="Copy transaction hash"
             aria-label="Copy transaction hash"
           >
-            <Copy className="w-5 h-5 text-gray-400 hover:text-blue-500" />
+            <Copy className="w-5 h-5 text-[var(--ep-muted)] hover:text-[var(--ep-accent)]" />
           </button>
           <button
-            className="p-1 rounded hover:bg-gray-100"
+            className="p-1 rounded hover:bg-[var(--ep-accent-subtle)]"
             onClick={(e) => e.stopPropagation()}
             title="More actions"
             aria-label="More actions"
           >
-            <MoreHorizontal className="w-5 h-5 text-gray-400" />
+            <MoreHorizontal className="w-5 h-5 text-[var(--ep-muted)]" />
           </button>
         </div>
       </div>

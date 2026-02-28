@@ -4,12 +4,19 @@ import {
   normalizeWalletConnectFailure,
   isWalletOwnershipConflictResponse,
 } from "@/lib/wallet-link-policy";
+import { getTokenFromCookies } from "@/lib/auth-cookies";
 
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const authHeader = req.headers.get("authorization") ?? "";
-    const token = authHeader.replace(/^Bearer\s+/i, "");
+    const token = await getTokenFromCookies();
+
+    if (!token) {
+      return NextResponse.json(
+        { success: false, message: "Not authenticated" },
+        { status: 401 },
+      );
+    }
 
     const res = await fetchBackend("/auth/connect-wallet", {
       method: "POST",

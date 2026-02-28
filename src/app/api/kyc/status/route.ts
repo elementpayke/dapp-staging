@@ -1,10 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createBackendErrorResponse, fetchBackend } from "@/lib/backend-fetch";
+import { getTokenFromCookies } from "@/lib/auth-cookies";
 
 export async function GET(req: NextRequest) {
   try {
-    const authHeader = req.headers.get("Authorization") ?? "";
-    const token = authHeader.replace(/^Bearer\s+/i, "");
+    const token = await getTokenFromCookies();
+
+    if (!token) {
+      return NextResponse.json(
+        { success: false, message: "Not authenticated" },
+        { status: 401 },
+      );
+    }
+
     const sessionId = req.nextUrl.searchParams.get("session_id");
 
     const res = await fetchBackend(`/kyc/status?session_id=${sessionId}`, {

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getTokenFromCookies } from "@/lib/auth-cookies";
 
 export async function GET(request: NextRequest) {
   try {
@@ -23,14 +24,14 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Forward the client's Authorization header to the backend
-    const authHeader = request.headers.get("authorization");
+    // Read token from HTTP-only cookie
+    const token = await getTokenFromCookies();
     const headers: Record<string, string> = {
       "x-api-key": apiKey,
       "Content-Type": "application/json",
     };
-    if (authHeader) {
-      headers["Authorization"] = authHeader;
+    if (token) {
+      headers["Authorization"] = `Bearer ${token}`;
     }
 
     const res = await fetch(`${apiUrl}/orders/${orderId}`, {

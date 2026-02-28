@@ -42,12 +42,12 @@ const TransactionTable: FC<TransactionTableProps> = ({
         {Object.entries(groupedTransactions).map(([date, dayTransactions]) => (
           <div
             key={date}
-            className="bg-white rounded-lg shadow-sm border border-gray-200 w-full"
+            className="bg-[var(--ep-bg-card)] rounded-xl shadow-[var(--ep-card-shadow)] border border-[var(--ep-border)] w-full"
           >
-            <div className="px-4 sm:px-6 py-3 border-b border-gray-100 bg-gray-50 rounded-t-lg">
-              <h3 className="text-sm font-medium text-gray-700">{date}</h3>
+            <div className="px-4 sm:px-6 py-3 border-b border-[var(--ep-border)] bg-[var(--ep-accent-subtle)] rounded-t-xl">
+              <h3 className="text-xs font-semibold uppercase tracking-wide text-[var(--ep-muted)]">{date}</h3>
             </div>
-            <div className="divide-y divide-gray-100">
+            <div className="divide-y divide-[var(--ep-border)]">
               {dayTransactions.map((tx) => (
                 <TransactionRow key={tx.id} tx={tx} />
               ))}
@@ -59,12 +59,12 @@ const TransactionTable: FC<TransactionTableProps> = ({
       {/* No Results Message */}
       {filteredTransactions.length === 0 && (
         <div className="text-center py-8">
-          <p className="text-gray-500">
+          <p className="text-[var(--ep-muted)]">
             No transactions match your current filters.
           </p>
           <button
             onClick={clearFilters}
-            className="mt-2 text-blue-600 hover:text-blue-800 underline"
+            className="mt-2 text-[var(--ep-accent)] hover:underline"
           >
             Clear filters to see all transactions
           </button>
@@ -87,7 +87,7 @@ const TransactionTable: FC<TransactionTableProps> = ({
           ).map((page) => (
             <button
               key={page}
-              className={`w-8 h-8 flex items-center justify-center rounded ${currentPage === page ? "bg-blue-600 text-white" : "hover:bg-gray-100 text-gray-600"} text-sm font-medium`}
+              className={`w-8 h-8 flex items-center justify-center rounded ${currentPage === page ? "bg-[var(--ep-accent)] text-white" : "hover:bg-[var(--ep-accent-subtle)] text-[var(--ep-muted)]"} text-sm font-medium`}
               onClick={() => setCurrentPage(page)}
             >
               {page}

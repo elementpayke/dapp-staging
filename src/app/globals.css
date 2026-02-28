@@ -220,6 +220,27 @@
     --landing-input-border: #e5e3ef;
     --landing-cta-bg: #4339CA;
     --landing-cta-fg: #ffffff;
+
+    /* ── ElementPay Design System (unified tokens) ────────────────── */
+    --ep-accent: #4339CA;
+    --ep-accent-hover: #3630A3;
+    --ep-accent-muted: rgba(67, 57, 202, 0.08);
+    --ep-accent-subtle: rgba(67, 57, 202, 0.05);
+
+    --ep-bg: #FFFFFF;
+    --ep-bg-card: #FFFFFF;
+    --ep-bg-input: #FAF9FC;
+    --ep-bg-elevated: #FFFFFF;
+
+    --ep-border: #E5E3EF;
+    --ep-border-focus: rgba(67, 57, 202, 0.30);
+
+    --ep-heading: #1A1A1A;
+    --ep-body: #4A4845;
+    --ep-muted: #78716C;
+
+    --ep-card-shadow: 0 4px 24px rgba(67, 57, 202, 0.06);
+    --ep-card-shadow-hover: 0 8px 32px rgba(67, 57, 202, 0.10);
   }
 
   .landing-page {
@@ -296,4 +317,48 @@
   body {
     @apply bg-background text-foreground;
   }
+}
+
+/* ── Dark mode: ElementPay design tokens ─────────────────────────── */
+[data-theme="dark"] {
+  --ep-accent: #6C63FF;
+  --ep-accent-hover: #5B52E0;
+  --ep-accent-muted: rgba(108, 99, 255, 0.12);
+  --ep-accent-subtle: rgba(108, 99, 255, 0.06);
+
+  --ep-bg: #0F0E14;
+  --ep-bg-card: #1A1924;
+  --ep-bg-input: #22212E;
+  --ep-bg-elevated: #252435;
+
+  --ep-border: #2E2D3D;
+  --ep-border-focus: rgba(108, 99, 255, 0.40);
+
+  --ep-heading: #F0EFF4;
+  --ep-body: #B0ADBA;
+  --ep-muted: #6E6B7B;
+
+  --ep-card-shadow: 0 4px 24px rgba(0, 0, 0, 0.30);
+  --ep-card-shadow-hover: 0 8px 32px rgba(0, 0, 0, 0.40);
+
+  /* Override shadcn tokens for dark */
+  --background: 260 25% 6%;
+  --foreground: 260 10% 95%;
+  --card: 260 15% 11%;
+  --card-foreground: 260 10% 95%;
+  --popover: 260 15% 11%;
+  --popover-foreground: 260 10% 95%;
+  --primary: 260 10% 95%;
+  --primary-foreground: 260 25% 6%;
+  --secondary: 260 15% 14%;
+  --secondary-foreground: 260 10% 95%;
+  --muted: 260 15% 14%;
+  --muted-foreground: 260 10% 55%;
+  --accent: 260 15% 14%;
+  --accent-foreground: 260 10% 95%;
+  --destructive: 0 62.8% 30.6%;
+  --destructive-foreground: 0 0% 98%;
+  --border: 260 15% 18%;
+  --input: 260 15% 18%;
+  --ring: 260 10% 80%;
 }

@@ -14,7 +14,7 @@ export default function KYCCallbackPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  const token = useAuthStore((s) => s.token);
+  const isOtpVerified = useAuthStore((s) => s.isOtpVerified);
   const updateKYCStatus = useAuthStore((s) => s.updateKYCStatus);
 
   useEffect(() => {
@@ -27,13 +27,13 @@ export default function KYCCallbackPage() {
             ? localStorage.getItem("elementpay-kyc-ref")
             : null);
 
-        if (!sessionId || !token) {
+        if (!sessionId || !isOtpVerified) {
           setStatus("failed");
           setMessage("Missing session. Please try again.");
           return;
         }
 
-        const res = await checkKYCStatus(token, sessionId);
+        const res = await checkKYCStatus(sessionId);
         console.log("[KYC Callback] checkKYCStatus response:", JSON.stringify(res, null, 2));
         updateKYCStatus(res.kyc_status);
 
@@ -63,7 +63,7 @@ export default function KYCCallbackPage() {
     };
 
     verify();
-  }, [token, searchParams, updateKYCStatus, router]);
+  }, [isOtpVerified, searchParams, updateKYCStatus, router]);
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-[var(--landing-bg)] px-4">

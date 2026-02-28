@@ -90,57 +90,57 @@ export default function Dashboard() {
   };
 
   return (
-    <div className="flex min-h-screen bg-gray-50">
+    <div className="flex min-h-screen bg-white">
       <Sidebar onPageChange={setCurrentPage} currentPage={currentPage} />
 
       {/* Main Content */}
       <div className="flex-1 w-full lg:ml-64">
         {/* Fixed Header */}
-        <div className="bg-white py-3 px-4 sm:px-8 border-b">
+        <div className="bg-[var(--ep-bg-card)] py-3 px-4 sm:px-8 border-b border-[var(--ep-border)]">
           <nav className="flex justify-end items-center gap-4">
             <div className="w-8 h-8 lg:hidden"></div>
 
-            <button className="p-2 hover:bg-gray-100 rounded-full">
-              <Bell className="w-5 h-5 text-gray-600" />
+            <button className="p-2 hover:bg-[var(--ep-accent-muted)] rounded-full transition-colors">
+              <Bell className="w-5 h-5 text-[var(--ep-muted)]" />
             </button>
 
             {/* Profile avatar and dropdown */}
             <div className="flex items-center gap-3 relative">
-              <div className="w-8 h-8 flex items-center justify-center bg-gray-200 rounded-full text-gray-700 font-semibold text-lg">
+              <div className="w-8 h-8 flex items-center justify-center bg-[var(--ep-accent-muted)] rounded-full text-[var(--ep-accent)] font-semibold text-sm">
                 {getAvatarInitial(user?.email)}
               </div>
               <div className="relative">
                 <button
-                  className="flex items-center gap-1 hover:bg-gray-100 px-2 py-1 rounded-lg transition-colors"
+                  className="flex items-center gap-1 hover:bg-[var(--ep-accent-subtle)] px-2 py-1 rounded-lg transition-colors"
                   onClick={() => setShowDropdown(!showDropdown)}
                   aria-haspopup="true"
                   aria-expanded={showDropdown}
                 >
                   <span
-                    className="font-medium text-sm text-gray-900 truncate max-w-[120px]"
+                    className="font-medium text-sm text-[var(--ep-heading)] truncate max-w-[120px]"
                     title={user?.email || ""}
                   >
                     {user?.email || ""}
                   </span>
                   <ChevronDown
-                    className={`w-4 h-4 text-gray-600 transition-transform ${showDropdown ? "rotate-180" : ""}`}
+                    className={`w-4 h-4 text-[var(--ep-muted)] transition-transform ${showDropdown ? "rotate-180" : ""}`}
                   />
                 </button>
 
                 {showDropdown && (
-                  <div className="absolute right-0 mt-2 w-64 bg-white rounded-md shadow-lg py-2 ring-1 ring-black ring-opacity-5 focus:outline-none z-dropdown">
-                    <div className="px-4 py-2 border-b">
-                      <div className="font-semibold text-base text-gray-900">{user?.email || ""}</div>
-                      <div className="text-sm text-gray-500"> Status: {"Signed In"}</div>
+                  <div className="absolute right-0 mt-2 w-64 bg-[var(--ep-bg-card)] rounded-xl shadow-[var(--ep-card-shadow-hover)] py-2 border border-[var(--ep-border)] z-dropdown">
+                    <div className="px-4 py-2 border-b border-[var(--ep-border)]">
+                      <div className="font-semibold text-sm text-[var(--ep-heading)]">{user?.email || ""}</div>
+                      <div className="text-xs text-[var(--ep-muted)]">Status: Signed In</div>
                     </div>
                     <button
-                      className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                      className="w-full text-left px-4 py-2 text-sm text-[var(--ep-body)] hover:bg-[var(--ep-accent-subtle)] transition-colors"
                       onClick={() => {/* Profile button logic */}}
                     >
                       Profile
                     </button>
                     <button
-                      className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-gray-100"
+                      className="w-full text-left px-4 py-2 text-sm text-red-500 hover:bg-red-50 transition-colors"
                       onClick={handleLogout}
                     >
                       <LogOut className="w-4 h-4 inline mr-2" />

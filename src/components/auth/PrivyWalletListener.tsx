@@ -18,7 +18,7 @@ import { toast } from "sonner";
  * Global listener — watches Privy state and calls the backend to register
  * the wallet once all 4 conditions are met:
  *   1. walletConnecting — user clicked "Connect Wallet" in the auth modal
- *   2. token           — OTP verified, we have a JWT
+ *   2. isOtpVerified  — OTP verified, user has a valid session
  *   3. authenticated   — Privy says user is logged in
  *   4. walletAddress   — Privy has a wallet address
  *
@@ -33,7 +33,7 @@ export default function PrivyWalletListener() {
   const { disconnect: storeDisconnect } = useWalletStore();
   const router = useRouter();
 
-  const token = useAuthStore((s) => s.token);
+  const isOtpVerified = useAuthStore((s) => s.isOtpVerified);
   const addConnectedWallet = useAuthStore((s) => s.addConnectedWallet);
   const setWalletRegistered = useAuthStore((s) => s.setWalletRegistered);
 
@@ -97,7 +97,7 @@ export default function PrivyWalletListener() {
   useEffect(() => {
     console.log("[WALLET-LINK] CHECKPOINT 2: effect deps changed", {
       walletConnecting,
-      hasToken: !!token,
+      isOtpVerified,
       authenticated,
       walletAddress: walletAddress ?? "null",
       alreadyCalled: calledRef.current,
@@ -108,8 +108,8 @@ export default function PrivyWalletListener() {
       console.log("[WALLET-LINK] ⏳ skipping — walletConnecting is false");
       return;
     }
-    if (!token) {
-      console.log("[WALLET-LINK] ⏳ skipping — no token");
+    if (!isOtpVerified) {
+      console.log("[WALLET-LINK] ⏳ skipping — OTP not verified");
       return;
     }
     if (!authenticated) {
@@ -138,7 +138,7 @@ export default function PrivyWalletListener() {
     modal.setStep("wallet-linking");
     modal.resumeAuthModal();
 
-    connectWallet(token, walletAddress, "base")
+    connectWallet(walletAddress, "base")
       .then((res) => {
         if (!mountedRef.current) return;
 
@@ -218,7 +218,7 @@ export default function PrivyWalletListener() {
     };
   }, [
     walletConnecting,
-    token,
+    isOtpVerified,
     authenticated,
     walletAddress,
     addConnectedWallet,

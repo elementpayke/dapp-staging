@@ -422,52 +422,52 @@ const TransactionList: FC<{ walletAddress: string | null }> = ({
     0,
   );
 
-  if (loading) return <p className="px-4">Loading...</p>;
+  if (loading) return <p className="px-4 text-[var(--ep-muted)]">Loading...</p>;
 
   if (!loading && transactions.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center py-10 px-4 text-center text-gray-500">
+      <div className="flex flex-col items-center justify-center py-10 px-4 text-center text-[var(--ep-muted)]">
         <svg
           xmlns="http://www.w3.org/2000/svg"
           width="120"
           height="120"
           viewBox="0 0 24 24"
           fill="none"
-          className="mb-4"
+          className="mb-4 opacity-40"
         >
           <path
             d="M3 8C3 6.34315 4.34315 5 6 5H18C19.6569 5 21 6.34315 21 8V16C21 17.6569 19.6569 19 18 19H6C4.34315 19 3 17.6569 3 16V8Z"
-            stroke="#d1d5db"
+            stroke="var(--ep-border)"
             strokeWidth="1.5"
             strokeLinecap="round"
             strokeLinejoin="round"
           />
           <path
             d="M3 10H21"
-            stroke="#d1d5db"
+            stroke="var(--ep-border)"
             strokeWidth="1.5"
             strokeLinecap="round"
           />
           <path
             d="M7 15H9"
-            stroke="#9ca3af"
+            stroke="var(--ep-muted)"
             strokeWidth="1.5"
             strokeLinecap="round"
           />
         </svg>
-        <h3 className="text-lg font-semibold text-gray-700">
+        <h3 className="text-lg font-semibold text-[var(--ep-heading)]">
           No transactions yet
         </h3>
-        <p className="mt-2 text-sm text-gray-500">
+        <p className="mt-2 text-sm text-[var(--ep-muted)]">
           You&apos;re connected with{" "}
-          <span className="text-black font-medium">
+          <span className="text-[var(--ep-accent)] font-medium">
             {walletAddress.slice(0, 6)}...{walletAddress.slice(-4)}
           </span>
           <br />
           Once you send or receive crypto via Element Pay, your activity will
           appear here.
         </p>
-        <button className="mt-4 px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition">
+        <button className="mt-4 px-5 py-2.5 bg-[var(--ep-accent)] text-white text-sm rounded-full hover:opacity-90 transition font-medium">
           Send your first payment
         </button>
       </div>
@@ -476,7 +476,7 @@ const TransactionList: FC<{ walletAddress: string | null }> = ({
 
   return (
     <ClientOnly fallback={<div className="p-4">Loading transactions...</div>}>
-      <div className="w-full p-2 sm:p-4 bg-gray-50 min-h-screen">
+      <div className="w-full p-2 sm:p-4 bg-[var(--ep-bg)] min-h-screen">
         <TransactionFilters
           searchTerm={searchTerm}
           setSearchTerm={setSearchTerm}

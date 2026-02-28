@@ -1,14 +1,21 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createBackendErrorResponse, fetchBackend } from "@/lib/backend-fetch";
+import { getTokenFromCookies } from "@/lib/auth-cookies";
 
 export async function GET(req: NextRequest) {
   try {
-    const authHeader = req.headers.get("authorization") ?? "";
-    const token = authHeader.replace(/^Bearer\s+/i, "");
+    const token = await getTokenFromCookies();
+
+    if (!token) {
+      return NextResponse.json(
+        { success: false, message: "Not authenticated" },
+        { status: 401 },
+      );
+    }
 
     const res = await fetchBackend("/auth/wallets", {
       headers: {
-        Bearer: token,
+        Authorization: `Bearer ${token}`,
       },
     });
 

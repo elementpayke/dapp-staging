@@ -59,14 +59,13 @@ const WalletConnection = ({
   const walletAddress = user?.wallet?.address;
   const linkedAccounts = user?.linkedAccounts;
 
-  // ─── App-level auth state (bearer token / access token) ────────────
+  // ─── App-level auth state ───────────────────────────────────────
   const isAppAuthenticated = useAuthStore((s) => s.isAuthenticated);
-  const appToken = useAuthStore((s) => s.token);
   const openAuthModal = useAuthModalStore((s) => s.openAuthModal);
 
 
   // ─── Stale Privy session cleanup ──────────────────────────────────
-  // If the app says "logged out" (no bearer token) but Privy still
+  // If the app says "logged out" (no active session) but Privy still
   // thinks the user is authenticated, force-logout Privy to prevent
   // phantom wallet state.
   // IMPORTANT: Skip cleanup when walletConnecting is true (user is
@@ -77,7 +76,7 @@ const WalletConnection = ({
 
   useEffect(() => {
     if (!ready) return;
-    if (appToken) return;
+    if (isOtpVerified) return;
 
     // Don't nuke Privy while the user is in the wallet-connect flow
     // or has just verified OTP (token may not have hydrated yet)
@@ -105,10 +104,10 @@ const WalletConnection = ({
       })();
     }
 
-    if (appToken) {
+    if (isOtpVerified) {
       cleanupAttempted.current = false;
     }
-  }, [ready, authenticated, appToken, walletConnecting, isOtpVerified, privyLogout, wagmiDisconnect, storeDisconnect]);
+  }, [ready, authenticated, isOtpVerified, walletConnecting, privyLogout, wagmiDisconnect, storeDisconnect]);
 
   // ─── Debug: log full state on every render ─────────────────────────
   useEffect(() => {
@@ -116,7 +115,7 @@ const WalletConnection = ({
     console.log("ready:", ready);
     console.log("privy.authenticated:", authenticated);
     console.log("app.isAuthenticated:", isAppAuthenticated);
-    console.log("app.token:", appToken ? `${appToken.slice(0, 12)}…` : "none");
+    console.log("app.isOtpVerified:", isOtpVerified);
     console.log("user:", user ? JSON.stringify({
       id: user.id,
       wallet: user.wallet ? { address: user.wallet.address } : null,
@@ -125,7 +124,7 @@ const WalletConnection = ({
     console.log("walletAddress:", walletAddress ?? "none");
     console.log("isMobile:", isMobile, "isHero:", isHero);
     console.groupEnd();
-  }, [ready, authenticated, isAppAuthenticated, appToken, user, walletAddress, linkedAccounts, isMobile, isHero]);
+  }, [ready, authenticated, isAppAuthenticated, isOtpVerified, user, walletAddress, linkedAccounts, isMobile, isHero]);
 
   /**
    * Unified disconnect: Privy logout (async) → wagmi disconnect → store cleanup → app auth clear.
@@ -252,7 +251,7 @@ const WalletConnection = ({
       app-auth: {isAppAuthenticated ? "yes" : "no"} |
       wallet: {walletAddress ? walletAddress.slice(0, 6) + "…" + walletAddress.slice(-4) : "none"} |
       isAuthenticated: {useAuthStore.getState().isAuthenticated ? "yes" : "no"}
-      {!appToken && authenticated && (
+      {!isOtpVerified && authenticated && (
         <span className="text-amber-500 ml-1">⚠ stale privy session</span>
       )}
     </div>
@@ -269,8 +268,8 @@ const WalletConnection = ({
       );
     }
 
-    // User is NOT signed in to the app (no bearer token)
-    if (!appToken) {
+    // User is NOT signed in to the app (no active session)
+    if (!isOtpVerified) {
       return renderSignInButton();
     }
 

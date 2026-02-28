@@ -110,7 +110,7 @@ const MaxOfframpButton: React.FC<MaxOfframpButtonProps> = ({
         selectedTokenBalance <= 0 ||
         feeBands.length === 0
       }
-      className="px-3 py-1.5 text-sm font-medium text-blue-600 bg-blue-50 rounded-md hover:bg-blue-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-1.5 whitespace-nowrap"
+      className="px-2.5 py-1 text-xs font-semibold text-[var(--ep-accent)] bg-[var(--ep-accent-muted)] rounded-full hover:bg-[var(--ep-accent)]/15 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-1.5 whitespace-nowrap"
       title={`Calculate maximum offramp amount (estimated ~${getEstimatedMax()} KES)`}
     >
       {isCalculating ? (

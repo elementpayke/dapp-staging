@@ -11,8 +11,12 @@ import {
   X,
   Mail,
   MessageCircle,
+  Sun,
+  Moon,
+  ChevronDown,
 } from "lucide-react";
 import { ReactNode, useState } from "react";
+import { useTheme } from "@/lib/useTheme";
 
 type PageComponent =
   | "overview"
@@ -50,6 +54,7 @@ interface SubLinkProps {
 const Sidebar: React.FC<SidebarProps> = ({ onPageChange, currentPage }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [expandedMenus, setExpandedMenus] = useState<string[]>([]);
+  const { theme, toggle: toggleTheme, mounted } = useTheme();
 
   const toggleSidebar = () => setIsOpen(!isOpen);
 
@@ -71,16 +76,16 @@ const Sidebar: React.FC<SidebarProps> = ({ onPageChange, currentPage }) => {
       {!isOpen && (
         <button
           onClick={toggleSidebar}
-          className="lg:hidden fixed top-4 left-4 z-50 p-2 rounded-lg"
+          className="lg:hidden fixed top-4 left-4 z-50 p-2 rounded-xl hover:bg-[var(--ep-accent-muted)] transition-colors"
         >
-          <Menu size={24} className="text-black" />
+          <Menu size={24} className="text-[var(--ep-heading)]" />
         </button>
       )}
 
       {/* Overlay for mobile */}
       {isOpen && (
         <div
-          className="lg:hidden fixed inset-0 bg-black bg-opacity-50 z-30"
+          className="lg:hidden fixed inset-0 bg-black/40 backdrop-blur-sm z-30"
           onClick={toggleSidebar}
         />
       )}
@@ -88,7 +93,7 @@ const Sidebar: React.FC<SidebarProps> = ({ onPageChange, currentPage }) => {
       {/* Sidebar */}
       <aside
         className={`
-          fixed top-0 left-0 h-screen bg-white border-r z-40
+          fixed top-0 left-0 h-screen bg-[var(--ep-bg-card)] border-r border-[var(--ep-border)] z-40
           w-64 transform transition-transform duration-200 ease-in-out
           lg:transform-none
           ${isOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}
@@ -96,27 +101,30 @@ const Sidebar: React.FC<SidebarProps> = ({ onPageChange, currentPage }) => {
       >
         <div className="flex flex-col h-full">
           {/* Logo and Close Button Container */}
-          <div className="h-16 px-6 border-b flex items-center justify-between">
-            <Link href="/" className="flex items-center space-x-2">
-            <div className="w-8 h-8 rounded-lg bg-[#4339CA] flex items-center justify-center">
-              <div className="w-4 h-4 rounded-sm bg-white"></div>
-            </div>
-            <span className="text-lg font-semibold text-gray-900">
-              ElementPay
-            </span> 
-          </Link>
+          <div className="h-16 px-6 border-b border-[var(--ep-border)] flex items-center justify-between">
+            <Link href="/" className="flex items-center space-x-2.5">
+              <div className="w-9 h-9 rounded-xl bg-[var(--ep-accent)] flex items-center justify-center shadow-[0_2px_8px_rgba(67,57,202,0.25)]">
+                <div className="w-4 h-4 rounded-md bg-white"></div>
+              </div>
+              <span className="text-lg font-bold tracking-tight text-[var(--ep-heading)]">
+                ElementPay
+              </span>
+            </Link>
             {isOpen && (
               <button
                 onClick={toggleSidebar}
-                className="lg:hidden p-1 hover:bg-gray-100 rounded-lg transition-colors"
+                className="lg:hidden p-1.5 hover:bg-[var(--ep-accent-muted)] rounded-xl transition-colors"
               >
-                <X size={20} className="text-black" />
+                <X size={20} className="text-[var(--ep-heading)]" />
               </button>
             )}
           </div>
 
           {/* Navigation */}
           <nav className="flex-1 p-4 overflow-y-auto">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[var(--ep-muted)] mb-3 px-3">
+              Menu
+            </p>
             <div className="space-y-1">
               <SidebarLink
                 icon={<Home size={20} />}
@@ -127,7 +135,7 @@ const Sidebar: React.FC<SidebarProps> = ({ onPageChange, currentPage }) => {
                 pageName="overview"
               >
                 {expandedMenus.includes("home") && (
-                  <div className="ml-4 space-y-1">
+                  <div className="ml-4 space-y-0.5 mt-0.5">
                     <SubLink
                       label="Overview"
                       active={currentPage === "overview"}
@@ -148,39 +156,58 @@ const Sidebar: React.FC<SidebarProps> = ({ onPageChange, currentPage }) => {
             </div>
 
             {/* Support and Settings Section */}
-            <div className="mt-auto pt-4 border-t space-y-1">
-              {/* Support Section with Submenu */}
-              <SidebarLink
-                icon={<HelpCircle size={20} />}
-                label="Support"
-                subMenu={true}
-                active={currentPage.startsWith("support")}
-                onClick={() => toggleMenu("support")}
-              >
-                {expandedMenus.includes("support") && (
-                  <div className="ml-4 space-y-1 mt-1">
-                    <SubLink
-                      icon={
-                        <MessageCircle size={16} className="text-green-500" />
-                      }
-                      label="WhatsApp"
-                      active={currentPage === "support-whatsapp"}
-                      onClick={() => handlePageChange("support-whatsapp")}
-                      status="Online"
-                    />
-                    <SubLink
-                      icon={<Mail size={16} className="text-gray-500" />}
-                      label="Email"
-                      active={currentPage === "support-email"}
-                      onClick={() => handlePageChange("support-email")}
-                    />
-                  </div>
-                )}
-              </SidebarLink>
-
-              {/* Settings Section */}
+            <div className="mt-6 pt-4 border-t border-[var(--ep-border)]">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[var(--ep-muted)] mb-3 px-3">
+                Support
+              </p>
+              <div className="space-y-1">
+                <SidebarLink
+                  icon={<HelpCircle size={20} />}
+                  label="Support"
+                  subMenu={true}
+                  active={currentPage.startsWith("support")}
+                  onClick={() => toggleMenu("support")}
+                >
+                  {expandedMenus.includes("support") && (
+                    <div className="ml-4 space-y-0.5 mt-0.5">
+                      <SubLink
+                        icon={
+                          <MessageCircle size={16} className="text-emerald-500" />
+                        }
+                        label="WhatsApp"
+                        active={currentPage === "support-whatsapp"}
+                        onClick={() => handlePageChange("support-whatsapp")}
+                        status="Online"
+                      />
+                      <SubLink
+                        icon={<Mail size={16} className="text-[var(--ep-muted)]" />}
+                        label="Email"
+                        active={currentPage === "support-email"}
+                        onClick={() => handlePageChange("support-email")}
+                      />
+                    </div>
+                  )}
+                </SidebarLink>
+              </div>
             </div>
           </nav>
+
+          {/* Theme Toggle Footer */}
+          <div className="p-4 border-t border-[var(--ep-border)]">
+            <button
+              onClick={toggleTheme}
+              className="flex items-center gap-3 w-full px-3 py-2.5 rounded-xl hover:bg-[var(--ep-accent-subtle)] transition-colors text-[var(--ep-body)]"
+            >
+              {mounted && theme === "dark" ? (
+                <Sun size={18} className="text-[var(--ep-muted)]" />
+              ) : (
+                <Moon size={18} className="text-[var(--ep-muted)]" />
+              )}
+              <span className="text-sm font-medium">
+                {mounted && theme === "dark" ? "Light Mode" : "Dark Mode"}
+              </span>
+            </button>
+          </div>
         </div>
       </aside>
     </>
@@ -197,27 +224,33 @@ const SidebarLink: React.FC<SidebarLinkProps> = ({
   onClick,
   subMenu,
 }) => (
-  <div className="space-y-1">
+  <div className="space-y-0.5">
     <button
-      className={`flex w-full items-center gap-3 px-3 py-2 rounded-lg transition-colors ${active ? "bg-gray-100" : "hover:bg-gray-50"
-        }`}
+      className={`flex w-full items-center gap-3 px-3 py-2.5 rounded-xl transition-colors ${
+        active
+          ? "bg-[var(--ep-accent-muted)] text-[var(--ep-accent)]"
+          : "hover:bg-[var(--ep-accent-subtle)] text-[var(--ep-body)]"
+      }`}
       onClick={onClick}
     >
-      <span className="text-gray-500">{icon}</span>
-      <span
-        className={`${active ? "font-medium text-gray-900" : "text-gray-700"}`}
-      >
+      <span className={active ? "text-[var(--ep-accent)]" : "text-[var(--ep-muted)]"}>
+        {icon}
+      </span>
+      <span className={`text-sm ${active ? "font-semibold" : "font-medium"}`}>
         {label}
       </span>
       {badge && (
-        <span className="ml-auto bg-gray-100 px-2 py-1 rounded-full text-xs">
+        <span className="ml-auto bg-[var(--ep-accent-muted)] text-[var(--ep-accent)] px-2 py-0.5 rounded-full text-xs font-medium">
           {badge}
         </span>
       )}
       {subMenu && (
-        <span className="ml-auto transform transition-transform duration-200">
-          {active ? "▼" : "▶"}
-        </span>
+        <ChevronDown
+          size={16}
+          className={`ml-auto transition-transform duration-200 ${
+            active ? "rotate-0 text-[var(--ep-accent)]" : "-rotate-90 text-[var(--ep-muted)]"
+          }`}
+        />
       )}
     </button>
     {children}
@@ -235,16 +268,19 @@ const SubLink: React.FC<SubLinkProps> = ({
 }) => (
   <button
     onClick={onClick}
-    className={`flex items-center w-full pl-3 py-2 text-sm rounded-lg transition-colors ${active ? "text-blue-600 bg-blue-50" : "text-gray-700 hover:bg-gray-50"
-      }`}
+    className={`flex items-center w-full pl-3 py-2 text-sm rounded-lg transition-colors ${
+      active
+        ? "text-[var(--ep-accent)] bg-[var(--ep-accent-muted)] font-medium"
+        : "text-[var(--ep-body)] hover:bg-[var(--ep-accent-subtle)]"
+    }`}
   >
     {icon && <span className="mr-2">{icon}</span>}
     <span>{label}</span>
     {status && (
-      <span className="ml-auto text-xs text-green-600 px-2">{status}</span>
+      <span className="ml-auto text-xs text-emerald-500 font-medium px-2">{status}</span>
     )}
     {badge && (
-      <span className="ml-auto bg-gray-100 px-2 py-1 rounded-full text-xs">
+      <span className="ml-auto bg-[var(--ep-accent-muted)] text-[var(--ep-accent)] px-2 py-0.5 rounded-full text-xs font-medium">
         {badge}
       </span>
     )}

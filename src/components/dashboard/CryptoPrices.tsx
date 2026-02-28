@@ -37,13 +37,8 @@ const CryptoPrice: React.FC<CryptoPriceProps> = ({
   };
 
   return (
-    <div className="flex items-center gap-2 sm:gap-3 min-w-[200px] p-2 sm:p-0">
-      {/* Note: To use Next/Image, add the following to next.config.js:
-         images: {
-           domains: ['assets.coingecko.com', 'coin-images.coingecko.com'],
-         }
-      */}
-      <div className="relative w-5 h-5 sm:w-6 sm:h-6 flex-shrink-0">
+    <div className="flex items-center gap-2 sm:gap-3 min-w-[200px] p-2 sm:p-2.5 rounded-xl bg-[var(--ep-bg-card)] border border-[var(--ep-border)] shadow-[var(--ep-card-shadow)]">
+      <div className="relative w-6 h-6 flex-shrink-0 rounded-full bg-[var(--ep-accent-subtle)] p-0.5">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src={image}
@@ -52,13 +47,13 @@ const CryptoPrice: React.FC<CryptoPriceProps> = ({
         />
       </div>
       <span
-        className={`font-medium text-sm sm:text-base ${
+        className={`font-semibold text-sm ${
           symbolColors[symbol as keyof typeof symbolColors]
         }`}
       >
         {symbol}
       </span>
-      <span className="text-gray-900 text-sm sm:text-base">
+      <span className="text-[var(--ep-heading)] font-medium text-sm">
         $
         {price.toLocaleString(undefined, {
           minimumFractionDigits: 2,
@@ -68,7 +63,9 @@ const CryptoPrice: React.FC<CryptoPriceProps> = ({
       <span
         className={`${
           isPositive ? "text-green-500" : "text-red-500"
-        } text-sm sm:text-base ml-auto sm:ml-0`}
+        } text-xs font-medium ml-auto sm:ml-0 px-1.5 py-0.5 rounded-full ${
+          isPositive ? "bg-green-50" : "bg-red-50"
+        }`}
       >
         {isPositive ? "↑" : "↓"} {Math.abs(change).toFixed(2)}%
       </span>
@@ -127,7 +124,7 @@ const CryptoPrices: React.FC = () => {
 
   if (error) {
     return (
-      <div className="flex items-center gap-2 text-red-500 py-2 sm:py-4 px-4 sm:px-0">
+      <div className="flex items-center gap-2 text-red-500 py-1 px-4 sm:px-0 text-sm">
         <span>⚠️</span> {error}
       </div>
     );
@@ -136,20 +133,20 @@ const CryptoPrices: React.FC = () => {
   return (
     <ClientOnly
       fallback={
-        <div className="flex items-center gap-2 text-gray-500 py-2 sm:py-4 px-4 sm:px-0">
+        <div className="flex items-center gap-2 text-[var(--ep-muted)] py-1 px-4 sm:px-0">
           <Loader2 className="w-4 h-4 animate-spin" />
           Loading prices...
         </div>
       }
     >
-      <div className="py-2 sm:py-4 overflow-x-auto">
+      <div className="py-1 overflow-x-auto">
         {loading ? (
-          <div className="flex items-center gap-2 text-gray-500 px-4 sm:px-0">
+          <div className="flex items-center gap-2 text-[var(--ep-muted)] px-4 sm:px-0">
             <Loader2 className="w-4 h-4 animate-spin" />
             Loading prices...
           </div>
         ) : (
-          <div className="flex flex-col space-y-3 sm:space-y-0 sm:flex-row sm:gap-8 w-full">
+          <div className="flex flex-col space-y-2 sm:space-y-0 sm:flex-row sm:gap-3 w-full">
             {prices.map((price) => (
               <CryptoPrice key={price.symbol} {...price} />
             ))}

@@ -1,23 +1,30 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createBackendErrorResponse, fetchBackend } from "@/lib/backend-fetch";
+import { getTokenFromCookies, clearAuthCookies } from "@/lib/auth-cookies";
 
 export async function POST(req: NextRequest) {
   try {
-    const authHeader = req.headers.get("Authorization") ?? "";
-    const token = authHeader.replace(/^Bearer\s+/i, "");
+    const token = await getTokenFromCookies();
 
-    const res = await fetchBackend("/auth/logout", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Bearer: token,
-      },
-    });
+    // Best-effort backend logout — still clear cookies even if it fails
+    if (token) {
+      await fetchBackend("/auth/logout", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+      }).catch(() => {});
+    }
 
-    const data = await res.json().catch(() => ({}));
-    return NextResponse.json(data, { status: res.status });
+    const response = NextResponse.json({ success: true });
+    clearAuthCookies(response);
+    return response;
   } catch (error: any) {
     console.error("[logout] Error:", error);
-    return createBackendErrorResponse(error);
+    // Still clear cookies on error
+    const errResponse = createBackendErrorResponse(error);
+    clearAuthCookies(errResponse as NextResponse);
+    return errResponse;
   }
 }

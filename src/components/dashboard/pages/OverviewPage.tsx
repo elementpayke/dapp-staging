@@ -9,8 +9,8 @@ const OverviewPage = () => {
   const { address } = useWallet();
 
   return (
-    <div className="space-y-6 overflow-y-auto max-h-[calc(100vh-64px)]">
-      <div className="p-4 sm:p-8 space-y-6">
+    <div className="space-y-0 overflow-y-auto max-h-[calc(100vh-64px)] bg-[var(--ep-bg)]">
+      <div className="px-4 sm:px-8 pt-5 pb-4 space-y-4">
         <DashboardHeader />
         <CryptoPrices />
         <QuickActions />

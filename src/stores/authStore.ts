@@ -1,5 +1,6 @@
 /**
- * Auth store — manages authentication state, tokens, and user profile.
+ * Auth store — manages authentication state and user profile.
+ * Tokens are stored server-side in HTTP-only cookies (never in client JS).
  * Persisted to localStorage so sessions survive page reloads.
  */
 
@@ -12,10 +13,6 @@ import type { AuthUser } from "@/services/auth";
 export type AuthStep = "email" | "otp" | "wallet" | "wallet-linking";
 
 interface AuthState {
-  /** JWT access token from backend */
-  token: string | null;
-  /** Refresh token */
-  refreshToken: string | null;
   /** Authenticated user profile */
   user: AuthUser | null;
   /** Derived convenience flag: OTP verified */
@@ -33,16 +30,14 @@ interface AuthState {
 }
 
 interface AuthActions {
-  /** Store credentials after successful verify-OTP */
-  setAuth: (token: string, user: AuthUser, refreshToken?: string) => void;
+  /** Store user profile after successful verify-OTP */
+  setAuth: (user: AuthUser) => void;
   /** Set wallet registration status */
   setWalletRegistered: (registered: boolean) => void;
   /** Clear all auth state (logout) */
   clearAuth: () => void;
   /** Update user's KYC status after SmileLinks callback */
   updateKYCStatus: (status: AuthUser["kyc_status"]) => void;
-  /** Update the access token (e.g. after refresh) */
-  setToken: (token: string) => void;
   /** Store email during auth flow */
   setPendingEmail: (email: string) => void;
   /** Store OTP during auth flow */
@@ -63,8 +58,6 @@ export const useAuthStore = create<AuthStore>()(
   persist(
     (set) => ({
       // ── State ──────────────────────────────────────────────────────────
-      token: null,
-      refreshToken: null,
       user: null,
       isOtpVerified: false,
       isWalletRegistered: false,
@@ -75,10 +68,8 @@ export const useAuthStore = create<AuthStore>()(
 
       // ── Actions ────────────────────────────────────────────────────────
 
-      setAuth: (token, user, refreshToken) =>
+      setAuth: (user) =>
         set((state) => ({
-          token,
-          refreshToken: refreshToken ?? null,
           user,
           isOtpVerified: true,
           // isWalletRegistered will be set after wallet registration
@@ -96,8 +87,6 @@ export const useAuthStore = create<AuthStore>()(
 
       clearAuth: () =>
         set({
-          token: null,
-          refreshToken: null,
           user: null,
           isOtpVerified: false,
           isWalletRegistered: false,
@@ -111,8 +100,6 @@ export const useAuthStore = create<AuthStore>()(
         set((s) => ({
           user: s.user ? { ...s.user, kyc_status: status } : null,
         })),
-
-      setToken: (token) => set({ token }),
 
       setPendingEmail: (email) => set({ pendingEmail: email }),
 
@@ -135,8 +122,6 @@ export const useAuthStore = create<AuthStore>()(
     {
       name: STORAGE_KEY,
       partialize: (s) => ({
-        token: s.token,
-        refreshToken: s.refreshToken,
         user: s.user,
         isOtpVerified: s.isOtpVerified,
         isWalletRegistered: s.isWalletRegistered,

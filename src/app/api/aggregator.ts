@@ -1,7 +1,6 @@
 import axios from "axios";
 
 import { KYCRequiredError } from "@/services/kycError";
-import { useAuthStore } from "@/stores/authStore";
 import type {
   RatePayload,
   RateResponse,
@@ -237,15 +236,8 @@ const clientApi = axios.create({
   timeout: 30000,
 });
 
-// Attach auth token to every outgoing request
-clientApi.interceptors.request.use((config) => {
-  const token = useAuthStore.getState().token;
-  if (token) {
-    config.headers = config.headers || {};
-    config.headers.Authorization = `Bearer ${token}`;
-  }
-  return config;
-});
+// Auth tokens are stored in HTTP-only cookies — sent automatically on
+// same-origin requests. No interceptor needed.
 
 // Retry logic for API calls with improved timeout handling
 const retryRequest = async <T>(

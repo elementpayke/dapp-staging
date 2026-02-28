@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { ArrowUpRight } from "lucide-react";
+import { ArrowDownLeft, ArrowDownRight, ArrowUpRight } from "lucide-react";
 import { toast } from "react-toastify";
 import { useAccount, useSwitchChain, useChainId } from "wagmi";
 import { isSmartWallet, safeChainSwitch } from "@/lib/wallet-utils";
@@ -661,14 +661,14 @@ const DepositCryptoModal: React.FC = () => {
     <>
       <Dialog open={isConfirmModalOpen} onOpenChange={setIsConfirmModalOpen}>
         <DialogTrigger
-          className="flex items-center gap-2 bg-gradient-to-r from-green-500 to-teal-400  text-white text-sm font-medium py-3 px-4 rounded-xl hover:bg-purple-700 transition-colors"
+          className="flex items-center gap-2 bg-green-500 text-gray-700 text-sm font-medium py-3 px-4 rounded-full shadow-[0_2px_8px_rgba(67,57,202,0.25)] hover:opacity-90 transition-opacity"
           onClick={() => setIsConfirmModalOpen(true)}
         >
-          <ArrowUpRight size={24} />
+          <ArrowDownLeft size={24} />
           Deposit Crypto
         </DialogTrigger>
 
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto bg-[var(--ep-bg-card)] border-[var(--ep-border)]">
           <DialogHeader>
             <DialogTitle> Deposit to Mobile Money</DialogTitle>
           </DialogHeader>
@@ -680,7 +680,7 @@ const DepositCryptoModal: React.FC = () => {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {/* Token */}
                 <div>
-                  <label className="block text-sm text-gray-600 mb-2">
+                  <label className="block text-sm text-[var(--ep-muted)] mb-2">
                     Token
                   </label>
                   <div className="relative">
@@ -693,12 +693,12 @@ const DepositCryptoModal: React.FC = () => {
 
                 {/* Amount */}
                 <div>
-                  <label className="block text-sm text-gray-600 mb-2">
+                  <label className="block text-sm text-[var(--ep-muted)] mb-2">
                     Amount in KES
                   </label>
                   <input
                     type="text"
-                    className="w-full p-3 bg-gray-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full p-3 bg-[var(--ep-bg)] rounded-lg border border-[var(--ep-border)] text-[var(--ep-heading)] focus:outline-none focus:ring-2 focus:ring-[var(--ep-accent)]/30 focus:border-[var(--ep-accent)] transition-colors"
                     value={amount}
                     onChange={(e) => {
                       // Allow only numbers and decimal point
@@ -711,12 +711,12 @@ const DepositCryptoModal: React.FC = () => {
 
                 {/* Deposit from */}
                 <div>
-                  <label className="block text-sm text-gray-600 mb-2">
+                  <label className="block text-sm text-[var(--ep-muted)] mb-2">
                     Deposit from
                   </label>
                   <div className="relative">
                     <select
-                      className="w-full p-3 bg-gray-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full p-3 bg-[var(--ep-bg)] rounded-lg border border-[var(--ep-border)] text-[var(--ep-heading)] focus:outline-none focus:ring-2 focus:ring-[var(--ep-accent)]/30 focus:border-[var(--ep-accent)] transition-colors"
                       value={depositFrom}
                       onChange={(e) => setDepositFrom(e.target.value)}
                     >
@@ -727,18 +727,18 @@ const DepositCryptoModal: React.FC = () => {
 
                 {/* Phone number */}
                 <div>
-                  <label className="block text-sm text-gray-600 mb-2">
+                  <label className="block text-sm text-[var(--ep-muted)] mb-2">
                     Phone number
                   </label>
                   <div className="relative">
                     <input
                       type="tel"
-                      className={`w-full p-3 bg-gray-100 rounded-lg focus:outline-none focus:ring-2 transition-colors ${
+                      className={`w-full p-3 bg-[var(--ep-bg)] rounded-lg border border-[var(--ep-border)] text-[var(--ep-heading)] focus:outline-none focus:ring-2 transition-colors ${
                         phoneValidation.isValid
                           ? "focus:ring-green-500 border-green-200"
                           : phoneNumber && !phoneValidation.isValid
                             ? "focus:ring-red-500 border-red-200"
-                            : "focus:ring-blue-500"
+                            : "focus:ring-[var(--ep-accent)]/30 focus:border-[var(--ep-accent)]"
                       }`}
                       value={phoneNumber}
                       onChange={handlePhoneNumberChange}
@@ -746,7 +746,7 @@ const DepositCryptoModal: React.FC = () => {
                     />
                     {isValidatingPhone && (
                       <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
-                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-500"></div>
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-[var(--ep-accent)]"></div>
                       </div>
                     )}
                     {phoneValidation.isValid && !isValidatingPhone && (
@@ -810,12 +810,12 @@ const DepositCryptoModal: React.FC = () => {
 
               {/* Reason - Full width */}
               <div>
-                <label className="block text-sm text-gray-600 mb-2">
+                <label className="block text-sm text-[var(--ep-muted)] mb-2">
                   Payment reason (Optional)
                 </label>
                 <input
                   type="text"
-                  className="w-full p-3 bg-gray-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full p-3 bg-[var(--ep-bg)] rounded-lg border border-[var(--ep-border)] text-[var(--ep-heading)] focus:outline-none focus:ring-2 focus:ring-[var(--ep-accent)]/30 focus:border-[var(--ep-accent)] transition-colors"
                   value={reason}
                   onChange={(e) => setReason(e.target.value)}
                   placeholder="e.g. Transport"
@@ -829,11 +829,11 @@ const DepositCryptoModal: React.FC = () => {
                   type="checkbox"
                   checked={isFavorite}
                   onChange={(e) => setIsFavorite(e.target.checked)}
-                  className="w-4 h-4 rounded border-gray-300 text-blue-600"
+                  className="w-4 h-4 rounded border-gray-300 text-[var(--ep-accent)] accent-[var(--ep-accent)]"
                 />
                 <label
                   htmlFor="favorite-deposit"
-                  className="text-gray-600 text-sm"
+                  className="text-[var(--ep-muted)] text-sm"
                 >
                   Favorite this payment details for future transactions
                 </label>
@@ -842,7 +842,7 @@ const DepositCryptoModal: React.FC = () => {
               {/* Mobile Confirm Button - Only shown on small screens */}
               <div className="block lg:hidden pt-4">
                 <button
-                  className="w-full py-3 bg-gradient-to-r from-green-500 to-teal-400 text-white rounded-full font-medium hover:opacity-90 transition-opacity disabled:opacity-50"
+                  className="w-full py-3 bg-[var(--ep-accent)] text-white rounded-full font-medium hover:opacity-90 transition-opacity disabled:opacity-50"
                   onClick={handleConfirmPayment}
                   disabled={
                     isLoading ||
@@ -862,15 +862,15 @@ const DepositCryptoModal: React.FC = () => {
 
             {/* Right Column - Transaction Summary */}
             <div className="lg:col-span-1">
-              <div className="bg-gray-50 p-4 rounded-xl h-fit sticky top-4">
-                <h3 className="text-lg font-semibold mb-4 text-gray-900">
+              <div className="bg-[var(--ep-accent-subtle)] p-4 rounded-xl h-fit sticky top-4">
+                <h3 className="text-lg font-semibold mb-4 text-[var(--ep-heading)]">
                   Transaction Summary
                 </h3>
 
                 {/* Main Summary */}
                 <div className="space-y-3 mb-4">
                   <div className="flex justify-between items-center">
-                    <span className="text-gray-600 text-sm">
+                    <span className="text-[var(--ep-muted)] text-sm">
                       Amount to send
                     </span>
                     <span className="font-medium text-sm">
@@ -879,12 +879,12 @@ const DepositCryptoModal: React.FC = () => {
                   </div>
 
                   <div className="flex justify-between items-center">
-                    <span className="text-gray-600 text-sm">
+                    <span className="text-[var(--ep-muted)] text-sm">
                       {selectedToken.symbol} to receive
                     </span>
                     <span className="font-medium">
                       {isFetchingQuote ? (
-                        <span className="text-gray-400">Calculating...</span>
+                        <span className="text-[var(--ep-muted)]">Calculating...</span>
                       ) : quoteData ? (
                         `${selectedToken.symbol} ${quoteData.tokenAmount.toFixed(6)}`
                       ) : (
@@ -894,12 +894,12 @@ const DepositCryptoModal: React.FC = () => {
                   </div>
 
                   <div className="flex justify-between items-center">
-                    <span className="text-gray-600 text-sm">
+                    <span className="text-[var(--ep-muted)] text-sm">
                       Transaction charge
                     </span>
-                    <span className="text-orange-600 text-sm">
+                    <span className="text-[var(--ep-accent)] text-sm">
                       {isFetchingQuote ? (
-                        <span className="text-gray-400">...</span>
+                        <span className="text-[var(--ep-muted)]">...</span>
                       ) : quoteData ? (
                         `KES ${quoteData.feeAmount.toFixed(2)}`
                       ) : (
@@ -909,18 +909,18 @@ const DepositCryptoModal: React.FC = () => {
                   </div>
 
                   <div className="flex justify-between items-center">
-                    <span className="text-gray-600 text-sm">
+                    <span className="text-[var(--ep-muted)] text-sm">
                       Wallet balance
                     </span>
-                    <span className="text-green-600 font-medium text-sm">
+                    <span className="text-[var(--ep-accent)] font-medium text-sm">
                       {selectedToken.symbol}{" "}
                       {transactionSummary.walletBalance.toFixed(2)}
                     </span>
                   </div>
 
-                  <div className="border-t pt-3 flex justify-between items-center font-semibold">
-                    <span className="text-gray-900">Total:</span>
-                    <span className="text-gray-900">
+                  <div className="border-t border-[var(--ep-border)] pt-3 flex justify-between items-center font-semibold">
+                    <span className="text-[var(--ep-heading)]">Total:</span>
+                    <span className="text-[var(--ep-heading)]">
                       KES {parseFloat(amount || "0").toFixed(2)}
                     </span>
                   </div>
@@ -929,7 +929,7 @@ const DepositCryptoModal: React.FC = () => {
                 {/* Desktop Confirm Button */}
                 <div className="hidden lg:block mb-4">
                   <button
-                    className="w-full py-3 bg-gradient-to-r from-green-500 to-teal-400 text-white rounded-full font-medium hover:opacity-90 transition-opacity disabled:opacity-50 text-sm"
+                    className="w-full py-3 bg-[var(--ep-accent)] text-white rounded-full font-medium hover:opacity-90 transition-opacity disabled:opacity-50 text-sm"
                     onClick={handleConfirmPayment}
                     disabled={
                       isLoading ||
@@ -947,16 +947,16 @@ const DepositCryptoModal: React.FC = () => {
                 </div>
 
                 {/* Balance after transaction */}
-                <div className="bg-white border border-gray-200 p-3 rounded-lg mb-4">
-                  <div className="text-gray-600 mb-2 text-xs font-medium uppercase tracking-wider">
+                <div className="bg-[var(--ep-bg-card)] border border-[var(--ep-border)] p-3 rounded-lg mb-4">
+                  <div className="text-[var(--ep-muted)] mb-2 text-xs font-medium uppercase tracking-wider">
                     Balance After Transaction
                   </div>
                   <div className="flex justify-between items-center">
-                    <span className="text-gray-600 text-sm">
+                    <span className="text-[var(--ep-muted)] text-sm">
                       {selectedToken.symbol}:{" "}
                       {transactionSummary.walletBalance.toFixed(2)}
                     </span>
-                    <span className="text-gray-900 font-medium text-sm">
+                    <span className="text-[var(--ep-heading)] font-medium text-sm">
                       KE{" "}
                       {(
                         transactionSummary.walletBalance *
@@ -969,7 +969,7 @@ const DepositCryptoModal: React.FC = () => {
                 </div>
 
                 {/* Information text */}
-                <div className="text-gray-500 text-xs leading-relaxed">
+                <div className="text-[var(--ep-muted)] text-xs leading-relaxed">
                   ElementsPay allows you to deposit supported stablecoins on
                   multiple chains. Select your preferred token and chain above.
                 </div>

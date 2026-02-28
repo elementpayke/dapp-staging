@@ -12,7 +12,7 @@ const KYCRedirectStep = () => {
   const [retrying, setRetrying] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const token = useAuthStore((s) => s.token);
+  const isOtpVerified = useAuthStore((s) => s.isOtpVerified);
   const kycUrl = useKYCModalStore((s) => s.kycUrl);
   const kycRefId = useKYCModalStore((s) => s.kycRefId);
   const setKycLink = useKYCModalStore((s) => s.setKycLink);
@@ -22,12 +22,12 @@ const KYCRedirectStep = () => {
 
   /** Retry fetching the KYC link if it wasn't obtained during OTP step. */
   const handleRetry =async () => {
-    if (!token) return;
+    if (!isOtpVerified) return;
     setRetrying(true);
     setError(null);
     try {
-      console.log("[KYC Redirect] Retrying to fetch KYC link with token as :", token);
-      const res = await initiateKYC(token);
+      console.log("[KYC Redirect] Retrying to fetch KYC link");
+      const res = await initiateKYC();
       const { url, ref_id } = res.data;
       setKycLink(url, ref_id);
     } catch (err: any) {

@@ -1,14 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createBackendErrorResponse, fetchBackend } from "@/lib/backend-fetch";
+import { getTokenFromCookies } from "@/lib/auth-cookies";
 
 export async function POST(req: NextRequest) {
   try {
-    const authHeader = req.headers.get("Authorization") ?? "";
-    // Extract the raw token from "Bearer <token>"
-    const token = authHeader.replace(/^Bearer\s+/i, "");
+    const token = await getTokenFromCookies();
 
-    //logging token
-    console.log("[kyc/initiate] Received token:", token);
+    if (!token) {
+      return NextResponse.json(
+        { success: false, message: "Not authenticated" },
+        { status: 401 },
+      );
+    }
 
     const res = await fetchBackend("/kyc/initiate", {
       method: "POST",

@@ -146,7 +146,7 @@ const PayToMobileMoney: React.FC<PayToMobileMoneyProps> = ({
         return (
           <>
             <div>
-              <label className="block text-gray-600 mb-2 text-sm sm:text-base">
+              <label className="block text-[var(--ep-muted)] mb-2 text-sm sm:text-base">
                 Phone Number
               </label>
               {/* ✅ SOLUTION: Use className prop to override default styling */}
@@ -160,7 +160,7 @@ const PayToMobileMoney: React.FC<PayToMobileMoneyProps> = ({
                 placeholder="7XX XXX XXX"
                 className="phone-input-light-mode"
               />
-              <p className="text-xs text-gray-500 mt-1.5 px-1">
+              <p className="text-xs text-[var(--ep-muted)] mt-1.5 px-1">
                 Enter your 9-digit Safaricom number
               </p>
             </div>
@@ -171,7 +171,7 @@ const PayToMobileMoney: React.FC<PayToMobileMoneyProps> = ({
         return (
           <>
             <div>
-              <label className="block text-gray-600 mb-2 text-sm sm:text-base">
+              <label className="block text-[var(--ep-muted)] mb-2 text-sm sm:text-base">
                 Business Number
               </label>
               <input
@@ -181,19 +181,19 @@ const PayToMobileMoney: React.FC<PayToMobileMoneyProps> = ({
                 onChange={(e) =>
                   setPaybillNumber(e.target.value.replace(/[^\d]/g, ""))
                 }
-                className="w-full p-3 bg-gray-50 rounded-lg border-0 text-gray-900 text-base"
+                className="w-full p-3 bg-[var(--ep-bg)] rounded-lg border border-[var(--ep-border)] text-[var(--ep-heading)] text-base focus:ring-2 focus:ring-[var(--ep-accent)]/30 focus:border-[var(--ep-accent)] transition-colors"
                 placeholder="e.g., 888888"
               />
             </div>
             <div className="mt-3 sm:mt-4">
-              <label className="block text-gray-600 mb-2 text-sm sm:text-base">
+              <label className="block text-[var(--ep-muted)] mb-2 text-sm sm:text-base">
                 Account Number
               </label>
               <input
                 type="text"
                 value={accountNumber}
                 onChange={(e) => setAccountNumber(e.target.value)}
-                className="w-full p-3 bg-gray-50 rounded-lg border-0 text-gray-900 text-base"
+                className="w-full p-3 bg-[var(--ep-bg)] rounded-lg border border-[var(--ep-border)] text-[var(--ep-heading)] text-base focus:ring-2 focus:ring-[var(--ep-accent)]/30 focus:border-[var(--ep-accent)] transition-colors"
                 placeholder="e.g., Account/Reference number"
               />
             </div>
@@ -204,7 +204,7 @@ const PayToMobileMoney: React.FC<PayToMobileMoneyProps> = ({
         return (
           <>
             <div>
-              <label className="block text-gray-600 mb-2 text-sm sm:text-base">
+              <label className="block text-[var(--ep-muted)] mb-2 text-sm sm:text-base">
                 Till Number
               </label>
               <input
@@ -214,7 +214,7 @@ const PayToMobileMoney: React.FC<PayToMobileMoneyProps> = ({
                 onChange={(e) =>
                   setTillNumber(e.target.value.replace(/[^\d]/g, ""))
                 }
-                className="w-full p-3 bg-gray-50 rounded-lg border-0 text-gray-900 text-base"
+                className="w-full p-3 bg-[var(--ep-bg)] rounded-lg border border-[var(--ep-border)] text-[var(--ep-heading)] text-base focus:ring-2 focus:ring-[var(--ep-accent)]/30 focus:border-[var(--ep-accent)] transition-colors"
                 placeholder="e.g., 567890"
               />
             </div>
@@ -234,31 +234,37 @@ const PayToMobileMoney: React.FC<PayToMobileMoneyProps> = ({
           background-color: transparent !important;
         }
         .phone-input-light-mode input {
-          background-color: white !important;
-          color: #111827 !important;
+          background-color: var(--ep-bg) !important;
+          color: var(--ep-heading) !important;
+          border: 1px solid var(--ep-border) !important;
+          border-radius: 0.5rem !important;
+        }
+        .phone-input-light-mode input:focus {
+          border-color: var(--ep-accent) !important;
+          box-shadow: 0 0 0 3px rgba(67,57,202,0.12) !important;
         }
         .phone-input-light-mode > div > div:first-child {
-          background-color: #f3f4f6 !important;
-          border-color: #e5e7eb !important;
+          background-color: var(--ep-bg) !important;
+          border-color: var(--ep-border) !important;
         }
         .phone-input-light-mode .dark\\:bg-gray-800,
         .phone-input-light-mode .dark\\:bg-gray-700 {
-          background-color: white !important;
+          background-color: var(--ep-bg) !important;
         }
         .phone-input-light-mode .dark\\:text-gray-100,
         .phone-input-light-mode .dark\\:text-gray-300 {
-          color: #111827 !important;
+          color: var(--ep-heading) !important;
         }
         .phone-input-light-mode .dark\\:border-gray-700,
         .phone-input-light-mode .dark\\:border-gray-600 {
-          border-color: #e5e7eb !important;
+          border-color: var(--ep-border) !important;
         }
       `}</style>
 
       <div className="space-y-3 sm:space-y-4">
         {/* M-PESA Payment Method Selector */}
         <div>
-          <label className="block text-gray-600 mb-2 text-sm sm:text-base">
+          <label className="block text-[var(--ep-muted)] mb-2 text-sm sm:text-base">
             Payment Method
           </label>
           <div className="grid grid-cols-3 gap-1.5 sm:gap-2">
@@ -271,8 +277,8 @@ const PayToMobileMoney: React.FC<PayToMobileMoneyProps> = ({
                     onClick={() => setPaymentMethod(method)}
                     className={`relative p-2 sm:p-3 rounded-lg text-center text-xs sm:text-sm font-medium transition-colors ${
                       paymentMethod === method
-                        ? "bg-green-100 text-green-800 border-2 border-green-600"
-                        : "bg-gray-50 text-gray-700 border border-gray-200 hover:bg-gray-100"
+                        ? "bg-[var(--ep-accent-muted)] text-[var(--ep-accent)] border-2 border-[var(--ep-accent)]"
+                        : "bg-[var(--ep-bg)] text-[var(--ep-body)] border border-[var(--ep-border)] hover:bg-[var(--ep-accent-subtle)]"
                     }`}
                   >
                     {method}
@@ -289,7 +295,7 @@ const PayToMobileMoney: React.FC<PayToMobileMoneyProps> = ({
         {/* Token and Amount */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
           <div>
-            <label className="block text-gray-600 mb-2 text-sm sm:text-base">
+            <label className="block text-[var(--ep-muted)] mb-2 text-sm sm:text-base">
               Token
             </label>
             <TokenDropdown
@@ -298,32 +304,34 @@ const PayToMobileMoney: React.FC<PayToMobileMoneyProps> = ({
             />
           </div>
           <div>
-            <div className="flex items-center justify-between mb-2">
-              <label className="block text-gray-600 text-sm sm:text-base">
-                Amount in KES
-              </label>
-              <MaxOfframpButton
-                disabled={false}
-                selectedTokenBalance={selectedTokenBalance}
-                exchangeRate={exchangeRate}
-                selectedTokenAddress={selectedToken.tokenAddress}
-                selectedTokenSymbol={selectedToken.symbol}
-                walletAddress={account?.address}
-                onMaxAmountCalculated={handleMaxAmountSet}
-                feeBands={feeBands}
+            <label className="block text-[var(--ep-muted)] mb-2 text-sm sm:text-base">
+              Amount in KES
+            </label>
+            <div className="relative">
+              <input
+                type="text"
+                inputMode="decimal"
+                value={amount}
+                onChange={(e) => {
+                  const newValue = e.target.value.replace(/[^\d.]/g, "");
+                  setAmount(newValue);
+                }}
+                className="w-full p-3 pr-20 bg-[var(--ep-bg)] rounded-lg border border-[var(--ep-border)] text-[var(--ep-heading)] text-base focus:ring-2 focus:ring-[var(--ep-accent)]/30 focus:border-[var(--ep-accent)] transition-colors"
+                placeholder="Enter amount"
               />
+              <div className="absolute right-2 top-1/2 -translate-y-1/2">
+                <MaxOfframpButton
+                  disabled={false}
+                  selectedTokenBalance={selectedTokenBalance}
+                  exchangeRate={exchangeRate}
+                  selectedTokenAddress={selectedToken.tokenAddress}
+                  selectedTokenSymbol={selectedToken.symbol}
+                  walletAddress={account?.address}
+                  onMaxAmountCalculated={handleMaxAmountSet}
+                  feeBands={feeBands}
+                />
+              </div>
             </div>
-            <input
-              type="text"
-              inputMode="decimal"
-              value={amount}
-              onChange={(e) => {
-                const newValue = e.target.value.replace(/[^\d.]/g, "");
-                setAmount(newValue);
-              }}
-              className="w-full p-3 bg-gray-50 rounded-lg border-0 text-gray-900 text-base"
-              placeholder="Enter amount"
-            />
             {error && (
               <p className="text-red-500 mt-2 text-xs sm:text-sm">{error}</p>
             )}
@@ -332,7 +340,7 @@ const PayToMobileMoney: React.FC<PayToMobileMoneyProps> = ({
 
         {/* Payment Reason */}
         <div>
-          <label className="block text-gray-600 mb-2 text-sm sm:text-base">
+          <label className="block text-[var(--ep-muted)] mb-2 text-sm sm:text-base">
             {paymentMethod === "Pay Bill"
               ? "Payment Reference (Optional)"
               : "Payment Reason (Optional)"}
@@ -341,7 +349,7 @@ const PayToMobileMoney: React.FC<PayToMobileMoneyProps> = ({
             type="text"
             value={reason}
             onChange={(e) => setReason(e.target.value)}
-            className="w-full p-3 bg-gray-50 rounded-lg border-0 text-gray-900 text-base"
+            className="w-full p-3 bg-[var(--ep-bg)] rounded-lg border border-[var(--ep-border)] text-[var(--ep-heading)] text-base focus:ring-2 focus:ring-[var(--ep-accent)]/30 focus:border-[var(--ep-accent)] transition-colors"
             placeholder={
               paymentMethod === "Pay Bill"
                 ? "Enter payment reference"
@@ -350,20 +358,6 @@ const PayToMobileMoney: React.FC<PayToMobileMoneyProps> = ({
                   : "Enter payment reason"
             }
           />
-        </div>
-
-        {/* Balance & Fee Information */}
-        <div className="bg-gray-50 p-2.5 sm:p-3 rounded-lg">
-          <div className="flex justify-between text-xs sm:text-sm mb-2">
-            <span className="text-gray-600">Available balance:</span>
-            <span className="font-medium">{totalKES.toFixed(2)} KES</span>
-          </div>
-          <div className="flex justify-between text-xs sm:text-sm">
-            <span className="text-gray-600">Transaction fee:</span>
-            <span className="font-medium">
-              {transactionChargeKES.toFixed(2)} KES
-            </span>
-          </div>
         </div>
       </div>
     </>

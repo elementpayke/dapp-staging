@@ -102,19 +102,19 @@ const QuickActions: FC = () => {
   };
 
   return (
-    <div className="p-6 bg-white shadow-lg rounded-2xl border border-gray-100">
-      <div className="flex items-center justify-between mb-4">
+    <div className="p-4 sm:p-5 bg-[var(--ep-bg-card)] shadow-[var(--ep-card-shadow)] rounded-2xl border border-[var(--ep-border)]">
+      <div className="flex items-center justify-between mb-3">
         <div>
-          <p className="text-sm text-gray-600 mb-1">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[var(--ep-muted)] mb-0.5">
             Wallet Balance
           </p>
-          <p className="text-3xl font-bold text-gray-900">
+          <p className="text-2xl font-bold text-[var(--ep-heading)] leading-tight">
             <span>KES </span>
-            <span className={`${isCorrectNetwork ? 'text-emerald-600' : 'text-yellow-600'}`}>
+            <span className={`${isCorrectNetwork ? 'text-[var(--ep-accent)]' : 'text-yellow-600'}`}>
               {rawKesBalance()}
             </span>
           </p>
-          <p className="text-sm text-gray-500 mt-1">
+          <p className="text-sm text-[var(--ep-muted)] mt-1">
             {isCorrectNetwork ? (
               <>
                 {tokenBalance.toFixed(6)} {selectedToken.symbol}
@@ -127,26 +127,26 @@ const QuickActions: FC = () => {
           </p>
         </div>
         <div className="flex gap-2">
-          <button className="p-2 rounded-full border border-gray-200 hover:bg-gray-50">
-            <Bell size={18} className="text-gray-600" />
+          <button className="p-2 rounded-full border border-[var(--ep-border)] hover:bg-[var(--ep-accent-subtle)] transition-colors">
+            <Bell size={18} className="text-[var(--ep-muted)]" />
           </button>
-          <button className="p-2 rounded-full border border-gray-200 hover:bg-gray-50">
-            <MoreHorizontal size={18} className="text-gray-600" />
+          <button className="p-2 rounded-full border border-[var(--ep-border)] hover:bg-[var(--ep-accent-subtle)] transition-colors">
+            <MoreHorizontal size={18} className="text-[var(--ep-muted)]" />
           </button>
         </div>
       </div>
 
       {/* Token/Network Selector */}
-      <div className="mb-4">
-        <label className="block text-sm text-gray-600 mb-2">Select Token & Network</label>
+      <div className="mb-3">
+        <label className="block text-xs font-medium text-[var(--ep-muted)] mb-1.5">Select Token & Network</label>
         <div className="relative">
           <TokenDropdown
             selected={selectedToken}
             onSelect={selectTokenAndSwitchChain}
           />
           {isSwitchingChain && (
-            <div className="absolute inset-0 bg-white/50 flex items-center justify-center rounded-lg">
-              <span className="text-sm text-blue-600 font-medium animate-pulse">
+            <div className="absolute inset-0 bg-[var(--ep-bg-card)]/50 flex items-center justify-center rounded-lg">
+              <span className="text-sm text-[var(--ep-accent)] font-medium animate-pulse">
                 Switching network...
               </span>
             </div>

@@ -58,8 +58,6 @@ export interface OTPRequestResponse {
 }
 
 export interface OTPVerifyResponse {
-  access_token: string;
-  refresh_token?: string;
   user: AuthUser;
 }
 
@@ -130,8 +128,8 @@ export async function requestOTP(email: string): Promise<OTPRequestResponse> {
 }
 
 /**
- * Verify OTP and exchange for JWT tokens.
- * Returns access_token, refresh_token, and user data.
+ * Verify OTP and exchange for JWT tokens (stored as HTTP-only cookies).
+ * Returns user data only — tokens never reach the client.
  */
 export async function verifyOTP(
   email: string,
@@ -151,20 +149,14 @@ export async function verifyOTP(
   }
 
   const raw = await res.json();
-  console.log("[auth] verifyOTP raw response:", JSON.stringify(raw, null, 2));
+  console.log("[auth] verifyOTP response received");
 
-  // Backend may wrap in { status, message, data: { access_token, ... } }
-  const data: OTPVerifyResponse = raw.data?.access_token ? raw.data : raw;
+  // Backend may wrap in { data: { user, ... } }
+  const data: OTPVerifyResponse = raw.data?.user ? raw.data : raw;
 
-  console.log("[auth] verifyOTP normalised:", {
-    access_token: data.access_token ? data.access_token.slice(0, 20) + "..." : "MISSING",
-    refresh_token: data.refresh_token ? "present" : "missing",
-    user: data.user ? { email: data.user.email, kyc_status: data.user.kyc_status } : "MISSING",
-  });
-
-  if (!data.access_token) {
-    console.error("[auth] verifyOTP — no access_token in response! Full payload:", JSON.stringify(raw));
-    throw new Error("No access token received from server");
+  if (!data.user) {
+    console.error("[auth] verifyOTP — no user in response! Full payload:", JSON.stringify(raw));
+    throw new Error("No user data received from server");
   }
 
   return data;
@@ -172,17 +164,17 @@ export async function verifyOTP(
 
 /**
  * Connect a wallet address to the authenticated user.
- * Requires JWT auth. Enforces one-wallet-per-user.
+ * Auth token is sent via HTTP-only cookie automatically.
+ * Enforces one-wallet-per-user.
  */
 export async function connectWallet(
-  token: string,
   address: string,
   chain: string = "evm",
 ): Promise<ConnectWalletResponse> {
   console.log("[auth] connectWallet ->", { address, chain });
   const res = await fetch("/api/auth/connect-wallet", {
     method: "POST",
-    headers: { ...headers, Authorization: `Bearer ${token}` },
+    headers,
     body: JSON.stringify({ address, chain }),
   });
   const data = await res.json().catch(() => ({}));
@@ -209,13 +201,10 @@ export async function connectWallet(
 
 /**
  * Get all wallets linked to the authenticated user.
+ * Auth token is sent via HTTP-only cookie automatically.
  */
-export async function getWallets(
-  token: string,
-): Promise<GetWalletsResponse> {
-  const res = await fetch("/api/auth/wallets", {
-    headers: { Authorization: `Bearer ${token}` },
-  });
+export async function getWallets(): Promise<GetWalletsResponse> {
+  const res = await fetch("/api/auth/wallets");
 
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
@@ -227,14 +216,12 @@ export async function getWallets(
 
 /**
  * Refresh the current access token.
+ * Refresh token is sent via HTTP-only cookie automatically.
  */
-export async function refreshAccessToken(
-  refreshToken: string,
-): Promise<{ access_token: string }> {
+export async function refreshAccessToken(): Promise<{ success: boolean }> {
   const res = await fetch("/api/auth/refresh-token", {
     method: "POST",
     headers,
-    body: JSON.stringify({ refresh_token: refreshToken }),
   });
 
   if (!res.ok) {
@@ -246,11 +233,12 @@ export async function refreshAccessToken(
 
 /**
  * Logout — invalidate the current token server-side.
+ * Auth token is sent via HTTP-only cookie automatically.
  */
-export async function logout(token: string): Promise<void> {
+export async function logout(): Promise<void> {
   await fetch("/api/auth/logout", {
     method: "POST",
-    headers: { ...headers, Authorization: `Bearer ${token}` },
+    headers,
   }).catch(() => {
     /* best-effort — always clear local state regardless */
   });
@@ -258,14 +246,13 @@ export async function logout(token: string): Promise<void> {
 
 /**
  * Initiate KYC session — returns a SmileID SmileLinks URL.
+ * Auth token is sent via HTTP-only cookie automatically.
  */
-export async function initiateKYC(
-  token: string,
-): Promise<KYCInitiateResponse> {
-  console.log("[auth] initiateKYC -> token:", token ? token.slice(0, 20) + "..." : "MISSING!");
+export async function initiateKYC(): Promise<KYCInitiateResponse> {
+  console.log("[auth] initiateKYC ->");
   const res = await fetch("/api/kyc/initiate", {
     method: "POST",
-    headers: { ...headers, Authorization: `Bearer ${token}` },
+    headers,
   });
 
   if (!res.ok) {
@@ -278,15 +265,13 @@ export async function initiateKYC(
 
 /**
  * Check KYC status after returning from SmileLinks.
+ * Auth token is sent via HTTP-only cookie automatically.
  */
 export async function checkKYCStatus(
-  token: string,
   sessionId: string,
 ): Promise<{ kyc_status: AuthUser["kyc_status"] }> {
   console.log("[auth] checkKYCStatus ->", { sessionId });
-  const res = await fetch(`/api/kyc/status?session_id=${sessionId}`, {
-    headers: { Authorization: `Bearer ${token}` },
-  });
+  const res = await fetch(`/api/kyc/status?session_id=${sessionId}`);
 
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));

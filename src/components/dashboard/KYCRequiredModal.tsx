@@ -27,7 +27,7 @@ const KYCRequiredModal = () => {
   const setLoading = useKYCModalStore((s) => s.setLoading);
   const setError = useKYCModalStore((s) => s.setError);
 
-  const token = useAuthStore((s) => s.token);
+  const isOtpVerified = useAuthStore((s) => s.isOtpVerified);
   const requestInFlightRef = useRef(false);
   const isLinkFetchPending = loading || (isOpen && !kycUrl && !error);
 
@@ -42,7 +42,7 @@ const KYCRequiredModal = () => {
   /** Fetch the SmileID KYC link */
   const fetchKYCLink = useCallback(async () => {
     if (requestInFlightRef.current) return;
-    if (!token) {
+    if (!isOtpVerified) {
       setError("Not authenticated. Please log in again.");
       return;
     }
@@ -52,7 +52,7 @@ const KYCRequiredModal = () => {
     setError(null);
 
     try {
-      const res = await initiateKYC(token);
+      const res = await initiateKYC();
       const { url, ref_id } = res.data;
       if (!url || !ref_id) {
         throw new Error("Verification link was not returned. Please retry.");
@@ -63,7 +63,7 @@ const KYCRequiredModal = () => {
     } finally {
       requestInFlightRef.current = false;
     }
-  }, [token, setKycLink, setLoading, setError]);
+  }, [isOtpVerified, setKycLink, setLoading, setError]);
 
   // Auto-fetch KYC link when modal opens
   useEffect(() => {

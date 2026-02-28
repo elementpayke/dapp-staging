@@ -1,17 +1,19 @@
 /**
  * Authenticated fetch wrapper.
- * Attaches the Bearer token to all requests and handles 401 → logout.
+ * Auth tokens are now stored in HTTP-only cookies and sent automatically.
+ * This wrapper handles 401 → logout.
  */
 
 import { useAuthStore } from "@/stores/authStore";
 
 type FetchOptions = RequestInit & {
-  /** Skip auth header (for public endpoints) */
+  /** Skip auth handling (for public endpoints) */
   skipAuth?: boolean;
 };
 
 /**
- * Wrapper around `fetch` that injects the auth token and handles expiry.
+ * Wrapper around `fetch` that handles token expiry.
+ * Cookies are sent automatically on same-origin requests.
  */
 export async function authFetch(
   url: string,
@@ -19,13 +21,7 @@ export async function authFetch(
 ): Promise<Response> {
   const { skipAuth, ...fetchOptions } = options;
 
-  const token = useAuthStore.getState().token;
-
   const headers = new Headers(fetchOptions.headers);
-
-  if (!skipAuth && token) {
-    headers.set("Authorization", `Bearer ${token}`);
-  }
 
   if (!headers.has("Content-Type") && fetchOptions.body) {
     headers.set("Content-Type", "application/json");
