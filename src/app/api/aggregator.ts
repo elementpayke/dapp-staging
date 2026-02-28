@@ -236,8 +236,53 @@ const clientApi = axios.create({
   timeout: 30000,
 });
 
-// Auth tokens are stored in HTTP-only cookies — sent automatically on
-// same-origin requests. No interceptor needed.
+// ── Token refresh interceptor ─────────────────────────────────────────────
+// If any /api/element-pay request returns 401, attempt a cookie-based
+// refresh and retry the original request once.
+let isRefreshing = false;
+let refreshPromise: Promise<boolean> | null = null;
+
+async function doRefresh(): Promise<boolean> {
+  try {
+    const res = await fetch("/api/auth/refresh-token", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
+clientApi.interceptors.response.use(
+  (response) => response,
+  async (error) => {
+    const originalRequest = error.config;
+
+    // Only intercept 401 and only retry once
+    if (error.response?.status === 401 && !originalRequest._retried) {
+      originalRequest._retried = true;
+
+      // Coalesce concurrent refresh attempts
+      if (!isRefreshing) {
+        isRefreshing = true;
+        refreshPromise = doRefresh().finally(() => {
+          isRefreshing = false;
+          refreshPromise = null;
+        });
+      }
+
+      const refreshed = await refreshPromise;
+
+      if (refreshed) {
+        // Cookies are updated — retry the original request
+        return clientApi(originalRequest);
+      }
+    }
+
+    return Promise.reject(error);
+  },
+);
 
 // Retry logic for API calls with improved timeout handling
 const retryRequest = async <T>(
