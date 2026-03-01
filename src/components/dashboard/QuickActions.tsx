@@ -3,12 +3,25 @@ import React, { FC, useState, useEffect } from "react";
 import { Bell, MoreHorizontal } from "lucide-react";
 import { useBalance, useAccount } from "wagmi";
 import dynamic from "next/dynamic";
+import Image from "next/image";
 import {
   getApiCurrencyFromToken,
   fetchFeeStructureCached,
 } from "@/utils/feeStructure";
 import { useSelectedToken } from "@/context/TokenContext";
 import TokenDropdown from "@/components/ui/TokenDropdown";
+
+import ARBITRUM_LOGO from "@/assets/ARBITRUM_LOGO.png";
+import BASE_LOGO from "@/assets/BASE_LOGO.png";
+import LISK_LOGO from "@/assets/LISK_LOGO.png";
+import SCROLL_LOGO from "@/assets/SCROLL_LOGO.png";
+
+const NETWORK_LOGOS: Record<string, typeof ARBITRUM_LOGO> = {
+  Arbitrum: ARBITRUM_LOGO,
+  Base: BASE_LOGO,
+  Lisk: LISK_LOGO,
+  Scroll: SCROLL_LOGO,
+};
 
 // Dynamically import modals with no SSR to prevent wagmi context issues
 const SendCryptoModal = dynamic(() => import("./sendCrypto/SendCryptoModal"), {
@@ -101,10 +114,13 @@ const QuickActions: FC = () => {
     return kesAmount.toFixed(2);
   };
 
+  const networkLogo = NETWORK_LOGOS[selectedToken.chain];
+
   return (
     <div className="p-4 sm:p-5 bg-[var(--ep-bg-card)] shadow-[var(--ep-card-shadow)] rounded-2xl border border-[var(--ep-border)]">
-      <div className="flex items-center justify-between mb-3">
-        <div>
+      <div className="flex items-start justify-between mb-0 h-fit  min-h-[15vh]">
+        {/* Left: Balance & Token Selector */}
+        <div className="flex-1 min-w-0 h-fit">
           <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[var(--ep-muted)] mb-0.5">
             Wallet Balance
           </p>
@@ -125,39 +141,66 @@ const QuickActions: FC = () => {
               </span>
             )}
           </p>
-        </div>
-        <div className="flex gap-2">
-          <button className="p-2 rounded-full border border-[var(--ep-border)] hover:bg-[var(--ep-accent-subtle)] transition-colors">
-            <Bell size={18} className="text-[var(--ep-muted)]" />
-          </button>
-          <button className="p-2 rounded-full border border-[var(--ep-border)] hover:bg-[var(--ep-accent-subtle)] transition-colors">
-            <MoreHorizontal size={18} className="text-[var(--ep-muted)]" />
-          </button>
-        </div>
-      </div>
 
-      {/* Token/Network Selector */}
-      <div className="mb-3">
-        <label className="block text-xs font-medium text-[var(--ep-muted)] mb-1.5">Select Token & Network</label>
-        <div className="relative">
-          <TokenDropdown
-            selected={selectedToken}
-            onSelect={selectTokenAndSwitchChain}
-          />
-          {isSwitchingChain && (
-            <div className="absolute inset-0 bg-[var(--ep-bg-card)]/50 flex items-center justify-center rounded-lg">
-              <span className="text-sm text-[var(--ep-accent)] font-medium animate-pulse">
-                Switching network...
+          {/* Token/Network Selector */}
+          <div className="mt-3 mb-3">
+            <label className="block text-xs font-medium text-[var(--ep-muted)] mb-1.5">Select Token & Network</label>
+            <div className="relative">
+              <TokenDropdown
+                selected={selectedToken}
+                onSelect={selectTokenAndSwitchChain}
+              />
+              {isSwitchingChain && (
+                <div className="absolute inset-0 bg-[var(--ep-bg-card)]/50 flex items-center justify-center rounded-lg">
+                  <span className="text-sm text-[var(--ep-accent)] font-medium animate-pulse">
+                    Switching network...
+                  </span>
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="flex gap-3 flex-wrap">
+            <SendCryptoModal />
+            <DepositCryptoModal />
+          </div>
+        </div>
+
+        {/* Right: Connected Network Indicator & Logo */}
+        <div className="flex flex-col items-end justify-between min-h-[15vh] ml-4 shrink-0">
+          {/* Connected Network Badge + Action Buttons */}
+          <div className="flex items-center gap-2 ">
+            <div className="flex items-center gap-1.5 px-3 py-1 rounded-full border border-[var(--ep-border)] bg-[var(--ep-bg-card)]">
+              <span className={`w-2 h-2 rounded-full ${isCorrectNetwork ? 'bg-green-500' : 'bg-yellow-500'} shrink-0`} />
+              <span className="text-[10px] font-semibold uppercase tracking-wider text-[var(--ep-muted)] whitespace-nowrap">
+                Connected Network : {selectedToken.chain.toUpperCase()}
+              </span>
+            </div>
+            <button className="p-2 rounded-full border border-[var(--ep-border)] hover:bg-[var(--ep-accent-subtle)] transition-colors">
+              <Bell size={18} className="text-[var(--ep-muted)]" />
+            </button>
+            <button className="p-2 rounded-full border border-[var(--ep-border)] hover:bg-[var(--ep-accent-subtle)] transition-colors">
+              <MoreHorizontal size={18} className="text-[var(--ep-muted)]" />
+            </button>
+          </div>
+
+          {/* Network Logo */}
+          {networkLogo && (
+            <div className="flex flex-col items-end">
+              <Image
+                src={networkLogo}
+                alt={`${selectedToken.chain} logo`}
+                width={240}
+                height={240}
+                className="object-contain"
+                priority
+              />
+              <span className="text-[9px] font-bold uppercase tracking-[0.2em] text-[var(--ep-muted)] mt-1">
+                Proud Partners
               </span>
             </div>
           )}
         </div>
-      </div>
-
-      <div className="flex gap-3 flex-wrap">
-        <SendCryptoModal />
-
-        <DepositCryptoModal />
       </div>
     </div>
   );
