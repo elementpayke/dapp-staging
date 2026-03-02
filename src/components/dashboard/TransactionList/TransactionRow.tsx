@@ -87,8 +87,18 @@ const TransactionRow: FC<TransactionRowProps> = ({ tx }: { tx: ExtendedTx }) => 
     return Number(val).toFixed(2);
   };
 
+  // Step A — Derive a failed flag
+  const isFailed = tx.status === 'FAILED' || tx.status === 'DECLINED';
+
   const isReceive = tx.direction === 'Receive';
-  const amountColor = isReceive ? 'text-green-600' : 'text-[var(--ep-accent)]';
+
+  // Step D — Red-tint the amount on failed rows
+  const amountColor = isFailed
+    ? 'text-red-500'
+    : isReceive
+    ? 'text-green-600'
+    : 'text-[var(--ep-accent)]';
+
   const amountSign = isReceive ? '+' : '-';
 
   const statusBadge = (
@@ -111,9 +121,14 @@ const TransactionRow: FC<TransactionRowProps> = ({ tx }: { tx: ExtendedTx }) => 
   return (
     <ClientOnly>
       {/* Desktop/tablet row */}
+      {/* Step B — Style the desktop row */}
       <div
         onClick={() => setShowModal(true)}
-        className="transaction-desktop hidden sm:grid sm:grid-cols-12 gap-4 items-center px-6 py-4 hover:bg-[var(--ep-accent-subtle)] transition-colors text-sm border-b border-[var(--ep-border)] cursor-pointer"
+        className={`transaction-desktop hidden sm:grid sm:grid-cols-12 gap-4 items-center px-6 py-4 transition-colors text-sm border-b cursor-pointer ${
+          isFailed
+            ? 'bg-red-50 hover:bg-red-100 border-red-200'
+            : 'hover:bg-[var(--ep-accent-subtle)] border-[var(--ep-border)]'
+        }`}
       >
         {/* Transaction */}
         <div className="col-span-3 flex items-center min-w-0">
@@ -125,6 +140,12 @@ const TransactionRow: FC<TransactionRowProps> = ({ tx }: { tx: ExtendedTx }) => 
             <div className="text-xs text-[var(--ep-muted)] mt-0.5">
               {displayValue(tx.time)} • {displayValue(tx.date)}
             </div>
+            {/* Step E — Failed transaction pill */}
+            {isFailed && (
+              <span className="inline-flex items-center gap-1 text-xs text-red-600 bg-red-100 px-2 py-0.5 rounded-full mt-1 w-fit">
+                ✕ Transaction Failed
+              </span>
+            )}
             {tx.hash && tx.hash !== '—' && (
               <button
                 onClick={handleOpenExplorer}
@@ -202,9 +223,14 @@ const TransactionRow: FC<TransactionRowProps> = ({ tx }: { tx: ExtendedTx }) => 
       </div>
 
       {/* Mobile row */}
+      {/* Step C — Style the mobile row */}
       <div
         onClick={() => setShowModal(true)}
-        className="transaction-mobile flex sm:hidden flex-col gap-2 px-3 py-4 border-b border-[var(--ep-border)] bg-[var(--ep-bg-card)] rounded-xl shadow-[var(--ep-card-shadow)] mb-2 cursor-pointer"
+        className={`transaction-mobile flex sm:hidden flex-col gap-2 px-3 py-4 border-b rounded-xl shadow-[var(--ep-card-shadow)] mb-2 cursor-pointer ${
+          isFailed
+            ? 'bg-red-50 border-red-200'
+            : 'bg-[var(--ep-bg-card)] border-[var(--ep-border)]'
+        }`}
       >
         <div className="flex items-center justify-between">
           <div className="flex items-center min-w-0">
