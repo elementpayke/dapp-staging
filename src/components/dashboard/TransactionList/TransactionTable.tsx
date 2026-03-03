@@ -42,7 +42,9 @@ const TransactionTable: FC<TransactionTableProps> = ({
         {Object.entries(groupedTransactions).map(([date, dayTransactions]) => (
           <div
             key={date}
-            className="bg-[var(--ep-bg-card)] rounded-xl shadow-[var(--ep-card-shadow)] border border-[var(--ep-border)] w-full"
+            // overflow-hidden ensures child rows (e.g. red failed rows) are
+            // clipped by the parent's rounded-xl corners instead of bleeding out.
+            className="bg-[var(--ep-bg-card)] rounded-xl overflow-hidden shadow-[var(--ep-card-shadow)] border border-[var(--ep-border)] w-full"
           >
             <div className="px-4 sm:px-6 py-3 border-b border-[var(--ep-border)] bg-[var(--ep-accent-subtle)] rounded-t-xl">
               <h3 className="text-xs font-semibold uppercase tracking-wide text-[var(--ep-muted)]">{date}</h3>

@@ -1,7 +1,7 @@
 "use client";
 
 import React, { FC } from "react";
-import { Copy, MoreHorizontal, ExternalLink, X } from "lucide-react";
+import { Copy, MoreHorizontal, ExternalLink } from "lucide-react";
 import ClientOnly from "@/components/shared/ClientOnly";
 import TransactionDetailModal from "./TransactionDetailModal";
 import { useState } from "react";
@@ -40,25 +40,36 @@ const formatTokenDisplay = (token: string) => {
   return token?.replace(/_/g, ' ');
 };
 
-const Arrow = ({ direction , status }: { direction: 'in' | 'out', status?: string }) => (
+const Arrow = ({ direction, isFailed }: { direction: 'in' | 'out'; isFailed?: boolean }) => (
   <span
     className={`inline-flex items-center justify-center rounded-full p-1 mr-2 transition-transform duration-200 group-hover:scale-110 ${
-      status === 'FAILED' || status === 'DECLINED' ? 'bg-red-400' : (direction === 'in' ? 'bg-green-50' : 'bg-[var(--ep-accent-muted)]')
+      isFailed
+        ? 'bg-red-100'
+        : direction === 'in'
+        ? 'bg-green-50'
+        : 'bg-[var(--ep-accent-muted)]'
     }`}
     aria-label={direction === 'in' ? 'Received' : 'Sent'}
   >
-    {
-      status === 'FAILED' || status === 'DECLINED' ? 
-        <X className="w-5 h-5 text-white" />: null
-      
-    }
     {direction === 'in' ? (
-      <svg className={`w-5 h-5  ${status === 'FAILED' || status === 'DECLINED' ? 'hidden' : 'text-green-500'}`} fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+      <svg
+        className={`w-5 h-5 ${isFailed ? 'text-red-500' : 'text-green-500'}`}
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        viewBox="0 0 24 24"
+      >
         <path strokeLinecap="round" strokeLinejoin="round" d="M7 17L17 7" />
         <path strokeLinecap="round" strokeLinejoin="round" d="M7 7v10h10" />
       </svg>
     ) : (
-      <svg className="w-5 h-5 text-[var(--ep-accent)]" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+      <svg
+        className={`w-5 h-5 ${isFailed ? 'text-red-500' : 'text-[var(--ep-accent)]'}`}
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        viewBox="0 0 24 24"
+      >
         <path strokeLinecap="round" strokeLinejoin="round" d="M17 7L7 17" />
         <path strokeLinecap="round" strokeLinejoin="round" d="M17 17V7H7" />
       </svg>
@@ -92,12 +103,12 @@ const TransactionRow: FC<TransactionRowProps> = ({ tx }: { tx: ExtendedTx }) => 
     return Number(val).toFixed(2);
   };
 
-  // Step A — Derive a failed flag
+  // Derive a failed flag
   const isFailed = tx.status === 'FAILED' || tx.status === 'DECLINED';
 
   const isReceive = tx.direction === 'Receive';
 
-  // Step D — Red-tint the amount on failed rows
+  // Red-tint the amount on failed rows
   const amountColor = isFailed
     ? 'text-red-500'
     : isReceive
@@ -106,10 +117,19 @@ const TransactionRow: FC<TransactionRowProps> = ({ tx }: { tx: ExtendedTx }) => 
 
   const amountSign = isReceive ? '+' : '-';
 
+  // Failed rows always have a light-red background (bg-red-50/bg-red-100).
+  // Force dark text so it stays readable in BOTH light and dark themes —
+  // the CSS variables would otherwise resolve to light colours in dark mode
+  // and become invisible against the pale-red surface.
+  const failedHeadingClass = isFailed ? 'text-red-900' : 'text-[var(--ep-heading)]';
+  const failedMutedClass   = isFailed ? 'text-red-700' : 'text-[var(--ep-muted)]';
+  const failedMonoClass    = isFailed ? 'text-red-800' : '';
+  const failedIconClass    = isFailed ? 'text-red-400 hover:text-red-600' : 'text-[var(--ep-muted)] hover:text-[var(--ep-accent)]';
+
   const statusBadge = (
     <span className={`px-2 py-1 text-xs rounded-full ml-2 ${
-      tx.status === 'FAILED' || tx.status === 'DECLINED'
-        ? 'bg-red-50 text-red-600 border border-red-200'
+      isFailed
+        ? 'bg-red-100 text-red-600 border border-red-300'
         : 'bg-green-50 text-green-600 border border-green-200'
     }`}>
       {tx.status === 'SETTLED' ? 'Success' : tx.status === 'FAILED' ? 'Declined' : displayValue(tx.status)}
@@ -123,10 +143,11 @@ const TransactionRow: FC<TransactionRowProps> = ({ tx }: { tx: ExtendedTx }) => 
     mobileDisplayName = tx.receiverDisplay;
   }
 
+  const isMpesa = tx.paymentMethod === 'M-Pesa' || tx.paymentMethod === 'M-pesa';
+
   return (
     <ClientOnly>
       {/* Desktop/tablet row */}
-      {/* Step B — Style the desktop row */}
       <div
         onClick={() => setShowModal(true)}
         className={`transaction-desktop hidden sm:grid sm:grid-cols-12 gap-4 items-center px-6 py-4 transition-colors text-sm border-b cursor-pointer ${
@@ -137,20 +158,21 @@ const TransactionRow: FC<TransactionRowProps> = ({ tx }: { tx: ExtendedTx }) => 
       >
         {/* Transaction */}
         <div className="col-span-3 flex items-center min-w-0">
-
-          <Arrow status={tx.status} direction={isReceive ? 'in' : 'out'} />
+          <Arrow direction={isReceive ? 'in' : 'out'} isFailed={isFailed} />
           <div className="min-w-0">
-            <div className="font-medium text-[var(--ep-heading)] truncate">
+            <div className={`font-medium truncate ${failedHeadingClass}`}>
               {isReceive ? 'Received from OnRamp' : `Sent to ${displayValue(tx.receiverDisplay)}`}
             </div>
-            <div className="text-xs text-[var(--ep-muted)] mt-0.5">
+            <div className={`text-xs mt-0.5 ${failedMutedClass}`}>
               {displayValue(tx.time)} • {displayValue(tx.date)}
             </div>
-          
+
             {tx.hash && tx.hash !== '—' && (
               <button
                 onClick={handleOpenExplorer}
-                className="text-xs text-[var(--ep-accent)] font-mono truncate hover:underline mt-0.5 flex items-center gap-1"
+                className={`text-xs font-mono truncate hover:underline mt-0.5 flex items-center gap-1 ${
+                  isFailed ? 'text-red-500' : 'text-[var(--ep-accent)]'
+                }`}
                 title="View on Explorer"
               >
                 {displayValue(tx.hash)}
@@ -159,29 +181,34 @@ const TransactionRow: FC<TransactionRowProps> = ({ tx }: { tx: ExtendedTx }) => 
             )}
           </div>
         </div>
+
         {/* Amount */}
         <div className="col-span-2 text-left">
           <div className={`font-semibold ${amountColor}`}>
             {amountSign}KE {round2(tx.amount ? tx.amount.replace(' KES', '') : undefined)}
           </div>
         </div>
+
         {/* Crypto Value */}
         <div className="col-span-2 text-left">
-          <div className="font-mono">
+          <div className={`font-mono ${failedMonoClass}`}>
             {round2(tx.cryptoAmount?.split(' ')[0])} {formatTokenDisplay(displayValue(tx.tokenSymbol))}
           </div>
         </div>
+
         {/* Method & M-Pesa Ref */}
         <div className="col-span-2 text-center flex flex-col items-center gap-1">
           <span className={`px-2 py-1 text-xs rounded-full ${
-            tx.paymentMethod === 'M-Pesa'
-              ? 'bg-green-50 text-green-600 border border-green-200'
+            isMpesa
+              ? isFailed
+                ? 'bg-red-100 text-red-700 border border-red-200'
+                : 'bg-green-50 text-green-600 border border-green-200'
               : 'bg-[var(--ep-accent-muted)] text-[var(--ep-accent)] border border-[var(--ep-accent)]/20'
           }`}>
             {displayValue(tx.paymentMethod)}
           </span>
-          {tx.paymentMethod === 'M-Pesa' && tx.receiptNumber && (
-            <span className="text-xs text-[var(--ep-muted)] font-mono flex items-center gap-1">
+          {isMpesa && tx.receiptNumber && (
+            <span className={`text-xs font-mono flex items-center gap-1 ${failedMutedClass}`}>
               Ref: {tx.receiptNumber}
               <button
                 className="p-0.5 rounded hover:bg-[var(--ep-accent-subtle)]"
@@ -192,13 +219,15 @@ const TransactionRow: FC<TransactionRowProps> = ({ tx }: { tx: ExtendedTx }) => 
                 title="Copy M-Pesa reference number"
                 aria-label="Copy M-Pesa reference number"
               >
-                <Copy className="w-4 h-4 text-[var(--ep-muted)] hover:text-[var(--ep-accent)]" />
+                <Copy className={`w-4 h-4 ${failedIconClass}`} />
               </button>
             </span>
           )}
         </div>
+
         {/* Status */}
         <div className="col-span-1 text-center">{statusBadge}</div>
+
         {/* Actions */}
         <div className="col-span-2 flex items-center gap-2 justify-end">
           <button
@@ -210,7 +239,7 @@ const TransactionRow: FC<TransactionRowProps> = ({ tx }: { tx: ExtendedTx }) => 
             title="Copy transaction hash"
             aria-label="Copy transaction hash"
           >
-            <Copy className="w-5 h-5 text-[var(--ep-muted)] hover:text-[var(--ep-accent)]" />
+            <Copy className={`w-5 h-5 ${failedIconClass}`} />
           </button>
           <button
             className="p-1 rounded hover:bg-[var(--ep-accent-subtle)]"
@@ -218,13 +247,12 @@ const TransactionRow: FC<TransactionRowProps> = ({ tx }: { tx: ExtendedTx }) => 
             title="More actions"
             aria-label="More actions"
           >
-            <MoreHorizontal className="w-5 h-5 text-[var(--ep-muted)]" />
+            <MoreHorizontal className={`w-5 h-5 ${isFailed ? 'text-red-400' : 'text-[var(--ep-muted)]'}`} />
           </button>
         </div>
       </div>
 
       {/* Mobile row */}
-      {/* Step C — Style the mobile row */}
       <div
         onClick={() => setShowModal(true)}
         className={`transaction-mobile flex sm:hidden flex-col gap-2 px-3 py-4 border-b rounded-xl shadow-[var(--ep-card-shadow)] mb-2 cursor-pointer ${
@@ -235,8 +263,8 @@ const TransactionRow: FC<TransactionRowProps> = ({ tx }: { tx: ExtendedTx }) => 
       >
         <div className="flex items-center justify-between">
           <div className="flex items-center min-w-0">
-            <Arrow direction={isReceive ? 'in' : 'out'} />
-            <span className="font-medium text-[var(--ep-heading)] truncate">
+            <Arrow direction={isReceive ? 'in' : 'out'} isFailed={isFailed} />
+            <span className={`font-medium truncate ${failedHeadingClass}`}>
               {displayValue(mobileDisplayName)}
             </span>
             {statusBadge}
@@ -245,10 +273,10 @@ const TransactionRow: FC<TransactionRowProps> = ({ tx }: { tx: ExtendedTx }) => 
         <div className={`font-bold text-lg ${amountColor} mt-1`}>
           {amountSign}KE {round2(tx.amount ? tx.amount.replace(' KES', '') : undefined)}
         </div>
-        <div className="flex items-center gap-2 text-xs text-[var(--ep-muted)]">
+        <div className={`flex items-center gap-2 text-xs ${failedMutedClass}`}>
           <span>{displayValue(tx.time)} • {displayValue(tx.date)}</span>
-          {tx.paymentMethod === 'M-Pesa' && tx.receiptNumber && (
-            <span className="flex items-center gap-1 bg-green-50 text-green-700 px-2 py-0.5 rounded-full ml-2">
+          {isMpesa && tx.receiptNumber && (
+            <span className="flex items-center gap-1 bg-red-100 text-red-700 px-2 py-0.5 rounded-full ml-2">
               Ref: {tx.receiptNumber}
               <button
                 className="p-0.5 rounded hover:bg-[var(--ep-accent-subtle)]"
@@ -259,7 +287,7 @@ const TransactionRow: FC<TransactionRowProps> = ({ tx }: { tx: ExtendedTx }) => 
                 title="Copy M-Pesa reference number"
                 aria-label="Copy M-Pesa reference number"
               >
-                <Copy className="w-4 h-4 text-[var(--ep-muted)] hover:text-[var(--ep-accent)]" />
+                <Copy className="w-4 h-4 text-red-400 hover:text-red-600" />
               </button>
             </span>
           )}
@@ -274,7 +302,7 @@ const TransactionRow: FC<TransactionRowProps> = ({ tx }: { tx: ExtendedTx }) => 
             title="Copy transaction hash"
             aria-label="Copy transaction hash"
           >
-            <Copy className="w-5 h-5 text-[var(--ep-muted)] hover:text-[var(--ep-accent)]" />
+            <Copy className={`w-5 h-5 ${failedIconClass}`} />
           </button>
           <button
             className="p-1 rounded hover:bg-[var(--ep-accent-subtle)]"
@@ -282,7 +310,7 @@ const TransactionRow: FC<TransactionRowProps> = ({ tx }: { tx: ExtendedTx }) => 
             title="More actions"
             aria-label="More actions"
           >
-            <MoreHorizontal className="w-5 h-5 text-[var(--ep-muted)]" />
+            <MoreHorizontal className={`w-5 h-5 ${isFailed ? 'text-red-400' : 'text-[var(--ep-muted)]'}`} />
           </button>
         </div>
       </div>
