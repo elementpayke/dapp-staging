@@ -58,7 +58,7 @@ const Arrow = ({ direction , status }: { direction: 'in' | 'out', status?: strin
         <path strokeLinecap="round" strokeLinejoin="round" d="M7 7v10h10" />
       </svg>
     ) : (
-      <svg className="w-5 h-5 text-[var(--ep-accent)]" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+      <svg className={`w-5 h-5 ${status === 'FAILED' || status === 'DECLINED' ? 'hidden' : 'text-[var(--ep-accent)]'}`} fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" d="M17 7L7 17" />
         <path strokeLinecap="round" strokeLinejoin="round" d="M17 17V7H7" />
       </svg>
