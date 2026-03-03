@@ -113,7 +113,6 @@ const SendCryptoModal: React.FC = () => {
   // Refetch balance when token changes or when we switch to the correct network
   useEffect(() => {
     if (isCorrectNetwork && selectedToken) {
-      console.log(`[BALANCE] Refetching balance for ${selectedToken.symbol} on ${selectedToken.chain}`);
       refetchBalance();
     }
   }, [selectedToken, isCorrectNetwork, refetchBalance]);
@@ -160,14 +159,6 @@ const SendCryptoModal: React.FC = () => {
     status: "switching" as "switching" | "success" | "error",
   });
 
-  useEffect(() => {
-    console.log("[ORDER ID CHANGE] orderId changed to:", orderId);
-    console.log(
-      "[ORDER ID CHANGE] showProcessingPopup is:",
-      showProcessingPopup,
-    );
-  }, [orderId, showProcessingPopup]);
-
   const [messageHash, setMessageHash] = useState("");
   const [isBrowser, setIsBrowser] = useState(false);
 
@@ -213,7 +204,6 @@ const SendCryptoModal: React.FC = () => {
     networkName: string,
     status: "switching" | "success" | "error",
   ) => {
-    console.log(`🔔 Network notification: ${status} for ${networkName}`);
     setNetworkSwitchNotification({
       isVisible: true,
       networkName,
@@ -239,7 +229,6 @@ const SendCryptoModal: React.FC = () => {
   }, []);
 
   const validateAccount = async () => {
-
     const cashoutType = getCashoutType();
     if (cashoutType === "PAYBILL") {
       setValidatedAccountInfo(`PayBill ${paybillNumber}`);
@@ -316,8 +305,6 @@ const SendCryptoModal: React.FC = () => {
           action: "OffRamp",
         });
 
-        console.log("[FEE-STRUCTURE] API response:", feeData.data);
-
         // Set fee bands from fee-structure API
         setFeeBands(feeData.data.fee_bands);
 
@@ -333,12 +320,6 @@ const SendCryptoModal: React.FC = () => {
             source: "fee-structure",
             fallbackUsed: false,
           });
-          console.log(
-            "[FEE-STRUCTURE] Exchange rate set:",
-            baseRate,
-            "KES per",
-            selectedToken.symbol,
-          );
         } else {
           console.warn("[FEE-STRUCTURE] No valid base_rate in response");
           setExchangeRate(null);
@@ -372,17 +353,6 @@ const SendCryptoModal: React.FC = () => {
     fetchFeeStructureAndRate();
   }, [isBrowser, selectedToken]);
 
-  // Log exchange rate changes (inside useEffect to prevent spam on every render)
-  useEffect(() => {
-    if (exchangeRate !== null) {
-      console.log(
-        "[FEE-STRUCTURE] Exchange rate updated:",
-        exchangeRate,
-        "KES per token",
-        rateMeta,
-      );
-    }
-  }, [exchangeRate, rateMeta]);
   const validatePhoneWithBackend = async (
     phoneNumber: string,
   ): Promise<boolean> => {
@@ -484,13 +454,6 @@ const SendCryptoModal: React.FC = () => {
         const hasSufficientBalance =
           quoteData.has_sufficient_balance ??
           currentBalance >= requiredTokenAmount;
-
-        console.log("💰 Quote validation:", {
-          requiredTokenAmount,
-          currentBalance,
-          hasSufficientBalance,
-          amountKES: amountNum,
-        });
 
         if (!hasSufficientBalance) {
           setQuoteValidation({
@@ -638,8 +601,6 @@ const SendCryptoModal: React.FC = () => {
         orderType: "OffRamp",
       });
 
-      console.log("[TRANSACTION SUMMARY] Using fee structure:", costResult);
-
       return {
         kesAmount,
         usdcAmount: kesAmount / exchangeRate,
@@ -775,18 +736,13 @@ const SendCryptoModal: React.FC = () => {
   useContractEvents(
     contractAddress,
     (order: any) => {
-      console.log("[CONTRACT EVENT] Order created event received:", order);
       setOrderId(order.orderId);
-      console.log("[CONTRACT EVENT] Setting orderId to:", order.orderId);
     },
     (order: any) => {
-      console.log("Order settled:", order);
-      if (showProcessingPopup && order.orderId) {
-        console.log("[CONTRACT EVENT] Order settled, updating popup state");
-      }
+      // Order settled handler
     },
     (orderId: any) => {
-      console.log("Order refunded:", orderId);
+      // Order refunded handler
     },
   );
 
@@ -808,7 +764,6 @@ const SendCryptoModal: React.FC = () => {
   // Helper to refresh transaction list after order completion
   const refreshTransactionList = useCallback(() => {
     if (typeof window !== "undefined") {
-      console.log("🔄 Dispatching transaction refresh event");
       window.dispatchEvent(new CustomEvent("elementpay:refresh-transactions"));
     }
   }, []);
@@ -994,9 +949,7 @@ const SendCryptoModal: React.FC = () => {
         return;
       }
       await validateAccount();
-      console.log("📋 PayBill validation complete, setting up modal");
       setProceedAfterValidation(() => () => {
-        console.log("📋 Proceed button clicked, executing offramp order");
         executeOfframpOrder();
       });
 
@@ -1061,15 +1014,6 @@ const SendCryptoModal: React.FC = () => {
     getCashoutType,
     account.address,
   ]);
-
-  console.log(
-    "🔍 Form validation state:",
-    {
-      isApproving,
-      isFormValid: isFormValid(),
-      quoteValidation: quoteValidation.isValidating,
-    }
-  );
 
   return (
     <>
@@ -1355,10 +1299,6 @@ const SendCryptoModal: React.FC = () => {
         <ProcessingPopup
           isVisible={showProcessingPopup}
           onClose={() => {
-            console.log(
-              "[POPUP CLOSE] Processing popup closing, orderId was:",
-              orderId,
-            );
             cleanupOrderStates();
           }}
           orderId={orderId}
