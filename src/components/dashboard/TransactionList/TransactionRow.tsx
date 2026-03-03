@@ -1,7 +1,7 @@
 "use client";
 
 import React, { FC } from "react";
-import { Copy, MoreHorizontal, ExternalLink } from "lucide-react";
+import { Copy, MoreHorizontal, ExternalLink, X } from "lucide-react";
 import ClientOnly from "@/components/shared/ClientOnly";
 import TransactionDetailModal from "./TransactionDetailModal";
 import { useState } from "react";
@@ -40,15 +40,20 @@ const formatTokenDisplay = (token: string) => {
   return token?.replace(/_/g, ' ');
 };
 
-const Arrow = ({ direction }: { direction: 'in' | 'out' }) => (
+const Arrow = ({ direction , status }: { direction: 'in' | 'out', status?: string }) => (
   <span
     className={`inline-flex items-center justify-center rounded-full p-1 mr-2 transition-transform duration-200 group-hover:scale-110 ${
-      direction === 'in' ? 'bg-green-50' : 'bg-[var(--ep-accent-muted)]'
+      status === 'FAILED' || status === 'DECLINED' ? 'bg-red-400' : (direction === 'in' ? 'bg-green-50' : 'bg-[var(--ep-accent-muted)]')
     }`}
     aria-label={direction === 'in' ? 'Received' : 'Sent'}
   >
+    {
+      status === 'FAILED' || status === 'DECLINED' ? 
+        <X className="w-5 h-5 text-white" />: null
+      
+    }
     {direction === 'in' ? (
-      <svg className="w-5 h-5 text-green-500" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+      <svg className={`w-5 h-5  ${status === 'FAILED' || status === 'DECLINED' ? 'hidden' : 'text-green-500'}`} fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" d="M7 17L17 7" />
         <path strokeLinecap="round" strokeLinejoin="round" d="M7 7v10h10" />
       </svg>
@@ -132,7 +137,8 @@ const TransactionRow: FC<TransactionRowProps> = ({ tx }: { tx: ExtendedTx }) => 
       >
         {/* Transaction */}
         <div className="col-span-3 flex items-center min-w-0">
-          <Arrow direction={isReceive ? 'in' : 'out'} />
+
+          <Arrow status={tx.status} direction={isReceive ? 'in' : 'out'} />
           <div className="min-w-0">
             <div className="font-medium text-[var(--ep-heading)] truncate">
               {isReceive ? 'Received from OnRamp' : `Sent to ${displayValue(tx.receiverDisplay)}`}
@@ -140,12 +146,7 @@ const TransactionRow: FC<TransactionRowProps> = ({ tx }: { tx: ExtendedTx }) => 
             <div className="text-xs text-[var(--ep-muted)] mt-0.5">
               {displayValue(tx.time)} • {displayValue(tx.date)}
             </div>
-            {/* Step E — Failed transaction pill */}
-            {isFailed && (
-              <span className="inline-flex items-center gap-1 text-xs text-red-600 bg-red-100 px-2 py-0.5 rounded-full mt-1 w-fit">
-                ✕ Transaction Failed
-              </span>
-            )}
+          
             {tx.hash && tx.hash !== '—' && (
               <button
                 onClick={handleOpenExplorer}
