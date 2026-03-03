@@ -82,10 +82,12 @@ const PayToMobileMoney: React.FC<PayToMobileMoneyProps> = ({
   useEffect(() => {
     switch (paymentMethod) {
       case "Pay Bill":
+        setMobileNumber("");
         setTillNumber("");
         setCashoutType("PAYBILL");
         break;
       case "Buy Goods":
+        setMobileNumber("");
         setPaybillNumber("");
         setAccountNumber("");
         setCashoutType("TILL");
@@ -102,6 +104,7 @@ const PayToMobileMoney: React.FC<PayToMobileMoneyProps> = ({
     }
   }, [
     paymentMethod,
+    setMobileNumber,
     setTillNumber,
     setCashoutType,
     setPaybillNumber,
