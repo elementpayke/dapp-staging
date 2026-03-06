@@ -22,7 +22,6 @@ import {
 import { erc20Abi } from "@/app/api/abi";
 
 import { encryptMessageDetailed } from "@/services/encryption";
-import { useContractEvents } from "@/context/useContractEvents";
 import ConfirmationModal from "./ConfirmationModal";
 
 import {
@@ -172,7 +171,7 @@ const SendCryptoModal: React.FC = () => {
   const [modalMode, setModalMode] = useState<"confirm" | "error">("confirm");
   const [isMainDialogOpen, setIsMainDialogOpen] = useState(false);
 
-  const [, setCashoutType] = useState<"PHONE" | "PAYBILL" | "TILL">("PHONE");
+  const [cashoutType, setCashoutType] = useState<"PHONE" | "PAYBILL" | "TILL">("PHONE");
 
   const account = useAccount();
   const { connector } = account;
@@ -219,10 +218,8 @@ const SendCryptoModal: React.FC = () => {
   };
 
   const getCashoutType = useCallback((): "PHONE" | "PAYBILL" | "TILL" => {
-    if (paybillNumber && accountNumber) return "PAYBILL";
-    if (tillNumber) return "TILL";
-    return "PHONE";
-  }, [paybillNumber, accountNumber, tillNumber]);
+    return cashoutType;
+  }, [cashoutType]);
 
   const handleMaxAmountSet = useCallback((maxAmount: string) => {
     setAmount(maxAmount);
@@ -351,7 +348,7 @@ const SendCryptoModal: React.FC = () => {
     };
 
     fetchFeeStructureAndRate();
-  }, [isBrowser, selectedToken]);
+  }, [isBrowser, selectedToken.symbol]);
 
   const validatePhoneWithBackend = async (
     phoneNumber: string,
@@ -681,49 +678,48 @@ const SendCryptoModal: React.FC = () => {
     tillNumber,
   ]);
 
-  useEffect(() => {
-    if (isBrowser && exchangeRate && transactionSummary.totalUSDC && amount) {
-      const cashoutType = getCashoutType();
+  // Synchronous messageHash computation — eliminates the race condition where
+  // useEffect would recompute asynchronously after render, allowing a stale hash
+  // to be submitted if the user clicks "Confirm" before the effect runs.
+  const messageHash = useMemo(() => {
+    if (!isBrowser || !exchangeRate || !amount) return "";
 
-      let hasRequiredFields = false;
-      switch (cashoutType) {
-        case "PHONE":
-          hasRequiredFields = !!mobileNumber;
-          break;
-        case "PAYBILL":
-          hasRequiredFields = !!paybillNumber && !!accountNumber;
-          break;
-        case "TILL":
-          hasRequiredFields = !!tillNumber;
-          break;
-      }
+    const currentCashoutType = getCashoutType();
 
-      if (hasRequiredFields) {
-        try {
-          const hash = encryptMessageDetailed({
-            cashout_type: cashoutType,
-            amount_fiat: Number.parseFloat(amount),
-            currency: "KES",
-            rate: exchangeRate ?? 0,
-            phone_number: cashoutType === "PHONE" ? mobileNumber : "",
-            paybill_number: cashoutType === "PAYBILL" ? paybillNumber : "",
-            account_number: cashoutType === "PAYBILL" ? accountNumber : "",
-            till_number: cashoutType === "TILL" ? tillNumber : "",
-          });
+    let hasRequiredFields = false;
+    switch (currentCashoutType) {
+      case "PHONE":
+        hasRequiredFields = !!mobileNumber;
+        break;
+      case "PAYBILL":
+        hasRequiredFields = !!paybillNumber && !!accountNumber;
+        break;
+      case "TILL":
+        hasRequiredFields = !!tillNumber;
+        break;
+    }
 
-          setMessageHash(hash);
-        } catch (error) {
-          console.error("Error encrypting message:", error);
-        }
-      } else {
-        setMessageHash("");
-      }
+    if (!hasRequiredFields) return "";
+
+    try {
+      return encryptMessageDetailed({
+        cashout_type: currentCashoutType,
+        amount_fiat: Number.parseFloat(amount),
+        currency: "KES",
+        rate: exchangeRate ?? 0,
+        phone_number: currentCashoutType === "PHONE" ? mobileNumber : "",
+        paybill_number: currentCashoutType === "PAYBILL" ? paybillNumber : "",
+        account_number: currentCashoutType === "PAYBILL" ? accountNumber : "",
+        till_number: currentCashoutType === "TILL" ? tillNumber : "",
+      });
+    } catch (error) {
+      console.error("Error encrypting message:", error);
+      return "";
     }
   }, [
     isBrowser,
     mobileNumber,
     exchangeRate,
-    transactionSummary.totalUSDC,
     amount,
     getCashoutType,
     paybillNumber,
@@ -732,19 +728,6 @@ const SendCryptoModal: React.FC = () => {
   ]);
 
   const contractAddress = getOfframpContractAddress(selectedToken.chain);
-
-  useContractEvents(
-    contractAddress,
-    (order: any) => {
-      setOrderId(order.orderId);
-    },
-    (order: any) => {
-      // Order settled handler
-    },
-    (orderId: any) => {
-      // Order refunded handler
-    },
-  );
 
   const cleanupOrderStates = useCallback(() => {
     setOrderId("");
@@ -866,7 +849,7 @@ const SendCryptoModal: React.FC = () => {
       contractAddress,
       transactionSummary,
       selectedTokenBalance,
-      getCashoutType,
+      cashoutType: getCashoutType(),
       approveTokenIfNeeded,
       setApproving: setIsApproving,
       setProcessing: setIsProcessing,
@@ -888,9 +871,29 @@ const SendCryptoModal: React.FC = () => {
           .getState()
           .openKYCModal(extractKYCLimitSnapshot(apiError.details));
       },
+      // Reset stale state on early exit (cancel, failure, validation error)
+      // so the next attempt uses fresh data.
+      onEarlyExit: () => {
+        cleanupOrderStates();
+        // Force quote re-validation on next attempt
+        setQuoteValidation({
+          isValidating: false,
+          isValid: false,
+          error: null,
+          requiredAmount: null,
+          availableBalance: null,
+          hasSufficientBalance: null,
+        });
+      },
       showNetworkSwitchNotification,
     });
   };
+
+  // Ref always holds the latest executeOfframpOrder so that deferred callbacks
+  // (e.g. PayBill confirmation modal) never call a stale closure.
+  const executeOfframpOrderRef = useRef(executeOfframpOrder);
+  executeOfframpOrderRef.current = executeOfframpOrder;
+
   const handleApproveToken = async () => {
     if (!account.address) {
       toast.error("Please connect your wallet first");
@@ -950,7 +953,9 @@ const SendCryptoModal: React.FC = () => {
       }
       await validateAccount();
       setProceedAfterValidation(() => () => {
-        executeOfframpOrder();
+        console.log("📋 Proceed button clicked, executing offramp order");
+        // Use the ref to always call the latest version with fresh state
+        executeOfframpOrderRef.current();
       });
 
       setIsMainDialogOpen(false);

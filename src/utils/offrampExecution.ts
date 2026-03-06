@@ -46,7 +46,7 @@ export interface ExecuteOfframpOrderOptions {
   contractAddress: string;
   transactionSummary: OfframpSummary;
   selectedTokenBalance: number;
-  getCashoutType: () => OfframpCashoutType;
+  cashoutType: OfframpCashoutType;
   approveTokenIfNeeded: (
     spender: string,
     amount: string,
@@ -62,6 +62,8 @@ export interface ExecuteOfframpOrderOptions {
   ) => void;
   refreshTransactionList: () => void;
   onKycRequired: (err: KYCRequiredError) => void;
+  /** Called on early exit (cancel, validation failure, etc.) so the caller can reset stale state. */
+  onEarlyExit?: () => void;
   notify: OfframpNotifier;
   showNetworkSwitchNotification?: (
     networkName: string,
@@ -201,7 +203,7 @@ export const executeOfframpOrder = async (
     contractAddress,
     transactionSummary,
     selectedTokenBalance,
-    getCashoutType,
+    cashoutType,
     approveTokenIfNeeded,
     setApproving,
     setProcessing,
@@ -212,6 +214,7 @@ export const executeOfframpOrder = async (
     setTransactionReceipt,
     refreshTransactionList,
     onKycRequired,
+    onEarlyExit,
     notify,
     showNetworkSwitchNotification,
   } = opts;
@@ -247,6 +250,7 @@ export const executeOfframpOrder = async (
         if (!switchResult.success) {
           showNetworkSwitchNotification?.(selectedToken.chain, "error");
           notify.error(switchResult.message);
+          onEarlyExit?.();
           return;
         }
 
@@ -259,16 +263,19 @@ export const executeOfframpOrder = async (
             notify.success(
               `Switched to ${selectedToken.chain}. Please try again.`,
             );
+            onEarlyExit?.();
             return;
           }
         } else if (switchResult.method === "manual-required") {
           showNetworkSwitchNotification?.(selectedToken.chain, "error");
           notify.warning(switchResult.message);
+          onEarlyExit?.();
           return;
         }
       } catch {
         showNetworkSwitchNotification?.(selectedToken.chain, "error");
         notify.error(`Please switch to ${selectedToken.chain} to continue.`);
+        onEarlyExit?.();
         return;
       }
     }
@@ -283,10 +290,9 @@ export const executeOfframpOrder = async (
       );
       setApproving(false);
       setProcessing(false);
+      onEarlyExit?.();
       return;
     }
-
-    const cashoutType = getCashoutType();
 
     let validationError = "";
     if (!accountAddress || !selectedToken.tokenAddress || !amountFiat || !messageHash) {
@@ -308,6 +314,7 @@ export const executeOfframpOrder = async (
       notify.error(validationError);
       setApproving(false);
       setProcessing(false);
+      onEarlyExit?.();
       return;
     }
 
@@ -342,6 +349,7 @@ export const executeOfframpOrder = async (
       setApproving(false);
       setProcessing(false);
       setShowProcessingPopup(false);
+      onEarlyExit?.();
       return;
     }
 
@@ -379,6 +387,7 @@ export const executeOfframpOrder = async (
           quoteError?.message ||
           "Failed to calculate required approval amount. Please try again.",
       );
+      onEarlyExit?.();
       return;
     }
 
@@ -399,6 +408,7 @@ export const executeOfframpOrder = async (
         setApproving(false);
         setProcessing(false);
         notify.error("Token approval failed. Cannot proceed with order creation.");
+        onEarlyExit?.();
         return;
       }
 
@@ -415,6 +425,7 @@ export const executeOfframpOrder = async (
       setApproving(false);
       setProcessing(false);
       notify.error("Order details are incomplete. Please try again.");
+      onEarlyExit?.();
       return;
     }
 
@@ -453,6 +464,7 @@ export const executeOfframpOrder = async (
         onKycRequired(apiError);
         setApproving(false);
         setProcessing(false);
+        onEarlyExit?.();
         return;
       }
 
@@ -461,6 +473,7 @@ export const executeOfframpOrder = async (
       notify.error(errorMessage);
       setApproving(false);
       setProcessing(false);
+      onEarlyExit?.();
       return;
     }
 
@@ -472,6 +485,7 @@ export const executeOfframpOrder = async (
       setShowProcessingPopup(false);
       setApproving(false);
       setProcessing(false);
+      onEarlyExit?.();
       return;
     }
 
@@ -528,6 +542,7 @@ export const executeOfframpOrder = async (
     setShowProcessingPopup(false);
     refreshTransactionList();
     notify.error(err?.message || "Transaction failed. Please try again.");
+    onEarlyExit?.();
   } finally {
     setApproving(false);
     setProcessing(false);

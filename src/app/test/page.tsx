@@ -2,7 +2,6 @@
 
 import React, { useEffect, useState } from "react";
 
-import { useContractEvents } from "@/context/useContractEvents";
 import { useContract } from "@/services/useContract";
 import { ConnectWallet } from "@coinbase/onchainkit/wallet";
 import { getUSDCAddress } from "@/services/tokens";
@@ -55,13 +54,6 @@ export default function Page() {
       setErrorMessage("Failed to fetch exchange rate. Please try again.");
     }
   };
-
-  useContractEvents(
-    contractAddress,
-    (order: any) => console.log("OrderCreated", order),
-    (order: any) => console.log("OrderSettled", order),
-    () => console.log("OrderRefunded")
-  );
 
   const handleSendCrypto = async () => {
     if (!amount || isNaN(parseFloat(amount)) || parseFloat(amount) <= 0) {
