@@ -6,12 +6,13 @@ import TransactionsPage from "@/components/dashboard/pages/TransactionsPage";
 import WhatsAppPage from "@/components/dashboard/pages/WhatsAppPage";
 import EmailPage from "@/components/dashboard/pages/EmailPage";
 import KYCRequiredModal from "@/components/dashboard/KYCRequiredModal";
-import { Bell, ChevronDown, LogOut } from "lucide-react";
+import { Bell, ChevronDown, LogOut, Moon, Sun } from "lucide-react";
 import Image from "next/image";
 import avatarPlaceholder from "@/assets/avatar-placeholder.svg";
 import { useRouter } from "next/navigation";
 import { useWallet } from "@/hooks/useWallet";
 import { useAuthStore } from "@/stores/authStore";
+import { useTheme } from "@/lib/useTheme";
 
 type PageComponent =
   | "overview"
@@ -29,6 +30,7 @@ export default function Dashboard() {
   const [currentPage, setCurrentPage] = useState<PageComponent>("overview");
   const [showDropdown, setShowDropdown] = useState(false);
   const router = useRouter();
+  const { theme, toggle: toggleTheme, mounted } = useTheme();
 
   // Redirect to home when not fully authenticated (OTP + wallet)
   // This is reactive — if isAuthenticated changes to false, user is bounced
@@ -97,11 +99,24 @@ export default function Dashboard() {
       <div className="flex-1 w-full lg:ml-64">
         {/* Fixed Header */}
         <div className="bg-[var(--ep-bg-card)] py-3 px-4 sm:px-8 border-b border-[var(--ep-border)]">
-          <nav className="flex justify-end items-center gap-4">
+          <nav className="flex justify-end items-center gap-2 sm:gap-4">
             <div className="w-8 h-8 lg:hidden"></div>
 
+            {/* Theme Toggle Button */}
+            <button 
+              className="p-2 hover:bg-[var(--ep-accent-muted)] rounded-full transition-colors flex items-center justify-center"
+              onClick={toggleTheme}
+              aria-label="Toggle theme"
+            >
+              {mounted && theme === 'dark' ? (
+                <Sun className="w-5 h-5 text-[var(--ep-muted)] hover:text-[var(--ep-heading)] transition-colors" />
+              ) : (
+                <Moon className="w-5 h-5 text-[var(--ep-muted)] hover:text-[var(--ep-heading)] transition-colors" />
+              )}
+            </button>
+
             <button className="p-2 hover:bg-[var(--ep-accent-muted)] rounded-full transition-colors">
-              <Bell className="w-5 h-5 text-[var(--ep-muted)]" />
+              <Bell className="w-5 h-5 text-[var(--ep-muted)] hover:text-[var(--ep-heading)] transition-colors" />
             </button>
 
             {/* Profile avatar and dropdown */}
