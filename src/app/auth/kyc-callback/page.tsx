@@ -18,6 +18,11 @@ export default function KYCCallbackPage() {
   const updateKYCStatus = useAuthStore((s) => s.updateKYCStatus);
 
   useEffect(() => {
+    let cancelled = false;
+    let pollCount = 0;
+    const MAX_POLLS = 5;
+    const POLL_INTERVAL_MS = 3000;
+
     const verify = async () => {
       try {
         // Session ID from URL params or localStorage
@@ -48,10 +53,23 @@ export default function KYCCallbackPage() {
           setStatus("success");
           setMessage("Identity verified! Redirecting to your dashboard…");
           setTimeout(() => router.push("/dashboard"), 1500);
-        } else if (res.kyc_status === "pending" && isAuthenticated) {
-          setStatus("loading");
-          setMessage("Verification is still processing. You'll be notified when it's complete.");
-          setTimeout(() => router.push("/dashboard"), 3000);
+        } else if (res.kyc_status === "pending") {
+          // Poll until verified or max retries exhausted
+          if (pollCount < MAX_POLLS && !cancelled) {
+            pollCount++;
+            setStatus("loading");
+            setMessage(`Verification is processing… checking again (${pollCount}/${MAX_POLLS})`);
+            setTimeout(() => {
+              if (!cancelled) verify();
+            }, POLL_INTERVAL_MS);
+          } else {
+            // Gave up polling — redirect to dashboard anyway
+            setStatus("loading");
+            setMessage("Verification is still processing. You'll be notified when it's complete.");
+            if (isAuthenticated) {
+              setTimeout(() => router.push("/dashboard"), 2000);
+            }
+          }
         } else {
           setStatus("failed");
           setMessage("Verification was not successful. You can try again from your dashboard.");
@@ -63,6 +81,10 @@ export default function KYCCallbackPage() {
     };
 
     verify();
+
+    return () => {
+      cancelled = true;
+    };
   }, [isOtpVerified, searchParams, updateKYCStatus, router]);
 
   return (

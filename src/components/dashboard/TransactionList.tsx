@@ -422,7 +422,55 @@ const TransactionList: FC<{ walletAddress: string | null }> = ({
     0,
   );
 
-  if (loading) return <p className="px-4 text-[var(--ep-muted)]">Loading...</p>;
+  // Skeleton loading component for transaction rows
+  const TransactionSkeleton = () => (
+    <div className="w-full animate-pulse space-y-4 p-2 sm:p-4">
+      {/* Skeleton date header */}
+      <div className="h-4 w-32 bg-[var(--ep-border)] rounded-md" />
+      
+      {/* Skeleton transaction rows */}
+      {[...Array(5)].map((_, i) => (
+        <div
+          key={i}
+          className="flex items-center gap-3 p-3 rounded-xl bg-[var(--ep-bg-card)] border border-[var(--ep-border)]"
+        >
+          {/* Icon placeholder */}
+          <div className="w-10 h-10 rounded-full bg-[var(--ep-border)] shrink-0" />
+          
+          {/* Text placeholders */}
+          <div className="flex-1 min-w-0 space-y-2">
+            <div className="h-4 w-28 bg-[var(--ep-border)] rounded-md" />
+            <div className="h-3 w-40 bg-[var(--ep-border)] rounded-md opacity-60" />
+          </div>
+          
+          {/* Amount placeholder */}
+          <div className="text-right space-y-2 shrink-0">
+            <div className="h-4 w-20 bg-[var(--ep-border)] rounded-md ml-auto" />
+            <div className="h-3 w-14 bg-[var(--ep-border)] rounded-md ml-auto opacity-60" />
+          </div>
+        </div>
+      ))}
+
+      {/* Second date group skeleton */}
+      <div className="h-4 w-44 bg-[var(--ep-border)] rounded-md mt-6" />
+      {[...Array(3)].map((_, i) => (
+        <div
+          key={`g2-${i}`}
+          className="flex items-center gap-3 p-3 rounded-xl bg-[var(--ep-bg-card)] border border-[var(--ep-border)]"
+        >
+          <div className="w-10 h-10 rounded-full bg-[var(--ep-border)] shrink-0" />
+          <div className="flex-1 min-w-0 space-y-2">
+            <div className="h-4 w-24 bg-[var(--ep-border)] rounded-md" />
+            <div className="h-3 w-36 bg-[var(--ep-border)] rounded-md opacity-60" />
+          </div>
+          <div className="text-right space-y-2 shrink-0">
+            <div className="h-4 w-16 bg-[var(--ep-border)] rounded-md ml-auto" />
+            <div className="h-3 w-12 bg-[var(--ep-border)] rounded-md ml-auto opacity-60" />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
 
   if (!loading && transactions.length === 0) {
     return (
@@ -477,6 +525,7 @@ const TransactionList: FC<{ walletAddress: string | null }> = ({
   return (
     <ClientOnly fallback={<div className="p-4">Loading transactions...</div>}>
       <div className="w-full p-2 sm:p-4 bg-[var(--ep-bg)] min-h-screen">
+        {/* Filters, search, refresh, pagination — always visible */}
         <TransactionFilters
           searchTerm={searchTerm}
           setSearchTerm={setSearchTerm}
@@ -500,17 +549,23 @@ const TransactionList: FC<{ walletAddress: string | null }> = ({
           setCurrentPage={setCurrentPage}
           totalTransactions={filteredTransactions.length}
         />
-        <TransactionTable
-          groupedTransactions={groupedTransactions}
-          filters={filters}
-          clearFilters={clearFilters}
-          filteredTransactions={filteredTransactions}
-          currentPage={currentPage}
-          setCurrentPage={setCurrentPage}
-          totalPages={totalPages}
-          rowsPerPage={rowsPerPage}
-          hidePagination={true}
-        />
+
+        {/* Transaction rows: skeleton while loading, real data otherwise */}
+        {loading ? (
+          <TransactionSkeleton />
+        ) : (
+          <TransactionTable
+            groupedTransactions={groupedTransactions}
+            filters={filters}
+            clearFilters={clearFilters}
+            filteredTransactions={filteredTransactions}
+            currentPage={currentPage}
+            setCurrentPage={setCurrentPage}
+            totalPages={totalPages}
+            rowsPerPage={rowsPerPage}
+            hidePagination={true}
+          />
+        )}
       </div>
     </ClientOnly>
   );

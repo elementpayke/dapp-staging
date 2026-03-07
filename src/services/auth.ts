@@ -217,6 +217,7 @@ export async function getWallets(): Promise<GetWalletsResponse> {
 /**
  * Refresh the current access token.
  * Refresh token is sent via HTTP-only cookie automatically.
+ * Fires an auth-expired event on failure so the session guard can auto-logout.
  */
 export async function refreshAccessToken(): Promise<{ success: boolean }> {
   const res = await fetch("/api/auth/refresh-token", {
@@ -225,6 +226,10 @@ export async function refreshAccessToken(): Promise<{ success: boolean }> {
   });
 
   if (!res.ok) {
+    // Import dynamically to avoid circular deps in SSR
+    import("@/hooks/useSessionGuard").then(({ fireAuthExpired }) => {
+      fireAuthExpired();
+    }).catch(() => {});
     throw new Error("Token refresh failed");
   }
 

@@ -13,6 +13,7 @@ import { WagmiProvider } from "@privy-io/wagmi";
 import { TokenProvider } from "@/context/TokenContext";
 import PrivyWalletListener from "@/components/auth/PrivyWalletListener";
 import AuthModal from "@/components/auth/AuthModal";
+import { useSessionGuard } from "@/hooks/useSessionGuard";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -39,6 +40,12 @@ function StoreHydration() {
   useEffect(() => {
     useWalletStore.persist.rehydrate();
   }, []);
+  return null;
+}
+
+/** Guards the session — triggers full logout on 401 / expired tokens. */
+function SessionGuard() {
+  useSessionGuard();
   return null;
 }
 
@@ -97,6 +104,7 @@ export function Providers(props: { children: ReactNode }) {
       <QueryClientProvider client={queryClient}>
         <WagmiProvider config={wagmiConfig}>
           <StoreHydration />
+          <SessionGuard />
           <OnchainKitProvider
             apiKey={process.env.NEXT_PUBLIC_ONCHAINKIT_API_KEY}
             chain={base}

@@ -22,14 +22,25 @@ export async function POST(req: NextRequest) {
     }
 
     // Extract tokens — backend may wrap in { data: { access_token, ... } }
+    // Check multiple possible response shapes
     const payload = data.data?.access_token ? data.data : data;
-    const accessToken: string | undefined = payload.access_token;
-    const refreshToken: string | undefined = payload.refresh_token;
+    const accessToken: string | undefined =
+      payload.access_token ?? data.data?.access_token ?? data.access_token;
+    const refreshToken: string | undefined =
+      payload.refresh_token ?? data.data?.refresh_token ?? data.refresh_token;
 
     if (!accessToken) {
       return NextResponse.json(
         { success: false, message: "No access token received from backend" },
         { status: 502 },
+      );
+    }
+
+    if (!refreshToken) {
+      console.warn(
+        "[verify-otp] Backend did not return a refresh_token. Session refresh will not work.",
+        "Response keys:", Object.keys(data),
+        "Nested keys:", data.data ? Object.keys(data.data) : "N/A",
       );
     }
 

@@ -42,7 +42,7 @@ const MobileNav = () => {
   if (!isMenuOpen) return null;
 
   return (
-    <div className="md:hidden fixed inset-0 bg-[var(--landing-bg)] z-50 landing-page">
+    <div className="md:hidden fixed inset-0 bg-[var(--landing-bg)] z-[100] landing-page isolate">
       <div className="h-full flex flex-col">
         <div className="flex items-center justify-between p-4 border-b border-[var(--landing-card-border)]">
           <Link
@@ -66,7 +66,7 @@ const MobileNav = () => {
           </button>
         </div>
 
-        <div className="flex-1 px-6 py-8 space-y-6">
+        <div className="flex-1 px-6 py-8 space-y-6 overflow-y-auto">
           <Link
             href="/"
             onClick={() => setIsMenuOpen(false)}
@@ -125,20 +125,22 @@ const MobileNav = () => {
           </div>
 
           <div className="pt-6 border-t border-[var(--landing-card-border)] space-y-3">
-            {isAuthenticated && isOtpVerified && isWalletRegistered ? (
+            {isOtpVerified ? (
               <>
                 <p className="text-sm text-[var(--landing-muted)] mb-3">
                   Signed in as {user?.email}
                 </p>
-                <Link
-                  href="/dashboard"
-                  onClick={() => setIsMenuOpen(false)}
-                  className="flex items-center justify-center gap-2 w-full py-3 px-6 rounded-xl bg-[var(--landing-accent)] text-white font-semibold hover:bg-[var(--landing-accent-hover)] transition-colors"
-                  style={{ fontFamily: "var(--font-landing-display)" }}
-                >
-                  <LayoutDashboard className="w-4 h-4" />
-                  Dashboard
-                </Link>
+                {isAuthenticated && isWalletRegistered && (
+                  <Link
+                    href="/dashboard"
+                    onClick={() => setIsMenuOpen(false)}
+                    className="flex items-center justify-center gap-2 w-full py-3 px-6 rounded-xl bg-[var(--landing-accent)] text-white font-semibold hover:bg-[var(--landing-accent-hover)] transition-colors"
+                    style={{ fontFamily: "var(--font-landing-display)" }}
+                  >
+                    <LayoutDashboard className="w-4 h-4" />
+                    Dashboard
+                  </Link>
+                )}
                 <button
                   onClick={handleLogout}
                   className="flex items-center justify-center gap-2 w-full py-3 px-6 rounded-xl border border-red-200 text-red-600 font-medium hover:bg-red-50 transition-colors"

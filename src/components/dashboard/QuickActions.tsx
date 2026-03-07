@@ -166,8 +166,8 @@ const QuickActions: FC = () => {
           </div>
         </div>
 
-        {/* Right: Connected Network Indicator & Logo */}
-        <div className="flex flex-col items-end justify-between min-h-[15vh] ml-4 shrink-0">
+        {/* Right: Connected Network Indicator & Logo — hidden on mobile */}
+        <div className="hidden md:flex flex-col items-end justify-between min-h-[15vh] ml-4 shrink-0">
           {/* Connected Network Badge + Action Buttons */}
           <div className="flex items-center gap-2 ">
             <div className="flex items-center gap-1.5 px-3 py-1 rounded-full border border-[var(--ep-border)] bg-[var(--ep-bg-card)]">
