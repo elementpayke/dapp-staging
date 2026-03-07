@@ -43,19 +43,19 @@ const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
       }}
     >
       <div 
-        className="bg-white rounded-xl p-6 w-full max-w-md shadow-xl relative"
+        className="bg-[var(--ep-bg-card)] rounded-xl p-6 w-full max-w-md shadow-xl relative"
         onClick={(e) => {
           // Prevent backdrop click when clicking inside modal
           e.stopPropagation();
           console.log("🔘 Modal content clicked in ConfirmationModal");
         }}
       >
-        <h2 className="text-lg font-semibold text-gray-900 mb-2">
+        <h2 className="text-lg font-semibold text-[var(--ep-heading)] mb-2">
           {mode === "confirm" ? "Confirm Payment" : "Account Validation Failed"}
         </h2>
 
         {mode === "confirm" ? (
-          <p className="text-sm text-gray-700 mb-4">
+          <p className="text-sm text-[var(--ep-body)] mb-4">
             You&apos;re about to send <strong>{amountKES?.toFixed(2)} KES</strong> to{" "}
             <strong>{accountInfo}</strong>
             {cashoutType === "PAYBILL" && accountNumber && (
@@ -77,7 +77,7 @@ const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
               console.log("🔘 Close button clicked in ConfirmationModal");
               onClose();
             }}
-            className="px-4 py-2 text-gray-600 bg-gray-200 rounded-md hover:bg-gray-300 text-sm"
+            className="px-4 py-2 text-[var(--ep-body)] bg-[var(--ep-bg-input)] rounded-md hover:bg-[var(--ep-bg-elevated)] text-sm"
           >
             Close
           </button>
@@ -96,7 +96,7 @@ const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
                 }
                 onClose();
               }}
-              className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 text-sm"
+              className="px-4 py-2 bg-[var(--ep-accent)] text-white rounded-md hover:bg-[var(--ep-accent-hover)] text-sm"
             >
               Proceed
             </button>

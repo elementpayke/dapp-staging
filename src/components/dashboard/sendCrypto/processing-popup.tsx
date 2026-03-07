@@ -479,7 +479,7 @@ const ProcessingPopup: React.FC<ProcessingPopupProps> = ({
             animate={{ scale: 1, y: 0, opacity: 1 }}
             exit={{ scale: 0.9, y: 20, opacity: 0 }}
             transition={{ type: "spring", damping: 25, stiffness: 300 }}
-            className="bg-white rounded-2xl p-6 max-w-[95vw] w-full md:max-w-lg min-w-[340px] shadow-xl relative overflow-hidden"
+            className="bg-[var(--ep-bg-card)] rounded-2xl p-6 max-w-[95vw] w-full md:max-w-lg min-w-[340px] shadow-xl relative overflow-hidden"
             style={{ maxHeight: "90vh", overflowY: "auto", pointerEvents: "auto" }}
             onClick={(e) => e.stopPropagation()}
           >
