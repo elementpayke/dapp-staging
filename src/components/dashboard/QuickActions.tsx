@@ -38,7 +38,7 @@ const DepositCryptoModal = dynamic(
 
 const QuickActions: FC = () => {
   const { address } = useAccount();
-  
+
   // Use shared token context for consistent token selection across modals
   const { selectedToken, selectTokenAndSwitchChain, isCorrectNetwork, isSwitchingChain } = useSelectedToken();
 
@@ -117,8 +117,8 @@ const QuickActions: FC = () => {
   const networkLogo = NETWORK_LOGOS[selectedToken.chain];
 
   return (
-    <div className="p-4 sm:p-5 bg-[var(--ep-bg-card)] shadow-[var(--ep-card-shadow)] rounded-2xl border border-[var(--ep-border)]">
-      <div className="flex items-start justify-between mb-0 h-fit  min-h-[15vh]">
+    <div className="p-4 sm:p-5 bg-[var(--ep-bg-card)] shadow-[var(--ep-card-shadow)] rounded-2xl border border-[var(--ep-border)] relative">
+      <div className="flex flex-col md:flex-row items-start justify-between mb-0 min-h-[15vh]">
         {/* Left: Balance & Token Selector */}
         <div className="flex-1 min-w-0 h-fit">
           <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[var(--ep-muted)] mb-0.5">
@@ -184,24 +184,25 @@ const QuickActions: FC = () => {
             </button>
           </div>
 
-          {/* Network Logo */}
-          {networkLogo && (
-            <div className="flex flex-col items-end">
-              <Image
-                src={networkLogo}
-                alt={`${selectedToken.chain} logo`}
-                width={240}
-                height={240}
-                className="object-contain"
-                priority
-              />
-              <span className="text-[9px] font-bold uppercase tracking-[0.2em] text-[var(--ep-muted)] mt-1">
-                Proud Partners
-              </span>
-            </div>
-          )}
+          {/* Network Logo - Moved to bottom right absolute positioning */}
         </div>
       </div>
+
+      {networkLogo && (
+        <div className="hidden md:flex flex-col items-end absolute bottom-5 right-5 z-0 opacity-80 pointer-events-none">
+          <Image
+            src={networkLogo}
+            alt={`${selectedToken.chain} logo`}
+            width={180}
+            height={180}
+            className="object-contain"
+            priority
+          />
+          <span className="text-[9px] font-bold uppercase tracking-[0.2em] text-[var(--ep-muted)] mt-1 ml-4">
+            Proud Partners
+          </span>
+        </div>
+      )}
     </div>
   );
 };
