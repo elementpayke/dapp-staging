@@ -1,6 +1,7 @@
 import axios from "axios";
 
 import { KYCRequiredError } from "@/services/kycError";
+import { fireAuthExpired } from "@/hooks/useSessionGuard";
 import type {
   RatePayload,
   RateResponse,
@@ -195,39 +196,9 @@ export const fetchAccountName = async (
   }
 };
 
-export const fetchOrderStatus = async (
-  orderId: string
-): Promise<{ status: number; data: any }> => {
-  try {
-    console.log("Fetching order status for orderId:", orderId);
-    console.log("*****************************************");
-    // Use internal server route to avoid exposing API key
-    const response = await axios.get<{ status: number; data: any }>(
-      `/api/element-pay/orders/get`,
-      {
-        params: { orderId },
-      }
-    );
-    console.log("Order status response:", response.data);
-    console.log("*****************************************");
-    return response;
-  } catch (error: any) {
-    console.error("Error fetching order status:", error);
-    // If it's a 404 error, return a specific response structure
-    if (error.response?.status === 404) {
-      return {
-        status: 404,
-        data: {
-          status: "pending",
-          message: "Order not found yet, will retry",
-          data: null,
-        },
-      };
-    }
-    throw error;
-  }
-};
-
+// Authenticated Axios instance for internal /api/element-pay/* routes.
+// Has a response interceptor that refreshes tokens on 401 and fires
+// fireAuthExpired() when refresh also fails.
 const clientApi = axios.create({
   baseURL: "/api/element-pay",
   headers: {
@@ -278,11 +249,72 @@ clientApi.interceptors.response.use(
         // Cookies are updated — retry the original request
         return clientApi(originalRequest);
       }
+
+      // Refresh failed — check if server flagged auth_expired, force logout
+      console.warn("[aggregator] Token refresh failed — forcing logout.");
+      fireAuthExpired();
+      return Promise.reject(error);
+    }
+
+    // If the 401 response contains auth_expired flag, force logout
+    if (
+      error.response?.status === 401 &&
+      error.response?.data?.auth_expired
+    ) {
+      fireAuthExpired();
     }
 
     return Promise.reject(error);
   },
 );
+
+// ── Authenticated helpers using clientApi ─────────────────────────────────
+
+export const fetchOrderStatus = async (
+  orderId: string
+): Promise<{ status: number; data: any }> => {
+  try {
+    console.log("Fetching order status for orderId:", orderId);
+    // Use internal server route with auth interceptor
+    const response = await clientApi.get<{ status: number; data: any }>(
+      `/orders/get`,
+      { params: { orderId } },
+    );
+    console.log("Order status response:", response.data);
+    return response;
+  } catch (error: any) {
+    console.error("Error fetching order status:", error);
+    // If it's a 404 error, return a specific response structure
+    if (error.response?.status === 404) {
+      return {
+        status: 404,
+        data: {
+          status: "pending",
+          message: "Order not found yet, will retry",
+          data: null,
+        },
+      };
+    }
+    throw error;
+  }
+};
+
+/**
+ * Fetch wallet transaction history via the authenticated proxy route.
+ * Uses clientApi so token refresh + forced logout are handled automatically.
+ */
+export const fetchWalletOrders = async (
+  walletAddress: string,
+): Promise<{ status: string; message: string; data: any[] }> => {
+  const response = await clientApi.get<{
+    status: string;
+    message: string;
+    data: any[];
+  }>(`/orders/wallet`, {
+    params: { wallet_address: walletAddress },
+  });
+  return response.data;
+};
 
 // Retry logic for API calls with improved timeout handling
 const retryRequest = async <T>(

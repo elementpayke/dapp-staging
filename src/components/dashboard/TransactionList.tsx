@@ -1,6 +1,6 @@
 import { FC, useEffect, useState, useCallback } from "react";
-import axios from "axios";
 import { Order, Tx } from "@/types/types";
+import { fetchWalletOrders } from "@/app/api/aggregator";
 import TransactionFilters from "./TransactionList/TransactionFilters";
 import TransactionTable from "./TransactionList/TransactionTable";
 import ClientOnly from "@/components/shared/ClientOnly";
@@ -108,15 +108,9 @@ const TransactionList: FC<{ walletAddress: string | null }> = ({
   // Fetch transactions function - memoized for reuse
   const fetchTransactions = useCallback(async () => {
     try {
-      const res = await axios.get<{
-        status: string;
-        message: string;
-        data: Order[];
-      }>(`/api/element-pay/orders/wallet`, {
-        params: { wallet_address: walletAddress },
-      });
+      const res = await fetchWalletOrders(walletAddress!);
 
-      const mapped: ExtendedTx[] = res.data?.data?.map((order: Order) => {
+      const mapped: ExtendedTx[] = res?.data?.map((order: Order) => {
         const createdDate = new Date(order.created_at);
         const settlementDate = order.updated_at
           ? new Date(order.updated_at)
@@ -186,9 +180,10 @@ const TransactionList: FC<{ walletAddress: string | null }> = ({
       });
 
       // Sort by created_at in descending order (newest first)
+      const orders: Order[] = res?.data ?? [];
       mapped.sort((a, b) => {
-        const bOrder = res.data.data.find((o: Order) => o.order_id === b.id);
-        const aOrder = res.data.data.find((o: Order) => o.order_id === a.id);
+        const bOrder = orders.find((o: Order) => o.order_id === b.id);
+        const aOrder = orders.find((o: Order) => o.order_id === a.id);
         return (
           new Date(bOrder?.created_at || 0).getTime() -
           new Date(aOrder?.created_at || 0).getTime()

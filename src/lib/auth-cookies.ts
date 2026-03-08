@@ -16,11 +16,23 @@ export const REFRESH_TOKEN_COOKIE = "ep_refresh_token";
 
 // ─── Cookie options ──────────────────────────────────────────────────────────
 
-const isProduction = process.env.NODE_ENV === "production";
+/**
+ * Secure cookies require HTTPS. In production NODE_ENV this defaults to true,
+ * but can be overridden with the COOKIE_SECURE env var for HTTP staging
+ * environments (e.g. Docker on localhost without TLS).
+ *
+ *   COOKIE_SECURE=false  → cookies work over plain HTTP
+ *   COOKIE_SECURE=true   → force Secure flag even in development
+ *   (unset)              → follows NODE_ENV (production = secure)
+ */
+const isSecure =
+  process.env.COOKIE_SECURE !== undefined
+    ? process.env.COOKIE_SECURE === "true"
+    : process.env.NODE_ENV === "production";
 
 const baseCookieOptions = {
   httpOnly: true,
-  secure: isProduction,
+  secure: isSecure,
   sameSite: "lax" as const,
   path: "/",
 };

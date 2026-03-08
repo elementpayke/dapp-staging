@@ -12,6 +12,7 @@ import avatarPlaceholder from "@/assets/avatar-placeholder.svg";
 import { useRouter } from "next/navigation";
 import { useWallet } from "@/hooks/useWallet";
 import { useAuthStore } from "@/stores/authStore";
+import { useOnboardingStore } from "@/stores/onboardingStore";
 import { useTheme } from "@/lib/useTheme";
 
 type PageComponent =
@@ -47,10 +48,11 @@ export default function Dashboard() {
     if (pendingTx) {
       try {
         const txData = JSON.parse(pendingTx);
-        // Import the onboarding store and pre-populate
-        // The OverviewPage will pick these up automatically
         localStorage.removeItem("elementpay-pending-tx");
-        console.log("[Dashboard] Restored pending transaction:", txData);
+        // Restore transaction data into the onboarding store so the
+        // OverviewPage form is pre-filled when the user lands back.
+        useOnboardingStore.getState().setLandingForm(txData);
+        console.log("[Dashboard] Restored pending transaction to onboarding store:", txData);
       } catch {
         localStorage.removeItem("elementpay-pending-tx");
       }

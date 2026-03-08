@@ -69,6 +69,8 @@ export interface ExecuteOfframpOrderOptions {
     networkName: string,
     status: "switching" | "success" | "error",
   ) => void;
+  /** AbortSignal to cancel the long-running flow when the user exits early. */
+  signal?: AbortSignal;
 }
 
 const CHAIN_ID_MAP: Record<string, number> = {
@@ -120,12 +122,14 @@ export const buildRecipientLabel = (params: {
 
 export const pollOfframpOrderStatus = async (
   txHash: string,
+  signal?: AbortSignal,
 ): Promise<any | null> => {
   let attempts = 0;
   const maxAttempts = 30;
   const delay = 2000;
 
   while (attempts < maxAttempts) {
+    if (signal?.aborted) return null;
     try {
       const res = await fetch(
         `/api/element-pay/orders/status?txHash=${encodeURIComponent(txHash)}`,
@@ -178,6 +182,7 @@ export const pollOfframpOrderStatus = async (
 
     await new Promise((resolve) => setTimeout(resolve, delay));
     attempts++;
+    if (signal?.aborted) return null;
   }
 
   return null;
@@ -217,6 +222,7 @@ export const executeOfframpOrder = async (
     onEarlyExit,
     notify,
     showNetworkSwitchNotification,
+    signal,
   } = opts;
 
   const targetChainId = getTargetChainIdForToken(selectedToken);
@@ -495,7 +501,15 @@ export const executeOfframpOrder = async (
       transactionHash: orderId,
     }));
 
-    const statusData = await pollOfframpOrderStatus(orderId);
+    // If the user cancelled while the API call was in flight, bail out now
+    // so we don't overwrite state that belongs to a new transaction.
+    if (signal?.aborted) return;
+
+    const statusData = await pollOfframpOrderStatus(orderId, signal);
+
+    // Guard: user may have cancelled during polling
+    if (signal?.aborted) return;
+
     if (statusData) {
       const isSettled = statusData.status === "SETTLED";
       const isFailed = statusData.status === "FAILED";
@@ -510,6 +524,8 @@ export const executeOfframpOrder = async (
       }));
 
       refreshTransactionList();
+
+      if (signal?.aborted) return;
 
       if (isSettled) {
         notify.success(
@@ -528,6 +544,9 @@ export const executeOfframpOrder = async (
         );
       }
     } else {
+      // polling returned null — either timed out or was aborted
+      if (signal?.aborted) return;
+
       setPollingComplete(true);
       setTransactionReceipt((prev) => ({
         ...prev,

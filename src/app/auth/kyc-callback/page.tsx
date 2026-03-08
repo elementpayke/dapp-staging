@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Loader2, CheckCircle2, XCircle } from "lucide-react";
-import { checkKYCStatus } from "@/services/auth";
+import { checkKYCStatus, refreshAccessToken } from "@/services/auth";
 import { useAuthStore } from "@/stores/authStore";
 
 type Status = "loading" | "success" | "failed";
@@ -51,6 +51,17 @@ export default function KYCCallbackPage() {
 
         if (res.kyc_status === "verified" && isAuthenticated) {
           setStatus("success");
+          setMessage("Identity verified! Refreshing your session…");
+
+          // Refresh the HTTP-only access token cookie so subsequent API calls
+          // carry the updated kyc_status claims from the backend JWT.
+          try {
+            await refreshAccessToken();
+            console.log("[KYC Callback] Access token refreshed with verified KYC status");
+          } catch (refreshErr) {
+            console.warn("[KYC Callback] Token refresh failed — user may need to retry transaction:", refreshErr);
+          }
+
           setMessage("Identity verified! Redirecting to your dashboard…");
           setTimeout(() => router.push("/dashboard"), 1500);
         } else if (res.kyc_status === "pending") {

@@ -7,6 +7,7 @@ import QRCode from "react-qr-code";
 import { initiateKYC } from "@/services/auth";
 import { useAuthStore } from "@/stores/authStore";
 import { useKYCModalStore } from "@/stores/kycModalStore";
+import { useTransactionStore } from "@/stores/transactionStore";
 
 /**
  * KYCRequiredModal — shown when a transaction is rejected by the backend
@@ -76,9 +77,30 @@ const KYCRequiredModal = () => {
   const handleStartVerification = useCallback(() => {
     if (!kycUrl) return;
 
-    // Persist KYC ref so we can check status on return
-    if (typeof window !== "undefined" && kycRefId) {
-      localStorage.setItem("elementpay-kyc-ref", kycRefId);
+    if (typeof window !== "undefined") {
+      // Persist KYC ref so we can check status on return
+      if (kycRefId) {
+        localStorage.setItem("elementpay-kyc-ref", kycRefId);
+      }
+
+      // Persist the in-flight transaction so it can be restored after KYC
+      const txDetails = useTransactionStore.getState().details;
+      if (txDetails.amount) {
+        const pendingTx = {
+          flow: "offramp" as const,
+          offRampMethod: txDetails.paymentMethod || "PHONE",
+          amount: txDetails.amount,
+          amountFiat: txDetails.amountFiat,
+          phoneNumber: txDetails.phoneNumber || "",
+          paybillNumber: txDetails.paybillNumber || "",
+          accountNumber: txDetails.accountNumber || "",
+          tillNumber: txDetails.tillNumber || "",
+          tokenSymbol: txDetails.token?.symbol ?? null,
+          initiatedFromLanding: false,
+        };
+        localStorage.setItem("elementpay-pending-tx", JSON.stringify(pendingTx));
+        console.log("[KYCRequiredModal] Saved pending transaction before SmileID redirect");
+      }
     }
 
     // Redirect to SmileID SmileLinks

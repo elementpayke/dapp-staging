@@ -3,24 +3,45 @@
 import React, { useState, useRef, useCallback, useEffect } from "react";
 import { ShieldCheck, ArrowRight, Loader2, RotateCcw } from "lucide-react";
 import { motion } from "framer-motion";
-import { verifyOTP } from "@/services/auth";
+import { verifyOTP, OTP_TTL_MS } from "@/services/auth";
 import { useAuthStore } from "@/stores/authStore";
 import { useAuthModalStore } from "@/stores/authModalStore";
 
 const OTP_LENGTH = 6;
 const RESEND_COOLDOWN = 60; // seconds
 
+/**
+ * Compute the initial resend-cooldown based on the stored OTP request time.
+ * If the OTP was requested recently (< RESEND_COOLDOWN ago), return the
+ * remaining seconds.  Otherwise return 0 (allow immediate resend).
+ */
+function initialCooldown(): number {
+  const { otpRequestedAt } = useAuthStore.getState();
+  if (!otpRequestedAt) return 0;
+  const elapsed = Math.floor((Date.now() - otpRequestedAt) / 1000);
+  const remaining = RESEND_COOLDOWN - elapsed;
+  return remaining > 0 ? remaining : 0;
+}
+
 const OTPStep = () => {
   const [digits, setDigits] = useState<string[]>(Array(OTP_LENGTH).fill(""));
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const [cooldown, setCooldown] = useState(RESEND_COOLDOWN);
+  const [cooldown, setCooldown] = useState(initialCooldown);
   const inputsRef = useRef<(HTMLInputElement | null)[]>([]);
 
   const pendingEmail = useAuthStore((s) => s.pendingEmail);
+  const otpRequestedAt = useAuthStore((s) => s.otpRequestedAt);
   const setAuth = useAuthStore((s) => s.setAuth);
   const setStep = useAuthModalStore((s) => s.setStep);
   const setModalError = useAuthModalStore((s) => s.setErrorMessage);
+
+  // If the OTP has expired (> 15 min) send user back to email step
+  useEffect(() => {
+    if (!otpRequestedAt || Date.now() - otpRequestedAt < OTP_TTL_MS) return;
+    setModalError("Your verification code has expired. Please request a new one.");
+    setStep("email");
+  }, [otpRequestedAt, setStep, setModalError]);
 
   // Countdown timer for resend
   useEffect(() => {
@@ -124,7 +145,8 @@ const OTPStep = () => {
     if (cooldown > 0 || !pendingEmail) return;
     try {
       const { requestOTP } = await import("@/services/auth");
-      await requestOTP(pendingEmail);
+      // Force a fresh OTP request (bypass idempotency)
+      await requestOTP(pendingEmail, { force: true });
       setModalError(null);
       setCooldown(RESEND_COOLDOWN);
       setDigits(Array(OTP_LENGTH).fill(""));
