@@ -1,10 +1,9 @@
 "use client";
 
-import React, { FC } from "react";
+import React, { FC, useState, useEffect } from "react";
 import { Copy, MoreHorizontal, ExternalLink, X } from "lucide-react";
 import ClientOnly from "@/components/shared/ClientOnly";
 import TransactionDetailModal from "./TransactionDetailModal";
-import { useState } from "react";
 import { getExplorerInfo } from "@/utils/explorerUtils";
 
 interface ExtendedTx {
@@ -35,7 +34,6 @@ interface TransactionRowProps {
   tx: ExtendedTx;
 }
 
-// Helper function to format token display
 const formatTokenDisplay = (token: string) => {
   return token?.replace(/_/g, ' ');
 };
@@ -49,7 +47,6 @@ const Arrow = ({ direction, status }: { direction: 'in' | 'out', status?: string
     {
       status === 'FAILED' || status === 'DECLINED' ?
         <X className="w-5 h-5 text-white" /> : null
-
     }
     {direction === 'in' ? (
       <svg className={`w-5 h-5  ${status === 'FAILED' || status === 'DECLINED' ? 'hidden' : 'text-green-500'}`} fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
@@ -67,6 +64,31 @@ const Arrow = ({ direction, status }: { direction: 'in' | 'out', status?: string
 
 const TransactionRow: FC<TransactionRowProps> = ({ tx }: { tx: ExtendedTx }) => {
   const [showModal, setShowModal] = useState(false);
+  const [isHovered, setIsHovered] = useState(false);
+
+  // Reactively track data-theme="dark" on <html> using a MutationObserver.
+  // This re-renders the component whenever the user toggles the theme,
+  // ensuring getFailedBg() always returns the correct colour.
+  const [isDark, setIsDark] = useState(false);
+  useEffect(() => {
+    const html = document.documentElement;
+    setIsDark(html.getAttribute('data-theme') === 'dark');
+    const observer = new MutationObserver(() => {
+      setIsDark(html.getAttribute('data-theme') === 'dark');
+    });
+    observer.observe(html, { attributes: true, attributeFilter: ['data-theme'] });
+    return () => observer.disconnect();
+  }, []);
+
+  // Returns the correct rgba for the failed row background,
+  // accounting for both theme and hover state.
+  // bg-red-50 is a semantic error colour (kept per design system rules);
+  // we only adjust it in dark mode via inline style since Tailwind JIT
+  // won't compile new dark: opacity-variant classes at runtime.
+  const getFailedBg = () => {
+    if (isDark) return isHovered ? 'rgba(69, 10, 10, 0.45)' : 'rgba(69, 10, 10, 0.30)';
+    return isHovered ? 'rgba(254, 226, 226, 0.55)' : 'rgba(254, 226, 226, 0.25)';
+  };
 
   const copyToClipboard = async (text: string, type: string = 'text') => {
     try {
@@ -91,12 +113,9 @@ const TransactionRow: FC<TransactionRowProps> = ({ tx }: { tx: ExtendedTx }) => 
     return Number(val).toFixed(2);
   };
 
-  // Step A — Derive a failed flag
   const isFailed = tx.status === 'FAILED' || tx.status === 'DECLINED';
-
   const isReceive = tx.direction === 'Receive';
 
-  // Step D — Red-tint the amount on failed rows
   const amountColor = isFailed
     ? 'text-red-500'
     : isReceive
@@ -105,10 +124,13 @@ const TransactionRow: FC<TransactionRowProps> = ({ tx }: { tx: ExtendedTx }) => 
 
   const amountSign = isReceive ? '+' : '-';
 
+  // CHANGE 1 — success: bg-green-50 text-green-600 → bg-green-100 text-green-800 (light mode contrast fix)
+  //            failed:  unchanged in light mode; dark: variants added for dark mode
   const statusBadge = (
-    <span className={`px-2 py-1 text-xs rounded-full ml-2 ${tx.status === 'FAILED' || tx.status === 'DECLINED'
-        ? 'bg-red-50 text-red-600 border border-red-200'
-        : 'bg-green-50 text-green-600 border border-green-200'
+    <span className={`px-2 py-1 text-xs rounded-full ml-2 ${
+      tx.status === 'FAILED' || tx.status === 'DECLINED'
+        ? 'bg-red-50 text-red-600 border border-red-200 dark:bg-red-900/40 dark:text-red-400 dark:border-red-800/60'
+        : 'bg-green-100 text-green-800 border border-green-300 dark:bg-green-900/30 dark:text-green-400 dark:border-green-800/50'
       }`}>
       {tx.status === 'SETTLED' ? 'Success' : tx.status === 'FAILED' ? 'Declined' : displayValue(tx.status)}
     </span>
@@ -124,17 +146,18 @@ const TransactionRow: FC<TransactionRowProps> = ({ tx }: { tx: ExtendedTx }) => 
   return (
     <ClientOnly>
       {/* Desktop/tablet row */}
-      {/* Step B — Style the desktop row */}
+      {/* CHANGE 2 — failed row: original light mode kept exactly; dark: variants added */}
       <div
         onClick={() => setShowModal(true)}
-        className={`transaction-desktop hidden sm:grid sm:grid-cols-12 gap-4 items-center px-6 py-4 transition-colors text-sm border-b cursor-pointer ${isFailed
-            ? 'bg-red-50 hover:bg-red-100 border-red-200'
-            : 'hover:bg-[var(--ep-accent-subtle)] border-[var(--ep-border)]'
-          }`}
+        className={`transaction-desktop hidden sm:grid sm:grid-cols-12 gap-4 items-center px-6 py-4 transition-colors text-sm border-b cursor-pointer ${
+          isFailed ? 'border-red-100' : 'hover:bg-[var(--ep-accent-subtle)] border-[var(--ep-border)]'
+        }`}
+        style={isFailed ? { backgroundColor: getFailedBg() } : undefined}
+        onMouseEnter={() => isFailed && setIsHovered(true)}
+        onMouseLeave={() => isFailed && setIsHovered(false)}
       >
         {/* Transaction */}
         <div className="col-span-3 flex items-center min-w-0">
-
           <Arrow status={tx.status} direction={isReceive ? 'in' : 'out'} />
           <div className="min-w-0">
             <div className="font-medium text-[var(--ep-heading)] truncate">
@@ -143,7 +166,6 @@ const TransactionRow: FC<TransactionRowProps> = ({ tx }: { tx: ExtendedTx }) => 
             <div className="text-xs text-[var(--ep-muted)] mt-0.5">
               {displayValue(tx.time)} • {displayValue(tx.date)}
             </div>
-
             {tx.hash && tx.hash !== '—' && (
               <button
                 onClick={handleOpenExplorer}
@@ -156,22 +178,26 @@ const TransactionRow: FC<TransactionRowProps> = ({ tx }: { tx: ExtendedTx }) => 
             )}
           </div>
         </div>
+
         {/* Amount */}
         <div className="col-span-2 text-left">
           <div className={`font-semibold ${amountColor}`}>
             {amountSign}KE {round2(tx.amount ? tx.amount.replace(' KES', '') : undefined)}
           </div>
         </div>
+
         {/* Crypto Value */}
         <div className="col-span-2 text-left">
-          <div className="font-mono">
+          <div className="font-mono text-[var(--ep-heading)]">
             {round2(tx.cryptoAmount?.split(' ')[0])} {formatTokenDisplay(displayValue(tx.tokenSymbol))}
           </div>
         </div>
+
         {/* Method & M-Pesa Ref */}
+        {/* CHANGE 3 — M-Pesa badge: same green contrast fix as status badge */}
         <div className="col-span-2 text-center flex flex-col items-center gap-1">
           <span className={`px-2 py-1 text-xs rounded-full ${tx.paymentMethod === 'M-Pesa'
-              ? 'bg-green-50 text-green-600 border border-green-200'
+              ? 'bg-green-100 text-green-800 border border-green-300 dark:bg-green-900/30 dark:text-green-400 dark:border-green-800/50'
               : 'bg-[var(--ep-accent-muted)] text-[var(--ep-accent)] border border-[var(--ep-accent)]/20'
             }`}>
             {displayValue(tx.paymentMethod)}
@@ -193,8 +219,10 @@ const TransactionRow: FC<TransactionRowProps> = ({ tx }: { tx: ExtendedTx }) => 
             </span>
           )}
         </div>
+
         {/* Status */}
         <div className="col-span-1 text-center">{statusBadge}</div>
+
         {/* Actions */}
         <div className="col-span-2 flex items-center gap-2 justify-end">
           <button
@@ -220,13 +248,15 @@ const TransactionRow: FC<TransactionRowProps> = ({ tx }: { tx: ExtendedTx }) => 
       </div>
 
       {/* Mobile row */}
-      {/* Step C — Style the mobile row */}
+      {/* CHANGE 4 — mobile failed row: original light mode kept; dark: variants added */}
       <div
         onClick={() => setShowModal(true)}
-        className={`transaction-mobile flex sm:hidden items-center justify-between px-4 py-3 border-b cursor-pointer active:bg-[var(--ep-accent-subtle)] transition-colors ${isFailed
-            ? 'bg-red-50/30 border-red-100 dark:border-red-900/30'
-            : 'bg-transparent border-[var(--ep-border)]'
-          }`}
+        className={`transaction-mobile flex sm:hidden items-center justify-between px-4 py-3 border-b cursor-pointer active:bg-[var(--ep-accent-subtle)] transition-colors ${
+          isFailed ? 'border-red-100' : 'bg-transparent border-[var(--ep-border)]'
+        }`}
+        style={isFailed ? { backgroundColor: getFailedBg() } : undefined}
+        onMouseEnter={() => isFailed && setIsHovered(true)}
+        onMouseLeave={() => isFailed && setIsHovered(false)}
       >
         <div className="flex items-center gap-3 overflow-hidden">
           <Arrow status={tx.status} direction={isReceive ? 'in' : 'out'} />
@@ -249,11 +279,12 @@ const TransactionRow: FC<TransactionRowProps> = ({ tx }: { tx: ExtendedTx }) => 
           <div className={`text-sm font-semibold ${amountColor}`}>
             {amountSign}KE {round2(tx.amount ? tx.amount.replace(' KES', '') : undefined)}
           </div>
+          {/* CHANGE 5 — mobile success pill: same green contrast fix */}
           <div className="mt-1">
             <span className={`text-[10px] uppercase tracking-wider font-semibold px-1.5 py-0.5 rounded-sm ${isFailed
-                ? 'text-red-600 bg-red-100'
+                ? 'text-red-600 bg-red-100 dark:text-red-400 dark:bg-red-900/40'
                 : tx.status === 'SETTLED'
-                  ? 'text-green-600 bg-green-50'
+                  ? 'text-green-800 bg-green-100 dark:text-green-400 dark:bg-green-900/30'
                   : 'text-yellow-600 bg-yellow-50'
               }`}>
               {tx.status === 'SETTLED' ? 'Success' : tx.status === 'FAILED' ? 'Declined' : displayValue(tx.status)}
@@ -283,7 +314,6 @@ const TransactionRow: FC<TransactionRowProps> = ({ tx }: { tx: ExtendedTx }) => 
         </div>
       </div>
 
-      {/* Transaction Detail Modal */}
       {showModal && (
         <TransactionDetailModal
           transaction={tx}
