@@ -10,7 +10,6 @@ import { useProcessingPopupStore } from "@/lib/processingPopupStore";
 import { TransactionDetails } from "@/types/processing-popup";
 import { formatErrorMessage } from "@/utils/helpers";
 import CustomConfetti from "../processing-states/custom-confetti";
-import { AnimatedStatusBackground } from "../processing-states/animated-status-background";
 import ProgressPopup from "../processing-states/progress-popup";
 
 interface ProcessingPopupProps {
@@ -106,9 +105,9 @@ const ProcessingPopup: React.FC<ProcessingPopupProps> = ({
     );
     
     if (isDefinitelySuccessful) {
-      console.log("✅ ProcessingPopup: Detected successful transaction, showing success state");
-      console.log("🔍 ProcessingPopup: Current transactionDetails:", JSON.stringify(transactionDetails, null, 2));
-      console.log("🔍 ProcessingPopup: Initial transactionDetails:", JSON.stringify(initialTransactionDetails, null, 2));
+      // console.log("✅ ProcessingPopup: Detected successful transaction, showing success state");
+      // console.log("🔍 ProcessingPopup: Current transactionDetails:", JSON.stringify(transactionDetails, null, 2));
+      // console.log("🔍 ProcessingPopup: Initial transactionDetails:", JSON.stringify(initialTransactionDetails, null, 2));
       
       setStatus("success");
       setStatusMessage("Payment successful!");
@@ -461,36 +460,26 @@ const ProcessingPopup: React.FC<ProcessingPopupProps> = ({
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[2147483647] backdrop-blur-sm"
+          className="fixed inset-0 z-[2147483647] flex items-end sm:items-center justify-center sm:p-4 bg-black/60 backdrop-blur-sm"
           style={{ pointerEvents: "auto" }}
           onClick={(e) => {
-            // Only allow closing via backdrop click if not processing
             if (status !== "processing") {
               onClose();
             }
           }}
         >
-
           {/* Custom confetti effect */}
           {showConfetti && <CustomConfetti />}
 
           <motion.div
-            initial={{ scale: 0.9, y: 20, opacity: 0 }}
+            initial={{ scale: 0.95, y: 40, opacity: 0 }}
             animate={{ scale: 1, y: 0, opacity: 1 }}
-            exit={{ scale: 0.9, y: 20, opacity: 0 }}
-            transition={{ type: "spring", damping: 25, stiffness: 300 }}
-            className="bg-white rounded-2xl p-6 max-w-[95vw] w-full md:max-w-lg min-w-[340px] shadow-xl relative overflow-hidden"
-            style={{ maxHeight: "90vh", overflowY: "auto", pointerEvents: "auto" }}
+            exit={{ scale: 0.95, y: 40, opacity: 0 }}
+            transition={{ type: "spring", damping: 28, stiffness: 320 }}
+            className="bg-[var(--ep-bg-card)] w-full max-w-[420px] rounded-t-3xl sm:rounded-3xl shadow-2xl overflow-hidden flex flex-col border border-[var(--ep-border)] max-h-[92vh] sm:max-h-[85vh]"
+            style={{ pointerEvents: "auto" }}
             onClick={(e) => e.stopPropagation()}
           >
-            {/* Animated background patterns */}
-            <AnimatedStatusBackground
-              status={status}
-              transactionDetails={transactionDetails}
-              showTechnicalDetails={showTechnicalDetails}
-              setShowTechnicalDetails={setShowTechnicalDetails}
-              onClose={onClose}
-            />
             <ProgressPopup
               onClose={onClose}
               copyToClipboard={copyToClipboard}
