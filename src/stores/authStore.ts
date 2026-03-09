@@ -25,6 +25,8 @@ interface AuthState {
   pendingEmail: string | null;
   /** OTP entered during auth flow (kept for wallet step verification) */
   pendingOTP: string | null;
+  /** Timestamp (epoch ms) when the last OTP was requested — survives browser restart */
+  otpRequestedAt: number | null;
   /** All wallet addresses linked to this account */
   connectedWallets: string[];
 }
@@ -42,6 +44,8 @@ interface AuthActions {
   setPendingEmail: (email: string) => void;
   /** Store OTP during auth flow */
   setPendingOTP: (otp: string) => void;
+  /** Record when an OTP was requested (epoch ms) */
+  setOtpRequestedAt: (ts: number) => void;
   /** Clear pending auth flow data */
   clearPending: () => void;
   /** Add a wallet address to the connected wallets array (deduped) */
@@ -64,6 +68,7 @@ export const useAuthStore = create<AuthStore>()(
       isAuthenticated: false,
       pendingEmail: null,
       pendingOTP: null,
+      otpRequestedAt: null,
       connectedWallets: [],
 
       // ── Actions ────────────────────────────────────────────────────────
@@ -77,6 +82,7 @@ export const useAuthStore = create<AuthStore>()(
           isAuthenticated: true && state.isWalletRegistered, // Only true if both are true
           pendingEmail: null,
           pendingOTP: null,
+          otpRequestedAt: null,
         })),
 
       setWalletRegistered: (registered: boolean) =>
@@ -93,6 +99,7 @@ export const useAuthStore = create<AuthStore>()(
           isAuthenticated: false,
           pendingEmail: null,
           pendingOTP: null,
+          otpRequestedAt: null,
           connectedWallets: [],
         }),
 
@@ -105,7 +112,9 @@ export const useAuthStore = create<AuthStore>()(
 
       setPendingOTP: (otp) => set({ pendingOTP: otp }),
 
-      clearPending: () => set({ pendingEmail: null, pendingOTP: null }),
+      setOtpRequestedAt: (ts) => set({ otpRequestedAt: ts }),
+
+      clearPending: () => set({ pendingEmail: null, pendingOTP: null, otpRequestedAt: null }),
 
       addConnectedWallet: (address) =>
         set((s) => ({
@@ -126,6 +135,8 @@ export const useAuthStore = create<AuthStore>()(
         isOtpVerified: s.isOtpVerified,
         isWalletRegistered: s.isWalletRegistered,
         isAuthenticated: s.isAuthenticated,
+        pendingEmail: s.pendingEmail,
+        otpRequestedAt: s.otpRequestedAt,
         connectedWallets: s.connectedWallets,
       }),
     },

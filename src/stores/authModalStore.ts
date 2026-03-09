@@ -5,6 +5,8 @@
 
 import { create } from "zustand";
 import type { AuthStep } from "./authStore";
+import { useAuthStore } from "./authStore";
+import { hasLiveOtp } from "@/services/auth";
 
 interface AuthModalState {
   isOpen: boolean;
@@ -38,8 +40,18 @@ export const useAuthModalStore = create<AuthModalStore>((set) => ({
   walletConnecting: false,
   errorMessage: null,
 
-  openAuthModal: () =>
-    set({ isOpen: true, step: "email", walletConnecting: false, errorMessage: null }),
+  openAuthModal: () => {
+    // If the user has a live (unexpired) OTP session, resume at the OTP
+    // entry step instead of forcing them to re-enter their email.
+    const { pendingEmail } = useAuthStore.getState();
+    const resumeAtOtp = pendingEmail && hasLiveOtp(pendingEmail);
+    set({
+      isOpen: true,
+      step: resumeAtOtp ? "otp" : "email",
+      walletConnecting: false,
+      errorMessage: null,
+    });
+  },
   resumeAuthModal: () =>
     set({ isOpen: true }),
   closeAuthModal: () =>

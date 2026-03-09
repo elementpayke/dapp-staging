@@ -90,6 +90,7 @@ const SendCryptoModal: React.FC = () => {
   const initiatedFromLanding = useOnboardingStore((s) => s.initiatedFromLanding);
   const setInitiatedFromLanding = useOnboardingStore((s) => s.setInitiatedFromLanding);
   const landingPrefillAppliedRef = useRef(false);
+  const abortControllerRef = useRef<AbortController | null>(null);
   
   const [amount, setAmount] = useState("");
   const [mobileNumber, setMobileNumber] = useState("");
@@ -768,6 +769,11 @@ const SendCryptoModal: React.FC = () => {
   const contractAddress = getOfframpContractAddress(selectedToken.chain);
 
   const cleanupOrderStates = useCallback(() => {
+    // Abort any in-flight offramp execution so its background polling
+    // does not write stale data into the next transaction's state.
+    abortControllerRef.current?.abort();
+    abortControllerRef.current = null;
+
     setOrderId("");
     setShowProcessingPopup(false);
     setFinalTransactionData(null);
@@ -871,6 +877,11 @@ const SendCryptoModal: React.FC = () => {
   };
 
   const executeOfframpOrder = async () => {
+    // Abort any previous in-flight execution before starting a new one
+    abortControllerRef.current?.abort();
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+
     await executeOfframpOrderFlow({
       selectedToken,
       currentChainId: currentChainId ?? 0,
@@ -898,6 +909,7 @@ const SendCryptoModal: React.FC = () => {
       setPollingComplete: setIsPollingComplete,
       setTransactionReceipt: setTransactionReciept,
       refreshTransactionList,
+      signal: controller.signal,
       notify: {
         info: toast.info,
         success: toast.success,
