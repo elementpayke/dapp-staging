@@ -467,55 +467,54 @@ const TransactionList: FC<{ walletAddress: string | null }> = ({
     </div>
   );
 
-  if (!loading && transactions.length === 0) {
-    return (
-      <div className="flex flex-col items-center justify-center py-10 px-4 text-center text-[var(--ep-muted)]">
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          width="120"
-          height="120"
-          viewBox="0 0 24 24"
-          fill="none"
-          className="mb-4 opacity-40"
-        >
-          <path
-            d="M3 8C3 6.34315 4.34315 5 6 5H18C19.6569 5 21 6.34315 21 8V16C21 17.6569 19.6569 19 18 19H6C4.34315 19 3 17.6569 3 16V8Z"
-            stroke="var(--ep-border)"
-            strokeWidth="1.5"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-          <path
-            d="M3 10H21"
-            stroke="var(--ep-border)"
-            strokeWidth="1.5"
-            strokeLinecap="round"
-          />
-          <path
-            d="M7 15H9"
-            stroke="var(--ep-muted)"
-            strokeWidth="1.5"
-            strokeLinecap="round"
-          />
-        </svg>
-        <h3 className="text-lg font-semibold text-[var(--ep-heading)]">
-          No transactions yet
-        </h3>
-        <p className="mt-2 text-sm text-[var(--ep-muted)]">
-          You&apos;re connected with{" "}
-          <span className="text-[var(--ep-accent)] font-medium">
-            {walletAddress.slice(0, 6)}...{walletAddress.slice(-4)}
-          </span>
-          <br />
-          Once you send or receive crypto via Element Pay, your activity will
-          appear here.
-        </p>
-        <button className="mt-4 px-5 py-2.5 bg-[var(--ep-accent)] text-white text-sm rounded-full hover:opacity-90 transition font-medium">
-          Send your first payment
-        </button>
-      </div>
-    );
-  }
+  // Empty state component - shown inline below the filters
+  const EmptyState = () => (
+    <div className="flex flex-col items-center justify-center py-10 px-4 text-center text-[var(--ep-muted)]">
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        width="120"
+        height="120"
+        viewBox="0 0 24 24"
+        fill="none"
+        className="mb-4 opacity-40"
+      >
+        <path
+          d="M3 8C3 6.34315 4.34315 5 6 5H18C19.6569 5 21 6.34315 21 8V16C21 17.6569 19.6569 19 18 19H6C4.34315 19 3 17.6569 3 16V8Z"
+          stroke="var(--ep-border)"
+          strokeWidth="1.5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+        <path
+          d="M3 10H21"
+          stroke="var(--ep-border)"
+          strokeWidth="1.5"
+          strokeLinecap="round"
+        />
+        <path
+          d="M7 15H9"
+          stroke="var(--ep-muted)"
+          strokeWidth="1.5"
+          strokeLinecap="round"
+        />
+      </svg>
+      <h3 className="text-lg font-semibold text-[var(--ep-heading)]">
+        No transactions yet
+      </h3>
+      <p className="mt-2 text-sm text-[var(--ep-muted)]">
+        You&apos;re connected with{" "}
+        <span className="text-[var(--ep-accent)] font-medium">
+          {walletAddress.slice(0, 6)}...{walletAddress.slice(-4)}
+        </span>
+        <br />
+        Once you send or receive crypto via Element Pay, your activity will
+        appear here.
+      </p>
+      <button className="mt-4 px-5 py-2.5 bg-[var(--ep-accent)] text-white text-sm rounded-full hover:opacity-90 transition font-medium">
+        Send your first payment
+      </button>
+    </div>
+  );
 
   return (
     <ClientOnly fallback={<div className="p-4">Loading transactions...</div>}>
@@ -545,9 +544,11 @@ const TransactionList: FC<{ walletAddress: string | null }> = ({
           totalTransactions={filteredTransactions.length}
         />
 
-        {/* Transaction rows: skeleton while loading, real data otherwise */}
+        {/* Transaction rows: skeleton while loading, empty state, or real data */}
         {loading ? (
           <TransactionSkeleton />
+        ) : !loading && transactions.length === 0 ? (
+          <EmptyState />
         ) : (
           <TransactionTable
             groupedTransactions={groupedTransactions}
