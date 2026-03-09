@@ -15,6 +15,59 @@ import PrivyWalletListener from "@/components/auth/PrivyWalletListener";
 import AuthModal from "@/components/auth/AuthModal";
 import { useSessionGuard } from "@/hooks/useSessionGuard";
 
+/**
+ * Repair corrupted WalletConnect IndexedDB.
+ *
+ * WalletConnect stores data in an IndexedDB database called
+ * "WALLET_CONNECT_V2_INDEXED_DB" with an object store named
+ * "keyvaluestorage". If the DB exists but the object store is missing
+ * (e.g. after a failed migration or browser storage hiccup), every
+ * subsequent read throws:
+ *   NotFoundError: 'keyvaluestorage' is not a known object store name
+ *
+ * This helper opens the DB, checks for the store, and deletes the
+ * entire database when it is corrupt so WalletConnect can recreate it
+ * cleanly on next use.
+ */
+function repairWalletConnectDB(): Promise<void> {
+  if (typeof indexedDB === "undefined") return Promise.resolve();
+
+  const DB_NAME = "WALLET_CONNECT_V2_INDEXED_DB";
+  const STORE_NAME = "keyvaluestorage";
+
+  return new Promise<void>((resolve) => {
+    try {
+      const req = indexedDB.open(DB_NAME);
+
+      req.onsuccess = () => {
+        const db = req.result;
+        if (!db.objectStoreNames.contains(STORE_NAME)) {
+          db.close();
+          const delReq = indexedDB.deleteDatabase(DB_NAME);
+          delReq.onsuccess = () => {
+            console.info("[WC] Deleted corrupted IndexedDB — will recreate on next connect");
+            resolve();
+          };
+          delReq.onerror = () => resolve();
+          delReq.onblocked = () => resolve();
+        } else {
+          db.close();
+          resolve();
+        }
+      };
+
+      req.onerror = () => resolve();
+      // If an upgrade is needed the DB didn't exist yet — nothing to fix.
+      req.onupgradeneeded = () => {
+        req.transaction?.abort();
+        resolve();
+      };
+    } catch {
+      resolve();
+    }
+  });
+}
+
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -35,10 +88,12 @@ const queryClient = new QueryClient({
   },
 });
 
-// Hydration component for Zustand store
+// Hydration component for Zustand store + WalletConnect DB repair
 function StoreHydration() {
   useEffect(() => {
-    useWalletStore.persist.rehydrate();
+    repairWalletConnectDB().then(() => {
+      useWalletStore.persist.rehydrate();
+    });
   }, []);
   return null;
 }
