@@ -132,7 +132,7 @@ export default function DepositCryptoReceipt({ isOpen, onClose, selectedToken, t
                         onClick={(e) => e.stopPropagation()}
                     >
                         {/* Top action bar */}
-                        <div className="flex justify-between items-center p-4 pb-0">
+                        <div className="flex justify-between items-center p-4 pb-0 shrink-0">
                             {selectedToken?.chainLogo ? (
                                 <div className="flex items-center gap-2 px-3 py-1.5 bg-[var(--ep-accent-subtle)] rounded-full shadow-sm border border-[var(--ep-border)]/50">
                                     <img src={selectedToken.chainLogo} alt={selectedToken.chain} className="w-5 h-5 object-contain rounded-full bg-white shadow-sm" />
@@ -150,7 +150,7 @@ export default function DepositCryptoReceipt({ isOpen, onClose, selectedToken, t
                         </div>
 
                         {/* Receipt Header */}
-                        <div className="flex flex-col items-center px-6 pt-2 pb-6">
+                        <div className="flex flex-col items-center px-6 pt-2 pb-6 shrink-0">
                             <div className={`p-3 rounded-full mb-3 ${statusInfo.bgColor} ${statusInfo.color}`}>
                                 {statusInfo.icon}
                             </div>
@@ -181,14 +181,14 @@ export default function DepositCryptoReceipt({ isOpen, onClose, selectedToken, t
                         </div>
 
                         {/* Receipt divider */}
-                        <div className="relative w-full overflow-hidden flex justify-center">
+                        <div className="relative w-full overflow-hidden flex justify-center shrink-0">
                             <div className="absolute inset-y-1/2 left-0 w-3 h-6 bg-black/60 rounded-r-full sm:hidden -translate-y-1/2" />
                             <div className="w-full mx-6 border-t-[1.5px] border-dashed border-[var(--ep-border)]" />
                             <div className="absolute inset-y-1/2 right-0 w-3 h-6 bg-black/60 rounded-l-full sm:hidden -translate-y-1/2" />
                         </div>
 
                         {/* Body — detail rows */}
-                        <div className="px-6 py-6 pb-4 space-y-0.5 flex-1 overflow-y-auto custom-scrollbar">
+                        <div className="px-6 py-6 pb-4 space-y-0.5 flex-1 min-h-0 overflow-y-auto custom-scrollbar">
                             <div className="flex flex-col gap-3.5">
                                 <DetailRow
                                     label="Deposit Address"
@@ -240,7 +240,7 @@ export default function DepositCryptoReceipt({ isOpen, onClose, selectedToken, t
                         </div>
 
                         {/* Footer actions */}
-                        <div className="p-4 border-t border-[var(--ep-border)] bg-[var(--ep-bg)] space-y-2.5">
+                        <div className="p-4 border-t border-[var(--ep-border)] bg-[var(--ep-bg)] space-y-2.5 shrink-0">
                             {transactionReciept?.transactionHash && (
                                 <a
                                     href={`${selectedToken.explorerUrl}/tx/0x${transactionReciept.transactionHash}`}

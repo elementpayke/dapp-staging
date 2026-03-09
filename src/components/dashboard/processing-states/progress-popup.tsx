@@ -149,9 +149,9 @@ const ProgressPopup: React.FC<ProgressPopupProps> = ({
   const statusInfo = getStatusInfo(status);
 
   return (
-    <div className="flex flex-col">
+    <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
       {/* ── Top action bar ─────────────────────────────────────────── */}
-      <div className="flex justify-between items-center p-4 pb-0 bg-[var(--ep-bg-card)]">
+      <div className="flex justify-between items-center p-4 pb-0 bg-[var(--ep-bg-card)] shrink-0">
         <div />
         {status !== "processing" && (
           <button
@@ -164,7 +164,7 @@ const ProgressPopup: React.FC<ProgressPopupProps> = ({
       </div>
 
       {/* ── Header section ─────────────────────────────────────────── */}
-      <div className="flex flex-col items-center px-6 pt-2 pb-6 bg-[var(--ep-bg-card)]">
+      <div className="flex flex-col items-center px-6 pt-2 pb-6 bg-[var(--ep-bg-card)] shrink-0">
         {/* Status icon */}
         <motion.div
           className={`p-3 rounded-full mb-3 ${statusInfo.bgColor} ${statusInfo.color}`}
@@ -297,7 +297,7 @@ const ProgressPopup: React.FC<ProgressPopupProps> = ({
 
       {/* ── Receipt Divider ────────────────────────────────────────── */}
       {status !== "processing" && (
-        <div className="relative w-full overflow-hidden flex justify-center bg-[var(--ep-bg-card)]">
+        <div className="relative w-full overflow-hidden flex justify-center bg-[var(--ep-bg-card)] shrink-0">
           <div className="absolute inset-y-1/2 left-0 w-3 h-6 bg-black/60 rounded-r-full sm:hidden -translate-y-1/2" />
           <div className="w-full mx-6 border-t-[1.5px] border-dashed border-[var(--ep-border)]" />
           <div className="absolute inset-y-1/2 right-0 w-3 h-6 bg-black/60 rounded-l-full sm:hidden -translate-y-1/2" />
@@ -307,7 +307,7 @@ const ProgressPopup: React.FC<ProgressPopupProps> = ({
       {/* ── Success Body ───────────────────────────────────────────── */}
       {status === "success" && transactionDetails && (
         <motion.div
-          className="flex-1 overflow-y-auto bg-[var(--ep-bg-card)] custom-scrollbar"
+          className="flex-1 min-h-0 overflow-y-auto bg-[var(--ep-bg-card)] custom-scrollbar"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 0.3 }}
