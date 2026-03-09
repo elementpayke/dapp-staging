@@ -9,7 +9,8 @@ import { MIN_TRANSACTION_AMOUNT_KES } from "@/utils/feeStructure";
 
 interface PayToMobileMoneyProps {
   selectedToken: SupportedToken;
-  setSelectedToken: (value: SupportedToken) => void;
+  setSelectedToken: (value: SupportedToken) => void | Promise<void>;
+  isSwitchingChain?: boolean;
   amount: string;
   setAmount: (value: string) => void;
   mobileNumber: string;
@@ -45,6 +46,7 @@ type PaymentMethod = "Send Money" | "Pay Bill" | "Buy Goods";
 const PayToMobileMoney: React.FC<PayToMobileMoneyProps> = ({
   selectedToken,
   setSelectedToken,
+  isSwitchingChain,
   amount,
   setAmount,
   mobileNumber,
@@ -297,7 +299,7 @@ const PayToMobileMoney: React.FC<PayToMobileMoneyProps> = ({
 
         {/* Token and Amount */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
-          <div>
+          <div className="relative">
             <label className="block text-[var(--ep-muted)] mb-2 text-sm sm:text-base">
               Token
             </label>
@@ -305,6 +307,13 @@ const PayToMobileMoney: React.FC<PayToMobileMoneyProps> = ({
               selected={selectedToken}
               onSelect={setSelectedToken}
             />
+            {isSwitchingChain && (
+              <div className="absolute inset-0 bg-[var(--ep-bg-card)]/50 flex items-center justify-center rounded-lg">
+                <span className="text-sm text-[var(--ep-accent)] font-medium animate-pulse">
+                  Switching network...
+                </span>
+              </div>
+            )}
           </div>
           <div>
             <label className="block text-[var(--ep-muted)] mb-2 text-sm sm:text-base">

@@ -60,7 +60,7 @@ const DepositCryptoModal: React.FC = () => {
   const [isReceiptModalOpen, setIsReceiptModalOpen] = useState(false);
 
   // Use shared token context for consistent token selection across modals
-  const { selectedToken, setSelectedToken } = useSelectedToken();
+  const { selectedToken, setSelectedToken, selectTokenAndSwitchChain, isSwitchingChain } = useSelectedToken();
 
   // ── Landing page prefill (onramp flow) ────────────────────────────────────
   const landingInitiated = useOnboardingStore((s) => s.initiatedFromLanding);
@@ -686,8 +686,15 @@ const DepositCryptoModal: React.FC = () => {
                   <div className="relative">
                     <TokenDropdown
                       selected={selectedToken}
-                      onSelect={setSelectedToken}
+                      onSelect={selectTokenAndSwitchChain}
                     />
+                    {isSwitchingChain && (
+                      <div className="absolute inset-0 bg-[var(--ep-bg-card)]/50 flex items-center justify-center rounded-lg">
+                        <span className="text-sm text-[var(--ep-accent)] font-medium animate-pulse">
+                          Switching network...
+                        </span>
+                      </div>
+                    )}
                   </div>
                 </div>
 

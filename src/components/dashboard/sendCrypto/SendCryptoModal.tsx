@@ -78,7 +78,7 @@ interface QuoteValidation {
 
 const SendCryptoModal: React.FC = () => {
   // Use shared token context for consistent token selection across modals
-  const { selectedToken, setSelectedToken } = useSelectedToken();
+  const { selectedToken, setSelectedToken, selectTokenAndSwitchChain, isSwitchingChain } = useSelectedToken();
   const landingFlow = useOnboardingStore((s) => s.flow);
   const landingOffRampMethod = useOnboardingStore((s) => s.offRampMethod);
   const landingAmount = useOnboardingStore((s) => s.amount);
@@ -1108,7 +1108,8 @@ const SendCryptoModal: React.FC = () => {
               </div>
               <PayToMobileMoney
                 selectedToken={selectedToken}
-                setSelectedToken={setSelectedToken}
+                setSelectedToken={selectTokenAndSwitchChain}
+                isSwitchingChain={isSwitchingChain}
                 amount={amount}
                 setAmount={setAmount}
                 mobileNumber={mobileNumber}
