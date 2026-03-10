@@ -1,3 +1,5 @@
+"use client";
+
 import Link from "next/link";
 import React, { useCallback } from "react";
 import { useRouter } from "next/navigation";
@@ -44,6 +46,7 @@ const MobileNav = () => {
   return (
     <div className="md:hidden fixed inset-0 bg-[var(--landing-bg)] z-[100] landing-page isolate">
       <div className="h-full flex flex-col">
+        {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-[var(--landing-card-border)]">
           <Link
             href="/"
@@ -66,6 +69,7 @@ const MobileNav = () => {
           </button>
         </div>
 
+        {/* Nav Links */}
         <div className="flex-1 px-6 py-8 space-y-6 overflow-y-auto">
           <Link
             href="/"
@@ -97,33 +101,29 @@ const MobileNav = () => {
               </Link>
             )
           )}
+
+          {/* Legal sub-links */}
           <div>
             <span className="block text-sm font-bold text-[var(--landing-body)] uppercase tracking-wider mb-2">
               Legal
             </span>
-            <Link
-              href="/privacy-policy"
-              onClick={() => setIsMenuOpen(false)}
-              className="block py-2 text-[var(--landing-body)] hover:text-[var(--landing-heading)]"
-            >
-              Privacy Policy
-            </Link>
-            <Link
-              href="/terms-and-conditions"
-              onClick={() => setIsMenuOpen(false)}
-              className="block py-2 text-[var(--landing-body)] hover:text-[var(--landing-heading)]"
-            >
-              Terms & Conditions
-            </Link>
-            <Link
-              href="/code-of-conduct"
-              onClick={() => setIsMenuOpen(false)}
-              className="block py-2 text-[var(--landing-body)] hover:text-[var(--landing-heading)]"
-            >
-              Code of Conduct
-            </Link>
+            {[
+              { href: "/privacy-policy", label: "Privacy Policy" },
+              { href: "/terms-and-conditions", label: "Terms & Conditions" },
+              { href: "/code-of-conduct", label: "Code of Conduct" },
+            ].map((link) => (
+              <Link
+                key={link.href}
+                href={link.href}
+                onClick={() => setIsMenuOpen(false)}
+                className="block py-2 text-[var(--landing-body)] hover:text-[var(--landing-heading)]"
+              >
+                {link.label}
+              </Link>
+            ))}
           </div>
 
+          {/* Auth section */}
           <div className="pt-6 border-t border-[var(--landing-card-border)] space-y-3">
             {isOtpVerified ? (
               <>
@@ -143,8 +143,19 @@ const MobileNav = () => {
                 )}
                 <button
                   onClick={handleLogout}
-                  className="flex items-center justify-center gap-2 w-full py-3 px-6 rounded-xl border border-red-200 text-red-600 font-medium hover:bg-red-50 transition-colors"
-                  style={{ fontFamily: "var(--font-landing-body)" }}
+                  className="flex items-center justify-center gap-2 w-full py-3 px-6 rounded-xl font-medium transition-colors"
+                  style={{
+                    border: "1px solid var(--landing-danger-fg)",
+                    color: "var(--landing-danger-fg)",
+                    fontFamily: "var(--font-landing-body)",
+                  }}
+                  onMouseEnter={(e) => {
+                    (e.currentTarget as HTMLButtonElement).style.backgroundColor =
+                      "var(--landing-danger-hover-bg)";
+                  }}
+                  onMouseLeave={(e) => {
+                    (e.currentTarget as HTMLButtonElement).style.backgroundColor = "transparent";
+                  }}
                 >
                   <LogOut className="w-4 h-4" />
                   Log out
@@ -167,8 +178,12 @@ const MobileNav = () => {
                     setIsMenuOpen(false);
                     openAuthModal();
                   }}
-                  className="block w-full text-center py-3 px-6 rounded-xl border border-gray-200 text-[var(--landing-body)] font-medium hover:bg-gray-50 transition-colors"
-                  style={{ fontFamily: "var(--font-landing-body)" }}
+                  className="block w-full text-center py-3 px-6 rounded-xl font-medium hover:bg-[var(--landing-input-bg)] transition-colors"
+                  style={{
+                    border: "1px solid var(--landing-card-border)",
+                    color: "var(--landing-body)",
+                    fontFamily: "var(--font-landing-body)",
+                  }}
                 >
                   Sign In
                 </button>

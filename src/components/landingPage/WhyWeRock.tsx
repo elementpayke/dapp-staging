@@ -33,7 +33,11 @@ const WhyWeRock = () => {
   ];
 
   return (
-    <section id="blog" className="bg-white py-20 md:py-28">
+    <section
+      id="blog"
+      className="py-20 md:py-28"
+      style={{ backgroundColor: "var(--landing-card-bg)" }}
+    >
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Section Header */}
         <div className="text-center mb-14 md:mb-20">
