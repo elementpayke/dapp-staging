@@ -59,7 +59,11 @@ const FAQSection = () => {
   };
 
   return (
-    <section id="faqs" className="bg-white py-20 md:py-28">
+    <section
+      id="faqs"
+      className="py-20 md:py-28"
+      style={{ backgroundColor: "var(--landing-card-bg)" }}
+    >
       <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Section Header */}
         <div className="text-center mb-14">
@@ -102,7 +106,7 @@ const FAQSection = () => {
         </div>
 
         {/* FAQ Items */}
-        <div className="divide-y divide-gray-100">
+        <div className="divide-y divide-[var(--landing-card-border)]">
           {faqs.map((faq, index) => (
             <motion.div
               key={index}
@@ -111,7 +115,9 @@ const FAQSection = () => {
               viewport={{ once: true }}
               transition={{ duration: 0.3, delay: index * 0.05 }}
               className={`transition-colors duration-200 ${
-                openIndex === index ? "border-l-2 border-l-[var(--landing-accent)] -ml-px pl-px" : ""
+                openIndex === index
+                  ? "border-l-2 border-l-[var(--landing-accent)] -ml-px pl-px"
+                  : ""
               }`}
             >
               <button
@@ -123,7 +129,7 @@ const FAQSection = () => {
                     className={`w-5 h-5 flex-shrink-0 transition-colors ${
                       openIndex === index
                         ? "text-[var(--landing-accent)]"
-                        : "text-gray-300 group-hover:text-gray-400"
+                        : "text-[var(--landing-muted)]/50 group-hover:text-[var(--landing-muted)]"
                     }`}
                   />
                   <span
@@ -141,7 +147,7 @@ const FAQSection = () => {
                   className={`w-5 h-5 flex-shrink-0 transition-all duration-200 ${
                     openIndex === index
                       ? "text-[var(--landing-accent)] rotate-180"
-                      : "text-gray-300"
+                      : "text-[var(--landing-muted)]/50"
                   }`}
                 />
               </button>

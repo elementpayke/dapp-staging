@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Menu, X, LayoutDashboard, LogOut, Wallet, UserCircle } from "lucide-react";
+import { Menu, X, LayoutDashboard, LogOut, Wallet, UserCircle, Sun, Moon } from "lucide-react";
 import { usePrivy } from "@privy-io/react-auth";
 import { useDisconnect } from "wagmi";
 import { useLockBodyScroll } from "@/lib/useScroll";
@@ -12,6 +12,7 @@ import { useMenuStore } from "@/lib/useMobileNav";
 import { useAuthModalStore } from "@/stores/authModalStore";
 import { useAuthStore } from "@/stores/authStore";
 import { useWalletStore } from "@/lib/useWallet";
+import { useTheme } from "@/lib/useTheme";
 
 const NAV_LINKS = [
   { href: "/#services", label: "Services" },
@@ -39,6 +40,7 @@ const Header = () => {
   const { disconnect: wagmiDisconnect } = useDisconnect();
   const { disconnect: storeDisconnect } = useWalletStore();
   const router = useRouter();
+  const { theme, toggle: toggleTheme, mounted } = useTheme();
 
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -83,9 +85,13 @@ const Header = () => {
   const initials = userEmail ? userEmail.charAt(0).toUpperCase() : "U";
 
   return (
-    <header className="landing-page sticky top-0 z-30 border-b border-[var(--landing-card-border)]/60 bg-white/80 backdrop-blur-lg">
+    <header
+      className="landing-page sticky top-0 z-30 border-b border-[var(--landing-card-border)]/60 backdrop-blur-lg"
+      style={{ backgroundColor: "var(--landing-header-bg)" }}
+    >
       <nav className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8" aria-label="Main">
         <div className="flex h-16 items-center justify-between">
+          {/* ── Logo ───────────────────────────────────────────────────── */}
           <Link
             href="/"
             className="flex items-center gap-3 group"
@@ -94,11 +100,12 @@ const Header = () => {
             <div className="w-9 h-9 rounded-xl bg-[var(--landing-accent)] flex items-center justify-center group-hover:opacity-90 transition-opacity">
               <div className="w-4 h-4 rounded-md bg-white" />
             </div>
-            <span className=" text-xl font-bold text-[var(--landing-heading)] tracking-tight">
+            <span className="text-xl font-bold text-[var(--landing-heading)] tracking-tight">
               ElementPay
             </span>
           </Link>
 
+          {/* ── Desktop nav links (centred) ─────────────────────────────── */}
           <div className="hidden md:flex items-center gap-8 absolute left-1/2 -translate-x-1/2">
             {NAV_LINKS.map((item) =>
               item.external ? (
@@ -157,8 +164,23 @@ const Header = () => {
           </div>
 
           <div className="flex-1" />
-          <div className="flex items-center gap-3">
-            { isOtpVerified ? (
+
+          {/* ── Right side: theme toggle + auth ─────────────────────────── */}
+          <div className="flex items-center gap-2">
+            {/* Theme toggle — desktop + mobile */}
+            {mounted && (
+              <button
+                type="button"
+                onClick={toggleTheme}
+                aria-label={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+                className="p-2 rounded-xl text-[var(--landing-muted)] hover:text-[var(--landing-heading)] hover:bg-[var(--landing-input-bg)] transition-colors"
+              >
+                {theme === "dark" ? <Sun size={20} /> : <Moon size={20} />}
+              </button>
+            )}
+
+            {/* Auth: authenticated user dropdown */}
+            {isOtpVerified ? (
               <div className="relative hidden md:block" ref={dropdownRef}>
                 <button
                   type="button"
@@ -186,50 +208,62 @@ const Header = () => {
                         {userEmail}
                       </p>
                       <div className="flex flex-row items-center mt-0.5">
-                        <span 
-                         className={`w-2.5 h-2.5 rounded-full mr-2 ${isOtpVerified && isWalletRegistered ? "bg-green-500" : "bg-yellow-500 animate-pulse"}`}
-                        ></span>
-                      <p className="text-xs text-[var(--landing-muted)]">{isOtpVerified && isWalletRegistered ? "Signed in" : "Awaiting Wallet Connection"}</p>
+                        <span
+                          className={`w-2.5 h-2.5 rounded-full mr-2 ${isOtpVerified && isWalletRegistered ? "bg-green-500" : "bg-yellow-500 animate-pulse"}`}
+                        />
+                        <p className="text-xs text-[var(--landing-muted)]">
+                          {isOtpVerified && isWalletRegistered ? "Signed in" : "Awaiting Wallet Connection"}
+                        </p>
                       </div>
                     </div>
 
-                    {
-                      isOtpVerified && isWalletRegistered && (
+                    {isOtpVerified && isWalletRegistered && (
                       <>
-                      <Link
-                      href={isOtpVerified && isWalletRegistered ? "/dashboard" : ""}
-                      onClick={() => setDropdownOpen(false)}
-                      className="flex items-center gap-3 px-4 py-2.5 text-sm text-[var(--landing-body)] hover:bg-[var(--landing-input-bg)] hover:text-[var(--landing-heading)] transition-colors"
-                    >
-                      <LayoutDashboard className="w-4 h-4" />
-                      Dashboard
-                    </Link>
+                        <Link
+                          href="/dashboard"
+                          onClick={() => setDropdownOpen(false)}
+                          className="flex items-center gap-3 px-4 py-2.5 text-sm text-[var(--landing-body)] hover:bg-[var(--landing-input-bg)] hover:text-[var(--landing-heading)] transition-colors"
+                        >
+                          <LayoutDashboard className="w-4 h-4" />
+                          Dashboard
+                        </Link>
 
-                    <Link
-                      href="#"
-                      onClick={() => setDropdownOpen(false)}
-                      className="flex items-center gap-3 px-4 py-2.5 text-sm text-[var(--landing-body)] hover:bg-[var(--landing-input-bg)] hover:text-[var(--landing-heading)] transition-colors"
-                    >
-                      <Wallet className="w-4 h-4" />
-                      Wallets
-                    </Link>
+                        <Link
+                          href="#"
+                          onClick={() => setDropdownOpen(false)}
+                          className="flex items-center gap-3 px-4 py-2.5 text-sm text-[var(--landing-body)] hover:bg-[var(--landing-input-bg)] hover:text-[var(--landing-heading)] transition-colors"
+                        >
+                          <Wallet className="w-4 h-4" />
+                          Wallets
+                        </Link>
 
-                    <Link
-                      href="#"
-                      onClick={() => setDropdownOpen(false)}
-                      className="flex items-center gap-3 px-4 py-2.5 text-sm text-[var(--landing-body)] hover:bg-[var(--landing-input-bg)] hover:text-[var(--landing-heading)] transition-colors"
-                    >
-                      <UserCircle className="w-4 h-4" />
-                      Profile
-                    </Link></>
-                      )
-                    }
+                        <Link
+                          href="#"
+                          onClick={() => setDropdownOpen(false)}
+                          className="flex items-center gap-3 px-4 py-2.5 text-sm text-[var(--landing-body)] hover:bg-[var(--landing-input-bg)] hover:text-[var(--landing-heading)] transition-colors"
+                        >
+                          <UserCircle className="w-4 h-4" />
+                          Profile
+                        </Link>
+                      </>
+                    )}
 
                     <div className="border-t border-[var(--landing-card-border)] mt-1 pt-1">
                       <button
                         type="button"
                         onClick={handleLogout}
-                        className="flex items-center gap-3 w-full px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition-colors"
+                        className="flex items-center gap-3 w-full px-4 py-2.5 text-sm transition-colors"
+                        style={{
+                          color: "var(--landing-danger-fg)",
+                        }}
+                        onMouseEnter={(e) => {
+                          (e.currentTarget as HTMLButtonElement).style.backgroundColor =
+                            "var(--landing-danger-hover-bg)";
+                        }}
+                        onMouseLeave={(e) => {
+                          (e.currentTarget as HTMLButtonElement).style.backgroundColor =
+                            "transparent";
+                        }}
                       >
                         <LogOut className="w-4 h-4" />
                         Log out
@@ -257,6 +291,8 @@ const Header = () => {
                 </button>
               </>
             )}
+
+            {/* Mobile hamburger */}
             <button
               type="button"
               className="md:hidden p-2.5 rounded-xl text-[var(--landing-body)] hover:bg-[var(--landing-input-bg)] transition-colors"
