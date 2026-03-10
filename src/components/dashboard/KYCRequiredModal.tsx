@@ -133,26 +133,26 @@ const KYCRequiredModal = () => {
 
   return (
     <AnimatePresence>
-      <div className="fixed inset-0 z-[110] flex items-center justify-center">
+      <div className="fixed inset-0 z-[110] flex items-end sm:items-center justify-center sm:p-4">
         {/* Backdrop */}
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+          className="absolute inset-0 bg-black/60 backdrop-blur-sm"
           onClick={closeKYCModal}
         />
 
         {/* Modal panel */}
         <motion.div
-          initial={{ opacity: 0, scale: 0.96, y: 12 }}
+          initial={{ opacity: 0, scale: 0.95, y: 40 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
-          exit={{ opacity: 0, scale: 0.96, y: 12 }}
-          transition={{ duration: 0.25, ease: [0.25, 0.46, 0.45, 0.94] }}
+          exit={{ opacity: 0, scale: 0.95, y: 40 }}
+          transition={{ type: "spring", damping: 28, stiffness: 320 }}
           className="
-            relative z-10 w-full max-w-2xl mx-4
-            bg-[var(--landing-card-bg)] rounded-2xl
-            border border-[var(--landing-card-border)]
+            relative z-10 w-full max-w-2xl
+            bg-[var(--ep-bg-card)] rounded-t-3xl sm:rounded-3xl
+            border border-[var(--ep-border)]
             shadow-2xl overflow-hidden
           "
           role="dialog"
@@ -160,17 +160,17 @@ const KYCRequiredModal = () => {
           aria-label="Identity Verification Required"
         >
           {/* Header */}
-          <div className="flex items-center justify-between px-5 py-3.5 border-b border-[var(--landing-input-border)]">
+          <div className="flex items-center justify-between px-5 py-3.5 border-b border-[var(--ep-border)]">
             <div className="inline-flex items-center gap-1.5">
               <AlertTriangle className="h-3.5 w-3.5 text-amber-500" />
-              <span className="text-xs font-semibold tracking-wide uppercase text-amber-600">
+              <span className="text-xs font-semibold tracking-wide uppercase text-amber-600 dark:text-amber-400">
                 Verification Required
               </span>
             </div>
             <button
               type="button"
               onClick={closeKYCModal}
-              className="p-1.5 rounded-lg text-[var(--landing-muted)] hover:text-[var(--landing-heading)] hover:bg-[var(--landing-input-bg)] transition-colors"
+              className="p-1.5 rounded-lg text-[var(--ep-muted)] hover:text-[var(--ep-heading)] hover:bg-[var(--ep-accent-subtle)] transition-colors"
               aria-label="Close"
             >
               <X className="w-5 h-5" />
@@ -178,62 +178,62 @@ const KYCRequiredModal = () => {
           </div>
 
           {/* Content */}
-          <div className="grid p-4 sm:p-5 md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-[var(--landing-input-border)]">
+          <div className="grid p-4 sm:p-5 md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-[var(--ep-border)]">
             <section className="text-left space-y-3 pb-4 md:pb-0 md:pr-5">
               <div>
-                <h2 className="text-lg font-semibold text-[var(--landing-heading)]">
+                <h2 className="text-lg font-semibold text-[var(--ep-heading)]">
                   Complete quick KYC to continue
                 </h2>
-                <p className="mt-1 text-sm leading-5 text-[var(--landing-muted)]">
+                <p className="mt-1 text-sm leading-5 text-[var(--ep-muted)]">
                   Your order is above the unverified limit. Verification is free and takes about 2 minutes.
                 </p>
               </div>
 
-              <dl className="text-sm divide-y divide-[var(--landing-input-border)]">
-                <div className="flex items-center justify-between py-2 text-[var(--landing-body)]">
+              <dl className="text-sm divide-y divide-[var(--ep-border)]">
+                <div className="flex items-center justify-between py-2 text-[var(--ep-body)]">
                   <dt>Current total</dt>
-                  <dd className="font-medium text-[var(--landing-heading)]">
+                  <dd className="font-medium text-[var(--ep-heading)]">
                     KES {formatKes(limitSnapshot?.current_total ?? null)}
                   </dd>
                 </div>
-                <div className="flex items-center justify-between py-2 text-[var(--landing-body)]">
+                <div className="flex items-center justify-between py-2 text-[var(--ep-body)]">
                   <dt>Order amount</dt>
-                  <dd className="font-medium text-[var(--landing-heading)]">
+                  <dd className="font-medium text-[var(--ep-heading)]">
                     KES {formatKes(limitSnapshot?.order_amount ?? null)}
                   </dd>
                 </div>
-                <div className="flex items-center justify-between py-2 text-[var(--landing-body)]">
+                <div className="flex items-center justify-between py-2 text-[var(--ep-body)]">
                   <dt>Limit</dt>
-                  <dd className="font-medium text-[var(--landing-heading)]">
+                  <dd className="font-medium text-[var(--ep-heading)]">
                     KES {formatKes(limitSnapshot?.limit ?? null)}
                   </dd>
                 </div>
               </dl>
 
               {error && (
-                <p className="text-xs text-red-500" role="alert">
+                <p className="text-xs text-red-500 dark:text-red-400" role="alert">
                   {error}
                 </p>
               )}
             </section>
 
             <section className="pt-4 md:pt-0 md:pl-5">
-              <p className="text-[11px] font-semibold uppercase tracking-wide text-[var(--landing-muted)]">
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-[var(--ep-muted)]">
                 Open SmileID
               </p>
 
-              <div className="min-h-[120px] flex items-center justify-center mt-2">
+              <div className="min-h-[140px] flex items-center justify-center mt-2">
                 {isLinkFetchPending ? (
                   <div className="flex flex-col items-center gap-2 text-center">
-                    <Loader2 className="w-4 h-4 animate-spin text-[var(--landing-accent)]" />
-                    <p className="text-xs text-[var(--landing-muted)]">Generating secure link...</p>
+                    <Loader2 className="w-4 h-4 animate-spin text-[var(--ep-accent)]" />
+                    <p className="text-xs text-[var(--ep-muted)]">Generating secure link...</p>
                   </div>
                 ) : kycUrl ? (
-                  <div className="bg-white p-1">
-                    <QRCode value={kycUrl} size={96} />
+                  <div className="bg-white p-2 rounded-lg">
+                    <QRCode value={kycUrl} size={110} />
                   </div>
                 ) : (
-                  <p className="text-xs text-[var(--landing-muted)] text-center">
+                  <p className="text-xs text-[var(--ep-muted)] text-center">
                     Link unavailable.
                   </p>
                 )}
@@ -246,10 +246,10 @@ const KYCRequiredModal = () => {
                   disabled={!kycUrl || isLinkFetchPending}
                   className="
                     w-full flex items-center justify-center gap-2
-                    rounded-lg py-2.5 text-sm font-semibold
-                    text-white bg-[var(--landing-accent)] hover:bg-[var(--landing-accent-hover)]
+                    rounded-xl py-2.5 text-sm font-semibold
+                    text-white bg-[var(--ep-accent)] hover:bg-[var(--ep-accent-hover)]
                     disabled:opacity-50 disabled:cursor-not-allowed
-                    transition-colors focus:outline-none focus:ring-2 focus:ring-[var(--landing-accent)]/40
+                    transition-colors focus:outline-none focus:ring-2 focus:ring-[var(--ep-accent)]/40
                   "
                 >
                   {isLinkFetchPending ? "Preparing link..." : "Open Verification Link"}
@@ -262,8 +262,8 @@ const KYCRequiredModal = () => {
                     onClick={fetchKYCLink}
                     disabled={isLinkFetchPending}
                     className="
-                      w-full text-center py-1.5 text-xs font-medium text-[var(--landing-muted)]
-                      hover:text-[var(--landing-heading)]
+                      w-full text-center py-1.5 text-xs font-medium text-[var(--ep-muted)]
+                      hover:text-[var(--ep-heading)]
                       disabled:opacity-50 disabled:cursor-not-allowed
                       transition-colors
                     "
@@ -273,20 +273,20 @@ const KYCRequiredModal = () => {
                 )}
               </div>
 
-              <p className="mt-1 text-[11px] text-[var(--landing-muted)]">
+              <p className="mt-1 text-[11px] text-[var(--ep-muted)]">
                 Scan QR on mobile or use the button.
               </p>
             </section>
           </div>
 
           <div className="px-5 pb-4 flex items-center justify-between">
-            <p className="text-[11px] text-[var(--landing-muted)]">
+            <p className="text-[11px] text-[var(--ep-muted)]">
               Powered by SmileID
             </p>
             <button
               type="button"
               onClick={closeKYCModal}
-              className="text-xs text-[var(--landing-muted)] hover:text-[var(--landing-heading)] transition-colors"
+              className="text-xs text-[var(--ep-muted)] hover:text-[var(--ep-heading)] transition-colors"
             >
               Not now
             </button>

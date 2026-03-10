@@ -144,6 +144,14 @@ const DepositCryptoModal: React.FC = () => {
     isConfirmModalOpen || isTransactionModalOpen || isReceiptModalOpen,
   );
 
+  // Close the main Radix Dialog when child modals open so its overlay
+  // and focus-trap no longer intercept pointer events on higher-z popups.
+  useEffect(() => {
+    if (isTransactionModalOpen || isReceiptModalOpen) {
+      setIsConfirmModalOpen(false);
+    }
+  }, [isTransactionModalOpen, isReceiptModalOpen]);
+
   // Get target chain ID based on selected token
   const getTargetChainId = () => {
     switch (selectedToken.chain) {

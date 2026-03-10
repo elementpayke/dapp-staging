@@ -32,6 +32,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { useTokenBalance } from "@/hooks/useTokenBalance";
+import { useModalOverlay } from "@/hooks/useModalOverlay";
 import {
   validateKenyanPhoneNumber,
   validatePhoneWithAPI,
@@ -179,6 +180,17 @@ const SendCryptoModal: React.FC = () => {
   const [proceedAfterValidation, setProceedAfterValidation] = useState<() => void>(() => () => {});
   const [modalMode, setModalMode] = useState<"confirm" | "error">("confirm");
   const [isMainDialogOpen, setIsMainDialogOpen] = useState(false);
+
+  // Hide dropdowns when the processing popup or validation modal is open
+  useModalOverlay(showProcessingPopup || showValidationModal);
+
+  // Close the main Radix Dialog when processing popup opens so its overlay
+  // and focus-trap no longer intercept pointer events on the higher-z popup.
+  useEffect(() => {
+    if (showProcessingPopup) {
+      setIsMainDialogOpen(false);
+    }
+  }, [showProcessingPopup]);
 
   const [cashoutType, setCashoutType] = useState<"PHONE" | "PAYBILL" | "TILL">("PHONE");
 
