@@ -2,11 +2,13 @@
 
 import type React from "react";
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
-import { ArrowUpRight } from "lucide-react";
+import { ArrowUpRight, ChevronDown, Check, Loader2, Send, ShoppingBag, Receipt, Zap } from "lucide-react";
 import { toast } from "react-toastify";
-import PayToMobileMoney from "./PayToMobileMoney";
 import MaxOfframpButton from "./MaxOfframpButton";
 import ProcessingPopup from "./processing-popup";
+import ConversionWidget, { EditableSide } from "@/components/shared/ConversionWidget";
+import PaymentMethodTabs, { PaymentMethodValue } from "@/components/shared/PaymentMethodTabs";
+import CompactSummaryRows from "@/components/shared/CompactSummaryRows";
 import NetworkSwitchNotification from "@/components/ui/NetworkSwitchNotification";
 import { formatReceiverName } from "@/utils/helpers";
 
@@ -49,10 +51,12 @@ import {
   FeeBand,
   fetchFeeStructureCached,
   getTotalCost,
+  getFeeForAmount,
   getApiCurrencyFromToken,
   DEFAULT_FEE_BANDS,
   MIN_TRANSACTION_AMOUNT_KES,
 } from "@/utils/feeStructure";
+import { validateKenyanPhoneNumber as validatePhoneLocal, formatKenyanPhoneNumber } from "@/utils/phoneValidation";
 import { useSelectedToken } from "@/context/TokenContext";
 import {
   executeOfframpOrder as executeOfframpOrderFlow,
@@ -194,6 +198,23 @@ const SendCryptoModal: React.FC = () => {
 
   const [cashoutType, setCashoutType] = useState<"PHONE" | "PAYBILL" | "TILL">("PHONE");
 
+  // ── Bi-directional conversion state ──────────────────────────
+  const [editableSide, setEditableSide] = useState<EditableSide>("KES");
+  const [typedValue, setTypedValue] = useState("");
+  const [showTokenDropdown, setShowTokenDropdown] = useState(false);
+  const tokenDropdownRef = useRef<HTMLDivElement>(null);
+
+  // Close token dropdown on outside click
+  useEffect(() => {
+    const handleClick = (e: MouseEvent) => {
+      if (tokenDropdownRef.current && !tokenDropdownRef.current.contains(e.target as Node)) {
+        setShowTokenDropdown(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, []);
+
   const account = useAccount();
   const { connector } = account;
   const { writeContractAsync } = useWriteContract();
@@ -243,8 +264,31 @@ const SendCryptoModal: React.FC = () => {
     return cashoutType;
   }, [cashoutType]);
 
+  const handlePaymentMethodChange = useCallback((method: PaymentMethodValue) => {
+    setCashoutType(method);
+    // Clear fields for the new method
+    switch (method) {
+      case "PHONE":
+        setPaybillNumber("");
+        setAccountNumber("");
+        setTillNumber("");
+        break;
+      case "PAYBILL":
+        setMobileNumber("");
+        setTillNumber("");
+        break;
+      case "TILL":
+        setMobileNumber("");
+        setPaybillNumber("");
+        setAccountNumber("");
+        break;
+    }
+  }, []);
+
   const handleMaxAmountSet = useCallback((maxAmount: string) => {
     setAmount(maxAmount);
+    setEditableSide("KES");
+    setTypedValue(maxAmount);
   }, []);
 
   const validateAccount = async () => {
@@ -689,6 +733,72 @@ const SendCryptoModal: React.FC = () => {
     };
   }, [amount, exchangeRate, selectedTokenBalance, feeBands]);
 
+  // ── Bi-directional conversion helpers ──────────────────────────
+  const sanitizeDecimalInput = useCallback((value: string): string => {
+    const cleaned = value.replace(/[^\d.]/g, "");
+    const [whole, ...fraction] = cleaned.split(".");
+    return fraction.length > 0 ? `${whole}.${fraction.join("")}` : whole;
+  }, []);
+
+  const toInputNumber = useCallback((value: number, decimals: number): string => {
+    if (!Number.isFinite(value) || value <= 0) return "";
+    return value
+      .toFixed(decimals)
+      .replace(/\.0+$|(?<=\.[0-9]*?)0+$/g, "")
+      .replace(/\.$/, "");
+  }, []);
+
+  const numericTyped = useMemo(() => {
+    const v = Number.parseFloat(typedValue);
+    return Number.isFinite(v) ? v : 0;
+  }, [typedValue]);
+
+  // Derived KES amount from whichever side is being edited
+  const derivedKes = useMemo(() => {
+    if (!numericTyped) return 0;
+    if (editableSide === "KES") return numericTyped;
+    if (!exchangeRate || exchangeRate <= 0) return 0;
+    return numericTyped * exchangeRate;
+  }, [numericTyped, editableSide, exchangeRate]);
+
+  // Derived token amount
+  const derivedToken = useMemo(() => {
+    if (!numericTyped) return 0;
+    if (editableSide === "TOKEN") return numericTyped;
+    if (!exchangeRate || exchangeRate <= 0) return 0;
+    return numericTyped / exchangeRate;
+  }, [numericTyped, editableSide, exchangeRate]);
+
+  // Sync derived KES → amount state (single source of truth for backend)
+  useEffect(() => {
+    const normalizedKes = Number.isFinite(derivedKes) ? Number(derivedKes.toFixed(2)) : 0;
+    const nextAmount = normalizedKes > 0 ? normalizedKes.toString() : "";
+    if (nextAmount !== amount) {
+      setAmount(nextAmount);
+    }
+  }, [derivedKes]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const tokenDisplayValue = editableSide === "TOKEN" ? typedValue : toInputNumber(derivedToken, 6);
+  const kesDisplayValue = editableSide === "KES" ? typedValue : toInputNumber(derivedKes, 2);
+
+  const feePreview = useMemo(() => {
+    if (derivedKes <= 0 || feeBands.length === 0) return "KES 0.00 fee";
+    const fee = getFeeForAmount(derivedKes, feeBands).fee;
+    return `KES ${fee.toFixed(2)} fee`;
+  }, [derivedKes, feeBands]);
+
+  const balanceError = useMemo(() => {
+    if (isBalanceLoading || !derivedToken) return false;
+    return transactionSummary.totalUSDC > selectedTokenBalance;
+  }, [isBalanceLoading, derivedToken, transactionSummary.totalUSDC, selectedTokenBalance]);
+
+  // When landing page prefills `amount` (KES), seed the converter
+  useEffect(() => {
+    if (amount && !typedValue && editableSide === "KES") {
+      setTypedValue(amount);
+    }
+  }, [amount]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const isFormValid = useCallback(() => {
     const cashoutType = getCashoutType();
 
@@ -1097,252 +1207,302 @@ const SendCryptoModal: React.FC = () => {
     <>
       <Dialog open={isMainDialogOpen} onOpenChange={setIsMainDialogOpen}>
         <DialogTrigger
-          className="flex items-center gap-2 bg-[var(--ep-accent)] text-white text-sm font-medium py-3 px-5 rounded-full hover:opacity-90 transition-opacity disabled:opacity-50 shadow-[0_2px_8px_rgba(67,57,202,0.25)]"
+          className="flex items-center gap-2 bg-[var(--ep-accent)] text-white text-sm font-semibold py-3 px-5 rounded-full hover:bg-[var(--ep-accent-hover)] transition-all duration-200 shadow-[0_2px_16px_rgba(67,57,202,0.25)] hover:shadow-[0_4px_24px_rgba(67,57,202,0.35)]"
           onClick={() => setIsMainDialogOpen(true)}
         >
-          <ArrowUpRight size={24} />
+          <ArrowUpRight size={18} />
           Spend Crypto
         </DialogTrigger>
-        <DialogContent className="w-[95vw] sm:w-full max-w-4xl max-h-[85vh] sm:max-h-[90vh] overflow-y-auto p-4 sm:p-6 bg-[var(--ep-bg-card)] border-[var(--ep-border)]">
-          <DialogHeader className="pb-2 sm:pb-4">
-            <DialogTitle className="text-lg sm:text-xl text-[var(--ep-heading)]">
+
+        <DialogContent className="w-[95vw] sm:w-full max-w-lg max-h-[90vh] overflow-y-auto p-5 sm:p-6 bg-[var(--ep-bg-card)] border border-[var(--ep-border)] rounded-2xl shadow-[var(--ep-card-shadow)]">
+          {/* ── Header ─────────────────────────────────────────── */}
+          <DialogHeader className="pb-3">
+            <div className="flex items-center gap-2.5 mb-1">
+              <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-[var(--ep-accent-muted)] text-[var(--ep-accent)]">
+                <Zap className="h-4 w-4" />
+              </span>
+              <p className="text-xs font-medium text-[var(--ep-muted)] sm:text-sm">
+                Crypto to Mobile Money
+              </p>
+            </div>
+            <DialogTitle className="text-lg font-semibold text-[var(--ep-heading)]">
               Spend Crypto
             </DialogTitle>
           </DialogHeader>
 
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
-            {/* Left Column - Payment Form */}
-            <div className="lg:col-span-2 space-y-3 sm:space-y-4">
+          <div className="space-y-4">
+            {/* ── Network mismatch warning ───────────────────── */}
+            {!isCorrectNetwork && (
+              <div className="p-2.5 rounded-xl bg-amber-50 border border-amber-200 text-xs text-amber-700 font-medium dark:bg-amber-500/10 dark:border-amber-500/20 dark:text-amber-400">
+                ⚠️ Please switch to {selectedToken.chain} network
+              </div>
+            )}
+
+            {/* ── Payment method tabs ────────────────────────── */}
+            <PaymentMethodTabs value={cashoutType} onChange={handlePaymentMethodChange} />
+
+            {/* ── Conditional payment fields ──────────────────── */}
+            {cashoutType === "PHONE" && (
               <div>
-                <h3 className="text-base sm:text-lg font-medium text-[var(--ep-heading)] mb-2 sm:mb-4">
-                  Pay to Mobile Money
-                </h3>
-              </div>
-              <PayToMobileMoney
-                selectedToken={selectedToken}
-                setSelectedToken={selectTokenAndSwitchChain}
-                isSwitchingChain={isSwitchingChain}
-                amount={amount}
-                setAmount={setAmount}
-                mobileNumber={mobileNumber}
-                setMobileNumber={setMobileNumber}
-                reason={reason}
-                setReason={setReason}
-                totalKES={transactionSummary.totalKES}
-                tillNumber={tillNumber}
-                setTillNumber={setTillNumber}
-                paybillNumber={paybillNumber}
-                setPaybillNumber={setPaybillNumber}
-                accountNumber={accountNumber}
-                setAccountNumber={setAccountNumber}
-                setCashoutType={setCashoutType}
-                phoneValidation={phoneValidation}
-                isValidatingPhone={isValidatingPhone}
-                selectedTokenBalance={selectedTokenBalance}
-                exchangeRate={exchangeRate}
-                account={account}
-                handleMaxAmountSet={handleMaxAmountSet}
-                transactionChargeKES={transactionSummary.transactionChargeKES}
-                feeBands={feeBands}
-                initialPaymentMethod={initialPaymentMethod}
-              />
-
-              {/* Mobile Confirm Button - Only shown on small screens */}
-              <div className="block lg:hidden pt-2 sm:pt-4 sticky bottom-0 bg-[var(--ep-bg-card)] pb-2">
-                <button
-                  onClick={
-                    Number.parseFloat(amount) >= MIN_TRANSACTION_AMOUNT_KES
-                      ? handleApproveToken
-                      : undefined
-                  }
-                  disabled={
-                    isApproving ||
-                    !isFormValid() ||
-                    quoteValidation.isValidating
-                  }
-                  type="button"
-                  className="w-full py-3.5 sm:py-3 bg-[var(--ep-accent)] text-white rounded-full font-medium hover:opacity-90 transition-opacity disabled:opacity-50 text-base sm:text-sm shadow-[0_2px_8px_rgba(67,57,202,0.25)]"
-                >
-                  {isBalanceLoading
-                    ? "Loading balance..."
-                    : !isCorrectNetwork
-                      ? `Switch to ${selectedToken.chain}`
-                      : quoteValidation.isValidating
-                        ? "Validating..."
-                        : isApproving
-                          ? "Approving..."
-                          : isValidatingPhone
-                            ? "Validating..."
-                            : "Confirm Payment"}
-                </button>
-              </div>
-            </div>
-
-            {/* Right Column - Transaction Summary */}
-            <div className="lg:col-span-1 order-last">
-              <div className="bg-[var(--ep-accent-subtle)] p-3 sm:p-4 rounded-xl h-fit lg:sticky lg:top-4 border border-[var(--ep-border)]">
-                <h3 className="text-base sm:text-lg font-semibold mb-3 sm:mb-4 text-[var(--ep-heading)]">
-                  Transaction Summary
-                </h3>
-
-                {/* Network mismatch warning */}
-                {!isCorrectNetwork && (
-                  <div className="mb-3 sm:mb-4 p-2 sm:p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
-                    <p className="text-xs sm:text-sm text-yellow-700 font-medium">
-                      ⚠️ Please switch to {selectedToken.chain} network in your wallet
-                    </p>
+                <label className="mb-1.5 block text-xs font-medium text-[var(--ep-body)]">
+                  Phone number
+                </label>
+                <div className={`flex overflow-hidden rounded-xl border transition-all focus-within:border-[var(--ep-border-focus)] ${
+                  phoneValidation.isValid
+                    ? "border-emerald-400"
+                    : mobileNumber && !phoneValidation.isValid && phoneValidation.error
+                      ? "border-red-400"
+                      : "border-[var(--ep-border)]"
+                } bg-[var(--ep-bg-input)]`}>
+                  <div className="flex items-center gap-1.5 border-r border-[var(--ep-border)] px-3 py-2.5 text-xs text-[var(--ep-body)]">
+                    <span>🇰🇪</span>
+                    <span>+254</span>
                   </div>
-                )}
-
-                {/* Main Summary */}
-                <div className="space-y-2 sm:space-y-3 mb-3 sm:mb-4">
-                  <div className="flex justify-between items-center">
-                    <span className="text-[var(--ep-muted)] text-sm">
-                      Wallet balance
-                    </span>
-                    <span className="text-[var(--ep-accent)] font-medium text-sm">
-                      {isBalanceLoading ? (
-                        <span className="animate-pulse">Loading...</span>
-                      ) : (
-                        <>
-                          {selectedToken.symbol}{" "}
-                          {transactionSummary.usdcBalance.toFixed(6)}
-                        </>
-                      )}
-                    </span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-[var(--ep-muted)] text-sm">
-                      Amount to send
-                    </span>
-                    <span className="text-[var(--ep-heading)] font-medium">
-                      KE {transactionSummary.kesAmount.toFixed(2)}
-                    </span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-[var(--ep-muted)] text-sm">
-                      Transaction fee
-                    </span>
-                    <span className="text-[var(--ep-accent)] text-sm">
-                      KE {transactionSummary.transactionChargeKES.toFixed(2)}
-                    </span>
-                  </div>
-                  <div className="border-t border-[var(--ep-border)] pt-3 flex justify-between items-center font-semibold">
-                    <span className="text-[var(--ep-heading)]">Total:</span>
-                    <span className="text-[var(--ep-heading)]">
-                      KE {transactionSummary.kesAmount.toFixed(2)}
-                    </span>
-                  </div>
-                </div>
-                {quoteValidation.error && !quoteValidation.isValidating && (
-                  <div className="mb-3 sm:mb-4 p-2 sm:p-3 bg-red-50 border border-red-200 rounded-lg">
-                    <p className="text-xs sm:text-sm text-red-600 font-medium break-words">
-                      ⚠️ {quoteValidation.error}
-                    </p>
-                  </div>
-                )}
-
-                {quoteValidation.isValidating && (
-                  <div className="mb-3 sm:mb-4 p-2 sm:p-3 bg-[var(--ep-accent-muted)] border border-[var(--ep-accent)]/20 rounded-lg">
-                    <p className="text-xs sm:text-sm text-[var(--ep-accent)] font-medium flex items-center gap-2">
-                      <span className="animate-spin">⏳</span>
-                      Validating...
-                    </p>
-                  </div>
-                )}
-
-                {/* Desktop Confirm Button */}
-                <div className="hidden lg:block mb-4">
-                  <button
-                    onClick={handleApproveToken}
-                    disabled={
-                      isApproving ||
-                      !isFormValid() ||
-                      Number.parseFloat(amount) < MIN_TRANSACTION_AMOUNT_KES
-                    }
-                    type="button"
-                    className="w-full py-3 bg-[var(--ep-accent)] text-white rounded-full font-medium hover:opacity-90 transition-opacity disabled:opacity-50 text-sm shadow-[0_2px_8px_rgba(67,57,202,0.25)]"
-                  >
-                    {isBalanceLoading
-                      ? "Loading balance..."
-                      : !isCorrectNetwork
-                        ? `Switch to ${selectedToken.chain}`
-                        : quoteValidation.isValidating
-                          ? "Validating..."
-                          : isApproving
-                            ? "Approving..."
-                            : isValidatingPhone
-                              ? "Validating..."
-                              : "Confirm Payment"}
-                  </button>
-                </div>
-
-                {/* Balance after transaction */}
-                <div className="bg-[var(--ep-bg-card)] border border-[var(--ep-border)] p-3 rounded-lg">
-                  <div className="text-[var(--ep-muted)] mb-2 text-[10px] font-semibold uppercase tracking-[0.18em]">
-                    Balance After Transaction
-                  </div>
-                  <div className="space-y-2">
-                    <div className="flex justify-between items-center">
-                      <span className="text-[var(--ep-muted)] text-sm">
-                        Remaining KES
-                      </span>
-                      <span className="text-[var(--ep-heading)] font-medium text-sm">
-                        KE {transactionSummary.totalKESBalance.toFixed(2)}
-                      </span>
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <span className="text-[var(--ep-muted)] text-sm">
-                        {selectedToken.symbol} Balance
-                      </span>
-                      <span className="text-[var(--ep-heading)] font-medium text-sm">
-                        {transactionSummary.remainingBalance.toFixed(6)}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-                {quoteValidation.requiredAmount &&
-                  quoteValidation.availableBalance && (
-                    <div className="bg-[var(--ep-bg-card)] border border-[var(--ep-border)] p-3 rounded-lg mt-3">
-                      <div className="text-[var(--ep-muted)] mb-2 text-[10px] font-semibold uppercase tracking-[0.18em]">
-                        Balance Check
-                      </div>
-                      <div className="space-y-2">
-                        <div className="flex justify-between items-center">
-                          <span className="text-[var(--ep-muted)] text-sm">
-                            Required
-                          </span>
-                          <span className="text-[var(--ep-heading)] font-medium text-sm">
-                            {quoteValidation.requiredAmount.toFixed(6)}{" "}
-                            {selectedToken.symbol}
-                          </span>
-                        </div>
-                        <div className="flex justify-between items-center">
-                          <span className="text-[var(--ep-muted)] text-sm">
-                            Available
-                          </span>
-                          <span
-                            className={`font-medium text-sm ${
-                              quoteValidation.hasSufficientBalance
-                                ? "text-green-600"
-                                : "text-red-600"
-                            }`}
-                          >
-                            {quoteValidation.availableBalance.toFixed(6)}{" "}
-                            {selectedToken.symbol}
-                          </span>
-                        </div>
-                        {quoteValidation.hasSufficientBalance && (
-                          <div className="flex items-center gap-1 text-green-600 text-xs mt-1">
-                            <span>✓</span>
-                            <span>Sufficient balance</span>
-                          </div>
-                        )}
-                      </div>
+                  <input
+                    type="tel"
+                    placeholder="7XX XXX XXX"
+                    value={mobileNumber}
+                    onChange={(e) => setMobileNumber(e.target.value.replace(/\D/g, "").slice(0, 9))}
+                    className="min-w-0 flex-1 bg-transparent px-3 py-2.5 text-sm text-[var(--ep-heading)] outline-none ring-0 placeholder:text-[var(--ep-muted)] focus:outline-none focus:ring-0"
+                  />
+                  {isValidatingPhone && (
+                    <div className="flex items-center pr-3">
+                      <Loader2 className="h-4 w-4 animate-spin text-[var(--ep-accent)]" />
                     </div>
                   )}
+                  {phoneValidation.isValid && !isValidatingPhone && (
+                    <div className="flex items-center pr-3">
+                      <Check className="h-4 w-4 text-emerald-500" />
+                    </div>
+                  )}
+                </div>
+                {mobileNumber && !phoneValidation.isValid && phoneValidation.error && (
+                  <p className="mt-1 text-xs text-red-500">{phoneValidation.error}</p>
+                )}
+                <p className="mt-1 text-[10px] text-[var(--ep-muted)]">
+                  Enter your 9-digit Safaricom number
+                </p>
               </div>
+            )}
+
+            {cashoutType === "PAYBILL" && (
+              <div className="grid grid-cols-2 gap-2.5">
+                <div>
+                  <label className="mb-1.5 block text-xs font-medium text-[var(--ep-body)]">
+                    Business Number
+                  </label>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    placeholder="e.g. 888888"
+                    value={paybillNumber}
+                    onChange={(e) => setPaybillNumber(e.target.value.replace(/[^\d]/g, ""))}
+                    className="w-full rounded-xl border border-[var(--ep-border)] bg-[var(--ep-bg-input)] px-3 py-2.5 text-sm text-[var(--ep-heading)] outline-none transition-all placeholder:text-[var(--ep-muted)] focus:border-[var(--ep-border-focus)] focus:ring-2 focus:ring-[var(--ep-accent)]/10"
+                  />
+                </div>
+                <div>
+                  <label className="mb-1.5 block text-xs font-medium text-[var(--ep-body)]">
+                    Account Number
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="Account/Reference"
+                    value={accountNumber}
+                    onChange={(e) => setAccountNumber(e.target.value)}
+                    className="w-full rounded-xl border border-[var(--ep-border)] bg-[var(--ep-bg-input)] px-3 py-2.5 text-sm text-[var(--ep-heading)] outline-none transition-all placeholder:text-[var(--ep-muted)] focus:border-[var(--ep-border-focus)] focus:ring-2 focus:ring-[var(--ep-accent)]/10"
+                  />
+                </div>
+              </div>
+            )}
+
+            {cashoutType === "TILL" && (
+              <div>
+                <label className="mb-1.5 block text-xs font-medium text-[var(--ep-body)]">
+                  Till Number
+                </label>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  placeholder="e.g. 567890"
+                  value={tillNumber}
+                  onChange={(e) => setTillNumber(e.target.value.replace(/[^\d]/g, ""))}
+                  className="w-full rounded-xl border border-[var(--ep-border)] bg-[var(--ep-bg-input)] px-3 py-2.5 text-sm text-[var(--ep-heading)] outline-none transition-all placeholder:text-[var(--ep-muted)] focus:border-[var(--ep-border-focus)] focus:ring-2 focus:ring-[var(--ep-accent)]/10"
+                />
+              </div>
+            )}
+
+            {/* ── Bi-directional conversion widget ───────────── */}
+            <ConversionWidget
+              editableSide={editableSide}
+              setEditableSide={setEditableSide}
+              typedValue={typedValue}
+              setTypedValue={setTypedValue}
+              tokenDisplayValue={tokenDisplayValue}
+              kesDisplayValue={kesDisplayValue}
+              tokenSymbol={selectedToken.symbol}
+              exchangeRate={exchangeRate}
+              feePreview={feePreview}
+              tokenBalance={selectedTokenBalance}
+              isBalanceLoading={isBalanceLoading}
+              balanceError={balanceError}
+              sanitize={sanitizeDecimalInput}
+              tokenSelector={
+                <div className="relative" ref={tokenDropdownRef}>
+                  <button
+                    type="button"
+                    onClick={() => setShowTokenDropdown((prev) => !prev)}
+                    className="flex items-center gap-1.5 rounded-md px-2 py-1 text-xs font-semibold text-[var(--ep-heading)] hover:bg-[var(--ep-bg-input)] transition-colors"
+                  >
+                    {selectedToken.tokenLogo && (
+                      <img src={selectedToken.tokenLogo} alt="" className="h-4 w-4 rounded-full object-contain" />
+                    )}
+                    <span>{selectedToken.symbol}</span>
+                    <ChevronDown className={`h-3.5 w-3.5 transition-transform ${showTokenDropdown ? "rotate-180" : ""}`} />
+                  </button>
+
+                  {showTokenDropdown && (
+                    <div className="absolute right-0 top-full z-20 mt-1 w-64 rounded-xl border border-[var(--ep-border)] bg-[var(--ep-bg-card)] p-1.5 shadow-lg">
+                      {SUPPORTED_TOKENS.map((token) => {
+                        const isActive = token.symbol === selectedToken.symbol && token.chain === selectedToken.chain;
+                        return (
+                          <button
+                            key={token.symbol + token.chain}
+                            type="button"
+                            onClick={() => {
+                              selectTokenAndSwitchChain(token);
+                              setShowTokenDropdown(false);
+                            }}
+                            className={`flex w-full items-center justify-between rounded-lg px-2.5 py-2 text-left transition-colors ${
+                              isActive
+                                ? "bg-[var(--ep-accent-muted)] text-[var(--ep-heading)]"
+                                : "text-[var(--ep-body)] hover:bg-[var(--ep-bg-input)]"
+                            }`}
+                          >
+                            <span className="flex items-center gap-2">
+                              <img src={token.tokenLogo} alt="" className="h-5 w-5 rounded-full object-contain" />
+                              <span className="text-sm font-medium">{token.symbol}</span>
+                              <span className="flex items-center gap-1 rounded-full border border-[var(--ep-border)] px-1.5 py-0.5 text-[10px] text-[var(--ep-muted)]">
+                                <img src={token.chainLogo} alt="" className="h-3 w-3 rounded-full object-contain" />
+                                {token.chain}
+                              </span>
+                            </span>
+                            {isActive && <Check className="h-3.5 w-3.5 text-[var(--ep-accent)]" />}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  {isSwitchingChain && (
+                    <div className="absolute inset-0 flex items-center justify-center rounded-md bg-[var(--ep-bg-card)]/60">
+                      <Loader2 className="h-3 w-3 animate-spin text-[var(--ep-accent)]" />
+                    </div>
+                  )}
+                </div>
+              }
+              maxButton={
+                <MaxOfframpButton
+                  disabled={false}
+                  selectedTokenBalance={selectedTokenBalance}
+                  exchangeRate={exchangeRate}
+                  selectedTokenAddress={selectedToken.tokenAddress}
+                  selectedTokenSymbol={selectedToken.symbol}
+                  walletAddress={account?.address || ""}
+                  onMaxAmountCalculated={handleMaxAmountSet}
+                  feeBands={feeBands}
+                />
+              }
+            />
+
+            {/* ── Quote validation feedback ──────────────────── */}
+            {quoteValidation.error && !quoteValidation.isValidating && (
+              <p className="text-xs text-red-500 px-1">⚠️ {quoteValidation.error}</p>
+            )}
+            {quoteValidation.isValidating && (
+              <p className="text-xs text-[var(--ep-accent)] flex items-center gap-1.5 px-1">
+                <Loader2 className="h-3 w-3 animate-spin" /> Validating quote…
+              </p>
+            )}
+
+            {/* ── Reason (optional) ──────────────────────────── */}
+            <div>
+              <label className="mb-1.5 block text-xs font-medium text-[var(--ep-body)]">
+                Payment reason <span className="text-[var(--ep-muted)]">(optional)</span>
+              </label>
+              <input
+                type="text"
+                value={reason}
+                onChange={(e) => setReason(e.target.value)}
+                className="w-full rounded-xl border border-[var(--ep-border)] bg-[var(--ep-bg-input)] px-3 py-2.5 text-sm text-[var(--ep-heading)] outline-none transition-all placeholder:text-[var(--ep-muted)] focus:border-[var(--ep-border-focus)] focus:ring-2 focus:ring-[var(--ep-accent)]/10"
+                placeholder={
+                  cashoutType === "PAYBILL"
+                    ? "Payment reference"
+                    : cashoutType === "TILL"
+                      ? "Store name or item"
+                      : "e.g. Transport"
+                }
+              />
             </div>
+
+            {/* ── CTA button ─────────────────────────────────── */}
+            <button
+              onClick={handleApproveToken}
+              disabled={
+                isApproving ||
+                !isFormValid() ||
+                Number.parseFloat(amount) < MIN_TRANSACTION_AMOUNT_KES
+              }
+              type="button"
+              className="w-full flex items-center justify-center gap-2 rounded-full py-3 text-sm font-semibold text-white bg-[var(--ep-accent)] hover:bg-[var(--ep-accent-hover)] shadow-[0_2px_16px_rgba(67,57,202,0.25)] hover:shadow-[0_4px_24px_rgba(67,57,202,0.35)] transition-all duration-200 disabled:opacity-50"
+            >
+              {isBalanceLoading
+                ? "Loading balance…"
+                : !isCorrectNetwork
+                  ? `Switch to ${selectedToken.chain}`
+                  : quoteValidation.isValidating
+                    ? "Validating…"
+                    : isApproving
+                      ? "Approving…"
+                      : isValidatingPhone
+                        ? "Validating…"
+                        : "Confirm Payment"}
+            </button>
+
+            {/* ── Compact summary (expandable) ───────────────── */}
+            <CompactSummaryRows
+              rows={[
+                {
+                  label: "Wallet balance",
+                  value: isBalanceLoading
+                    ? "Loading…"
+                    : `${selectedToken.symbol} ${transactionSummary.usdcBalance.toFixed(4)}`,
+                  accent: true,
+                },
+                {
+                  label: "Amount to send",
+                  value: `KES ${transactionSummary.kesAmount.toFixed(2)}`,
+                },
+                {
+                  label: "Transaction fee",
+                  value: `KES ${transactionSummary.transactionChargeKES.toFixed(2)}`,
+                  accent: true,
+                },
+                {
+                  label: `${selectedToken.symbol} required`,
+                  value: `${transactionSummary.totalUSDC.toFixed(6)}`,
+                },
+                {
+                  label: "Balance after",
+                  value: `${transactionSummary.remainingBalance.toFixed(4)} ${selectedToken.symbol}`,
+                },
+                {
+                  label: "Total",
+                  value: `KES ${transactionSummary.kesAmount.toFixed(2)}`,
+                  isTotal: true,
+                },
+              ]}
+              note="Fees are determined by the transaction amount. Rates may update before confirmation."
+            />
           </div>
         </DialogContent>
 
@@ -1398,8 +1558,8 @@ const SendCryptoModal: React.FC = () => {
             recipient:
               finalTransactionData?.receiver_name ||
               (() => {
-                const cashoutType = getCashoutType();
-                switch (cashoutType) {
+                const ct = getCashoutType();
+                switch (ct) {
                   case "PHONE":
                     return mobileNumber
                       ? formatReceiverName(mobileNumber)
@@ -1415,8 +1575,8 @@ const SendCryptoModal: React.FC = () => {
                 }
               })(),
             paymentMethod: (() => {
-              const cashoutType = getCashoutType();
-              switch (cashoutType) {
+              const ct = getCashoutType();
+              switch (ct) {
                 case "PHONE":
                   return "Mobile Money";
                 case "PAYBILL":

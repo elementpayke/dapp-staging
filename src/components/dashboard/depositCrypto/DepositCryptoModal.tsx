@@ -1,7 +1,7 @@
 "use client";
 
-import React, { useEffect, useMemo, useRef, useState } from "react";
-import { ArrowDownLeft, ArrowDownRight, ArrowUpRight } from "lucide-react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { ArrowDownLeft, Check, ChevronDown, Loader2, Wallet, Zap } from "lucide-react";
 import { toast } from "react-toastify";
 import { useAccount, useSwitchChain, useChainId } from "wagmi";
 import { isSmartWallet, safeChainSwitch } from "@/lib/wallet-utils";
@@ -25,8 +25,9 @@ import { useWallet } from "@/hooks/useWallet";
 import { useTokenBalance } from "@/hooks/useTokenBalance";
 import { useModalOverlay } from "@/hooks/useModalOverlay";
 import { TransactionReceipt } from "@/types/types";
-import TokenDropdown from "@/components/ui/TokenDropdown";
 import { SUPPORTED_TOKENS, SupportedToken } from "@/constants/supportedTokens";
+import ConversionWidget, { EditableSide } from "@/components/shared/ConversionWidget";
+import CompactSummaryRows from "@/components/shared/CompactSummaryRows";
 import { useOnboardingStore } from "@/stores/onboardingStore";
 import {
   getApiCurrencyFromToken,
@@ -139,6 +140,23 @@ const DepositCryptoModal: React.FC = () => {
   const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
   const continuePollingRef = useRef<boolean>(true);
 
+  // ── Bi-directional conversion state ───────────────────────────────────
+  const [editableSide, setEditableSide] = useState<EditableSide>("KES");
+  const [typedValue, setTypedValue] = useState("");
+  const [showTokenDropdown, setShowTokenDropdown] = useState(false);
+  const tokenDropdownRef = useRef<HTMLDivElement>(null);
+
+  // Close token dropdown on outside click
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (tokenDropdownRef.current && !tokenDropdownRef.current.contains(e.target as Node)) {
+        setShowTokenDropdown(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
   // Hide dropdowns when any modal is open
   useModalOverlay(
     isConfirmModalOpen || isTransactionModalOpen || isReceiptModalOpen,
@@ -195,6 +213,49 @@ const DepositCryptoModal: React.FC = () => {
       effectiveRate,
     };
   }, [amount, exchangeRate, selectedTokenBalance, quoteData]);
+
+  // ── Conversion helpers (bi-directional) ───────────────────────────────
+  const sanitizeDecimalInput = useCallback(
+    (val: string) => val.replace(/[^\d.]/g, "").replace(/(\..*?)\..*/g, "$1"),
+    [],
+  );
+
+  const toInputNumber = (v: string) => {
+    const n = parseFloat(v);
+    return isNaN(n) || n <= 0 ? 0 : n;
+  };
+
+  const numericTyped = toInputNumber(typedValue);
+  const rate = exchangeRate ?? 0;
+
+  const derivedKes =
+    editableSide === "KES"
+      ? typedValue
+      : rate > 0
+        ? (numericTyped * rate).toFixed(2)
+        : "0";
+
+  const derivedToken =
+    editableSide === "TOKEN"
+      ? typedValue
+      : rate > 0
+        ? (numericTyped / rate).toFixed(6)
+        : "0";
+
+  // Keep `amount` in sync for the rest of the logic (amount is always KES)
+  useEffect(() => {
+    const kes = editableSide === "KES" ? typedValue : derivedKes;
+    if (kes !== amount) setAmount(kes || "0");
+  }, [derivedKes, typedValue, editableSide]);
+
+  const tokenDisplayValue = editableSide === "TOKEN" ? typedValue : derivedToken;
+  const kesDisplayValue = editableSide === "KES" ? typedValue : derivedKes;
+
+  const feePreview = useMemo(() => {
+    if (quoteData?.feeAmount) return `KES ${quoteData.feeAmount.toFixed(2)} fee`;
+    const kes = parseFloat(derivedKes) || 0;
+    return `KES ${(kes * TRANSACTION_FEE_RATE).toFixed(2)} fee`;
+  }, [derivedKes, quoteData, TRANSACTION_FEE_RATE]);
 
   const [transactionReceipt, setTransactionReceipt] =
     useState<TransactionReceipt>({
@@ -669,327 +730,231 @@ const DepositCryptoModal: React.FC = () => {
     <>
       <Dialog open={isConfirmModalOpen} onOpenChange={setIsConfirmModalOpen}>
         <DialogTrigger
-          className="flex items-center gap-2 bg-green-500 text-gray-700 text-sm font-medium py-3 px-4 rounded-full shadow-[0_2px_8px_rgba(67,57,202,0.25)] hover:opacity-90 transition-opacity"
+          className="flex items-center gap-2 bg-[var(--ep-accent)] text-white text-sm font-semibold py-3 px-5 rounded-full hover:bg-[var(--ep-accent-hover)] transition-all duration-200 shadow-[0_2px_16px_rgba(67,57,202,0.25)] hover:shadow-[0_4px_24px_rgba(67,57,202,0.35)]"
           onClick={() => setIsConfirmModalOpen(true)}
         >
-          <ArrowDownLeft size={24} />
+          <ArrowDownLeft size={18} />
           Deposit Crypto
         </DialogTrigger>
 
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto bg-[var(--ep-bg-card)] border-[var(--ep-border)]">
-          <DialogHeader>
-            <DialogTitle> Deposit to Mobile Money</DialogTitle>
+        <DialogContent className="w-[95vw] sm:w-full max-w-lg max-h-[90vh] overflow-y-auto p-5 sm:p-6 bg-[var(--ep-bg-card)] border border-[var(--ep-border)] rounded-2xl shadow-[var(--ep-card-shadow)]">
+          {/* ── Header ─────────────────────────────────────────── */}
+          <DialogHeader className="pb-3">
+            <div className="flex items-center gap-2.5 mb-1">
+              <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-[var(--ep-accent-muted)] text-[var(--ep-accent)]">
+                <Wallet className="h-4 w-4" />
+              </span>
+              <p className="text-xs font-medium text-[var(--ep-muted)] sm:text-sm">
+                Mobile Money to Crypto
+              </p>
+            </div>
+            <DialogTitle className="text-lg font-semibold text-[var(--ep-heading)]">
+              Deposit Crypto
+            </DialogTitle>
           </DialogHeader>
 
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {/* Left Column - Deposit Form */}
-            <div className="lg:col-span-2 space-y-4">
-              {/* Form Fields Grid */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {/* Token */}
-                <div>
-                  <label className="block text-sm text-[var(--ep-muted)] mb-2">
-                    Token
-                  </label>
-                  <div className="relative">
-                    <TokenDropdown
-                      selected={selectedToken}
-                      onSelect={selectTokenAndSwitchChain}
-                    />
-                    {isSwitchingChain && (
-                      <div className="absolute inset-0 bg-[var(--ep-bg-card)]/50 flex items-center justify-center rounded-lg">
-                        <span className="text-sm text-[var(--ep-accent)] font-medium animate-pulse">
-                          Switching network...
-                        </span>
-                      </div>
-                    )}
-                  </div>
-                </div>
+          <div className="space-y-4">
+            {/* ── Network mismatch warning ───────────────────── */}
+            {!isCorrectNetwork && (
+              <div className="p-2.5 rounded-xl bg-amber-50 border border-amber-200 text-xs text-amber-700 font-medium dark:bg-amber-500/10 dark:border-amber-500/20 dark:text-amber-400">
+                ⚠️ Please switch to {selectedToken.chain} network
+              </div>
+            )}
 
-                {/* Amount */}
-                <div>
-                  <label className="block text-sm text-[var(--ep-muted)] mb-2">
-                    Amount in KES
-                  </label>
-                  <input
-                    type="text"
-                    className="w-full p-3 bg-[var(--ep-bg)] rounded-lg border border-[var(--ep-border)] text-[var(--ep-heading)] focus:outline-none focus:ring-2 focus:ring-[var(--ep-accent)]/30 focus:border-[var(--ep-accent)] transition-colors"
-                    value={amount}
-                    onChange={(e) => {
-                      // Allow only numbers and decimal point
-                      const newValue = e.target.value.replace(/[^\d.]/g, "");
-                      setAmount(newValue);
-                    }}
-                    placeholder="0.00"
-                  />
+            {/* ── Phone number (M-Pesa) ──────────────────────── */}
+            <div>
+              <label className="mb-1.5 block text-xs font-medium text-[var(--ep-body)]">
+                M-Pesa phone number
+              </label>
+              <div className={`flex overflow-hidden rounded-xl border transition-all focus-within:border-[var(--ep-border-focus)] ${
+                phoneValidation.isValid
+                  ? "border-emerald-400"
+                  : phoneNumber && !phoneValidation.isValid && phoneValidation.error
+                    ? "border-red-400"
+                    : "border-[var(--ep-border)]"
+              } bg-[var(--ep-bg-input)]`}>
+                <div className="flex items-center gap-1.5 border-r border-[var(--ep-border)] px-3 py-2.5 text-xs text-[var(--ep-body)]">
+                  <span>🇰🇪</span>
+                  <span>+254</span>
                 </div>
-
-                {/* Deposit from */}
-                <div>
-                  <label className="block text-sm text-[var(--ep-muted)] mb-2">
-                    Deposit from
-                  </label>
-                  <div className="relative">
-                    <select
-                      className="w-full p-3 bg-[var(--ep-bg)] rounded-lg border border-[var(--ep-border)] text-[var(--ep-heading)] focus:outline-none focus:ring-2 focus:ring-[var(--ep-accent)]/30 focus:border-[var(--ep-accent)] transition-colors"
-                      value={depositFrom}
-                      onChange={(e) => setDepositFrom(e.target.value)}
-                    >
-                      <option value="MPESA">MPESA</option>
-                    </select>
+                <input
+                  type="tel"
+                  placeholder="7XX XXX XXX"
+                  value={phoneNumber}
+                  onChange={(e) => {
+                    const formatted = formatKenyanPhoneNumber(e.target.value);
+                    setPhoneNumber(formatted);
+                    if (formatted !== phoneNumber) setPhoneValidation({ isValid: false });
+                  }}
+                  className="min-w-0 flex-1 bg-transparent px-3 py-2.5 text-sm text-[var(--ep-heading)] outline-none ring-0 placeholder:text-[var(--ep-muted)] focus:outline-none focus:ring-0"
+                />
+                {isValidatingPhone && (
+                  <div className="flex items-center pr-3">
+                    <Loader2 className="h-4 w-4 animate-spin text-[var(--ep-accent)]" />
                   </div>
-                </div>
-
-                {/* Phone number */}
-                <div>
-                  <label className="block text-sm text-[var(--ep-muted)] mb-2">
-                    Phone number
-                  </label>
-                  <div className="relative">
-                    <input
-                      type="tel"
-                      className={`w-full p-3 bg-[var(--ep-bg)] rounded-lg border border-[var(--ep-border)] text-[var(--ep-heading)] focus:outline-none focus:ring-2 transition-colors ${
-                        phoneValidation.isValid
-                          ? "focus:ring-green-500 border-green-200"
-                          : phoneNumber && !phoneValidation.isValid
-                            ? "focus:ring-red-500 border-red-200"
-                            : "focus:ring-[var(--ep-accent)]/30 focus:border-[var(--ep-accent)]"
-                      }`}
-                      value={phoneNumber}
-                      onChange={handlePhoneNumberChange}
-                      placeholder="e.g. 0712345678"
-                    />
-                    {isValidatingPhone && (
-                      <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
-                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-[var(--ep-accent)]"></div>
-                      </div>
-                    )}
-                    {phoneValidation.isValid && !isValidatingPhone && (
-                      <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
-                        <svg
-                          className="h-5 w-5 text-green-500"
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M5 13l4 4L19 7"
-                          />
-                        </svg>
-                      </div>
-                    )}
+                )}
+                {phoneValidation.isValid && !isValidatingPhone && (
+                  <div className="flex items-center pr-3">
+                    <Check className="h-4 w-4 text-emerald-500" />
                   </div>
-                  {phoneNumber &&
-                    !phoneValidation.isValid &&
-                    phoneValidation.error && (
-                      <p className="text-red-500 text-sm mt-1 flex items-center gap-1">
-                        <svg
-                          className="h-4 w-4"
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                          />
-                        </svg>
-                        {phoneValidation.error}
-                      </p>
+                )}
+              </div>
+              {phoneNumber && !phoneValidation.isValid && phoneValidation.error && (
+                <p className="mt-1 text-xs text-red-500">{phoneValidation.error}</p>
+              )}
+              <p className="mt-1 text-[10px] text-[var(--ep-muted)]">
+                You will receive an M-Pesa STK push on this number
+              </p>
+            </div>
+
+            {/* ── Bi-directional conversion widget ───────────── */}
+            <ConversionWidget
+              editableSide={editableSide}
+              setEditableSide={setEditableSide}
+              typedValue={typedValue}
+              setTypedValue={setTypedValue}
+              tokenDisplayValue={tokenDisplayValue}
+              kesDisplayValue={kesDisplayValue}
+              tokenSymbol={selectedToken.symbol}
+              exchangeRate={exchangeRate}
+              feePreview={feePreview}
+              tokenBalance={selectedTokenBalance}
+              isBalanceLoading={false}
+              balanceError={false}
+              sanitize={sanitizeDecimalInput}
+              tokenSelector={
+                <div className="relative" ref={tokenDropdownRef}>
+                  <button
+                    type="button"
+                    onClick={() => setShowTokenDropdown((prev) => !prev)}
+                    className="flex items-center gap-1.5 rounded-md px-2 py-1 text-xs font-semibold text-[var(--ep-heading)] hover:bg-[var(--ep-bg-input)] transition-colors"
+                  >
+                    {selectedToken.tokenLogo && (
+                      <img src={selectedToken.tokenLogo} alt="" className="h-4 w-4 rounded-full object-contain" />
                     )}
-                  {phoneValidation.isValid && (
-                    <p className="text-green-600 text-sm mt-1 flex items-center gap-1">
-                      <svg
-                        className="h-4 w-4"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-                        />
-                      </svg>
-                      Valid phone number
-                    </p>
+                    <span>{selectedToken.symbol}</span>
+                    <ChevronDown className={`h-3.5 w-3.5 transition-transform ${showTokenDropdown ? "rotate-180" : ""}`} />
+                  </button>
+
+                  {showTokenDropdown && (
+                    <div className="absolute right-0 top-full z-20 mt-1 w-64 rounded-xl border border-[var(--ep-border)] bg-[var(--ep-bg-card)] p-1.5 shadow-lg">
+                      {SUPPORTED_TOKENS.map((token) => {
+                        const isActive = token.symbol === selectedToken.symbol && token.chain === selectedToken.chain;
+                        return (
+                          <button
+                            key={token.symbol + token.chain}
+                            type="button"
+                            onClick={() => {
+                              selectTokenAndSwitchChain(token);
+                              setShowTokenDropdown(false);
+                            }}
+                            className={`flex w-full items-center justify-between rounded-lg px-2.5 py-2 text-left transition-colors ${
+                              isActive
+                                ? "bg-[var(--ep-accent-muted)] text-[var(--ep-heading)]"
+                                : "text-[var(--ep-body)] hover:bg-[var(--ep-bg-input)]"
+                            }`}
+                          >
+                            <span className="flex items-center gap-2">
+                              <img src={token.tokenLogo} alt="" className="h-5 w-5 rounded-full object-contain" />
+                              <span className="text-sm font-medium">{token.symbol}</span>
+                              <span className="flex items-center gap-1 rounded-full border border-[var(--ep-border)] px-1.5 py-0.5 text-[10px] text-[var(--ep-muted)]">
+                                <img src={token.chainLogo} alt="" className="h-3 w-3 rounded-full object-contain" />
+                                {token.chain}
+                              </span>
+                            </span>
+                            {isActive && <Check className="h-3.5 w-3.5 text-[var(--ep-accent)]" />}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  {isSwitchingChain && (
+                    <div className="absolute inset-0 flex items-center justify-center rounded-md bg-[var(--ep-bg-card)]/60">
+                      <Loader2 className="h-3 w-3 animate-spin text-[var(--ep-accent)]" />
+                    </div>
                   )}
                 </div>
-              </div>
+              }
+            />
 
-              {/* Reason - Full width */}
-              <div>
-                <label className="block text-sm text-[var(--ep-muted)] mb-2">
-                  Payment reason (Optional)
-                </label>
-                <input
-                  type="text"
-                  className="w-full p-3 bg-[var(--ep-bg)] rounded-lg border border-[var(--ep-border)] text-[var(--ep-heading)] focus:outline-none focus:ring-2 focus:ring-[var(--ep-accent)]/30 focus:border-[var(--ep-accent)] transition-colors"
-                  value={reason}
-                  onChange={(e) => setReason(e.target.value)}
-                  placeholder="e.g. Transport"
-                />
-              </div>
+            {/* ── Quote loading indicator ────────────────────── */}
+            {isFetchingQuote && (
+              <p className="text-xs text-[var(--ep-accent)] flex items-center gap-1.5 px-1">
+                <Loader2 className="h-3 w-3 animate-spin" /> Fetching live quote…
+              </p>
+            )}
 
-              {/* Favorite checkbox */}
-              <div className="flex items-center gap-2 pt-2">
-                <input
-                  id="favorite-deposit"
-                  type="checkbox"
-                  checked={isFavorite}
-                  onChange={(e) => setIsFavorite(e.target.checked)}
-                  className="w-4 h-4 rounded border-gray-300 text-[var(--ep-accent)] accent-[var(--ep-accent)]"
-                />
-                <label
-                  htmlFor="favorite-deposit"
-                  className="text-[var(--ep-muted)] text-sm"
-                >
-                  Favorite this payment details for future transactions
-                </label>
-              </div>
-
-              {/* Mobile Confirm Button - Only shown on small screens */}
-              <div className="block lg:hidden pt-4">
-                <button
-                  className="w-full py-3 bg-[var(--ep-accent)] text-white rounded-full font-medium hover:opacity-90 transition-opacity disabled:opacity-50"
-                  onClick={handleConfirmPayment}
-                  disabled={
-                    isLoading ||
-                    parseFloat(amount) <= 0 ||
-                    !phoneValidation.isValid ||
-                    isValidatingPhone
-                  }
-                >
-                  {isLoading
-                    ? "Processing..."
-                    : isValidatingPhone
-                      ? "Validating..."
-                      : "Confirm Payment"}
-                </button>
-              </div>
+            {/* ── Reason (optional) ──────────────────────────── */}
+            <div>
+              <label className="mb-1.5 block text-xs font-medium text-[var(--ep-body)]">
+                Payment reason <span className="text-[var(--ep-muted)]">(optional)</span>
+              </label>
+              <input
+                type="text"
+                value={reason}
+                onChange={(e) => setReason(e.target.value)}
+                className="w-full rounded-xl border border-[var(--ep-border)] bg-[var(--ep-bg-input)] px-3 py-2.5 text-sm text-[var(--ep-heading)] outline-none transition-all placeholder:text-[var(--ep-muted)] focus:border-[var(--ep-border-focus)] focus:ring-2 focus:ring-[var(--ep-accent)]/10"
+                placeholder="e.g. Transport, Savings"
+              />
             </div>
 
-            {/* Right Column - Transaction Summary */}
-            <div className="lg:col-span-1">
-              <div className="bg-[var(--ep-accent-subtle)] p-4 rounded-xl h-fit sticky top-4">
-                <h3 className="text-lg font-semibold mb-4 text-[var(--ep-heading)]">
-                  Transaction Summary
-                </h3>
+            {/* ── CTA button ─────────────────────────────────── */}
+            <button
+              onClick={handleConfirmPayment}
+              disabled={
+                isLoading ||
+                parseFloat(amount) <= 0 ||
+                !phoneValidation.isValid ||
+                isValidatingPhone
+              }
+              type="button"
+              className="w-full flex items-center justify-center gap-2 rounded-full py-3 text-sm font-semibold text-white bg-[var(--ep-accent)] hover:bg-[var(--ep-accent-hover)] shadow-[0_2px_16px_rgba(67,57,202,0.25)] hover:shadow-[0_4px_24px_rgba(67,57,202,0.35)] transition-all duration-200 disabled:opacity-50"
+            >
+              {isLoading
+                ? "Processing…"
+                : isValidatingPhone
+                  ? "Validating…"
+                  : "Confirm Deposit"}
+            </button>
 
-                {/* Main Summary */}
-                <div className="space-y-3 mb-4">
-                  <div className="flex justify-between items-center">
-                    <span className="text-[var(--ep-muted)] text-sm">
-                      Amount to send
-                    </span>
-                    <span className="font-medium text-sm">
-                      KES {parseFloat(amount || "0").toFixed(2)}
-                    </span>
-                  </div>
-
-                  <div className="flex justify-between items-center">
-                    <span className="text-[var(--ep-muted)] text-sm">
-                      {selectedToken.symbol} to receive
-                    </span>
-                    <span className="font-medium">
-                      {isFetchingQuote ? (
-                        <span className="text-[var(--ep-muted)]">Calculating...</span>
-                      ) : quoteData ? (
-                        `${selectedToken.symbol} ${quoteData.tokenAmount.toFixed(6)}`
-                      ) : (
-                        `${selectedToken.symbol} ${(parseFloat(amount || "0") / (exchangeRate || 127.3)).toFixed(6)}`
-                      )}
-                    </span>
-                  </div>
-
-                  <div className="flex justify-between items-center">
-                    <span className="text-[var(--ep-muted)] text-sm">
-                      Transaction charge
-                    </span>
-                    <span className="text-[var(--ep-accent)] text-sm">
-                      {isFetchingQuote ? (
-                        <span className="text-[var(--ep-muted)]">...</span>
-                      ) : quoteData ? (
-                        `KES ${quoteData.feeAmount.toFixed(2)}`
-                      ) : (
-                        `KES ${(parseFloat(amount || "0") * TRANSACTION_FEE_RATE).toFixed(2)}`
-                      )}
-                    </span>
-                  </div>
-
-                  <div className="flex justify-between items-center">
-                    <span className="text-[var(--ep-muted)] text-sm">
-                      Wallet balance
-                    </span>
-                    <span className="text-[var(--ep-accent)] font-medium text-sm">
-                      {selectedToken.symbol}{" "}
-                      {transactionSummary.walletBalance.toFixed(2)}
-                    </span>
-                  </div>
-
-                  <div className="border-t border-[var(--ep-border)] pt-3 flex justify-between items-center font-semibold">
-                    <span className="text-[var(--ep-heading)]">Total:</span>
-                    <span className="text-[var(--ep-heading)]">
-                      KES {parseFloat(amount || "0").toFixed(2)}
-                    </span>
-                  </div>
-                </div>
-
-                {/* Desktop Confirm Button */}
-                <div className="hidden lg:block mb-4">
-                  <button
-                    className="w-full py-3 bg-[var(--ep-accent)] text-white rounded-full font-medium hover:opacity-90 transition-opacity disabled:opacity-50 text-sm"
-                    onClick={handleConfirmPayment}
-                    disabled={
-                      isLoading ||
-                      parseFloat(amount) <= 0 ||
-                      !phoneValidation.isValid ||
-                      isValidatingPhone
-                    }
-                  >
-                    {isLoading
-                      ? "Processing..."
-                      : isValidatingPhone
-                        ? "Validating..."
-                        : "Confirm Payment"}
-                  </button>
-                </div>
-
-                {/* Balance after transaction */}
-                <div className="bg-[var(--ep-bg-card)] border border-[var(--ep-border)] p-3 rounded-lg mb-4">
-                  <div className="text-[var(--ep-muted)] mb-2 text-xs font-medium uppercase tracking-wider">
-                    Balance After Transaction
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-[var(--ep-muted)] text-sm">
-                      {selectedToken.symbol}:{" "}
-                      {transactionSummary.walletBalance.toFixed(2)}
-                    </span>
-                    <span className="text-[var(--ep-heading)] font-medium text-sm">
-                      KE{" "}
-                      {(
-                        transactionSummary.walletBalance *
-                        (transactionSummary.effectiveRate ||
-                          exchangeRate ||
-                          127.3)
-                      ).toFixed(2)}
-                    </span>
-                  </div>
-                </div>
-
-                {/* Information text */}
-                <div className="text-[var(--ep-muted)] text-xs leading-relaxed">
-                  ElementsPay allows you to deposit supported stablecoins on
-                  multiple chains. Select your preferred token and chain above.
-                </div>
-              </div>
-            </div>
+            {/* ── Compact summary (expandable) ───────────────── */}
+            <CompactSummaryRows
+              rows={[
+                {
+                  label: "Amount to pay",
+                  value: `KES ${parseFloat(amount || "0").toFixed(2)}`,
+                },
+                {
+                  label: `${selectedToken.symbol} to receive`,
+                  value: isFetchingQuote
+                    ? "Calculating…"
+                    : `${selectedToken.symbol} ${transactionSummary.usdcAmount.toFixed(6)}`,
+                  accent: true,
+                },
+                {
+                  label: "Transaction fee",
+                  value: isFetchingQuote
+                    ? "…"
+                    : `KES ${transactionSummary.transactionCharge.toFixed(2)}`,
+                  accent: true,
+                },
+                {
+                  label: "Wallet balance",
+                  value: `${selectedToken.symbol} ${transactionSummary.walletBalance.toFixed(4)}`,
+                },
+                {
+                  label: "Balance after deposit",
+                  value: `${transactionSummary.remainingBalance.toFixed(4)} ${selectedToken.symbol}`,
+                },
+                {
+                  label: "Total",
+                  value: `KES ${parseFloat(amount || "0").toFixed(2)}`,
+                  isTotal: true,
+                },
+              ]}
+              note="You will receive an M-Pesa STK push to complete the payment. Rates may update before confirmation."
+            />
           </div>
         </DialogContent>
       </Dialog>
