@@ -98,7 +98,10 @@ const SendCryptoModal: React.FC = () => {
   const abortControllerRef = useRef<AbortController | null>(null);
   
   const [amount, setAmount] = useState("");
-  const [mobileNumber, setMobileNumber] = useState("");
+  const [mobileNumber, setMobileNumber] = useState(""); // Stores only local 9-digit part (e.g. "712345678")
+
+  // Full international number for validation & backend calls
+  const fullMobileNumber = mobileNumber ? `254${mobileNumber}` : "";
   const [reason, setReason] = useState(""); // Optional reason for payment
   const [initialPaymentMethod, setInitialPaymentMethod] = useState<
     "Send Money" | "Pay Bill" | "Buy Goods" | undefined
@@ -316,13 +319,10 @@ const SendCryptoModal: React.FC = () => {
 
     if (landingAmount) setAmount(landingAmount);
     if (landingPhoneNumber) {
-      // PreviewForm stores only the local 9-digit part (e.g. "712345678").
-      // Normalize to "254XXXXXXXXX" (12 chars) so the length >= 12 branch
-      // in the phone-validation effect triggers backend validation.
-      const normalized = /^\d{9}$/.test(landingPhoneNumber)
-        ? `254${landingPhoneNumber}`
-        : landingPhoneNumber;
-      setMobileNumber(normalized);
+      // Strip any "254" prefix so we store only the 9-digit local part.
+      const digits = landingPhoneNumber.replace(/\D/g, "");
+      const local = digits.startsWith("254") ? digits.slice(3) : digits.startsWith("0") ? digits.slice(1) : digits;
+      setMobileNumber(local.slice(0, 9));
     }
     if (landingPaybillNumber) setPaybillNumber(landingPaybillNumber);
     if (landingAccountNumber) setAccountNumber(landingAccountNumber);
@@ -592,10 +592,12 @@ const SendCryptoModal: React.FC = () => {
     }
 
     const timeoutId = setTimeout(() => {
-      if (mobileNumber.length >= 12) {
-        validatePhoneWithBackend(mobileNumber);
+      // Prepend 254 to the 9-digit local part for validation
+      const full = `254${mobileNumber}`;
+      if (mobileNumber.length === 9) {
+        validatePhoneWithBackend(full);
       } else {
-        const validation = validateKenyanPhoneNumber(mobileNumber);
+        const validation = validateKenyanPhoneNumber(full);
         setPhoneValidation(validation);
       }
     }, 1000);
@@ -868,7 +870,7 @@ const SendCryptoModal: React.FC = () => {
         amount_fiat: Number.parseFloat(amount),
         currency: "KES",
         rate: exchangeRate ?? 0,
-        phone_number: currentCashoutType === "PHONE" ? mobileNumber : "",
+        phone_number: currentCashoutType === "PHONE" ? fullMobileNumber : "",
         paybill_number: currentCashoutType === "PAYBILL" ? paybillNumber : "",
         account_number: currentCashoutType === "PAYBILL" ? accountNumber : "",
         till_number: currentCashoutType === "TILL" ? tillNumber : "",
@@ -879,7 +881,7 @@ const SendCryptoModal: React.FC = () => {
     }
   }, [
     isBrowser,
-    mobileNumber,
+    fullMobileNumber,
     exchangeRate,
     amount,
     getCashoutType,
@@ -1100,7 +1102,7 @@ const SendCryptoModal: React.FC = () => {
       }
 
       if (!phoneValidation.isValid) {
-        const isPhoneValid = await validatePhoneWithBackend(mobileNumber);
+        const isPhoneValid = await validatePhoneWithBackend(fullMobileNumber);
         if (!isPhoneValid) {
           toast.error(
             "Phone number validation failed. Please check and try again.",
@@ -1161,7 +1163,7 @@ const SendCryptoModal: React.FC = () => {
 
       switch (cashoutType) {
         case "PHONE":
-          recipientInfo = mobileNumber || "";
+          recipientInfo = fullMobileNumber || "";
           break;
         case "PAYBILL":
           recipientInfo =
@@ -1262,7 +1264,13 @@ const SendCryptoModal: React.FC = () => {
                     type="tel"
                     placeholder="7XX XXX XXX"
                     value={mobileNumber}
-                    onChange={(e) => setMobileNumber(e.target.value.replace(/\D/g, "").slice(0, 9))}
+                    onChange={(e) => {
+                      // Strip any prefix the user might paste (0, 254, +254) and keep only the local 9 digits
+                      let digits = e.target.value.replace(/\D/g, "");
+                      if (digits.startsWith("254")) digits = digits.slice(3);
+                      else if (digits.startsWith("0")) digits = digits.slice(1);
+                      setMobileNumber(digits.slice(0, 9));
+                    }}
                     className="min-w-0 flex-1 bg-transparent px-3 py-2.5 text-sm text-[var(--ep-heading)] outline-none ring-0 placeholder:text-[var(--ep-muted)] focus:outline-none focus:ring-0"
                   />
                   {isValidatingPhone && (
@@ -1561,8 +1569,8 @@ const SendCryptoModal: React.FC = () => {
                 const ct = getCashoutType();
                 switch (ct) {
                   case "PHONE":
-                    return mobileNumber
-                      ? formatReceiverName(mobileNumber)
+                    return fullMobileNumber
+                      ? formatReceiverName(fullMobileNumber)
                       : "Mobile Money Recipient";
                   case "PAYBILL":
                     return paybillNumber && accountNumber

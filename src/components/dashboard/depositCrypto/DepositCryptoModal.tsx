@@ -12,7 +12,6 @@ import { KYCRequiredError, extractKYCLimitSnapshot } from "@/services/kycError";
 import { useKYCModalStore } from "@/stores/kycModalStore";
 import {
   validateKenyanPhoneNumber,
-  formatKenyanPhoneNumber,
 } from "@/utils/phoneValidation";
 import {
   Dialog,
@@ -116,7 +115,11 @@ const DepositCryptoModal: React.FC = () => {
 
   const [amount, setAmount] = useState("0.00");
   const [depositFrom, setDepositFrom] = useState("MPESA");
-  const [phoneNumber, setPhoneNumber] = useState("");
+  const [phoneNumber, setPhoneNumber] = useState(""); // Stores only local 9-digit part (e.g. "712345678")
+
+  // Full international number for validation & backend calls
+  const fullPhoneNumber = phoneNumber ? `254${phoneNumber}` : "";
+
   const [reason, setReason] = useState("Transport");
   const [isLoading, setIsLoading] = useState(false);
   const [exchangeRate, setExchangeRate] = useState<number | null>(null);
@@ -546,7 +549,7 @@ const DepositCryptoModal: React.FC = () => {
 
     // Double-check with API validation if not already validated
     if (!phoneValidation.isValid) {
-      const isValid = await validatePhoneWithBackend(phoneNumber);
+      const isValid = await validatePhoneWithBackend(fullPhoneNumber);
       if (!isValid) {
         toast.error(
           "Phone number validation failed. Please check and try again.",
@@ -573,7 +576,7 @@ const DepositCryptoModal: React.FC = () => {
           tokenAddress: selectedToken.tokenAddress,
           userAddress: addressOwner.address,
           amount: parseFloat(amount),
-          phoneNumber,
+          phoneNumber: fullPhoneNumber,
           reason,
         });
 
@@ -583,7 +586,7 @@ const DepositCryptoModal: React.FC = () => {
             userAddress: addressOwner.address,
             tokenAddress: String(selectedToken.tokenAddress),
             amount: parseFloat(amount),
-            phoneNumber,
+            phoneNumber: fullPhoneNumber,
             reason,
           }),
           new Promise((_, reject) =>
@@ -620,7 +623,7 @@ const DepositCryptoModal: React.FC = () => {
           amountCrypto: 0, // Renamed from amountUSDC
           transactionHash: txHash,
           address: addressOwner.address || "",
-          phoneNumber: phoneNumber,
+          phoneNumber: fullPhoneNumber,
         });
         continuePollingRef.current = true;
 
@@ -696,11 +699,15 @@ const DepositCryptoModal: React.FC = () => {
   };
 
   const handlePhoneNumberChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const formattedNumber = formatKenyanPhoneNumber(e.target.value);
-    setPhoneNumber(formattedNumber);
+    // Strip any prefix the user might paste (0, 254, +254) and keep only the local 9 digits
+    let digits = e.target.value.replace(/\D/g, "");
+    if (digits.startsWith("254")) digits = digits.slice(3);
+    else if (digits.startsWith("0")) digits = digits.slice(1);
+    const local = digits.slice(0, 9);
+    setPhoneNumber(local);
 
     // Clear validation when user starts typing
-    if (formattedNumber !== phoneNumber) {
+    if (local !== phoneNumber) {
       setPhoneValidation({ isValid: false });
     }
   };
@@ -713,8 +720,8 @@ const DepositCryptoModal: React.FC = () => {
     }
 
     const timeoutId = setTimeout(() => {
-      // Use only client-side validation
-      const validation = validateKenyanPhoneNumber(phoneNumber);
+      // Prepend 254 to validate the full international number
+      const validation = validateKenyanPhoneNumber(`254${phoneNumber}`);
       setPhoneValidation(validation);
     }, 1000); // 1 second delay
 
@@ -781,11 +788,7 @@ const DepositCryptoModal: React.FC = () => {
                   type="tel"
                   placeholder="7XX XXX XXX"
                   value={phoneNumber}
-                  onChange={(e) => {
-                    const formatted = formatKenyanPhoneNumber(e.target.value);
-                    setPhoneNumber(formatted);
-                    if (formatted !== phoneNumber) setPhoneValidation({ isValid: false });
-                  }}
+                  onChange={handlePhoneNumberChange}
                   className="min-w-0 flex-1 bg-transparent px-3 py-2.5 text-sm text-[var(--ep-heading)] outline-none ring-0 placeholder:text-[var(--ep-muted)] focus:outline-none focus:ring-0"
                 />
                 {isValidatingPhone && (
@@ -961,7 +964,7 @@ const DepositCryptoModal: React.FC = () => {
       <TransactionInProgressModal
         isOpen={isTransactionModalOpen}
         onClose={() => setIsTransactionModalOpen(false)}
-        phone_number={phoneNumber}
+        phone_number={fullPhoneNumber}
       />
 
       <DepositCryptoReceipt
