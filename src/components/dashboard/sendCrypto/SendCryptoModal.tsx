@@ -1016,7 +1016,7 @@ const SendCryptoModal: React.FC = () => {
       amountFiat: amount,
       messageHash,
       reason,
-      mobileNumber,
+      mobileNumber: fullMobileNumber,
       paybillNumber,
       accountNumber,
       tillNumber,
