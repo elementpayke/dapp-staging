@@ -10,15 +10,6 @@ export interface SupportedToken {
 
 export const SUPPORTED_TOKENS: SupportedToken[] = [
   {
-    symbol: "USDT",
-    name: "Tether USD",
-    chain: "Lisk",
-    chainLogo: "/lisk-lsk-logo.png",
-    tokenLogo: "/tether-usdt-logo.png",
-    tokenAddress: "0x05D032ac25d322df992303dCa074EE7392C117b9", 
-    explorerUrl: "https://blockscout.lisk.com", 
-  },
-  {
     symbol: "USDC",
     name: "USD Coin",
     chain: "Base",
@@ -26,6 +17,15 @@ export const SUPPORTED_TOKENS: SupportedToken[] = [
     tokenLogo: "/usd-coin-usdc-logo.png",
     tokenAddress: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913", 
     explorerUrl: "https://basescan.org",
+  },
+  {
+    symbol: "USDT",
+    name: "Tether USD",
+    chain: "Lisk",
+    chainLogo: "/lisk-lsk-logo.png",
+    tokenLogo: "/tether-usdt-logo.png",
+    tokenAddress: "0x05D032ac25d322df992303dCa074EE7392C117b9", 
+    explorerUrl: "https://blockscout.lisk.com", 
   },
   {
     symbol: "USDC",

@@ -27,10 +27,6 @@ const NETWORK_LOGOS: Record<string, typeof ARBITRUM_LOGO> = {
 const SendCryptoModal = dynamic(() => import("./sendCrypto/SendCryptoModal"), {
   ssr: false,
 });
-const SendCryptoModalV2 = dynamic(
-  () => import("./sendCrypto/SendCryptoModalV2"),
-  { ssr: false },
-);
 const DepositCryptoModal = dynamic(
   () => import("./depositCrypto/DepositCryptoModal"),
   { ssr: false },
