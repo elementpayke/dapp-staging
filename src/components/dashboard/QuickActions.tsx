@@ -3,7 +3,6 @@ import React, { FC, useState, useEffect } from "react";
 import { Bell, MoreHorizontal } from "lucide-react";
 import { useBalance, useAccount } from "wagmi";
 import dynamic from "next/dynamic";
-import Image from "next/image";
 import {
   getApiCurrencyFromToken,
   fetchFeeStructureCached,
@@ -11,17 +10,9 @@ import {
 import { useSelectedToken } from "@/context/TokenContext";
 import TokenDropdown from "@/components/ui/TokenDropdown";
 
-import ARBITRUM_LOGO from "@/assets/ARBITRUM_LOGO.png";
-import BASE_LOGO from "@/assets/BASE_LOGO.png";
-import LISK_LOGO from "@/assets/LISK_LOGO.png";
-import SCROLL_LOGO from "@/assets/SCROLL_LOGO.png";
-
-const NETWORK_LOGOS: Record<string, typeof ARBITRUM_LOGO> = {
-  Arbitrum: ARBITRUM_LOGO,
-  Base: BASE_LOGO,
-  Lisk: LISK_LOGO,
-  Scroll: SCROLL_LOGO,
-};
+// ── Branded SVG network logos (replaces the old gray PNG imports) ────────────
+// Place NetworkLogos.tsx at @/components/ui/NetworkLogos
+import { NETWORK_LOGO_COMPONENTS } from "@/components/ui/NetworkLogos";
 
 // Dynamically import modals with no SSR to prevent wagmi context issues
 const SendCryptoModal = dynamic(() => import("./sendCrypto/SendCryptoModal"), {
@@ -110,7 +101,8 @@ const QuickActions: FC = () => {
     return kesAmount.toFixed(2);
   };
 
-  const networkLogo = NETWORK_LOGOS[selectedToken.chain];
+  // ── Resolve branded SVG component for the connected network ──────────────
+  const NetworkLogoComponent = NETWORK_LOGO_COMPONENTS[selectedToken.chain];
 
   return (
     <div className="p-4 sm:p-5 bg-[var(--ep-bg-card)] shadow-[var(--ep-card-shadow)] rounded-2xl border border-[var(--ep-border)] relative">
@@ -162,12 +154,15 @@ const QuickActions: FC = () => {
           </div>
         </div>
 
-        {/* Right: Connected Network Indicator & Logo — hidden on mobile */}
+        {/* Right: Connected Network Indicator & Action Buttons — desktop only */}
         <div className="hidden md:flex flex-col items-end justify-between min-h-[15vh] ml-4 shrink-0">
-          {/* Connected Network Badge + Action Buttons */}
-          <div className="flex items-center gap-2 ">
+          <div className="flex items-center gap-2">
             <div className="flex items-center gap-1.5 px-3 py-1 rounded-full border border-[var(--ep-border)] bg-[var(--ep-bg-card)]">
-              <span className={`w-2 h-2 rounded-full ${isCorrectNetwork ? 'bg-green-500' : 'bg-yellow-500'} shrink-0`} />
+              <span
+                className={`w-2 h-2 rounded-full ${
+                  isCorrectNetwork ? "bg-green-500" : "bg-yellow-500"
+                } shrink-0`}
+              />
               <span className="text-[10px] font-semibold uppercase tracking-wider text-[var(--ep-muted)] whitespace-nowrap">
                 Connected Network : {selectedToken.chain.toUpperCase()}
               </span>
@@ -179,22 +174,16 @@ const QuickActions: FC = () => {
               <MoreHorizontal size={18} className="text-[var(--ep-muted)]" />
             </button>
           </div>
-
-          {/* Network Logo - Moved to bottom right absolute positioning */}
         </div>
       </div>
 
-      {networkLogo && (
-        <div className="hidden md:flex flex-col items-end absolute bottom-5 right-5 z-0 opacity-80 pointer-events-none">
-          <Image
-            src={networkLogo}
-            alt={`${selectedToken.chain} logo`}
-            width={180}
-            height={180}
-            className="object-contain"
-            priority
-          />
-          <span className="text-[9px] font-bold uppercase tracking-[0.2em] text-[var(--ep-muted)] mt-1 ml-4">
+      {/* ── Branded network logo — bottom-right watermark, desktop only ─────
+          Renders the actual colored SVG logo instead of the old gray PNG.
+          opacity-80 keeps it tasteful; pointer-events-none prevents interference. */}
+      {NetworkLogoComponent && (
+        <div className="hidden md:flex flex-col items-end absolute bottom-5 right-5 z-0 opacity-80 pointer-events-none select-none">
+          <NetworkLogoComponent size={120} />
+          <span className="text-[9px] font-bold uppercase tracking-[0.2em] text-[var(--ep-muted)] mt-1 mr-1">
             Proud Partners
           </span>
         </div>
