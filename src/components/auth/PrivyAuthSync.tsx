@@ -7,20 +7,28 @@ import { getPrivyToken } from "@/services/auth";
 
 /** Stop retrying HTTP fallback after this many consecutive failures */
 const MAX_CONSECUTIVE_FAILURES = 3;
+/** Refresh margin — fetch a new token 60s before it expires */
+const EXPIRY_MARGIN_S = 60;
 
 /**
- * Decode JWT payload (middle segment) for logging.
+ * Decode JWT payload (middle segment).
  * Returns null if the token is malformed.
  */
 function decodeJwtPayload(token: string): Record<string, unknown> | null {
   try {
     const parts = token.split(".");
     if (parts.length !== 3) return null;
-    const payload = JSON.parse(atob(parts[1].replace(/-/g, "+").replace(/_/g, "/")));
-    return payload;
+    return JSON.parse(atob(parts[1].replace(/-/g, "+").replace(/_/g, "/")));
   } catch {
     return null;
   }
+}
+
+/** Check if a JWT is still usable (not expired, with margin). */
+function isTokenValid(token: string): boolean {
+  const payload = decodeJwtPayload(token);
+  if (!payload || typeof payload.exp !== "number") return false;
+  return payload.exp > Math.floor(Date.now() / 1000) + EXPIRY_MARGIN_S;
 }
 
 function logTokenDetails(label: string, token: string) {
@@ -37,25 +45,34 @@ function logTokenDetails(label: string, token: string) {
  * to true, Privy calls `getExternalJwt` to retrieve the access token and
  * authenticate the Privy session.
  *
- * IMPORTANT: `getExternalJwt` must NEVER return `undefined` while the user is
- * still authenticated — Privy interprets that as "user lost auth" and calls
- * its own /sessions/logout, killing the session. Every call must either return
- * a valid token or throw (which Privy handles via onError).
+ * Token caching strategy:
+ *   - First call uses the pre-fetched token from verify-otp (zero HTTP)
+ *   - Subsequent calls reuse the cached token until it's near expiry
+ *   - Only fetches a new token over HTTP when the cache is empty or expired
  *
  * Mount this component once at the top level (in Providers).
  */
 export default function PrivyAuthSync() {
   const isOtpVerified = useAuthStore((s) => s.isOtpVerified);
 
-  // Track consecutive HTTP fetch failures for circuit-breaking
+  // Persistent token cache — survives re-renders, doesn't cause re-renders
+  const tokenCacheRef = useRef<string | null>(null);
   const failureCountRef = useRef<number>(0);
   const callCountRef = useRef<number>(0);
 
-  // Reset failure tracking on new login
+  // Reset on new login
   useEffect(() => {
     if (isOtpVerified) {
+      tokenCacheRef.current = null;
       failureCountRef.current = 0;
       callCountRef.current = 0;
+    }
+  }, [isOtpVerified]);
+
+  // Clear cache on logout
+  useEffect(() => {
+    if (!isOtpVerified) {
+      tokenCacheRef.current = null;
     }
   }, [isOtpVerified]);
 
@@ -67,15 +84,24 @@ export default function PrivyAuthSync() {
       return undefined;
     }
 
-    // 1. Try cached token from verify-otp (zero HTTP calls)
-    const cached = useAuthStore.getState().privyToken;
-    if (cached) {
-      useAuthStore.getState().setPrivyToken(null);
-      logTokenDetails(`[PrivyAuthSync] getExternalJwt #${callId}: using cached token`, cached);
-      return cached;
+    // 1. Check local ref cache (set from previous calls)
+    if (tokenCacheRef.current && isTokenValid(tokenCacheRef.current)) {
+      console.log(`[PrivyAuthSync] getExternalJwt #${callId}: reusing cached token`);
+      return tokenCacheRef.current;
     }
 
-    // 2. Circuit breaker: stop after repeated consecutive failures
+    // 2. Check store cache (set during OTP verification — first call only)
+    const storeToken = useAuthStore.getState().privyToken;
+    if (storeToken && isTokenValid(storeToken)) {
+      useAuthStore.getState().setPrivyToken(null);
+      tokenCacheRef.current = storeToken;
+      logTokenDetails(`[PrivyAuthSync] getExternalJwt #${callId}: using store token`, storeToken);
+      return storeToken;
+    }
+    // Clear invalid store token
+    if (storeToken) useAuthStore.getState().setPrivyToken(null);
+
+    // 3. Circuit breaker
     if (failureCountRef.current >= MAX_CONSECUTIVE_FAILURES) {
       console.warn(
         `[PrivyAuthSync] getExternalJwt #${callId}: circuit open — ` +
@@ -84,12 +110,13 @@ export default function PrivyAuthSync() {
       return undefined;
     }
 
-    // 3. Fetch a fresh RS256 token via HTTP (page-reload or refresh)
+    // 4. Fetch fresh RS256 token via HTTP
     console.log(`[PrivyAuthSync] getExternalJwt #${callId}: fetching via HTTP...`);
 
     try {
       const { token } = await getPrivyToken();
       failureCountRef.current = 0;
+      tokenCacheRef.current = token; // cache for subsequent calls
       logTokenDetails(`[PrivyAuthSync] getExternalJwt #${callId}: HTTP success`, token);
       return token;
     } catch (err) {
@@ -115,6 +142,7 @@ export default function PrivyAuthSync() {
     },
     onUnauthenticated: () => {
       console.log("[PrivyAuthSync] Privy unauthenticated (session ended)");
+      tokenCacheRef.current = null;
     },
     onError: (error) => {
       console.error("[PrivyAuthSync] ❌ Privy JWT sync error:", {
