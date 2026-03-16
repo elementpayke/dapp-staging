@@ -76,10 +76,20 @@ export default function PrivyAuthSync() {
     }
   }, [isOtpVerified]);
 
+  /**
+   * Stable callback — reads `isOtpVerified` directly from the Zustand store
+   * instead of closing over React state.  This avoids a stale-closure bug
+   * where Privy's hook calls a previous callback reference that still has
+   * the old `isOtpVerified=false` value after the flag transiently flips.
+   */
   const getExternalJwt = useCallback(async (): Promise<string | undefined> => {
     const callId = ++callCountRef.current;
 
-    if (!isOtpVerified) {
+    // Read directly from the store — NOT from the React closure — so the
+    // value is always current even if Privy holds a stale callback ref.
+    const otpVerified = useAuthStore.getState().isOtpVerified;
+
+    if (!otpVerified) {
       console.log(`[PrivyAuthSync] getExternalJwt #${callId}: skipped (not OTP verified)`);
       return undefined;
     }
@@ -128,7 +138,7 @@ export default function PrivyAuthSync() {
       );
       return undefined;
     }
-  }, [isOtpVerified]);
+  }, []);
 
   const { state } = useSubscribeToJwtAuthWithFlag({
     isAuthenticated: isOtpVerified,

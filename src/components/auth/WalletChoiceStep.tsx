@@ -20,7 +20,7 @@ const AUTH_TIMEOUT_MS = 15_000;
  * After selecting embedded, createWallet is called directly.
  */
 const WalletChoiceStep = () => {
-  const { createWallet, authenticated, ready } = usePrivy();
+  const { createWallet, authenticated, ready, user } = usePrivy();
   const setStep = useAuthModalStore((s) => s.setStep);
   const setWalletConnecting = useAuthModalStore((s) => s.setWalletConnecting);
   const setModalError = useAuthModalStore((s) => s.setErrorMessage);
@@ -33,6 +33,9 @@ const WalletChoiceStep = () => {
   // Privy must finish JWT authentication before embedded wallet creation
   const privyReady = ready && authenticated;
   const isWaiting = ready && !authenticated && !timedOut;
+
+  // Check if the user already has an embedded wallet from a previous session
+  const hasExistingWallet = !!user?.wallet?.address;
 
   // Start a timeout when the component mounts. If Privy doesn't authenticate
   // within AUTH_TIMEOUT_MS, show an error state instead of spinning forever.
@@ -70,14 +73,18 @@ const WalletChoiceStep = () => {
     setModalError(null);
     setWalletPreference("embedded");
     try {
-      await createWallet();
+      // If the user already has an embedded wallet, just proceed —
+      // no need to call createWallet() again.
+      if (!hasExistingWallet) {
+        await createWallet();
+      }
       setWalletConnecting(true);
     } catch (err: any) {
-      console.error("[WalletChoiceStep] Failed to create embedded wallet:", err);
-      setModalError(err?.message ?? "Failed to create wallet. Please try again.");
+      console.error("[WalletChoiceStep] Failed to set up embedded wallet:", err);
+      setModalError(err?.message ?? "Failed to set up wallet. Please try again.");
       setCreating(false);
     }
-  }, [privyReady, timedOut, createWallet, setWalletConnecting, setModalError, setWalletPreference]);
+  }, [privyReady, timedOut, hasExistingWallet, createWallet, setWalletConnecting, setModalError, setWalletPreference]);
 
   const handleConnectExternal = useCallback(() => {
     setModalError(null);
@@ -86,10 +93,12 @@ const WalletChoiceStep = () => {
   }, [setStep, setModalError, setWalletPreference]);
 
   // Derive the embedded button label and sublabel
-  let embeddedLabel = "Create a wallet for me";
-  let embeddedSublabel = "No app needed. We handle fees and approvals automatically.";
+  let embeddedLabel = hasExistingWallet ? "Use my Element wallet" : "Create a wallet for me";
+  let embeddedSublabel = hasExistingWallet
+    ? "Continue with your existing wallet. No setup needed."
+    : "No app needed. We handle fees and approvals automatically.";
   if (creating) {
-    embeddedLabel = "Creating wallet...";
+    embeddedLabel = hasExistingWallet ? "Connecting wallet..." : "Creating wallet...";
     embeddedSublabel = "Please wait while we set up your wallet";
   } else if (isWaiting) {
     embeddedLabel = "Connecting...";
