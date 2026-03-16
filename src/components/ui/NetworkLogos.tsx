@@ -1,156 +1,119 @@
 /**
- * Network Logo SVG Components
+ * Network Logo SVG Components — Full Wordmark Versions
  *
- * Verified brand colors & sources:
- *   Base     → #0000FF  — Base Brand Guidelines v1.0 June 2025 (PDF, color values page)
- *   Arbitrum → #213147 navy · #12AAFF sky — pixel-sampled from official logo PNGs
- *   Lisk     → #04183D  — SVG fill attr from official lisk-lsk-logo.svg download
- *   Scroll   → #FFEEDA cream · #EBC28E tan · #190600 outline
- *               — pixel-sampled from Scrollscan official brand asset PNG
+ * Sources:
+ *   Base     → Base Brand Guidelines v1.0 June 2025 (PDF)
+ *              Color: #0000FF confirmed from official color values page
  *
- * All logos:
- *   ✅ Transparent background (except Base — blue square IS the brand identifier)
- *   ✅ Colors sourced from official brand assets, not guessed
- *   ✅ Dark & light theme safe
- *   ✅ Scalable SVG — no pixelation
+ *   Arbitrum → 1225_Arbitrum_Logo_OneColorWhite_Clearspace.svg (official download)
+ *              Exact paths from file. Uses currentColor for theme adaptation.
+ *
+ *   Lisk     → lisk-lsk-logo.svg (official download)
+ *              Exact path from file + "Lisk" text. Uses currentColor.
+ *
+ *   Scroll   → Scroll_FullLogo_8b9fd528.svg (official from scroll.io/brand-kit)
+ *              Exact paths from file.
+ *              #FFEEDA cream · #EBC28E tan hardcoded (brand colors)
+ *              Outline/text uses currentColor → adapts dark ↔ light
+ *
+ * Theme strategy:
+ *   Brand accent colors are hardcoded. Outline/text uses currentColor so the
+ *   logos read correctly on both dark and light card backgrounds.
  */
 
 interface LogoProps {
-  size?: number;
+  /** Height in px. Width scales proportionally. */
+  height?: number;
   className?: string;
 }
 
 // ─── Base ─────────────────────────────────────────────────────────────────────
-// Source: Base Brand Guidelines v1.0 June 2025
-// Color: #0000FF — confirmed from official color values page (RGB 0,0,255)
-//
-// Shape: The "Basemark" — blue square + white geometric "b"
-//
-// A "b" requires FOUR elements (not two or three):
-//   1. STEM       — full height left column
-//   2. TOP BAR    — horizontal bar connecting stem to right side at top of bowl
-//   3. RIGHT BAR  — vertical bar forming the right wall of the bowl
-//   4. BOTTOM BAR — horizontal bar connecting stem to right side at bottom of bowl
-//
-// The COUNTER (open hole inside the b) is the blue space naturally enclosed
-// between the four bars. No punch rect needed.
-//
-// Previous bug: only used stem + ear + bowl (missing right wall) = "C" shape.
-export const BaseNetworkLogo = ({ size = 120, className = "" }: LogoProps) => (
-  <svg
-    width={size}
-    height={size}
-    viewBox="0 0 100 100"
-    xmlns="http://www.w3.org/2000/svg"
-    className={className}
-    aria-label="Base network logo"
-  >
-    {/* Blue square — "The Square" is Base's primary brand identifier */}
-    <rect width="100" height="100" fill="#0000FF" />
-
-    {/* 1. Stem — full height left column */}
-    <rect x="14" y="8" width="19" height="84" fill="white" />
-
-    {/* 2. Bowl top bar — horizontal, connects stem to right wall */}
-    <rect x="33" y="38" width="20" height="17" fill="white" />
-
-    {/* 3. Bowl right bar — vertical right wall, full bowl height */}
-    <rect x="53" y="38" width="16" height="54" fill="white" />
-
-    {/* 4. Bowl bottom bar — horizontal, connects stem to right wall */}
-    <rect x="33" y="75" width="20" height="17" fill="white" />
-  </svg>
-);
+// Source: Base_lockup_2color.svg + Base_lockup_white.svg (official brand zip)
+// viewBox: 0 0 1280 323.84  aspect ratio ≈ 3.95:1
+// Square (cls-1): always #0000FF — brand color, hardcoded
+// Wordmark "base": currentColor — dark on light, white on dark
+export const BaseNetworkLogo = ({ height = 60, className = "" }: LogoProps) => {
+  const width = Math.round(height * (1280 / 323.84));
+  return (
+    <svg width={width} height={height} viewBox="0 0 1280 323.84"
+      xmlns="http://www.w3.org/2000/svg" className={className} aria-label="Base network logo">
+      {/* "base" wordmark — exact official path, currentColor for theme */}
+      <path fill="currentColor" d="M447.23,323.58c-25.22,0-49.54-9.22-63.87-33.54h-8.32v26.62h-57.34V0h57.34v115.2h8.32c14.72-25.22,42.24-34.94,67.07-34.94,61.95,0,103.81,49.54,103.81,119.3s-45.95,123.9-107.01,123.9v.13ZM434.82,272.26c35.33,0,60.54-28.93,60.54-70.27s-25.73-70.27-60.54-70.27-59.65,27.52-59.65,70.27,25.22,70.27,59.65,70.27ZM660.22,323.58c-44.03,0-79.87-26.62-79.87-70.27s39.42-67.97,87.17-72.96l67.46-6.91v-12.8c0-19.71-16.13-33.54-44.54-33.54s-42.75,11.9-47.74,29.82h-55.04c5.5-43.65,41.73-76.67,102.78-76.67s97.79,28.42,97.79,83.97v112c0,14.21,1.41,33.92,2.3,39.42v.9h-55.04c-.51-7.81-.51-15.1-.51-22.91h-8.32c-14.21,22.91-39.04,29.82-66.56,29.82l.13.13ZM675.84,280.45c37.63,0,59.26-28.42,59.26-57.34v-11.52l-50.56,6.02c-31.23,3.71-46.34,12.8-46.34,33.02s15.62,29.82,37.63,29.82ZM926.08,323.58c-57.86,0-99.2-28.93-105.6-74.37h56.45c6.4,20.22,27.52,28.93,49.54,28.93s40.83-9.6,40.83-26.62-17.41-21.63-41.34-25.73l-24.32-4.1c-45.95-7.81-74.37-27.14-74.37-68.35s39.42-72.96,94.08-72.96,88.58,24.83,98.18,67.97h-55.04c-6.4-17.02-23.42-23.81-42.75-23.81s-38.53,10.11-38.53,24.32,11.9,19.33,36.74,23.42l24.32,4.1c44.54,7.3,78.46,25.73,78.46,70.27s-40.45,77.18-96.9,77.18l.26-.26ZM1166.59,323.58c-70.66,0-117.5-48.26-117.5-122.11s49.54-121.22,118.02-121.22,112.9,53.25,112.9,123.52v10.11h-174.85c2.82,38.14,29.44,60.54,61.57,60.54s42.75-9.22,50.56-25.22h58.75c-11.9,43.14-54.66,74.37-109.31,74.37h-.13ZM1223.94,175.87c-4.61-30.72-28.93-48.64-57.34-48.64s-55.04,17.41-60.54,48.64h118.02-.13Z"/>
+      {/* Blue square — exact official path, always #0000FF per brand guidelines */}
+      <path fill="#0000FF" d="M13.82,316.8c-9.22,0-13.82-4.61-13.82-13.82V100.99c0-9.22,4.61-13.82,13.82-13.82h201.98c9.22,0,13.82,4.61,13.82,13.82v201.98c0,9.22-4.61,13.82-13.82,13.82H13.82Z"/>
+    </svg>
+  );
+};
 
 // ─── Arbitrum ─────────────────────────────────────────────────────────────────
-// Dark navy hexagon with sky-blue "A" mark and white crossbar
-export const ArbitrumNetworkLogo = ({
-  size = 120,
-  className = "",
-}: LogoProps) => (
-  <svg
-    width={size}
-    height={size}
-    viewBox="0 0 100 100"
-    xmlns="http://www.w3.org/2000/svg"
-    className={className}
-    aria-label="Arbitrum network logo"
-  >
-    <polygon points="50,4 88,26 88,74 50,96 12,74 12,26" fill="#213147" />
-    <line x1="36" y1="76" x2="50" y2="30" stroke="#12AAFF" strokeWidth="9" strokeLinecap="round" />
-    <line x1="64" y1="76" x2="50" y2="30" stroke="#12AAFF" strokeWidth="9" strokeLinecap="round" />
-    <line x1="40" y1="57" x2="60" y2="57" stroke="white" strokeWidth="7" strokeLinecap="round" />
-  </svg>
-);
+export const ArbitrumNetworkLogo = ({ height = 60, className = "" }: LogoProps) => {
+  const width = Math.round(height * 2.55);
+  return (
+    <svg width={width} height={height} viewBox="0 0 1315.13 515.13"
+      xmlns="http://www.w3.org/2000/svg" className={className} aria-label="Arbitrum network logo">
+      <path fill="currentColor" d="M351.34,181.38l-99.9-58.01c-3.24-1.85-6.77-2.81-10.36-2.81s-7.12.95-10.3,2.81l-99.92,58.06c-6.34,3.7-10.3,10.53-10.3,17.91v116.13c0,7.38,3.96,14.29,10.3,17.97l17.97,10.44,26.21,15.22,5.87-16.17,53.98-148.88c.49-1.45-.55-3.01-2.17-3.01h-25.31c-1.88,0-3.62,1.19-4.22,2.95l-48.46,133.72-15.39-8.94c-1.16-.67-1.88-1.91-1.88-3.24v-116.18c0-1.33.72-2.57,1.88-3.24l99.93-58.06c.55-.35,1.22-.49,1.85-.49s1.27.17,1.88.49l99.95,58.06c1.16.67,1.88,1.91,1.88,3.24v116.13c0,1.33-.72,2.57-1.88,3.24l-15.22,8.85-40.04-110.48c-.72-2.03-3.5-2.03-4.22,0l-13.19,36.34c-.38,1.01-.38,2.14,0,3.12l31.24,86.24-10.39,6.05-25.57-70.62c-.72-2.03-3.5-2.03-4.22,0l-13.19,36.34c-.38,1.01-.38,2.14,0,3.12l16.81,46.38-21.93,12.76c-.55.35-1.21.49-1.88.49s-1.27-.17-1.88-.49l-21.67-12.61,61.65-170.11c.55-1.5-.55-3.1-2.11-3.1h-25.31c-1.88,0-3.62,1.19-4.22,2.95l-56.21,155.01-5.87,16.17,26.21,15.22,19.12,11.11c3.18,1.85,6.74,2.81,10.3,2.81s7.12-.95,10.3-2.81l99.95-58.06c6.39-3.7,10.3-10.53,10.3-17.97v-116.07c0-7.38-3.96-14.29-10.3-17.97h-.06Z"/>
+      <g fill="currentColor">
+        <path d="M470.1,222.22c2.52,0,4.7.51,6.44,1.57,1.74,1.06,3.47,3.08,5.15,6.1l33.25,60.34c.34.67.39,1.23.23,1.68-.17.45-.67.67-1.45.67h-12.76c-1.12,0-1.9-.45-2.3-1.29l-7.11-12.93h-47.19l-6.94,12.93c-.45.9-1.23,1.29-2.3,1.29h-13.04c-.89,0-1.4-.23-1.57-.67-.17-.45-.11-1.01.23-1.68l32.97-60.34c1.68-3.02,3.3-5.04,4.93-6.1,1.62-1.06,3.47-1.57,5.6-1.57h5.88ZM450.56,266.61h34.59l-15.95-29.44c-.28-.45-.62-.73-1.12-.73h-.62c-.45,0-.84.23-1.12.73l-15.79,29.44Z"/>
+        <path d="M587.99,222.22c7.72,0,13.21,1.74,16.57,5.21,3.36,3.47,5.04,8.62,5.04,15.45v5.71c0,5.76-1.17,10.3-3.53,13.66-2.35,3.36-6.16,5.49-11.48,6.44l17.19,21.27c.34.34.45.84.28,1.51-.11.68-.67,1-1.62,1h-12.93c-.89,0-1.45-.11-1.79-.28-.34-.23-.67-.56-1.01-1.01l-15.9-20.88h-32.46v19.99c0,1.45-.73,2.19-2.18,2.19h-10.86c-1.57,0-2.3-.73-2.3-2.19v-65.05c0-2.02,1.01-3.02,3.02-3.02h53.96ZM546.4,258.1h38.46c3.42,0,5.82-.73,7.22-2.18,1.4-1.45,2.13-3.7,2.13-6.72v-4.2c0-3.02-.73-5.26-2.13-6.72-1.4-1.45-3.81-2.19-7.22-2.19h-37.17c-.89,0-1.29.39-1.29,1.23v20.77Z"/>
+        <path d="M693.62,222.22c6.89,0,11.81,1.4,14.72,4.14,2.91,2.74,4.36,6.89,4.36,12.42v4.81c0,5.6-2.13,9.85-6.44,12.76,4.59,2.68,6.94,7,6.94,12.93v5.82c0,2.68-.28,5.09-.9,7.22-.62,2.13-1.57,3.97-2.96,5.49-1.4,1.51-3.19,2.68-5.49,3.47-2.3.79-5.09,1.23-8.45,1.23h-59.68c-2.02,0-3.02-1-3.02-3.02v-64.26c0-2.02,1.01-3.02,3.02-3.02h57.89ZM648.11,251.44h41.2c3.36,0,5.6-.51,6.83-1.51,1.23-1.01,1.79-2.46,1.79-4.42v-3.42c0-2.07-.56-3.58-1.74-4.59-1.17-.95-3.08-1.45-5.66-1.45h-41.09c-.9,0-1.29.45-1.29,1.29v14.1ZM648.11,262.42v14.95c0,.89.45,1.29,1.29,1.29h41.2c2.68,0,4.59-.51,5.71-1.45,1.12-.95,1.74-2.52,1.74-4.64v-3.81c0-2.07-.62-3.64-1.85-4.7-1.23-1.06-3.53-1.62-6.89-1.62h-41.2Z"/>
+        <path d="M750.67,222.22c1.45,0,2.18.73,2.18,2.18v65.89c0,1.45-.73,2.18-2.18,2.18h-10.86c-1.57,0-2.3-.73-2.3-2.18v-65.83c0-1.45.78-2.19,2.3-2.19l10.86-.06Z"/>
+        <path d="M855.91,222.22c1.57,0,2.3.73,2.3,2.18v9.85c0,1.57-.78,2.3-2.3,2.3h-31.52v53.74c0,1.45-.73,2.18-2.19,2.18h-10.97c-1.45,0-2.18-.73-2.18-2.18v-53.74h-31.52c-1.57,0-2.3-.78-2.3-2.3v-9.85c0-1.45.78-2.18,2.3-2.18h78.38Z"/>
+        <path d="M935.34,222.22c7.72,0,13.21,1.74,16.57,5.21,3.36,3.47,5.04,8.62,5.04,15.45v5.71c0,5.76-1.17,10.3-3.53,13.66-2.35,3.36-6.16,5.49-11.48,6.44l17.19,21.27c.34.34.45.84.28,1.51-.11.68-.67,1-1.62,1h-12.93c-.9,0-1.45-.11-1.79-.28-.34-.23-.67-.56-1-1.01l-15.9-20.88h-32.47v19.99c0,1.45-.73,2.19-2.18,2.19h-10.86c-1.57,0-2.3-.73-2.3-2.19v-65.05c0-2.02,1.01-3.02,3.02-3.02h53.96ZM893.8,258.1h38.46c3.42,0,5.82-.73,7.22-2.18,1.4-1.45,2.13-3.7,2.13-6.72v-4.2c0-3.02-.73-5.26-2.13-6.72-1.4-1.45-3.81-2.19-7.22-2.19h-37.17c-.89,0-1.29.39-1.29,1.23v20.77Z"/>
+        <path d="M991.82,222.22c1.45,0,2.19.73,2.19,2.18v40.08c0,2.68.23,4.93.67,6.66.45,1.79,1.17,3.19,2.19,4.2,1.01,1.06,2.35,1.79,4.08,2.19,1.74.45,3.87.67,6.49.67h27.82c2.63,0,4.76-.23,6.49-.67,1.74-.45,3.08-1.17,4.09-2.19,1-1.06,1.74-2.46,2.13-4.2.39-1.79.62-3.97.62-6.66v-40.08c0-1.45.73-2.18,2.19-2.18h10.97c1.45,0,2.18.73,2.18,2.18v41.59c0,4.81-.51,8.9-1.51,12.32-1.01,3.36-2.63,6.1-4.87,8.23-2.24,2.13-5.15,3.64-8.74,4.59-3.58.95-7.89,1.4-12.99,1.4h-28.94c-5.09,0-9.4-.45-12.93-1.4-3.53-.95-6.44-2.46-8.68-4.59s-3.86-4.87-4.93-8.23c-1.06-3.36-1.57-7.5-1.57-12.32v-41.59c0-1.45.78-2.18,2.3-2.18h10.75Z"/>
+        <path d="M1107.09,222.22c1.45,0,2.74.11,3.81.28,1.06.23,2.02.56,2.8,1.17.79.56,1.51,1.34,2.18,2.3.62.95,1.29,2.24,1.96,3.86l20.88,48.2c.28.62.73.89,1.41.89h1.23c.67,0,1.12-.28,1.4-.89l20.88-48.2c.67-1.62,1.34-2.91,1.96-3.86.62-.95,1.34-1.74,2.18-2.3.79-.56,1.74-.95,2.75-1.17,1.06-.23,2.29-.28,3.75-.28h10.74c3.47,0,5.83.78,7.06,2.35,1.23,1.57,1.79,4.25,1.79,8.06v57.66c0,1.45-.79,2.18-2.3,2.18h-10.24c-1.46,0-2.19-.73-2.19-2.18v-52.45c0-.68-.28-1.01-.78-1.01h-.9c-.67,0-1.12.28-1.29.78l-20.27,45.01c-.78,1.79-1.62,3.36-2.46,4.59-.84,1.23-1.74,2.24-2.69,3.08-.95.79-2.06,1.4-3.3,1.74-1.23.34-2.68.51-4.36.51h-4.81c-1.68,0-3.14-.17-4.37-.51-1.23-.34-2.35-.9-3.3-1.74-.95-.78-1.9-1.85-2.68-3.08-.84-1.23-1.68-2.74-2.47-4.59l-20.26-45.01c-.23-.56-.62-.78-1.29-.78h-.9c-.56,0-.78.34-.78,1.01v52.45c0,1.45-.73,2.18-2.19,2.18h-10.25c-1.57,0-2.3-.73-2.3-2.18v-57.66c0-3.81.62-6.49,1.79-8.06,1.23-1.57,3.58-2.35,7.11-2.35h10.69Z"/>
+      </g>
+    </svg>
+  );
+};
 
 // ─── Lisk ─────────────────────────────────────────────────────────────────────
-// Source: lisk-lsk-logo.svg (official download)
-// Color: #04183D  (confirmed from SVG fill attribute)
-// Shape: Exact official path — two interlocking angular shards forming
-//        the Lisk diamond mark. viewBox normalized to 100×118 to preserve
-//        the original 276:326 aspect ratio.
-// Transparent background — blends on dark & light themes.
-export const LiskNetworkLogo = ({ size = 120, className = "" }: LogoProps) => (
-  <svg
-    width={size}
-    height={Math.round(size * (326 / 276))}
-    viewBox="0 0 276 326"
-    xmlns="http://www.w3.org/2000/svg"
-    className={className}
-    aria-label="Lisk network logo"
-  >
-    <path
-      d="M138.16,0L108.88,48.7,214.58,229.84,128.83,326s67.4-.4,67,0S276,235.43,276,235.43ZM99.71,66.66L0,236.23,78.57,326h29.55l43.2-50.28h-48L61,228.65l67.8-115.31Z"
-      fill="#04183D"
-    />
-  </svg>
-);
+// Source: lisk-lsk-logo.svg (official download) + "Lisk" wordmark text
+// Symbol path: exact verbatim from official file
+// Color: currentColor — dark on light theme, white on dark theme
+// ViewBox: 0 0 800 326 — wide enough to contain symbol (276px) + "Lisk" text
+// Aspect ratio: 800/326 ≈ 2.45:1
+// Previous bug: viewBox was only 520 wide, text at fontSize=200 overflowed → "Lis" cutoff
+export const LiskNetworkLogo = ({ height = 60, className = "" }: LogoProps) => {
+  const width = Math.round(height * (800 / 326));
+  return (
+    <svg width={width} height={height} viewBox="0 0 800 326"
+      xmlns="http://www.w3.org/2000/svg" className={className} aria-label="Lisk network logo">
+      {/* Official Lisk diamond mark — exact path from lisk-lsk-logo.svg */}
+      <path fill="currentColor"
+        d="M138.16,0L108.88,48.7,214.58,229.84,128.83,326s67.4-.4,67,0S276,235.43,276,235.43ZM99.71,66.66L0,236.23,78.57,326h29.55l43.2-50.28h-48L61,228.65l67.8-115.31Z"/>
+      {/* "Lisk" wordmark — sized and positioned to fit within viewBox */}
+      <text x="310" y="252" fontFamily="system-ui,-apple-system,sans-serif"
+        fontWeight="700" fontSize="180" fill="currentColor">Lisk</text>
+    </svg>
+  );
+};
 
 // ─── Scroll ───────────────────────────────────────────────────────────────────
-// Source: Scrollscan official brand assets (scrollscan.com downloads)
-// Colors pixel-sampled from logo-symbol.png:
-//   #FFEEDA — cream/parchment body  (dominant, 12197 px)
-//   #EBC28E — golden tan rolled section (2727 px)
-//   #190600 — near-black brown outline & text lines (3866 px)
-// Shape: parchment scroll — rectangular body with rolled bottom-left curl,
-//        dark brown outline, horizontal text lines, golden tan roller.
-export const ScrollNetworkLogo = ({
-  size = 120,
-  className = "",
-}: LogoProps) => (
-  <svg
-    width={size}
-    height={size}
-    viewBox="0 0 100 100"
-    xmlns="http://www.w3.org/2000/svg"
-    className={className}
-    aria-label="Scroll network logo"
-  >
-    {/* Dark brown outline background shape */}
-    <rect x="8" y="6" width="72" height="80" rx="10" fill="#190600" />
-
-    {/* Cream parchment body */}
-    <rect x="12" y="10" width="64" height="72" rx="8" fill="#FFEEDA" />
-
-    {/* Text lines on parchment — dark brown */}
-    <rect x="22" y="24" width="44" height="5" rx="2.5" fill="#190600" opacity="0.6" />
-    <rect x="22" y="36" width="44" height="5" rx="2.5" fill="#190600" opacity="0.6" />
-    <rect x="22" y="48" width="36" height="5" rx="2.5" fill="#190600" opacity="0.6" />
-
-    {/* Golden tan roller at bottom */}
-    <ellipse cx="30" cy="82" rx="22" ry="12" fill="#EBC28E" />
-    {/* Dark brown outline around roller */}
-    <ellipse cx="30" cy="82" rx="22" ry="12" fill="none" stroke="#190600" strokeWidth="3" />
-
-    {/* Bottom-right extension of parchment over roller */}
-    <rect x="44" y="72" width="36" height="16" rx="6" fill="#FFEEDA" />
-    <rect x="44" y="72" width="36" height="16" rx="6" fill="none" stroke="#190600" strokeWidth="2.5" />
-
-    {/* Scroll curl detail — dark brown small circle */}
-    <circle cx="30" cy="82" r="5" fill="#190600" opacity="0.3" />
-    <circle cx="30" cy="82" r="2.5" fill="#190600" opacity="0.5" />
-  </svg>
-);
+export const ScrollNetworkLogo = ({ height = 60, className = "" }: LogoProps) => {
+  const width = Math.round(height * 3.66);
+  return (
+    <svg width={width} height={height} viewBox="0 0 296.6 81.1"
+      xmlns="http://www.w3.org/2000/svg" className={className} aria-label="Scroll network logo">
+      {/* Wordmark text — currentColor for theme adaptation */}
+      <path fill="currentColor" d="M112.8,22.4c-5.5,0-9.8,3.2-9.8,7.8s3.6,6.1,8.1,7l5.7,0.9c7.5,1.2,12.7,4.7,12.7,12.9c0,8.6-7,13.6-16,13.6c-8.1,0-15.7-4.8-16.8-14.1C96.6,49.7,97.2,49,98,49h3.4c0.6,0,1.2,0.5,1.3,1.1c0.7,6.6,5.8,9.2,10.8,9.2c5.5,0,9.8-2.7,9.8-8.2c0-4.9-3.5-6.6-8.1-7.5l-5.6-1c-7.8-1.3-12.7-5.1-12.7-12.2c0-8.3,7.2-13.4,15.9-13.4c6.9,0,14.6,3.9,16.1,13.2c0.1,0.8-0.5,1.5-1.3,1.5H124c-0.6,0-1.2-0.5-1.3-1.1C121.7,24.7,117.2,22.4,112.8,22.4z"/>
+      <path fill="currentColor" d="M151.9,27.5c8.4,0,14.3,4.5,16.4,11.8c0.2,0.8-0.4,1.7-1.3,1.7h-3.9c-0.6,0-1-0.4-1.2-0.9c-1.5-4.2-4.8-6.5-10-6.5c-7,0-10.9,5.7-10.9,12.6c0,6.8,3.9,12.6,10.9,12.6c5.1,0,8.5-2.4,10-6.5c0.2-0.5,0.7-0.9,1.2-0.9h3.9c0.9,0,1.5,0.8,1.2,1.7c-2.2,7.6-8,11.8-16.4,11.8c-10.8,0-17.6-8.3-17.6-18.6C134.3,35.9,141.2,27.5,151.9,27.5z"/>
+      <path fill="currentColor" d="M174.7,58.7h8.4V35.3h-7.5c-0.7,0-1.3-0.6-1.3-1.3v-3.3c0-0.7,0.6-1.3,1.3-1.3h10.2c2.1,0,3.9,1.8,3.9,3.9v0.9c1.9-4.5,5.9-5.6,12.1-5.6c2.4,0,4,0.4,4.9,0.7c0.5,0.2,0.8,0.7,0.8,1.2V34c0,0.9-0.8,1.5-1.7,1.2c-1.1-0.4-2.7-0.7-4.7-0.7c-6.6,0-11.3,4.5-11.3,12.4v11.8h10.8c0.7,0,1.3,0.6,1.3,1.3v3.3c0,0.7-0.6,1.3-1.3,1.3h-25.9c-0.7,0-1.3-0.6-1.3-1.3V60C173.4,59.3,174,58.7,174.7,58.7z"/>
+      <path fill="currentColor" d="M212.5,46.1c0-10.2,6.8-18.6,17.8-18.6s17.8,8.3,17.8,18.6c0,10.2-6.8,18.6-17.8,18.6C219.2,64.6,212.5,56.3,212.5,46.1z M230.2,58.6c7.1,0,11.1-5.7,11.1-12.6c0-6.8-4.1-12.6-11.1-12.6c-7.1,0-11.1,5.7-11.1,12.6S223.2,58.6,230.2,58.6z"/>
+      <path fill="currentColor" d="M262.7,59h10.2c0.7,0,1.3,0.6,1.3,1.3v3.1c0,0.7-0.6,1.3-1.3,1.3h-15.2c-0.7,0-1.3-0.6-1.3-1.3V23.2h-5.1c-0.7,0-1.3-0.6-1.3-1.3v-3.1c0-0.7,0.6-1.3,1.3-1.3h7.5c2.1,0,3.9,1.8,3.9,3.9V59L262.7,59z"/>
+      <path fill="currentColor" d="M285.2,59h10.2c0.7,0,1.3,0.6,1.3,1.3v3.1c0,0.7-0.6,1.3-1.3,1.3h-15.2c-0.7,0-1.3-0.6-1.3-1.3V23.2h-5.1c-0.7,0-1.3-0.6-1.3-1.3v-3.1c0-0.7,0.6-1.3,1.3-1.3h7.5c2.1,0,3.9,1.8,3.9,3.9V59L285.2,59z"/>
+      {/* Icon: cream body — brand color, stays fixed */}
+      <path fill="#FFEEDA" d="M76.5,55.1V7.2c-0.1-4-3.3-7.2-7.3-7.2H19.4C8.6,0.2,0,9,0,19.8c0,3.6,1,6.8,2.5,9.5c1.3,2.3,3.3,4.4,5.2,6c0.6,0.5,0.3,0.3,2,1.3c2.3,1.4,5,2.1,5,2.1v28.6c0.1,1.4,0.2,2.7,0.6,3.9c1.1,4,3.9,7.1,7.7,8.6c1.6,0.6,3.4,1,5.3,1.1L68,81.1c7.9,0,14.4-6.4,14.4-14.4C82.4,62,80.1,57.7,76.5,55.1z"/>
+      {/* Icon: golden tan roller — brand color, stays fixed */}
+      <path fill="#EBC28E" d="M77.5,67c-0.2,5.1-4.4,9.2-9.5,9.2l-27.4-0.1c2.2-2.5,3.5-5.8,3.5-9.4c0-5.6-3.3-9.5-3.3-9.5h27.3c5.2,0,9.5,4.3,9.5,9.5L77.5,67z"/>
+      {/* Icon: outlines — currentColor for theme */}
+      <path fill="currentColor" d="M10.3,31.3c-3.2-3-5.4-6.9-5.4-11.5v-0.5c0.3-7.8,6.7-14.2,14.5-14.4h49.9c1.3,0.1,2.3,1,2.3,2.3v42.3c1.1,0.2,1.7,0.4,2.8,0.7c0.9,0.3,2.1,1,2.1,1v-44c-0.1-4-3.3-7.2-7.3-7.2H19.4C8.6,0.2,0,9,0,19.8c0,6.3,2.9,11.7,7.5,15.4c0.3,0.3,0.6,0.6,1.5,0.6c1.5,0,2.5-1.2,2.4-2.4C11.4,32.3,11,31.9,10.3,31.3z"/>
+      <path fill="currentColor" d="M68,52.3H28.9c-2.6,0-4.7,2.1-4.7,4.8v5.6c0.1,2.6,2.3,4.8,4.9,4.8H32v-4.8h-2.9v-5.5c0,0,0.7,0,1.6,0c4.9,0,8.6,4.6,8.6,9.5c0,4.4-4,9.9-10.6,9.5c-5.9-0.4-9.1-5.6-9.1-9.5V19c0-2.1-1.8-3.9-3.9-3.9h-3.9V20h2.9v46.8c-0.2,9.5,6.8,14.3,14,14.3l39.4,0.1c7.9,0,14.4-6.4,14.4-14.4C82.4,58.8,76,52.3,68,52.3z M77.5,67c-0.2,5.1-4.4,9.2-9.5,9.2l-27.4-0.1c2.2-2.5,3.5-5.8,3.5-9.4c0-5.6-3.3-9.5-3.3-9.5h27.3c5.2,0,9.5,4.3,9.5,9.5L77.5,67z"/>
+      <path fill="currentColor" d="M57.5,20.8H28V16h29.5c1.3,0,2.4,1.1,2.4,2.4C59.9,19.7,58.9,20.8,57.5,20.8z"/>
+      <path fill="currentColor" d="M57.5,43.8H28v-4.9h29.5c1.3,0,2.4,1.1,2.4,2.4C59.9,42.7,58.9,43.8,57.5,43.8z"/>
+      <path fill="currentColor" d="M62.7,32.3H28v-4.9h34.7c1.3,0,2.4,1.1,2.4,2.4C65.1,31.2,64,32.3,62.7,32.3z"/>
+    </svg>
+  );
+};
 
 // ─── Lookup map ───────────────────────────────────────────────────────────────
 export const NETWORK_LOGO_COMPONENTS: Record<string, React.FC<LogoProps>> = {

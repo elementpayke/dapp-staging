@@ -181,8 +181,8 @@ const QuickActions: FC = () => {
           Renders the actual colored SVG logo instead of the old gray PNG.
           opacity-80 keeps it tasteful; pointer-events-none prevents interference. */}
       {NetworkLogoComponent && (
-        <div className="hidden md:flex flex-col items-end absolute bottom-5 right-5 z-0 opacity-80 pointer-events-none select-none">
-          <NetworkLogoComponent size={120} />
+        <div className="hidden md:flex flex-col items-end absolute bottom-5 right-5 z-0 opacity-70 pointer-events-none select-none text-[var(--ep-heading)]">
+          <NetworkLogoComponent height={52} />
           <span className="text-[9px] font-bold uppercase tracking-[0.2em] text-[var(--ep-muted)] mt-1 mr-1">
             Proud Partners
           </span>
