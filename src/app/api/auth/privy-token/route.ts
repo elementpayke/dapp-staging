@@ -4,7 +4,7 @@
  *
  * Flow:
  *  1. Read the HS256 access token from the HTTP-only cookie.
- *  2. Call POST /api/v1/auth/privy/token with Bearer auth.
+ *  2. Call POST /auth/privy/token with Bearer auth.
  *  3. Return the RS256 JWT that Privy can verify via JWKS.
  *
  * The backend responds with: { token: string, token_type: "bearer" }
@@ -25,7 +25,7 @@ export async function POST() {
   }
 
   try {
-    const res = await fetchBackend("/api/v1/auth/privy/token", {
+    const res = await fetchBackend("/auth/privy/token", {
       method: "POST",
       headers: {
         Authorization: `Bearer ${accessToken}`,
@@ -43,6 +43,37 @@ export async function POST() {
     }
 
     const data = await res.json();
+
+    // ── Diagnostic logging ────────────────────────────────────────────
+    if (data.token) {
+      try {
+        const parts = data.token.split(".");
+        const header = JSON.parse(Buffer.from(parts[0], "base64url").toString());
+        const payload = JSON.parse(Buffer.from(parts[1], "base64url").toString());
+        console.log("[privy-token] Token diagnostics:", {
+          alg: header.alg,
+          typ: header.typ,
+          kid: header.kid,
+          iss: payload.iss,
+          sub: payload.sub,
+          aud: payload.aud,
+          exp: payload.exp,
+          iat: payload.iat,
+          tokenLength: data.token.length,
+          isRS256: header.alg === "RS256",
+        });
+        if (header.alg !== "RS256") {
+          console.error(
+            `[privy-token] ⚠️ Backend returned ${header.alg} token instead of RS256! ` +
+            `Privy will reject this.`
+          );
+        }
+      } catch {
+        console.warn("[privy-token] Could not decode token for diagnostics");
+      }
+    } else {
+      console.warn("[privy-token] Backend response has no token field. Keys:", Object.keys(data));
+    }
 
     return NextResponse.json({ token: data.token });
   } catch (error) {

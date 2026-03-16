@@ -1,53 +1,103 @@
 "use client";
 
-import React, { useCallback, useState } from "react";
-import { Wallet, Sparkles, ExternalLink, Loader2, Shield } from "lucide-react";
+import React, { useCallback, useState, useEffect, useRef } from "react";
+import { Wallet, Sparkles, ExternalLink, Loader2, Shield, AlertTriangle } from "lucide-react";
 import { motion } from "framer-motion";
-import { usePrivy, useWallets } from "@privy-io/react-auth";
+import { usePrivy } from "@privy-io/react-auth";
 import { useAuthModalStore } from "@/stores/authModalStore";
+import { useAuthStore } from "@/stores/authStore";
+
+/** How long to wait for Privy to authenticate before showing an error. */
+const AUTH_TIMEOUT_MS = 15_000;
 
 /**
  * Wallet choice step — shown after OTP verification.
  * Offers two options:
- *   1. Create an embedded wallet (recommended) — no extension needed
+ *   1. Create an embedded wallet (recommended) — requires Privy JWT auth
  *   2. Connect an external wallet (MetaMask, WalletConnect, etc.)
  *
- * After selecting external and connecting, the PrivyWalletListener
- * picks up the wallet address and handles backend registration.
+ * After selecting external, the user moves to the wallet step.
+ * After selecting embedded, createWallet is called directly.
  */
 const WalletChoiceStep = () => {
-  const { createWallet, connectWallet } = usePrivy();
-  const { wallets } = useWallets();
+  const { createWallet, authenticated, ready } = usePrivy();
   const setStep = useAuthModalStore((s) => s.setStep);
   const setWalletConnecting = useAuthModalStore((s) => s.setWalletConnecting);
-  const hideModal = useAuthModalStore((s) => s.hideModal);
   const setModalError = useAuthModalStore((s) => s.setErrorMessage);
+  const setWalletPreference = useAuthStore((s) => s.setWalletPreference);
 
   const [creating, setCreating] = useState(false);
+  const [timedOut, setTimedOut] = useState(false);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Privy must finish JWT authentication before embedded wallet creation
+  const privyReady = ready && authenticated;
+  const isWaiting = ready && !authenticated && !timedOut;
+
+  // Start a timeout when the component mounts. If Privy doesn't authenticate
+  // within AUTH_TIMEOUT_MS, show an error state instead of spinning forever.
+  useEffect(() => {
+    if (privyReady || timedOut) return;
+    timerRef.current = setTimeout(() => setTimedOut(true), AUTH_TIMEOUT_MS);
+    return () => {
+      if (timerRef.current) clearTimeout(timerRef.current);
+    };
+  }, [privyReady, timedOut]);
+
+  // Clear timeout and recover from timedOut state when Privy authenticates
+  useEffect(() => {
+    if (privyReady) {
+      if (timerRef.current) {
+        clearTimeout(timerRef.current);
+        timerRef.current = null;
+      }
+      // Recover: if timeout already fired but Privy eventually authenticated,
+      // flip back so the button becomes usable.
+      if (timedOut) setTimedOut(false);
+    }
+  }, [privyReady, timedOut]);
 
   const handleCreateEmbedded = useCallback(async () => {
+    if (!privyReady) {
+      if (timedOut) {
+        setModalError("Wallet service failed to connect. Please try again later or use an external wallet.");
+      } else {
+        setModalError("Wallet service is still connecting. Please wait a moment.");
+      }
+      return;
+    }
     setCreating(true);
     setModalError(null);
+    setWalletPreference("embedded");
     try {
       await createWallet();
-      // Embedded wallet created. Now trigger wallet registration flow.
       setWalletConnecting(true);
     } catch (err: any) {
       console.error("[WalletChoiceStep] Failed to create embedded wallet:", err);
       setModalError(err?.message ?? "Failed to create wallet. Please try again.");
       setCreating(false);
     }
-  }, [createWallet, setWalletConnecting, setModalError]);
+  }, [privyReady, timedOut, createWallet, setWalletConnecting, setModalError, setWalletPreference]);
 
   const handleConnectExternal = useCallback(() => {
     setModalError(null);
-    setWalletConnecting(true);
-    // Hide our modal so Privy's connect modal can take over
-    hideModal();
-    setTimeout(() => {
-      connectWallet();
-    }, 150);
-  }, [connectWallet, setWalletConnecting, hideModal, setModalError]);
+    setWalletPreference("external");
+    setStep("wallet");
+  }, [setStep, setModalError, setWalletPreference]);
+
+  // Derive the embedded button label and sublabel
+  let embeddedLabel = "Create a wallet for me";
+  let embeddedSublabel = "No app needed. We handle fees and approvals automatically.";
+  if (creating) {
+    embeddedLabel = "Creating wallet...";
+    embeddedSublabel = "Please wait while we set up your wallet";
+  } else if (isWaiting) {
+    embeddedLabel = "Connecting...";
+    embeddedSublabel = "Setting up secure wallet service";
+  } else if (timedOut && !privyReady) {
+    embeddedLabel = "Service unavailable";
+    embeddedSublabel = "Wallet service failed to connect — try again later";
+  }
 
   return (
     <motion.div
@@ -74,7 +124,7 @@ const WalletChoiceStep = () => {
         <button
           type="button"
           onClick={handleCreateEmbedded}
-          disabled={creating}
+          disabled={creating || isWaiting}
           className="
             relative w-full text-left rounded-xl p-4
             border-2 border-[var(--landing-accent)]/30
@@ -94,24 +144,26 @@ const WalletChoiceStep = () => {
 
           <div className="flex items-start gap-3 mt-1">
             <div className="w-10 h-10 rounded-lg bg-[var(--landing-accent)]/10 flex items-center justify-center shrink-0">
-              {creating ? (
+              {creating || isWaiting ? (
                 <Loader2 className="w-5 h-5 text-[var(--landing-accent)] animate-spin" />
+              ) : timedOut && !privyReady ? (
+                <AlertTriangle className="w-5 h-5 text-amber-500" />
               ) : (
                 <Sparkles className="w-5 h-5 text-[var(--landing-accent)]" />
               )}
             </div>
             <div>
               <p className="text-sm font-semibold text-[var(--landing-heading)]">
-                Create a wallet for me
+                {embeddedLabel}
               </p>
               <p className="text-xs text-[var(--landing-muted)] mt-0.5">
-                No app needed. We handle fees and approvals automatically.
+                {embeddedSublabel}
               </p>
             </div>
           </div>
         </button>
 
-        {/* Option 2: External wallet */}
+        {/* Option 2: External wallet — always available */}
         <button
           type="button"
           onClick={handleConnectExternal}

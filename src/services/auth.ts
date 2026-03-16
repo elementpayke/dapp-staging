@@ -83,6 +83,7 @@ export interface OTPRequestResponse {
 
 export interface OTPVerifyResponse {
   user: AuthUser;
+  privy_token?: string;
 }
 
 export interface KYCInitiateResponse {
@@ -204,6 +205,9 @@ export async function verifyOTP(
     console.error("[auth] verifyOTP — no user in response! Full payload:", JSON.stringify(raw));
     throw new Error("No user data received from server");
   }
+
+  // privy_token may live at root or nested in data
+  data.privy_token = raw.privy_token ?? raw.data?.privy_token ?? undefined;
 
   return data;
 }

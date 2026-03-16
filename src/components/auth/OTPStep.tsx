@@ -128,8 +128,13 @@ const OTPStep = () => {
       };
 
       setAuth(user);
-      // OTP verified — Privy auth sync happens automatically via
-      // PrivyAuthSync when isOtpVerified flips to true.
+
+      // Store pre-fetched Privy RS256 token so PrivyAuthSync can use it
+      // without making a second HTTP call.
+      if (res.privy_token) {
+        useAuthStore.getState().setPrivyToken(res.privy_token);
+      }
+
       // Move to wallet choice step (embedded vs external)
       console.log("[OTPStep] Moving to wallet choice step");
       setStep("wallet-choice");

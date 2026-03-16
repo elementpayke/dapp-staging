@@ -41,9 +41,24 @@ export const useAuthModalStore = create<AuthModalStore>((set) => ({
   errorMessage: null,
 
   openAuthModal: () => {
+    const { isOtpVerified, isWalletRegistered, pendingEmail } = useAuthStore.getState();
+
+    // Already fully registered — nothing to do
+    if (isWalletRegistered) return;
+
+    // OTP already verified — resume at wallet-choice
+    if (isOtpVerified) {
+      set({
+        isOpen: true,
+        step: "wallet-choice",
+        walletConnecting: false,
+        errorMessage: null,
+      });
+      return;
+    }
+
     // If the user has a live (unexpired) OTP session, resume at the OTP
     // entry step instead of forcing them to re-enter their email.
-    const { pendingEmail } = useAuthStore.getState();
     const resumeAtOtp = pendingEmail && hasLiveOtp(pendingEmail);
     set({
       isOpen: true,
