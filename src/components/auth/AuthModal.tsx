@@ -7,17 +7,19 @@ import { useAuthModalStore } from "@/stores/authModalStore";
 import { useAuthStore } from "@/stores/authStore";
 import EmailStep from "./EmailStep";
 import OTPStep from "./OTPStep";
+import WalletChoiceStep from "./WalletChoiceStep";
 import WalletStep from "./WalletStep";
 import WalletLinkingStep from "./WalletLinkingStep";
 
 const STEP_LABELS: Record<string, string> = {
   email: "Email",
   otp: "Verify",
+  "wallet-choice": "Wallet Type",
   wallet: "Wallet",
   "wallet-linking": "Linking",
 } as const;
 
-const STEPS = ["email", "otp", "wallet", "wallet-linking"] as const;
+const STEPS = ["email", "otp", "wallet-choice", "wallet", "wallet-linking"] as const;
 
 const AuthModal = () => {
   const isOpen = useAuthModalStore((s) => s.isOpen);
@@ -132,6 +134,7 @@ const AuthModal = () => {
           <AnimatePresence mode="wait">
             {step === "email" && <EmailStep key="email" />}
             {step === "otp" && <OTPStep key="otp" />}
+            {step === "wallet-choice" && <WalletChoiceStep key="wallet-choice" />}
             {step === "wallet" && <WalletStep key="wallet" />}
             {step === "wallet-linking" && <WalletLinkingStep key="wallet-linking" />}
           </AnimatePresence>

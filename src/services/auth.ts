@@ -334,3 +334,22 @@ export async function checkKYCStatus(
   console.log("[auth] checkKYCStatus response:", data);
   return data;
 }
+
+// ─── Privy token bridge ──────────────────────────────────────────────────────
+
+/**
+ * Fetch the user's access token from the HTTP-only cookie via our API route.
+ * Used to pass the token to Privy's `loginWithCustomAccessToken`.
+ */
+export async function getPrivyToken(): Promise<{ token: string }> {
+  const res = await fetch("/api/auth/privy-token", {
+    method: "POST",
+    headers,
+  });
+
+  if (!res.ok) {
+    throw new Error("No active session — cannot fetch Privy token");
+  }
+
+  return res.json();
+}

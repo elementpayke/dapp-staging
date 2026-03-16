@@ -44,8 +44,8 @@ const WalletLinkingStep = () => {
       localStorage.removeItem("wallet-storage");
     }
 
-    // Return to wallet step
-    m.setStep("wallet");
+    // Return to wallet-choice step so user can retry
+    m.setStep("wallet-choice");
     setCancelling(false);
   }, [privyLogout, wagmiDisconnect, storeDisconnect]);
 

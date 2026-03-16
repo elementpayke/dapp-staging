@@ -10,7 +10,7 @@ import type { AuthUser } from "@/services/auth";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
-export type AuthStep = "email" | "otp" | "wallet" | "wallet-linking";
+export type AuthStep = "email" | "otp" | "wallet-choice" | "wallet" | "wallet-linking";
 
 interface AuthState {
   /** Authenticated user profile */

@@ -2,7 +2,7 @@
 
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef, ReactNode } from "react";
 import { useChainId, useSwitchChain, useAccount } from "wagmi";
-import { readContract } from "@wagmi/core";
+import { readContract, type Config } from "@wagmi/core";
 import { erc20Abi } from "viem";
 import { SUPPORTED_TOKENS, SupportedToken } from "@/constants/supportedTokens";
 import { wagmiConfig } from "@/lib/wagmi-config";
@@ -70,7 +70,7 @@ export const TokenProvider: React.FC<TokenProviderProps> = ({ children }) => {
           const chainId = CHAIN_NAME_TO_ID[token.chain];
           if (!chainId) return { token, balance: 0n };
           try {
-            const bal = await readContract(wagmiConfig, {
+            const bal = await readContract(wagmiConfig as Config, {
               address: token.tokenAddress as `0x${string}`,
               abi: erc20Abi,
               functionName: "balanceOf",
