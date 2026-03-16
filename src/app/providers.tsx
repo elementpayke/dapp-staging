@@ -9,9 +9,11 @@ import { useWalletStore } from "@/lib/useWallet";
 import LogoImage from "@/assets/logo.png";
 import { useEffect } from "react";
 import { PrivyProvider } from "@privy-io/react-auth";
+import { SmartWalletsProvider } from "@privy-io/react-auth/smart-wallets";
 import { WagmiProvider } from "@privy-io/wagmi";
 import { TokenProvider } from "@/context/TokenContext";
 import PrivyWalletListener from "@/components/auth/PrivyWalletListener";
+import PrivyAuthSync from "@/components/auth/PrivyAuthSync";
 import AuthModal from "@/components/auth/AuthModal";
 import { useSessionGuard } from "@/hooks/useSessionGuard";
 
@@ -141,7 +143,7 @@ export function Providers(props: { children: ReactNode }) {
         supportedChains: [base, arbitrum, lisk, scroll],
         embeddedWallets: {
           ethereum: {
-            createOnLogin: "users-without-wallets",
+            createOnLogin: "off",
           },
         },
         // Enhanced WalletConnect configuration for mobile
@@ -158,6 +160,7 @@ export function Providers(props: { children: ReactNode }) {
     >
       <QueryClientProvider client={queryClient}>
         <WagmiProvider config={wagmiConfig}>
+          <SmartWalletsProvider>
           <StoreHydration />
           <SessionGuard />
           <OnchainKitProvider
@@ -178,11 +181,13 @@ export function Providers(props: { children: ReactNode }) {
             }}
           >
             <TokenProvider>
+              <PrivyAuthSync />
               <PrivyWalletListener />
               <AuthModal />
               {props.children}
             </TokenProvider>
           </OnchainKitProvider>
+          </SmartWalletsProvider>
         </WagmiProvider>
       </QueryClientProvider>
     </PrivyProvider>

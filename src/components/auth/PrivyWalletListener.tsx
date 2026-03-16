@@ -19,8 +19,13 @@ import { toast } from "sonner";
  * the wallet once all 4 conditions are met:
  *   1. walletConnecting — user clicked "Connect Wallet" in the auth modal
  *   2. isOtpVerified  — OTP verified, user has a valid session
- *   3. authenticated   — Privy says user is logged in
- *   4. walletAddress   — Privy has a wallet address
+ *   3. authenticated   — Privy says user is logged in (now happens after custom JWT)
+ *   4. walletAddress   — Privy has a wallet address (embedded or external)
+ *
+ * After the custom-JWT login in OTPStep, Privy `authenticated` becomes true
+ * immediately. The wallet address appears after the user picks embedded (create)
+ * or external (connect) on the wallet-choice step. At that point this listener
+ * fires and calls the backend to link the wallet.
  *
  * Also detects when the user dismisses the Privy modal without connecting,
  * and re-opens our auth modal at the wallet step so they can retry.
@@ -83,9 +88,9 @@ export default function PrivyWalletListener() {
       if (!mountedRef.current) return;
       const modal = useAuthModalStore.getState();
       if (!modal.isOpen) {
-        console.log("[WALLET-LINK] Privy dismissed after auth — resuming at wallet step");
+        console.log("[WALLET-LINK] Privy dismissed after auth — resuming at wallet-choice step");
         modal.setWalletConnecting(false);
-        modal.setStep("wallet");
+        modal.setStep("wallet-choice");
         modal.resumeAuthModal();
       }
     }, 600);
@@ -205,8 +210,8 @@ export default function PrivyWalletListener() {
         }
 
         // Keep the user's OTP session intact — only send them back to the
-        // wallet step so they can immediately try a different wallet.
-        m.setStep("wallet");
+        // wallet-choice step so they can immediately try a different wallet.
+        m.setStep("wallet-choice");
         m.setErrorMessage(errorMsg);
         m.resumeAuthModal();
       });

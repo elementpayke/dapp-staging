@@ -162,21 +162,15 @@ const PreviewForm = ({ className = "" }: PreviewFormProps) => {
   } = useOnboardingStore();
 
   const openAuthModal = useAuthModalStore((s) => s.openAuthModal);
-  const resumeAuthModal = useAuthModalStore((s) => s.resumeAuthModal);
-  const setStep = useAuthModalStore((s) => s.setStep);
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
-  const isOtpVerified = useAuthStore((s) => s.isOtpVerified);
-  const isWalletRegistered = useAuthStore((s) => s.isWalletRegistered);
   const router = useRouter();
 
   const handleCtaClick = () => {
     setInitiatedFromLanding(true);
     if (isAuthenticated) {
       router.push("/dashboard");
-    } else if (isOtpVerified && !isWalletRegistered) {
-      setStep("wallet");
-      resumeAuthModal();
     } else {
+      // openAuthModal handles resume logic: OTP verified → wallet-choice
       openAuthModal();
     }
   };

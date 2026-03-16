@@ -10,7 +10,9 @@ import type { AuthUser } from "@/services/auth";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
-export type AuthStep = "email" | "otp" | "wallet" | "wallet-linking";
+export type AuthStep = "email" | "otp" | "wallet-choice" | "wallet" | "wallet-linking";
+
+export type WalletPreference = "embedded" | "external" | null;
 
 interface AuthState {
   /** Authenticated user profile */
@@ -29,6 +31,10 @@ interface AuthState {
   otpRequestedAt: number | null;
   /** All wallet addresses linked to this account */
   connectedWallets: string[];
+  /** User's wallet type selection — persists across modal close/reopen */
+  walletPreference: WalletPreference;
+  /** RS256 JWT for Privy auth — ephemeral, NOT persisted */
+  privyToken: string | null;
 }
 
 interface AuthActions {
@@ -52,6 +58,10 @@ interface AuthActions {
   addConnectedWallet: (address: string) => void;
   /** Remove a wallet address from the connected wallets array */
   removeConnectedWallet: (address: string) => void;
+  /** Set user's wallet type preference (embedded vs external) */
+  setWalletPreference: (pref: WalletPreference) => void;
+  /** Store the pre-fetched RS256 Privy token (ephemeral) */
+  setPrivyToken: (token: string | null) => void;
 }
 
 export type AuthStore = AuthState & AuthActions;
@@ -70,6 +80,8 @@ export const useAuthStore = create<AuthStore>()(
       pendingOTP: null,
       otpRequestedAt: null,
       connectedWallets: [],
+      walletPreference: null,
+      privyToken: null,
 
       // ── Actions ────────────────────────────────────────────────────────
 
@@ -101,6 +113,8 @@ export const useAuthStore = create<AuthStore>()(
           pendingOTP: null,
           otpRequestedAt: null,
           connectedWallets: [],
+          walletPreference: null,
+          privyToken: null,
         }),
 
       updateKYCStatus: (status) =>
@@ -127,6 +141,10 @@ export const useAuthStore = create<AuthStore>()(
         set((s) => ({
           connectedWallets: s.connectedWallets.filter((a) => a !== address),
         })),
+
+      setWalletPreference: (pref) => set({ walletPreference: pref }),
+
+      setPrivyToken: (token) => set({ privyToken: token }),
     }),
     {
       name: STORAGE_KEY,
@@ -138,6 +156,7 @@ export const useAuthStore = create<AuthStore>()(
         pendingEmail: s.pendingEmail,
         otpRequestedAt: s.otpRequestedAt,
         connectedWallets: s.connectedWallets,
+        walletPreference: s.walletPreference,
       }),
     },
   ),

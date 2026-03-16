@@ -83,6 +83,7 @@ export interface OTPRequestResponse {
 
 export interface OTPVerifyResponse {
   user: AuthUser;
+  privy_token?: string;
 }
 
 export interface KYCInitiateResponse {
@@ -204,6 +205,9 @@ export async function verifyOTP(
     console.error("[auth] verifyOTP — no user in response! Full payload:", JSON.stringify(raw));
     throw new Error("No user data received from server");
   }
+
+  // privy_token may live at root or nested in data
+  data.privy_token = raw.privy_token ?? raw.data?.privy_token ?? undefined;
 
   return data;
 }
@@ -333,4 +337,23 @@ export async function checkKYCStatus(
   const data = await res.json();
   console.log("[auth] checkKYCStatus response:", data);
   return data;
+}
+
+// ─── Privy token bridge ──────────────────────────────────────────────────────
+
+/**
+ * Fetch the user's access token from the HTTP-only cookie via our API route.
+ * Used to pass the token to Privy's `loginWithCustomAccessToken`.
+ */
+export async function getPrivyToken(): Promise<{ token: string }> {
+  const res = await fetch("/api/auth/privy-token", {
+    method: "POST",
+    headers,
+  });
+
+  if (!res.ok) {
+    throw new Error("No active session — cannot fetch Privy token");
+  }
+
+  return res.json();
 }
