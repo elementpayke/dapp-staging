@@ -49,10 +49,10 @@ const Header = () => {
     isWalletRegistered
   )
 
-  /** Open the auth modal, resuming at the wallet step if OTP is already done */
+  /** Open the auth modal, resuming at the wallet-choice step if OTP is already done */
   const handleAuthClick = useCallback(() => {
     if (isOtpVerified && !isWalletRegistered) {
-      setStep("wallet");
+      setStep("wallet-choice");
       resumeAuthModal();
     } else {
       openAuthModal();

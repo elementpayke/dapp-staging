@@ -3,6 +3,7 @@
 import { useCallback, useRef, useEffect } from "react";
 import { useSubscribeToJwtAuthWithFlag } from "@privy-io/react-auth";
 import { useAuthStore } from "@/stores/authStore";
+import { useAuthSyncStore } from "@/stores/authSyncStore";
 import { getPrivyToken } from "@/services/auth";
 
 /** Stop retrying HTTP fallback after this many consecutive failures */
@@ -59,6 +60,8 @@ export default function PrivyAuthSync() {
   const tokenCacheRef = useRef<string | null>(null);
   const failureCountRef = useRef<number>(0);
   const callCountRef = useRef<number>(0);
+  const authSucceededRef = useRef<boolean>(false);
+  const lastTokenHashRef = useRef<string | null>(null);
 
   // Reset on new login
   useEffect(() => {
@@ -66,6 +69,9 @@ export default function PrivyAuthSync() {
       tokenCacheRef.current = null;
       failureCountRef.current = 0;
       callCountRef.current = 0;
+      authSucceededRef.current = false;
+      lastTokenHashRef.current = null;
+      useAuthSyncStore.getState().reset();
     }
   }, [isOtpVerified]);
 
@@ -143,8 +149,8 @@ export default function PrivyAuthSync() {
   const { state } = useSubscribeToJwtAuthWithFlag({
     isAuthenticated: isOtpVerified,
     getExternalJwt,
-    onAuthenticated: ({ user, isNewUser }) => {
-      console.log("[PrivyAuthSync] ✅ Privy authenticated via custom JWT", {
+    onAuthenticated: ({ user, isNewUser }) => {      authSucceededRef.current = true;
+      useAuthSyncStore.getState().setStatus("authenticated");      console.log("[PrivyAuthSync] ✅ Privy authenticated via custom JWT", {
         userId: user.id,
         isNewUser,
         linkedAccounts: user.linkedAccounts?.length ?? 0,
@@ -159,13 +165,30 @@ export default function PrivyAuthSync() {
         message: error.message,
         name: error.name,
         stack: error.stack?.split("\n").slice(0, 3).join("\n"),
-      });
-    },
+      });      // Invalidate cached token so next retry gets a fresh one
+      tokenCacheRef.current = null;
+      lastTokenHashRef.current = null;
+      useAuthSyncStore.getState().setStatus("failed");    },
   });
 
-  // Log hook state for debugging
+  // Detect silent auth failure: state went to "done" but onAuthenticated never fired
   useEffect(() => {
     console.log("[PrivyAuthSync] Hook state:", state, "| isOtpVerified:", isOtpVerified);
+
+    if (
+      state?.status === "done" &&
+      isOtpVerified &&
+      !authSucceededRef.current
+    ) {
+      console.warn(
+        "[PrivyAuthSync] \u26A0\uFE0F Silent auth failure detected — state is 'done' but " +
+        "onAuthenticated never fired. Token may be invalid or rejected by Privy."
+      );
+      // Invalidate cached token so next getExternalJwt call fetches fresh
+      tokenCacheRef.current = null;
+      lastTokenHashRef.current = null;
+      useAuthSyncStore.getState().setStatus("failed");
+    }
   }, [state, isOtpVerified]);
 
   return null;

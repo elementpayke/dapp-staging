@@ -10,7 +10,7 @@ import type { AuthUser } from "@/services/auth";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
-export type AuthStep = "email" | "otp" | "wallet-choice" | "wallet" | "wallet-linking";
+export type AuthStep = "email" | "otp" | "wallet-choice" | "wallet-linking";
 
 export type WalletPreference = "embedded" | "external" | null;
 
