@@ -78,6 +78,7 @@ const CHAIN_ID_MAP: Record<string, number> = {
   Lisk: 1135,
   Scroll: 534352,
   Arbitrum: 42161,
+  Polygon: 137,
 };
 
 const CONTRACT_ADDRESS_MAP: Record<string, string> = {
@@ -85,6 +86,7 @@ const CONTRACT_ADDRESS_MAP: Record<string, string> = {
   Lisk: process.env.NEXT_PUBLIC_CONTRACT_ADDRESS_LISK!,
   Scroll: process.env.NEXT_PUBLIC_CONTRACT_ADDRESS_SCROLL!,
   Arbitrum: process.env.NEXT_PUBLIC_CONTRACT_ADDRESS_ARBITRUM!,
+  Polygon: process.env.NEXT_PUBLIC_CONTRACT_ADDRESS_POLYGON!,
 };
 
 export const getOfframpContractAddress = (chain: string): string =>

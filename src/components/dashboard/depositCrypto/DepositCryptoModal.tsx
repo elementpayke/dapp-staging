@@ -184,6 +184,8 @@ const DepositCryptoModal: React.FC = () => {
         return 534352;
       case "Arbitrum":
         return 42161;
+      case "Polygon":
+        return 137;
       default:
         return 8453; // Default to Base
     }

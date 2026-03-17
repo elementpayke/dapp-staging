@@ -41,7 +41,7 @@ The key technical challenge was bridging ElementPay's existing HTTP-only cookie 
 │  PrivyProvider                                                  │
 │    └─ QueryClientProvider                                       │
 │         └─ WagmiProvider                                        │
-│              └─ SmartWalletsProvider                             │
+│              └─ SmartWalletsProvider                            │
 │                   ├─ PrivyAuthSync      (JWT bridge)            │
 │                   ├─ PrivyWalletListener (wallet registration)  │
 │                   ├─ AuthModal           (UI flow)              │

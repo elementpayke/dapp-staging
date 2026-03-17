@@ -50,5 +50,15 @@ export const SUPPORTED_TOKENS: SupportedToken[] = [
     tokenAddress: "0xB6093B61544572Ab42A0E43AF08aBaFD41bf25A6", 
     explorerUrl: "https://arbiscan.io",
     supportsPermit: false,
+  },
+  {
+    symbol: "USDC",
+    name: "USD Coin",
+    chain: "Polygon",
+    chainLogo: "/polygon-matic-logo.svg",
+    tokenLogo: "/usd-coin-usdc-logo.png",
+    tokenAddress: "0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359",
+    explorerUrl: "https://polygonscan.com",
+    supportsPermit: true,
   }
 ];
