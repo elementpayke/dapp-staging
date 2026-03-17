@@ -49,7 +49,7 @@ const WalletConnection = ({
   onSignInClick?: () => void;
   showDebugBanner?: boolean;
 }) => {
-  const { login, logout: privyLogout, authenticated, ready, user } = usePrivy();
+  const { login, linkWallet, logout: privyLogout, authenticated, ready, user } = usePrivy();
   const { disconnect: wagmiDisconnect } = useDisconnect();
   const { disconnect: storeDisconnect } = useWalletStore();
 
@@ -200,16 +200,21 @@ const WalletConnection = ({
   };
 
   /** User is app-authenticated but has no wallet yet — prompt to connect one. */
-  const renderConnectWalletButton = () => (
+  const renderConnectWalletButton = () => {
+    // When the user is already authenticated with Privy (via custom JWT),
+    // we must use linkWallet() instead of login(). Privy rejects a second
+    // login() call with "user is already logged in".
+    const connectFn = authenticated ? linkWallet : login;
+    return (
     <button
       className={getButtonClassName()}
       onClick={() => {
-        console.log("[WalletConnection] Connect Wallet clicked — app authenticated, prompting Privy login for wallet.");
+        console.log(`[WalletConnection] Connect Wallet clicked — using ${authenticated ? 'linkWallet' : 'login'} (authenticated=${authenticated})`);
         if (onConnectWalletClick) {
-          onConnectWalletClick(login);
+          onConnectWalletClick(connectFn);
           return;
         }
-        login();
+        connectFn();
       }}
       disabled={!ready}
     >
@@ -222,7 +227,8 @@ const WalletConnection = ({
         </span>
       )}
     </button>
-  );
+    );
+  };
 
   /** User is NOT app-authenticated — they need to sign in first. */
   const renderSignInButton = () => (

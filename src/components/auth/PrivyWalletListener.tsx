@@ -2,7 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { usePrivy } from "@privy-io/react-auth";
+import { usePrivy, useModalStatus } from "@privy-io/react-auth";
 import { useDisconnect } from "wagmi";
 import {
   connectWallet,
@@ -34,6 +34,7 @@ import { toast } from "sonner";
  */
 export default function PrivyWalletListener() {
   const { authenticated, user, logout: privyLogout } = usePrivy();
+  const { isOpen: privyModalOpen } = useModalStatus();
   const { disconnect: wagmiDisconnect } = useDisconnect();
   const { disconnect: storeDisconnect } = useWalletStore();
   const router = useRouter();
@@ -97,6 +98,49 @@ export default function PrivyWalletListener() {
 
     return () => clearTimeout(id);
   }, [walletConnecting, authenticated]);
+
+  // ── Privy linkWallet modal dismiss detection ────────────────────────────
+  // When using linkWallet() (user already authenticated), Privy's modal
+  // opens for wallet selection. If dismissed, `authenticated` stays true
+  // and `walletAddress` stays null — the old dismiss detection won't fire.
+  // Watch privyModalOpen: when it goes from open → closed while we're
+  // still waiting for a wallet, treat it as a dismiss.
+  const privyModalWasOpenRef = useRef(false);
+
+  useEffect(() => {
+    if (!walletConnecting) {
+      privyModalWasOpenRef.current = false;
+      return;
+    }
+
+    if (privyModalOpen) {
+      privyModalWasOpenRef.current = true;
+      return;
+    }
+
+    // Modal just closed (was open → now closed), walletConnecting still true
+    if (!privyModalWasOpenRef.current) return;
+    privyModalWasOpenRef.current = false;
+
+    // If a wallet address appeared, the main effect will handle registration
+    if (user?.wallet?.address) return;
+    // If the API call already fired, don't interfere
+    if (calledRef.current) return;
+
+    const id = setTimeout(() => {
+      if (!mountedRef.current) return;
+      const modal = useAuthModalStore.getState();
+      // Only act if our modal is still hidden (Privy was showing instead)
+      if (!modal.isOpen && modal.walletConnecting) {
+        console.log("[WALLET-LINK] Privy linkWallet modal dismissed — resuming at wallet-choice step");
+        modal.setWalletConnecting(false);
+        modal.setStep("wallet-choice");
+        modal.resumeAuthModal();
+      }
+    }, 400);
+
+    return () => clearTimeout(id);
+  }, [walletConnecting, privyModalOpen, user?.wallet?.address]);
 
   // Main effect: watch all 4 conditions
   useEffect(() => {
