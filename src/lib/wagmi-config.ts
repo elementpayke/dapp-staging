@@ -20,6 +20,15 @@ const arbitrumRpcUrls = [
   "https://arbitrum.blockpi.network/v1/rpc/public",
 ];
 
+// Polygon RPC endpoints (CORS-friendly)
+const polygonRpcUrls = [
+  process.env.NEXT_PUBLIC_POLYGON_RPC_URL ||
+    "https://polygon-bor-rpc.publicnode.com",
+  "https://polygon.drpc.org",
+  "https://polygon.public.blastapi.io",
+  "https://polygon.blockpi.network/v1/rpc/public",
+];
+
 // Create HTTP transport with retry and fallback logic
 const createTransportWithFallback = (urls: string[]) => {
   return http(urls[0], {
