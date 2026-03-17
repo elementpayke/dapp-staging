@@ -28,6 +28,11 @@ export const TOKEN_CONFIG: Record<string, TokenConfig> = {
     address: "0xb6093b61544572ab42a0e43af08abafd41bf25a6",
     decimals: 18,
   },
+  // Polygon USDC (native)
+  "0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359": {
+    address: "0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359",
+    decimals: 6,
+  },
 };
 
 /**

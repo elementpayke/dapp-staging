@@ -3,7 +3,7 @@
 import type { ReactNode } from "react";
 import { OnchainKitProvider } from "@coinbase/onchainkit";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { base, arbitrum } from "wagmi/chains";
+import { base, arbitrum, polygon } from "wagmi/chains";
 import { wagmiConfig, lisk, scroll } from "@/lib/wagmi-config";
 import { useWalletStore } from "@/lib/useWallet";
 import LogoImage from "@/assets/logo.png";
@@ -140,7 +140,7 @@ export function Providers(props: { children: ReactNode }) {
         loginMethods: ["wallet"],
         // Support multiple chains
         defaultChain: base,
-        supportedChains: [base, arbitrum, lisk, scroll],
+        supportedChains: [base, arbitrum, lisk, scroll, polygon],
         embeddedWallets: {
           ethereum: {
             createOnLogin: "off",

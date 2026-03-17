@@ -1,5 +1,5 @@
 import { http } from "wagmi";
-import { base, arbitrum } from "wagmi/chains";
+import { base, arbitrum, polygon } from "wagmi/chains";
 import type { Chain } from "wagmi/chains";
 import { createConfig } from "@privy-io/wagmi";
 
@@ -77,12 +77,13 @@ export const scroll = {
  * with Privy's connection flow and cause the modal to hang.
  */
 export const wagmiConfig = createConfig({
-  chains: [base, lisk, scroll, arbitrum],
+  chains: [base, lisk, scroll, arbitrum, polygon],
   transports: {
     [base.id]: createTransportWithFallback(baseRpcUrls),
     [lisk.id]: http("https://rpc.api.lisk.com"),
     [scroll.id]: http("https://rpc.scroll.io/"),
     [arbitrum.id]: http("https://arb1.arbitrum.io/rpc"),
+    [polygon.id]: http("https://polygon-rpc.com"),
   },
   ssr: true,
 });
