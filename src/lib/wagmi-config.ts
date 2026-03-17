@@ -20,6 +20,15 @@ const arbitrumRpcUrls = [
   "https://arbitrum.blockpi.network/v1/rpc/public",
 ];
 
+// Polygon RPC endpoints (CORS-friendly)
+const polygonRpcUrls = [
+  process.env.NEXT_PUBLIC_POLYGON_RPC_URL ||
+    "https://polygon-bor-rpc.publicnode.com",
+  "https://polygon.drpc.org",
+  "https://polygon.public.blastapi.io",
+  "https://polygon.blockpi.network/v1/rpc/public",
+];
+
 // Create HTTP transport with retry and fallback logic
 const createTransportWithFallback = (urls: string[]) => {
   return http(urls[0], {
@@ -83,7 +92,7 @@ export const wagmiConfig = createConfig({
     [lisk.id]: http("https://rpc.api.lisk.com"),
     [scroll.id]: http("https://rpc.scroll.io/"),
     [arbitrum.id]: http("https://arb1.arbitrum.io/rpc"),
-    [polygon.id]: http("https://polygon-rpc.com"),
+    [polygon.id]: createTransportWithFallback(polygonRpcUrls),
   },
   ssr: true,
 });
