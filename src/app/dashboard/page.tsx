@@ -6,9 +6,7 @@ import TransactionsPage from "@/components/dashboard/pages/TransactionsPage";
 import WhatsAppPage from "@/components/dashboard/pages/WhatsAppPage";
 import EmailPage from "@/components/dashboard/pages/EmailPage";
 import KYCRequiredModal from "@/components/dashboard/KYCRequiredModal";
-import { Bell, ChevronDown, LogOut, Moon, Sun } from "lucide-react";
-import Image from "next/image";
-import avatarPlaceholder from "@/assets/avatar-placeholder.svg";
+import { Bell, ChevronDown, LogOut, Menu, Moon, Sun } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useWallet } from "@/hooks/useWallet";
 import { useAuthStore } from "@/stores/authStore";
@@ -27,14 +25,17 @@ export default function Dashboard() {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const clearAuth = useAuthStore((s) => s.clearAuth);
   const user = useAuthStore((s) => s.user);
-  // user: { firstName, email, status }
+
   const [currentPage, setCurrentPage] = useState<PageComponent>("overview");
   const [showDropdown, setShowDropdown] = useState(false);
+
+  // ── Sidebar open state lifted here so the hamburger can live in the header ──
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+
   const router = useRouter();
   const { theme, toggle: toggleTheme, mounted } = useTheme();
 
-  // Redirect to home when not fully authenticated (OTP + wallet)
-  // This is reactive — if isAuthenticated changes to false, user is bounced
+  // Redirect when not authenticated
   useEffect(() => {
     if (!isAuthenticated) {
       router.push("/");
@@ -49,20 +50,18 @@ export default function Dashboard() {
       try {
         const txData = JSON.parse(pendingTx);
         localStorage.removeItem("elementpay-pending-tx");
-        // Restore transaction data into the onboarding store so the
-        // OverviewPage form is pre-filled when the user lands back.
         useOnboardingStore.getState().setLandingForm(txData);
-        console.log("[Dashboard] Restored pending transaction to onboarding store:", txData);
+        console.log(
+          "[Dashboard] Restored pending transaction to onboarding store:",
+          txData
+        );
       } catch {
         localStorage.removeItem("elementpay-pending-tx");
       }
     }
   }, []);
 
-  // Show nothing while redirecting to avoid flicker
-  if (!isAuthenticated) {
-    return null;
-  }
+  if (!isAuthenticated) return null;
 
   const renderPage = () => {
     switch (currentPage) {
@@ -82,12 +81,12 @@ export default function Dashboard() {
 
   const handleLogout = async () => {
     setShowDropdown(false);
+    setSidebarOpen(false);
     clearAuth();
     localStorage.removeItem("wallet-storage");
     router.push("/");
   };
 
-  // Helper for avatar initial from email
   const getAvatarInitial = (email: string | undefined) => {
     if (!email) return "?";
     return email[0].toUpperCase();
@@ -95,77 +94,123 @@ export default function Dashboard() {
 
   return (
     <div className="flex min-h-screen bg-white">
-      <Sidebar onPageChange={setCurrentPage} currentPage={currentPage} />
+      {/*
+       * Sidebar — isOpen/onClose are now controlled here so the hamburger
+       * button can live inside the header below (proper layout, large tap target).
+       * user + onLogout are forwarded so the sidebar can show a profile row
+       * on mobile without the user needing to close the drawer first.
+       */}
+      <Sidebar
+        onPageChange={setCurrentPage}
+        currentPage={currentPage}
+        isOpen={sidebarOpen}
+        onClose={() => setSidebarOpen(false)}
+        user={user}
+        onLogout={handleLogout}
+      />
 
       {/* Main Content */}
       <div className="flex-1 w-full lg:ml-64">
-        {/* Fixed Header */}
-        <div className="bg-[var(--ep-bg-card)] py-3 px-4 sm:px-8 border-b border-[var(--ep-border)]">
-          <nav className="flex justify-end items-center gap-2 sm:gap-4">
-            <div className="w-8 h-8 lg:hidden"></div>
+        {/* ── Header ─────────────────────────────────────────────── */}
+        <div className="bg-[var(--ep-bg-card)] py-3 px-4 sm:px-6 border-b border-[var(--ep-border)]">
+          <nav className="flex items-center gap-2 sm:gap-3">
+            {/*
+             * Hamburger — mobile only, left-aligned inside the header.
+             * Large tap target (44 × 44 px minimum) so it's easy to hit.
+             */}
+            <button
+              onClick={() => setSidebarOpen(true)}
+              className="lg:hidden flex items-center justify-center w-11 h-11 -ml-1.5 rounded-xl hover:bg-[var(--ep-accent-muted)] transition-colors flex-shrink-0"
+              aria-label="Open navigation menu"
+            >
+              <Menu size={22} className="text-[var(--ep-heading)]" />
+            </button>
 
-            {/* Theme Toggle Button */}
-            <button 
-              className="p-2 hover:bg-[var(--ep-accent-muted)] rounded-full transition-colors flex items-center justify-center"
+            {/* Push everything else to the right */}
+            <div className="flex-1" />
+
+            {/* Theme toggle — desktop only (mobile gets it inside the sidebar) */}
+            <button
+              className="hidden lg:flex items-center justify-center p-2 hover:bg-[var(--ep-accent-muted)] rounded-full transition-colors"
               onClick={toggleTheme}
               aria-label="Toggle theme"
             >
-              {mounted && theme === 'dark' ? (
-                <Sun className="w-5 h-5 text-[var(--ep-muted)] hover:text-[var(--ep-heading)] transition-colors" />
+              {mounted && theme === "dark" ? (
+                <Sun className="w-5 h-5 text-[var(--ep-muted)]" />
               ) : (
-                <Moon className="w-5 h-5 text-[var(--ep-muted)] hover:text-[var(--ep-heading)] transition-colors" />
+                <Moon className="w-5 h-5 text-[var(--ep-muted)]" />
               )}
             </button>
 
-            <button className="p-2 hover:bg-[var(--ep-accent-muted)] rounded-full transition-colors">
-              <Bell className="w-5 h-5 text-[var(--ep-muted)] hover:text-[var(--ep-heading)] transition-colors" />
+            {/* Notifications */}
+            <button className="flex items-center justify-center p-2 hover:bg-[var(--ep-accent-muted)] rounded-full transition-colors">
+              <Bell className="w-5 h-5 text-[var(--ep-muted)]" />
             </button>
 
-            {/* Profile avatar and dropdown */}
-            <div className="flex items-center gap-3 relative">
-              <div className="w-8 h-8 flex items-center justify-center bg-[var(--ep-accent-muted)] rounded-full text-[var(--ep-accent)] font-semibold text-sm">
-                {getAvatarInitial(user?.email)}
-              </div>
-              <div className="relative">
-                <button
-                  className="flex items-center gap-1 hover:bg-[var(--ep-accent-subtle)] px-2 py-1 rounded-lg transition-colors"
-                  onClick={() => setShowDropdown(!showDropdown)}
-                  aria-haspopup="true"
-                  aria-expanded={showDropdown}
-                >
-                  <span
-                    className="font-medium text-sm text-[var(--ep-heading)] truncate max-w-[120px]"
-                    title={user?.email || ""}
-                  >
-                    {user?.email || ""}
-                  </span>
-                  <ChevronDown
-                    className={`w-4 h-4 text-[var(--ep-muted)] transition-transform ${showDropdown ? "rotate-180" : ""}`}
-                  />
-                </button>
+            {/* ── Avatar + dropdown (desktop) ───────────────────── */}
+            <div className="relative">
+              <button
+                className="flex items-center gap-2 hover:bg-[var(--ep-accent-subtle)] px-2 py-1.5 rounded-xl transition-colors"
+                onClick={() => setShowDropdown(!showDropdown)}
+                aria-haspopup="true"
+                aria-expanded={showDropdown}
+              >
+                {/* Avatar initial */}
+                <div className="w-8 h-8 flex items-center justify-center bg-[var(--ep-accent-muted)] rounded-full text-[var(--ep-accent)] font-semibold text-sm flex-shrink-0">
+                  {getAvatarInitial(user?.email)}
+                </div>
 
-                {showDropdown && (
+                {/* Email label — hidden on small screens, shown on sm+ */}
+                <span
+                  className="hidden sm:block font-medium text-sm text-[var(--ep-heading)] truncate max-w-[140px]"
+                  title={user?.email || ""}
+                >
+                  {user?.email || ""}
+                </span>
+
+                <ChevronDown
+                  className={`hidden sm:block w-4 h-4 text-[var(--ep-muted)] transition-transform flex-shrink-0 ${
+                    showDropdown ? "rotate-180" : ""
+                  }`}
+                />
+              </button>
+
+              {/* Dropdown */}
+              {showDropdown && (
+                <>
+                  {/* Click-away backdrop */}
+                  <div
+                    className="fixed inset-0 z-[4]"
+                    onClick={() => setShowDropdown(false)}
+                  />
                   <div className="absolute right-0 mt-2 w-64 bg-[var(--ep-bg-card)] rounded-xl shadow-[var(--ep-card-shadow-hover)] py-2 border border-[var(--ep-border)] z-dropdown">
-                    <div className="px-4 py-2 border-b border-[var(--ep-border)]">
-                      <div className="font-semibold text-sm text-[var(--ep-heading)]">{user?.email || ""}</div>
-                      <div className="text-xs text-[var(--ep-muted)]">Status: Signed In</div>
+                    <div className="px-4 py-2.5 border-b border-[var(--ep-border)]">
+                      <div className="font-semibold text-sm text-[var(--ep-heading)]">
+                        {user?.email || ""}
+                      </div>
+                      <div className="flex items-center gap-1.5 mt-0.5">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                        <span className="text-xs text-[var(--ep-muted)]">
+                          Signed In
+                        </span>
+                      </div>
                     </div>
                     <button
-                      className="w-full text-left px-4 py-2 text-sm text-[var(--ep-body)] hover:bg-[var(--ep-accent-subtle)] transition-colors"
-                      onClick={() => {/* Profile button logic */}}
+                      className="w-full text-left px-4 py-2.5 text-sm text-[var(--ep-body)] hover:bg-[var(--ep-accent-subtle)] transition-colors"
+                      onClick={() => setShowDropdown(false)}
                     >
                       Profile
                     </button>
                     <button
-                      className="w-full text-left px-4 py-2 text-sm text-red-500 hover:bg-red-50 transition-colors"
+                      className="w-full flex items-center gap-2 text-left px-4 py-2.5 text-sm text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
                       onClick={handleLogout}
                     >
-                      <LogOut className="w-4 h-4 inline mr-2" />
+                      <LogOut className="w-4 h-4" />
                       Log Out
                     </button>
                   </div>
-                )}
-              </div>
+                </>
+              )}
             </div>
           </nav>
         </div>
@@ -173,7 +218,7 @@ export default function Dashboard() {
         {renderPage()}
       </div>
 
-      {/* KYC verification modal — triggered when a transaction exceeds limits */}
+      {/* KYC verification modal */}
       <KYCRequiredModal />
     </div>
   );
