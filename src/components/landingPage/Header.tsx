@@ -3,7 +3,16 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Menu, X, LayoutDashboard, LogOut, Wallet, UserCircle, Sun, Moon } from "lucide-react";
+import {
+  Menu,
+  X,
+  LayoutDashboard,
+  LogOut,
+  Wallet,
+  UserCircle,
+  Sun,
+  Moon,
+} from "lucide-react";
 import { usePrivy } from "@privy-io/react-auth";
 import { useDisconnect } from "wagmi";
 import { useLockBodyScroll } from "@/lib/useScroll";
@@ -44,12 +53,13 @@ const Header = () => {
 
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
-  console.log("Auth status:", 
-    isOtpVerified, 
-    isWalletRegistered
-  )
 
-  /** Open the auth modal, resuming at the wallet step if OTP is already done */
+  // Separate dropdown state for the mobile avatar — independent of the nav drawer
+  const [mobileDropdownOpen, setMobileDropdownOpen] = useState(false);
+  const mobileDropdownRef = useRef<HTMLDivElement>(null);
+
+  console.log("Auth status:", isOtpVerified, isWalletRegistered);
+
   const handleAuthClick = useCallback(() => {
     if (isOtpVerified && !isWalletRegistered) {
       setStep("wallet");
@@ -59,7 +69,7 @@ const Header = () => {
     }
   }, [isOtpVerified, isWalletRegistered, setStep, resumeAuthModal, openAuthModal]);
 
-  // Close dropdown on outside click
+  // Close desktop dropdown on outside click
   useEffect(() => {
     if (!dropdownOpen) return;
     const onClick = (e: MouseEvent) => {
@@ -71,9 +81,26 @@ const Header = () => {
     return () => document.removeEventListener("mousedown", onClick);
   }, [dropdownOpen]);
 
+  // Close mobile avatar dropdown on outside click
+  useEffect(() => {
+    if (!mobileDropdownOpen) return;
+    const onClick = (e: MouseEvent) => {
+      if (mobileDropdownRef.current && !mobileDropdownRef.current.contains(e.target as Node)) {
+        setMobileDropdownOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", onClick);
+    return () => document.removeEventListener("mousedown", onClick);
+  }, [mobileDropdownOpen]);
+
   const handleLogout = useCallback(async () => {
     setDropdownOpen(false);
-    try { await privyLogout(); } catch (err) { console.warn("[Header] Privy logout error:", err); }
+    setMobileDropdownOpen(false);
+    try {
+      await privyLogout();
+    } catch (err) {
+      console.warn("[Header] Privy logout error:", err);
+    }
     wagmiDisconnect();
     storeDisconnect();
     clearAuth();
@@ -81,7 +108,6 @@ const Header = () => {
     router.push("/");
   }, [privyLogout, wagmiDisconnect, storeDisconnect, clearAuth, router]);
 
-  // Avatar initials from email
   const initials = userEmail ? userEmail.charAt(0).toUpperCase() : "U";
 
   return (
@@ -89,9 +115,12 @@ const Header = () => {
       className="landing-page sticky top-0 z-30 border-b border-[var(--landing-card-border)]/60 backdrop-blur-lg"
       style={{ backgroundColor: "var(--landing-header-bg)" }}
     >
-      <nav className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8" aria-label="Main">
+      <nav
+        className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8"
+        aria-label="Main"
+      >
         <div className="flex h-16 items-center justify-between">
-          {/* ── Logo ───────────────────────────────────────────────────── */}
+          {/* ── Logo ─────────────────────────────────────────────── */}
           <Link
             href="/"
             className="flex items-center gap-3 group"
@@ -105,7 +134,7 @@ const Header = () => {
             </span>
           </Link>
 
-          {/* ── Desktop nav links (centred) ─────────────────────────────── */}
+          {/* ── Desktop nav links (centred) ──────────────────────── */}
           <div className="hidden md:flex items-center gap-8 absolute left-1/2 -translate-x-1/2">
             {NAV_LINKS.map((item) =>
               item.external ? (
@@ -136,8 +165,19 @@ const Header = () => {
                 aria-haspopup="true"
               >
                 Legal
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24" aria-hidden>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                <svg
+                  className="w-4 h-4"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  viewBox="0 0 24 24"
+                  aria-hidden
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M19 9l-7 7-7-7"
+                  />
                 </svg>
               </button>
               <div className="absolute left-0 mt-1 w-44 py-1 rounded-xl border border-[var(--landing-card-border)] bg-[var(--landing-card-bg)] shadow-[var(--landing-card-shadow)] opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-dropdown">
@@ -165,21 +205,25 @@ const Header = () => {
 
           <div className="flex-1" />
 
-          {/* ── Right side: theme toggle + auth ─────────────────────────── */}
+          {/* ── Right side: theme toggle + auth ─────────────────── */}
           <div className="flex items-center gap-2">
-            {/* Theme toggle — desktop + mobile */}
+            {/* Theme toggle */}
             {mounted && (
               <button
                 type="button"
                 onClick={toggleTheme}
-                aria-label={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+                aria-label={
+                  theme === "dark"
+                    ? "Switch to light mode"
+                    : "Switch to dark mode"
+                }
                 className="p-2 rounded-xl text-[var(--landing-muted)] hover:text-[var(--landing-heading)] hover:bg-[var(--landing-input-bg)] transition-colors"
               >
                 {theme === "dark" ? <Sun size={20} /> : <Moon size={20} />}
               </button>
             )}
 
-            {/* Auth: authenticated user dropdown */}
+            {/* ── Desktop: authenticated avatar dropdown ────────── */}
             {isOtpVerified ? (
               <div className="relative hidden md:block" ref={dropdownRef}>
                 <button
@@ -193,26 +237,41 @@ const Header = () => {
                     {initials}
                   </div>
                   <svg
-                    className={`w-4 h-4 text-[var(--landing-muted)] transition-transform ${dropdownOpen ? "rotate-180" : ""}`}
-                    fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24" aria-hidden
+                    className={`w-4 h-4 text-[var(--landing-muted)] transition-transform ${
+                      dropdownOpen ? "rotate-180" : ""
+                    }`}
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    viewBox="0 0 24 24"
+                    aria-hidden
                   >
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M19 9l-7 7-7-7"
+                    />
                   </svg>
                 </button>
 
                 {dropdownOpen && (
                   <div className="absolute right-0 mt-2 w-56 rounded-xl border border-[var(--landing-card-border)] bg-[var(--landing-card-bg)] shadow-lg py-1 z-[60]">
-                    {/* User info */}
                     <div className="px-4 py-3 border-b border-[var(--landing-card-border)]">
                       <p className="text-sm font-medium text-[var(--landing-heading)] truncate">
                         {userEmail}
                       </p>
                       <div className="flex flex-row items-center mt-0.5">
                         <span
-                          className={`w-2.5 h-2.5 rounded-full mr-2 ${isOtpVerified && isWalletRegistered ? "bg-green-500" : "bg-yellow-500 animate-pulse"}`}
+                          className={`w-2.5 h-2.5 rounded-full mr-2 ${
+                            isOtpVerified && isWalletRegistered
+                              ? "bg-green-500"
+                              : "bg-yellow-500 animate-pulse"
+                          }`}
                         />
                         <p className="text-xs text-[var(--landing-muted)]">
-                          {isOtpVerified && isWalletRegistered ? "Signed in" : "Awaiting Wallet Connection"}
+                          {isOtpVerified && isWalletRegistered
+                            ? "Signed in"
+                            : "Awaiting Wallet Connection"}
                         </p>
                       </div>
                     </div>
@@ -227,7 +286,6 @@ const Header = () => {
                           <LayoutDashboard className="w-4 h-4" />
                           Dashboard
                         </Link>
-
                         <Link
                           href="#"
                           onClick={() => setDropdownOpen(false)}
@@ -236,7 +294,6 @@ const Header = () => {
                           <Wallet className="w-4 h-4" />
                           Wallets
                         </Link>
-
                         <Link
                           href="#"
                           onClick={() => setDropdownOpen(false)}
@@ -253,16 +310,17 @@ const Header = () => {
                         type="button"
                         onClick={handleLogout}
                         className="flex items-center gap-3 w-full px-4 py-2.5 text-sm transition-colors"
-                        style={{
-                          color: "var(--landing-danger-fg)",
-                        }}
+                        style={{ color: "var(--landing-danger-fg)" }}
                         onMouseEnter={(e) => {
-                          (e.currentTarget as HTMLButtonElement).style.backgroundColor =
+                          (
+                            e.currentTarget as HTMLButtonElement
+                          ).style.backgroundColor =
                             "var(--landing-danger-hover-bg)";
                         }}
                         onMouseLeave={(e) => {
-                          (e.currentTarget as HTMLButtonElement).style.backgroundColor =
-                            "transparent";
+                          (
+                            e.currentTarget as HTMLButtonElement
+                          ).style.backgroundColor = "transparent";
                         }}
                       >
                         <LogOut className="w-4 h-4" />
@@ -274,7 +332,7 @@ const Header = () => {
               </div>
             ) : (
               <>
-                {/* Not authenticated: Sign In (ghost) + Get Started (primary) */}
+                {/* Not authenticated — desktop only */}
                 <button
                   type="button"
                   onClick={handleAuthClick}
@@ -292,17 +350,124 @@ const Header = () => {
               </>
             )}
 
-            {/* Mobile hamburger */}
-            <button
-              type="button"
-              className="md:hidden p-2.5 rounded-xl text-[var(--landing-body)] hover:bg-[var(--landing-input-bg)] transition-colors"
-              onClick={() => toggleMenu()}
-              aria-label="Toggle menu"
-            >
-              {isMenuOpen ? <X size={22} /> : <Menu size={22} />}
-            </button>
+            {/*
+             * ── Mobile right side ────────────────────────────────
+             *
+             * - NOT authenticated → hamburger only
+             * - isOtpVerified → avatar (own dropdown) + hamburger (nav drawer)
+             *   The two buttons are now fully independent.
+             */}
+            <div className="md:hidden flex items-center gap-1.5">
+              {isOtpVerified && (
+                <div className="relative" ref={mobileDropdownRef}>
+                  {/* Avatar button — opens account dropdown, NOT the nav drawer */}
+                  <button
+                    type="button"
+                    onClick={() => setMobileDropdownOpen((v) => !v)}
+                    className="flex items-center justify-center w-9 h-9 rounded-full
+                      bg-[var(--landing-accent)] text-white font-bold text-sm select-none
+                      hover:opacity-90 transition-opacity"
+                    aria-label="Open account menu"
+                    aria-haspopup="true"
+                    aria-expanded={mobileDropdownOpen}
+                  >
+                    {initials}
+                  </button>
+
+                  {/* Mobile account dropdown — mirrors the desktop one */}
+                  {mobileDropdownOpen && (
+                    <div className="absolute right-0 mt-2 w-56 rounded-xl border border-[var(--landing-card-border)] bg-[var(--landing-card-bg)] shadow-lg py-1 z-[60]">
+                      {/* User info */}
+                      <div className="px-4 py-3 border-b border-[var(--landing-card-border)]">
+                        <p className="text-sm font-medium text-[var(--landing-heading)] truncate">
+                          {userEmail}
+                        </p>
+                        <div className="flex items-center gap-1.5 mt-0.5">
+                          <span
+                            className={`w-2 h-2 rounded-full flex-shrink-0 ${
+                              isOtpVerified && isWalletRegistered
+                                ? "bg-green-500"
+                                : "bg-yellow-500 animate-pulse"
+                            }`}
+                          />
+                          <p className="text-xs text-[var(--landing-muted)]">
+                            {isOtpVerified && isWalletRegistered
+                              ? "Signed in"
+                              : "Awaiting Wallet Connection"}
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Links — only when fully authenticated */}
+                      {isOtpVerified && isWalletRegistered && (
+                        <>
+                          <Link
+                            href="/dashboard"
+                            onClick={() => setMobileDropdownOpen(false)}
+                            className="flex items-center gap-3 px-4 py-2.5 text-sm text-[var(--landing-body)] hover:bg-[var(--landing-input-bg)] hover:text-[var(--landing-heading)] transition-colors"
+                          >
+                            <LayoutDashboard className="w-4 h-4" />
+                            Dashboard
+                          </Link>
+                          <Link
+                            href="#"
+                            onClick={() => setMobileDropdownOpen(false)}
+                            className="flex items-center gap-3 px-4 py-2.5 text-sm text-[var(--landing-body)] hover:bg-[var(--landing-input-bg)] hover:text-[var(--landing-heading)] transition-colors"
+                          >
+                            <Wallet className="w-4 h-4" />
+                            Wallets
+                          </Link>
+                          <Link
+                            href="#"
+                            onClick={() => setMobileDropdownOpen(false)}
+                            className="flex items-center gap-3 px-4 py-2.5 text-sm text-[var(--landing-body)] hover:bg-[var(--landing-input-bg)] hover:text-[var(--landing-heading)] transition-colors"
+                          >
+                            <UserCircle className="w-4 h-4" />
+                            Profile
+                          </Link>
+                        </>
+                      )}
+
+                      {/* Logout */}
+                      <div className="border-t border-[var(--landing-card-border)] mt-1 pt-1">
+                        <button
+                          type="button"
+                          onClick={handleLogout}
+                          className="flex items-center gap-3 w-full px-4 py-2.5 text-sm transition-colors"
+                          style={{ color: "var(--landing-danger-fg)" }}
+                          onMouseEnter={(e) => {
+                            (e.currentTarget as HTMLButtonElement).style.backgroundColor =
+                              "var(--landing-danger-hover-bg)";
+                          }}
+                          onMouseLeave={(e) => {
+                            (e.currentTarget as HTMLButtonElement).style.backgroundColor =
+                              "transparent";
+                          }}
+                        >
+                          <LogOut className="w-4 h-4" />
+                          Log out
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Hamburger — always shown, only opens the nav drawer */}
+              <button
+                type="button"
+                className="flex items-center justify-center w-11 h-11 rounded-xl
+                  text-[var(--landing-body)] hover:bg-[var(--landing-input-bg)] transition-colors"
+                onClick={() => toggleMenu()}
+                aria-label="Toggle navigation menu"
+              >
+                {isMenuOpen ? <X size={22} /> : <Menu size={22} />}
+              </button>
+            </div>
           </div>
         </div>
+
+        {/* MobileNav drawer — rendered inside the nav so it inherits context */}
         <MobileNav />
       </nav>
     </header>
