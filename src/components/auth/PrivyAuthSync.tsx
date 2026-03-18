@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useRef, useEffect } from "react";
-import { useSubscribeToJwtAuthWithFlag } from "@privy-io/react-auth";
+import { usePrivy, useSubscribeToJwtAuthWithFlag } from "@privy-io/react-auth";
 import { useAuthStore } from "@/stores/authStore";
 import { useAuthSyncStore } from "@/stores/authSyncStore";
 import { getPrivyToken } from "@/services/auth";
@@ -55,13 +55,16 @@ function logTokenDetails(label: string, token: string) {
  */
 export default function PrivyAuthSync() {
   const isOtpVerified = useAuthStore((s) => s.isOtpVerified);
+  const { authenticated } = usePrivy();
 
   // Persistent token cache — survives re-renders, doesn't cause re-renders
   const tokenCacheRef = useRef<string | null>(null);
   const failureCountRef = useRef<number>(0);
   const callCountRef = useRef<number>(0);
-  const authSucceededRef = useRef<boolean>(false);
   const lastTokenHashRef = useRef<string | null>(null);
+  const failureTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Once Privy confirms auth, suppress repetitive logging from SDK re-auth cycles
+  const authenticatedOnceRef = useRef(false);
 
   // Reset on new login
   useEffect(() => {
@@ -69,8 +72,9 @@ export default function PrivyAuthSync() {
       tokenCacheRef.current = null;
       failureCountRef.current = 0;
       callCountRef.current = 0;
-      authSucceededRef.current = false;
       lastTokenHashRef.current = null;
+      authenticatedOnceRef.current = false;
+      if (failureTimerRef.current) clearTimeout(failureTimerRef.current);
       useAuthSyncStore.getState().reset();
     }
   }, [isOtpVerified]);
@@ -81,6 +85,17 @@ export default function PrivyAuthSync() {
       tokenCacheRef.current = null;
     }
   }, [isOtpVerified]);
+
+  // ── Source of truth: usePrivy().authenticated ───────────────────────
+  // When Privy confirms authentication (regardless of hook state timing),
+  // update our store immediately. This avoids the race condition where
+  // state.status="done" is set before onAuthenticated fires.
+  useEffect(() => {
+    if (authenticated && isOtpVerified) {
+      authenticatedOnceRef.current = true;
+      useAuthSyncStore.getState().setStatus("authenticated");
+    }
+  }, [authenticated, isOtpVerified]);
 
   /**
    * Stable callback — reads `isOtpVerified` directly from the Zustand store
@@ -102,7 +117,10 @@ export default function PrivyAuthSync() {
 
     // 1. Check local ref cache (set from previous calls)
     if (tokenCacheRef.current && isTokenValid(tokenCacheRef.current)) {
-      console.log(`[PrivyAuthSync] getExternalJwt #${callId}: reusing cached token`);
+      // After first successful auth, Privy's SDK re-fires every ~2s — suppress spam
+      if (!authenticatedOnceRef.current || callId <= 2) {
+        console.log(`[PrivyAuthSync] getExternalJwt #${callId}: reusing cached token`);
+      }
       return tokenCacheRef.current;
     }
 
@@ -149,9 +167,10 @@ export default function PrivyAuthSync() {
   const { state } = useSubscribeToJwtAuthWithFlag({
     isAuthenticated: isOtpVerified,
     getExternalJwt,
-    onAuthenticated: ({ user, isNewUser }) => {      authSucceededRef.current = true;
-      useAuthSyncStore.getState().setStatus("authenticated");      console.log("[PrivyAuthSync] ✅ Privy authenticated via custom JWT", {
-        userId: user.id,
+    onAuthenticated: ({ user, isNewUser }) => {
+      useAuthSyncStore.getState().setStatus("authenticated");
+      console.log("[PrivyAuthSync] ✅ Privy authenticated via custom JWT", {
+        user,
         isNewUser,
         linkedAccounts: user.linkedAccounts?.length ?? 0,
       });
@@ -165,31 +184,57 @@ export default function PrivyAuthSync() {
         message: error.message,
         name: error.name,
         stack: error.stack?.split("\n").slice(0, 3).join("\n"),
-      });      // Invalidate cached token so next retry gets a fresh one
-      tokenCacheRef.current = null;
-      lastTokenHashRef.current = null;
-      useAuthSyncStore.getState().setStatus("failed");    },
-  });
-
-  // Detect silent auth failure: state went to "done" but onAuthenticated never fired
-  useEffect(() => {
-    console.log("[PrivyAuthSync] Hook state:", state, "| isOtpVerified:", isOtpVerified);
-
-    if (
-      state?.status === "done" &&
-      isOtpVerified &&
-      !authSucceededRef.current
-    ) {
-      console.warn(
-        "[PrivyAuthSync] \u26A0\uFE0F Silent auth failure detected — state is 'done' but " +
-        "onAuthenticated never fired. Token may be invalid or rejected by Privy."
-      );
-      // Invalidate cached token so next getExternalJwt call fetches fresh
+      });
+      // Invalidate cached token so next retry gets a fresh one
       tokenCacheRef.current = null;
       lastTokenHashRef.current = null;
       useAuthSyncStore.getState().setStatus("failed");
+    },
+  });
+
+  // ── Deferred failure detection with grace period ───────────────────
+  // Privy's hook state can go to "done" before authenticated flips to true
+  // (race condition in its internal dep array — the same token triggers a
+  // fast-path "done" before the prev call's setAuthenticated propagates).
+  // Wait 5s after "done" — if authenticated is still false, THEN declare
+  // failure. The authenticated watcher above will have long since set
+  // status="authenticated" if auth actually succeeded.
+  useEffect(() => {
+    // Once authenticated, Privy's SDK re-fires hook state every ~2s
+    // (done→loading→done). Suppress the spam after first success.
+    if (!authenticatedOnceRef.current) {
+      console.log("[PrivyAuthSync] Hook state:", state, "| isOtpVerified:", isOtpVerified, "| authenticated:", authenticated);
     }
-  }, [state, isOtpVerified]);
+
+    // Clear any pending failure timer on re-run
+    if (failureTimerRef.current) {
+      clearTimeout(failureTimerRef.current);
+      failureTimerRef.current = null;
+    }
+
+    // Already authenticated — no failure to detect
+    if (authenticated || authenticatedOnceRef.current) return;
+
+    if (state?.status === "done" && isOtpVerified && !authenticated) {
+      console.log("[PrivyAuthSync] state='done' but authenticated=false — starting 5s grace period");
+      failureTimerRef.current = setTimeout(() => {
+        const currentStatus = useAuthSyncStore.getState().status;
+        if (currentStatus !== "authenticated") {
+          console.warn("[PrivyAuthSync] ⚠️ Auth failed — 'done' for 5s without authenticated=true");
+          tokenCacheRef.current = null;
+          lastTokenHashRef.current = null;
+          useAuthSyncStore.getState().setStatus("failed");
+        }
+      }, 5000);
+    }
+
+    return () => {
+      if (failureTimerRef.current) {
+        clearTimeout(failureTimerRef.current);
+        failureTimerRef.current = null;
+      }
+    };
+  }, [state, isOtpVerified, authenticated]);
 
   return null;
 }

@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useMemo } from "react";
 import { useRouter } from "next/navigation";
-import { usePrivy, useModalStatus } from "@privy-io/react-auth";
+import { usePrivy, useModalStatus, useWallets } from "@privy-io/react-auth";
 import { useDisconnect } from "wagmi";
 import {
   connectWallet,
@@ -44,8 +44,24 @@ export default function PrivyWalletListener() {
   const setWalletRegistered = useAuthStore((s) => s.setWalletRegistered);
 
   const walletConnecting = useAuthModalStore((s) => s.walletConnecting);
+  const walletPreference = useAuthStore((s) => s.walletPreference);
+  const { wallets } = useWallets();
 
-  const walletAddress = user?.wallet?.address ?? null;
+  // Resolve the correct wallet based on user's preference so we
+  // register the right address with the backend.
+  const walletAddress = useMemo(() => {
+    if (walletPreference === "external") {
+      const ext = wallets.find((w) => w.walletClientType !== "privy");
+      return ext?.address ?? null;
+    }
+    if (walletPreference === "embedded") {
+      const emb = wallets.find((w) => w.walletClientType === "privy");
+      return emb?.address ?? null;
+    }
+    // walletPreference is null — user hasn't chosen yet. Do NOT fall back
+    // to the embedded wallet; wait for an explicit choice.
+    return null;
+  }, [walletPreference, wallets]);
 
   // Guard against double-fire
   const calledRef = useRef(false);
@@ -144,17 +160,20 @@ export default function PrivyWalletListener() {
 
   // Main effect: watch all 4 conditions
   useEffect(() => {
-    console.log("[WALLET-LINK] CHECKPOINT 2: effect deps changed", {
-      walletConnecting,
-      isOtpVerified,
-      authenticated,
-      walletAddress: walletAddress ?? "null",
-      alreadyCalled: calledRef.current,
-    });
+    // Only log when walletConnecting is true (active linking) to avoid
+    // spamming on every Privy re-auth cycle (~every 2s after login)
+    if (walletConnecting) {
+      console.log("[WALLET-LINK] effect deps changed", {
+        walletConnecting,
+        isOtpVerified,
+        authenticated,
+        walletAddress: walletAddress ?? "null",
+        alreadyCalled: calledRef.current,
+      });
+    }
 
     // All 4 conditions must be truthy
     if (!walletConnecting) {
-      console.log("[WALLET-LINK] ⏳ skipping — walletConnecting is false");
       return;
     }
     if (!isOtpVerified) {
@@ -170,7 +189,6 @@ export default function PrivyWalletListener() {
       return;
     }
     if (calledRef.current) {
-      console.log("[WALLET-LINK] ⏳ skipping — API already called");
       return;
     }
 

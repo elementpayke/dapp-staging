@@ -27,6 +27,7 @@ export function fireAuthExpired() {
 export function useSessionGuard() {
   const router = useRouter();
   const clearAuth = useAuthStore((s) => s.clearAuth);
+  const safeClearAuth = useAuthStore((s) => s.safeClearAuth);
   const isOtpVerified = useAuthStore((s) => s.isOtpVerified);
   const loggingOutRef = useRef(false);
 
@@ -47,8 +48,13 @@ export function useSessionGuard() {
         // best-effort
       }
 
-      // 2. Clear Zustand auth store
-      clearAuth();
+      // 2. Clear Zustand auth store (respects session protection)
+      const cleared = safeClearAuth();
+      if (!cleared) {
+        console.warn("[SessionGuard] Auth clear blocked — session too fresh, ignoring stale 401.");
+        loggingOutRef.current = false;
+        return;
+      }
 
       // 3. Clear wallet storage
       if (typeof window !== "undefined") {

@@ -44,10 +44,10 @@ const Header = () => {
 
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
-  console.log("Auth status:", 
-    isOtpVerified, 
-    isWalletRegistered
-  )
+  // console.log("OTP  status:", 
+  //   isOtpVerified, 
+  //   "Wallet Registration:",   isWalletRegistered
+  // )
 
   /** Open the auth modal, resuming at the wallet-choice step if OTP is already done */
   const handleAuthClick = useCallback(() => {

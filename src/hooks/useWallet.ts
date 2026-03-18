@@ -1,7 +1,8 @@
 import { useWalletStore } from "@/lib/useWallet";
-import { useEffect, useCallback } from "react";
+import { useEffect, useCallback, useMemo } from "react";
 import { useAccount, useEnsName, useBalance, useDisconnect } from "wagmi";
-import { usePrivy } from "@privy-io/react-auth";
+import { usePrivy, useWallets } from "@privy-io/react-auth";
+import { useAuthStore } from "@/stores/authStore";
 import { withRetry } from "@/lib/wagmi-config";
 
 export const useWallet = () => {
@@ -12,9 +13,26 @@ export const useWallet = () => {
     logout: privyLogout,
     ready: privyReady,
   } = usePrivy();
+  const { wallets } = useWallets();
+  const walletPreference = useAuthStore((s) => s.walletPreference);
 
-  // Get wallet address from Privy user or wagmi
-  const walletAddress = user?.wallet?.address || wagmiAddress;
+  // Resolve wallet address based on the user's wallet preference.
+  // user?.wallet?.address always returns the first (embedded) wallet,
+  // so we must look at useWallets() to find the correct one.
+  const walletAddress = useMemo(() => {
+    if (walletPreference === "external") {
+      const ext = wallets.find((w) => w.walletClientType !== "privy");
+      if (ext?.address) return ext.address;
+      return wagmiAddress || null;
+    }
+    if (walletPreference === "embedded") {
+      const emb = wallets.find((w) => w.walletClientType === "privy");
+      if (emb?.address) return emb.address;
+    }
+    // walletPreference is null — user hasn't chosen yet. Do NOT fall back
+    // to the embedded wallet; wait for an explicit choice.
+    return null;
+  }, [walletPreference, wallets, wagmiAddress]);
   const isConnected = authenticated || wagmiConnected;
 
   const { data: ensName } = useEnsName({

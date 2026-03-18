@@ -14,6 +14,10 @@ export type AuthStep = "email" | "otp" | "wallet-choice" | "wallet-linking";
 
 export type WalletPreference = "embedded" | "external" | null;
 
+/** Minimum age (ms) of a session before automated 401 handlers can clear it.
+ *  Prevents freshly-established sessions from being nuked by stale responses. */
+const SESSION_PROTECTION_MS = 10_000;
+
 interface AuthState {
   /** Authenticated user profile */
   user: AuthUser | null;
@@ -35,6 +39,8 @@ interface AuthState {
   walletPreference: WalletPreference;
   /** RS256 JWT for Privy auth — ephemeral, NOT persisted */
   privyToken: string | null;
+  /** Epoch ms when OTP was verified — used to protect fresh sessions from stale 401s */
+  _sessionEstablishedAt: number | null;
 }
 
 interface AuthActions {
@@ -42,8 +48,11 @@ interface AuthActions {
   setAuth: (user: AuthUser) => void;
   /** Set wallet registration status */
   setWalletRegistered: (registered: boolean) => void;
-  /** Clear all auth state (logout) */
+  /** Clear all auth state (logout) — always succeeds (for user-initiated logout) */
   clearAuth: () => void;
+  /** Clear auth ONLY if the session is old enough — for automated 401 handlers.
+   *  Returns false if the session is too fresh (stale 401 response). */
+  safeClearAuth: () => boolean;
   /** Update user's KYC status after SmileLinks callback */
   updateKYCStatus: (status: AuthUser["kyc_status"]) => void;
   /** Store email during auth flow */
@@ -82,6 +91,7 @@ export const useAuthStore = create<AuthStore>()(
       connectedWallets: [],
       walletPreference: null,
       privyToken: null,
+      _sessionEstablishedAt: null,
 
       // ── Actions ────────────────────────────────────────────────────────
 
@@ -95,6 +105,8 @@ export const useAuthStore = create<AuthStore>()(
           pendingEmail: null,
           pendingOTP: null,
           otpRequestedAt: null,
+          walletPreference: null,
+          _sessionEstablishedAt: Date.now(),
         })),
 
       setWalletRegistered: (registered: boolean) =>
@@ -115,7 +127,23 @@ export const useAuthStore = create<AuthStore>()(
           connectedWallets: [],
           walletPreference: null,
           privyToken: null,
+          _sessionEstablishedAt: null,
         }),
+
+      safeClearAuth: () => {
+        const { _sessionEstablishedAt, isOtpVerified } = useAuthStore.getState();
+        if (isOtpVerified && _sessionEstablishedAt) {
+          const age = Date.now() - _sessionEstablishedAt;
+          if (age < SESSION_PROTECTION_MS) {
+            console.warn(
+              `[authStore] safeClearAuth blocked — session is only ${Math.round(age / 1000)}s old (min ${SESSION_PROTECTION_MS / 1000}s)`
+            );
+            return false;
+          }
+        }
+        useAuthStore.getState().clearAuth();
+        return true;
+      },
 
       updateKYCStatus: (status) =>
         set((s) => ({

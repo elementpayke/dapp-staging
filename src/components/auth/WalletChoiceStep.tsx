@@ -1,17 +1,14 @@
 "use client";
 
 import React, { useCallback, useState, useEffect, useRef } from "react";
-import { Wallet, Sparkles, ExternalLink, Loader2, Shield } from "lucide-react";
+import { Wallet, Sparkles, ExternalLink, Loader2, Shield, RefreshCw } from "lucide-react";
 import { motion } from "framer-motion";
 import { usePrivy } from "@privy-io/react-auth";
-import { useDisconnect } from "wagmi";
 import { useAuthModalStore } from "@/stores/authModalStore";
 import { useAuthStore } from "@/stores/authStore";
-import { useAuthSyncStore } from "@/stores/authSyncStore";
-import { useWalletStore } from "@/lib/useWallet";
 
-/** How long to wait for Privy JWT auth before enabling fallback. */
-const AUTH_TIMEOUT_MS = 12_000;
+/** How long to wait for Privy authentication before showing fallback. */
+const AUTH_TIMEOUT_MS = 15_000;
 
 /**
  * Wallet choice step — shown after OTP verification.
@@ -19,64 +16,27 @@ const AUTH_TIMEOUT_MS = 12_000;
  *   1. Create an embedded wallet (recommended)
  *   2. Connect an external wallet — triggers Privy's linkWallet() popup directly
  *
- * Both buttons become fully active once Privy authenticates via custom JWT.
- * If JWT sync fails or times out, both buttons fall back to Privy's native
- * login() flow so the user is never stuck.
+ * Both buttons become active once Privy authenticates via custom JWT.
+ * If authentication times out, a "Try another way" fallback appears that
+ * uses Privy's native login() — only triggered by explicit user click.
  */
 const WalletChoiceStep = () => {
-  const { createWallet, authenticated, ready, user, login, linkWallet, logout: privyLogout } = usePrivy();
-  const { disconnect: wagmiDisconnect } = useDisconnect();
-  const { disconnect: storeDisconnect } = useWalletStore();
+  const { createWallet, authenticated, ready, user, login, linkWallet } = usePrivy();
   const setWalletConnecting = useAuthModalStore((s) => s.setWalletConnecting);
   const hideModal = useAuthModalStore((s) => s.hideModal);
   const setModalError = useAuthModalStore((s) => s.setErrorMessage);
   const setWalletPreference = useAuthStore((s) => s.setWalletPreference);
-  const isWalletRegistered = useAuthStore((s) => s.isWalletRegistered);
-  const authSyncStatus = useAuthSyncStore((s) => s.status);
 
   const [creating, setCreating] = useState(false);
-  const [connecting, setConnecting] = useState(false);
   const [timedOut, setTimedOut] = useState(false);
-  const [cleaning, setCleaning] = useState(false);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const cleanedRef = useRef(false);
 
-  // Privy JWT auth succeeded
+  // Privy JWT auth succeeded — safe to call createWallet / linkWallet
   const privyReady = ready && authenticated;
-  // JWT auth failed or timed out — use fallback (login()) instead
-  const jwtFailed = timedOut || authSyncStatus === "failed";
+  // Still waiting for JWT auth to complete
+  const isWaiting = ready && !authenticated && !timedOut;
 
-  // ── Clear stale Privy session on mount ──────────────────────────────
-  // If Privy still has a wallet from a previous session but the user
-  // hasn't registered it (they're back at wallet-choice), wipe it so
-  // the buttons start fresh and don't show phantom wallet state.
-  useEffect(() => {
-    if (cleanedRef.current) return;
-    if (!ready) return;
-    const hasStaleWallet = !!user?.wallet?.address && !isWalletRegistered;
-    if (!hasStaleWallet) return;
-
-    cleanedRef.current = true;
-    setCleaning(true);
-    console.log("[WalletChoiceStep] Clearing stale Privy session (wallet exists but not registered)");
-
-    (async () => {
-      try {
-        await privyLogout();
-      } catch (e) {
-        console.warn("[WalletChoiceStep] Privy logout error (non-fatal):", e);
-      }
-      wagmiDisconnect();
-      storeDisconnect();
-      if (typeof window !== "undefined") {
-        localStorage.removeItem("wallet-storage");
-      }
-      setCleaning(false);
-      console.log("[WalletChoiceStep] Stale session cleared");
-    })();
-  }, [ready, user?.wallet?.address, isWalletRegistered, privyLogout, wagmiDisconnect, storeDisconnect]);
-
-  // ── Timeout for JWT auth ────────────────────────────────────────────
+  // ── Timeout: show fallback if auth doesn't complete ─────────────────
   useEffect(() => {
     if (privyReady || timedOut) return;
     timerRef.current = setTimeout(() => setTimedOut(true), AUTH_TIMEOUT_MS);
@@ -90,78 +50,56 @@ const WalletChoiceStep = () => {
     if (privyReady && timedOut) setTimedOut(false);
   }, [privyReady, timedOut]);
 
-  // Fast-track timeout when authSyncStore reports failure
-  useEffect(() => {
-    if (authSyncStatus === "failed" && !privyReady) setTimedOut(true);
-  }, [authSyncStatus, privyReady]);
-
   // ── Embedded wallet handler ─────────────────────────────────────────
   const handleCreateEmbedded = useCallback(async () => {
+    if (!privyReady) return;
     setModalError(null);
     setWalletPreference("embedded");
-
-    // Happy path: Privy is authenticated via custom JWT
-    if (privyReady) {
-      setCreating(true);
-      try {
-        if (!user?.wallet?.address) {
-          await createWallet();
-        }
-        setWalletConnecting(true);
-      } catch (err: any) {
-        console.error("[WalletChoiceStep] createWallet failed:", err);
-        setModalError(err?.message ?? "Failed to create wallet. Please try again.");
-        setCreating(false);
+    setCreating(true);
+    try {
+      if (!user?.wallet?.address) {
+        await createWallet();
       }
-      return;
-    }
-
-    // Fallback: JWT sync failed — use Privy's native login() which
-    // handles its own auth and can create an embedded wallet.
-    if (jwtFailed) {
-      console.log("[WalletChoiceStep] JWT failed — falling back to Privy login() for embedded wallet");
-      setCreating(true);
       setWalletConnecting(true);
-      hideModal();
-      setTimeout(() => login(), 150);
-      return;
+    } catch (err: any) {
+      console.error("[WalletChoiceStep] createWallet failed:", err);
+      setModalError(err?.message ?? "Failed to create wallet. Please try again.");
+      setCreating(false);
     }
-
-    // Still waiting for JWT auth
-    setModalError("Wallet service is still connecting. Please wait a moment.");
-  }, [privyReady, jwtFailed, user?.wallet?.address, createWallet, login, setWalletConnecting, hideModal, setModalError, setWalletPreference]);
+  }, [privyReady, user?.wallet?.address, createWallet, setWalletConnecting, setModalError, setWalletPreference]);
 
   // ── External wallet handler ─────────────────────────────────────────
   const handleConnectExternal = useCallback(() => {
+    if (!authenticated) return;
     setModalError(null);
     setWalletPreference("external");
     setWalletConnecting(true);
     hideModal();
-
     setTimeout(() => {
-      if (authenticated) {
-        // Privy is authenticated — use linkWallet() to add an external wallet
-        console.log("[WalletChoiceStep] Calling linkWallet() for external wallet");
-        linkWallet();
-      } else {
-        // JWT sync failed — use login() which opens Privy's wallet-connect modal
-        console.log("[WalletChoiceStep] Privy not authenticated — calling login() for external wallet");
-        login();
-      }
+      console.log("[WalletChoiceStep] Calling linkWallet() for external wallet");
+      linkWallet();
     }, 150);
-  }, [authenticated, linkWallet, login, setWalletConnecting, hideModal, setModalError, setWalletPreference]);
+  }, [authenticated, linkWallet, setWalletConnecting, hideModal, setModalError, setWalletPreference]);
+
+  // ── Fallback: explicit user action when JWT auth fails ──────────────
+  // Only called via the "Try another way" button — NEVER automatically.
+  // Opens Privy's native login/wallet-connect flow.
+  const handleTryAnotherWay = useCallback(() => {
+    setModalError(null);
+    setWalletConnecting(true);
+    hideModal();
+    setTimeout(() => {
+      console.log("[WalletChoiceStep] User chose fallback — calling Privy login()");
+      login();
+    }, 150);
+  }, [login, setWalletConnecting, hideModal, setModalError]);
 
   // ── Button labels ───────────────────────────────────────────────────
-  const isWaiting = ready && !authenticated && !timedOut && !cleaning;
-
   let embeddedLabel = "Create a wallet for me";
   let embeddedSublabel = "No app needed. We handle fees and approvals automatically.";
   if (creating) {
     embeddedLabel = "Creating wallet...";
     embeddedSublabel = "Please wait while we set up your wallet";
-  } else if (cleaning) {
-    embeddedLabel = "Preparing...";
-    embeddedSublabel = "Clearing previous session";
   } else if (isWaiting) {
     embeddedLabel = "Connecting...";
     embeddedSublabel = "Setting up secure wallet service";
@@ -192,7 +130,7 @@ const WalletChoiceStep = () => {
         <button
           type="button"
           onClick={handleCreateEmbedded}
-          disabled={creating || isWaiting || cleaning}
+          disabled={creating || !privyReady}
           className="
             relative w-full text-left rounded-xl p-4
             border-2 border-[var(--landing-accent)]/30
@@ -212,7 +150,7 @@ const WalletChoiceStep = () => {
 
           <div className="flex items-start gap-3 mt-1">
             <div className="w-10 h-10 rounded-lg bg-[var(--landing-accent)]/10 flex items-center justify-center shrink-0">
-              {creating || isWaiting || cleaning ? (
+              {creating || isWaiting ? (
                 <Loader2 className="w-5 h-5 text-[var(--landing-accent)] animate-spin" />
               ) : (
                 <Sparkles className="w-5 h-5 text-[var(--landing-accent)]" />
@@ -233,7 +171,7 @@ const WalletChoiceStep = () => {
         <button
           type="button"
           onClick={handleConnectExternal}
-          disabled={creating || connecting || cleaning}
+          disabled={creating || !authenticated}
           className="
             w-full text-left rounded-xl p-4
             border border-[var(--landing-input-border)]
@@ -247,19 +185,37 @@ const WalletChoiceStep = () => {
         >
           <div className="flex items-start gap-3">
             <div className="w-10 h-10 rounded-lg bg-[var(--landing-input-bg)] border border-[var(--landing-input-border)] flex items-center justify-center shrink-0">
-              <ExternalLink className="w-5 h-5 text-[var(--landing-muted)]" />
+              {isWaiting ? (
+                <Loader2 className="w-5 h-5 text-[var(--landing-muted)] animate-spin" />
+              ) : (
+                <ExternalLink className="w-5 h-5 text-[var(--landing-muted)]" />
+              )}
             </div>
             <div>
               <p className="text-sm font-semibold text-[var(--landing-heading)]">
                 I have my own wallet
               </p>
               <p className="text-xs text-[var(--landing-muted)] mt-0.5">
-                Connect MetaMask, Coinbase Wallet, or any WalletConnect-compatible wallet.
+                {isWaiting
+                  ? "Waiting for secure connection..."
+                  : "Connect MetaMask, Coinbase Wallet, or any WalletConnect-compatible wallet."}
               </p>
             </div>
           </div>
         </button>
       </div>
+
+      {/* Fallback — only shown after timeout when auth hasn't completed */}
+      {timedOut && !privyReady && (
+        <button
+          type="button"
+          onClick={handleTryAnotherWay}
+          className="mt-4 flex items-center gap-1.5 text-xs text-[var(--landing-accent)] hover:underline focus:outline-none"
+        >
+          <RefreshCw className="w-3 h-3" />
+          Taking too long? Try another way
+        </button>
+      )}
 
       <div className="flex items-center gap-1.5 mt-5">
         <Shield className="w-3 h-3 text-[var(--landing-muted)]" />
