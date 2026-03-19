@@ -3,14 +3,13 @@
 import React, { useCallback, useState, useEffect, useRef } from "react";
 import { Wallet, LinkIcon, Copy, Check, Unplug, AlertCircle, RefreshCw } from "lucide-react";
 import { motion } from "framer-motion";
-import { usePrivy, useWallets } from "@privy-io/react-auth";
+import { usePrivy } from "@privy-io/react-auth";
 import { useDisconnect } from "wagmi";
 import { useAuthModalStore } from "@/stores/authModalStore";
 import { useAuthStore } from "@/stores/authStore";
 import { useAuthSyncStore } from "@/stores/authSyncStore";
 import { useWalletStore } from "@/lib/useWallet";
 import WalletConnection from "../wallet-connection/wallet-connection";
-import { getExplicitSelectedWalletAddress } from "@/lib/privy-wallet-selection";
 
 /** How long to wait for Privy to authenticate before showing fallback options */
 const AUTH_TIMEOUT_MS = 12_000;
@@ -21,16 +20,11 @@ const WalletStep = () => {
   const setModalError = useAuthModalStore((s) => s.setErrorMessage);
   const errorMessage = useAuthModalStore((s) => s.errorMessage);
 
-  const { authenticated, ready, logout: privyLogout, linkWallet, login } = usePrivy();
+  const { authenticated, ready, user, logout: privyLogout, linkWallet, login } = usePrivy();
   const { disconnect: wagmiDisconnect } = useDisconnect();
   const { disconnect: storeDisconnect } = useWalletStore();
   const isOtpVerified = useAuthStore((s) => s.isOtpVerified);
-  const walletPreference = useAuthStore((s) => s.walletPreference);
-  const { wallets } = useWallets();
-  const walletAddress = getExplicitSelectedWalletAddress({
-    walletPreference,
-    wallets,
-  });
+  const walletAddress = user?.wallet?.address ?? null;
 
   const authSyncStatus = useAuthSyncStore((s) => s.status);
 
@@ -65,8 +59,8 @@ const WalletStep = () => {
   // Whether to show the loading spinner (only while waiting, not timed out)
   const showAuthSpinner = isOtpVerified && !authenticated && !timedOut;
 
-  // True when the user explicitly selected a wallet that Privy has already
-  // resolved for this session.
+  // True when Privy already has a connected wallet but we haven't
+  // registered it with our backend yet.
   const walletAlreadyConnected = !!(authenticated && walletAddress && isOtpVerified);
 
   const handleCopyAddress = useCallback(async () => {
@@ -112,9 +106,9 @@ const WalletStep = () => {
     // "wallet-linking" once the API call starts.
     hideModal();
     setTimeout(() => {
-    // When already authenticated via custom JWT, use linkWallet().
-    // When auth timed out / failed, fall back to login() which
-    // opens Privy's own wallet-connect modal (bypassing JWT auth).
+      // When already authenticated via custom JWT, use linkWallet().
+      // When auth timed out / failed, fall back to login() which
+      // opens Privy's own wallet-connect modal (bypassing JWT auth).
       if (authenticated) {
         console.log("[WalletStep] Calling linkWallet() for external wallet connection");
         linkWallet();
