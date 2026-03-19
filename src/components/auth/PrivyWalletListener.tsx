@@ -4,6 +4,7 @@ import { useEffect, useRef, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { usePrivy, useModalStatus, useWallets } from "@privy-io/react-auth";
 import { useDisconnect } from "wagmi";
+import { useAccount } from "wagmi";
 import {
   connectWallet,
   isWalletOwnershipConflictError,
@@ -12,6 +13,7 @@ import {
 import { useAuthStore } from "@/stores/authStore";
 import { useAuthModalStore } from "@/stores/authModalStore";
 import { useWalletStore } from "@/lib/useWallet";
+import { getExplicitSelectedWalletAddress } from "@/lib/privy-wallet-selection";
 import { toast } from "sonner";
 
 /**
@@ -33,8 +35,9 @@ import { toast } from "sonner";
  * Mounted in Providers so it persists across all route changes.
  */
 export default function PrivyWalletListener() {
-  const { authenticated, user, logout: privyLogout } = usePrivy();
+  const { authenticated } = usePrivy();
   const { isOpen: privyModalOpen } = useModalStatus();
+  const { address: wagmiAddress } = useAccount();
   const { disconnect: wagmiDisconnect } = useDisconnect();
   const { disconnect: storeDisconnect } = useWalletStore();
   const router = useRouter();
@@ -50,18 +53,12 @@ export default function PrivyWalletListener() {
   // Resolve the correct wallet based on user's preference so we
   // register the right address with the backend.
   const walletAddress = useMemo(() => {
-    if (walletPreference === "external") {
-      const ext = wallets.find((w) => w.walletClientType !== "privy");
-      return ext?.address ?? null;
-    }
-    if (walletPreference === "embedded") {
-      const emb = wallets.find((w) => w.walletClientType === "privy");
-      return emb?.address ?? null;
-    }
-    // walletPreference is null — user hasn't chosen yet. Do NOT fall back
-    // to the embedded wallet; wait for an explicit choice.
-    return null;
-  }, [walletPreference, wallets]);
+    return getExplicitSelectedWalletAddress({
+      walletPreference,
+      wallets,
+      wagmiAddress,
+    });
+  }, [walletPreference, wallets, wagmiAddress]);
 
   // Guard against double-fire
   const calledRef = useRef(false);
@@ -139,7 +136,7 @@ export default function PrivyWalletListener() {
     privyModalWasOpenRef.current = false;
 
     // If a wallet address appeared, the main effect will handle registration
-    if (user?.wallet?.address) return;
+    if (walletAddress) return;
     // If the API call already fired, don't interfere
     if (calledRef.current) return;
 
@@ -156,7 +153,7 @@ export default function PrivyWalletListener() {
     }, 400);
 
     return () => clearTimeout(id);
-  }, [walletConnecting, privyModalOpen, user?.wallet?.address]);
+  }, [walletConnecting, privyModalOpen, walletAddress]);
 
   // Main effect: watch all 4 conditions
   useEffect(() => {
@@ -259,12 +256,9 @@ export default function PrivyWalletListener() {
 
         toast.error(errorMsg);
 
-        // Disconnect Privy + wagmi so the user can pick a different wallet
-        try {
-          if (authenticated) await privyLogout();
-        } catch (logoutErr) {
-          console.warn("[WALLET-LINK] Privy logout error (non-fatal):", logoutErr);
-        }
+        // Preserve the Privy JWT session. We only clear the wallet attempt so
+        // the user can retry with a different wallet selection.
+        useAuthStore.getState().setWalletPreference(null);
         wagmiDisconnect();
         storeDisconnect();
         if (typeof window !== "undefined") {
@@ -290,7 +284,6 @@ export default function PrivyWalletListener() {
     walletAddress,
     addConnectedWallet,
     setWalletRegistered,
-    privyLogout,
     wagmiDisconnect,
     storeDisconnect,
     router,

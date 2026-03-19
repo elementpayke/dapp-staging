@@ -1,10 +1,12 @@
 import { useState } from "react";
 import { useWallet } from "@/hooks/useWallet";
-import { Copy, Check } from "lucide-react";
+import { Copy, Check, ArrowLeftRight } from "lucide-react";
+import SwitchWalletModal from "./SwitchWalletModal";
 
 const DashboardHeader = () => {
   const { address } = useWallet();
   const [copied, setCopied] = useState(false);
+  const [switchOpen, setSwitchOpen] = useState(false);
 
   const handleCopyAddress = () => {
     navigator.clipboard.writeText(address || "");
@@ -26,21 +28,34 @@ const DashboardHeader = () => {
         </div>
 
         {address && (
-          <button
-            onClick={handleCopyAddress}
-            className="flex items-center gap-2 self-start rounded-full px-4 py-1.5 bg-[var(--ep-accent-muted)] text-[var(--ep-accent)] border border-[var(--ep-accent)]/20 hover:bg-[var(--ep-accent)]/15 transition-colors"
-          >
-            <span className="text-xs font-mono truncate max-w-[140px] sm:max-w-[200px]">
-              {address}
-            </span>
-            {copied ? (
-              <Check className="h-3.5 w-3.5 text-emerald-500 flex-shrink-0" />
-            ) : (
-              <Copy className="h-3.5 w-3.5 flex-shrink-0" />
-            )}
-          </button>
+          <div className="flex items-center gap-2 self-start">
+            <button
+              onClick={handleCopyAddress}
+              className="flex items-center gap-2 rounded-full px-4 py-1.5 bg-[var(--ep-accent-muted)] text-[var(--ep-accent)] border border-[var(--ep-accent)]/20 hover:bg-[var(--ep-accent)]/15 transition-colors"
+            >
+              <span className="text-xs font-mono truncate max-w-[140px] sm:max-w-[200px]">
+                {address}
+              </span>
+              {copied ? (
+                <Check className="h-3.5 w-3.5 text-emerald-500 flex-shrink-0" />
+              ) : (
+                <Copy className="h-3.5 w-3.5 flex-shrink-0" />
+              )}
+            </button>
+
+            <button
+              onClick={() => setSwitchOpen(true)}
+              className="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium bg-[var(--ep-bg-input)] text-[var(--ep-heading)] border border-[var(--ep-border)] hover:border-[var(--ep-accent)]/40 hover:bg-[var(--ep-accent-muted)] hover:text-[var(--ep-accent)] transition-colors"
+              aria-label="Switch wallet"
+            >
+              <ArrowLeftRight className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">Switch</span>
+            </button>
+          </div>
         )}
       </div>
+
+      <SwitchWalletModal open={switchOpen} onOpenChange={setSwitchOpen} />
     </div>
   );
 };

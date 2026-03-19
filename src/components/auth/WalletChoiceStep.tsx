@@ -6,6 +6,7 @@ import { motion } from "framer-motion";
 import { usePrivy } from "@privy-io/react-auth";
 import { useAuthModalStore } from "@/stores/authModalStore";
 import { useAuthStore } from "@/stores/authStore";
+import { hasEmbeddedPrivyWallet } from "@/lib/privy-wallet-selection";
 
 /** How long to wait for Privy authentication before showing fallback. */
 const AUTH_TIMEOUT_MS = 15_000;
@@ -26,6 +27,8 @@ const WalletChoiceStep = () => {
   const hideModal = useAuthModalStore((s) => s.hideModal);
   const setModalError = useAuthModalStore((s) => s.setErrorMessage);
   const setWalletPreference = useAuthStore((s) => s.setWalletPreference);
+  const hasEmbeddedWallet = hasEmbeddedPrivyWallet(user);
+  const hasExistingEmbeddedWallet = hasEmbeddedWallet || Boolean(user?.wallet?.address);
 
   const [creating, setCreating] = useState(false);
   const [timedOut, setTimedOut] = useState(false);
@@ -57,7 +60,7 @@ const WalletChoiceStep = () => {
     setWalletPreference("embedded");
     setCreating(true);
     try {
-      if (!user?.wallet?.address) {
+      if (!hasExistingEmbeddedWallet) {
         await createWallet();
       }
       setWalletConnecting(true);
@@ -66,7 +69,7 @@ const WalletChoiceStep = () => {
       setModalError(err?.message ?? "Failed to create wallet. Please try again.");
       setCreating(false);
     }
-  }, [privyReady, user?.wallet?.address, createWallet, setWalletConnecting, setModalError, setWalletPreference]);
+  }, [privyReady, hasExistingEmbeddedWallet, createWallet, setWalletConnecting, setModalError, setWalletPreference]);
 
   // ── External wallet handler ─────────────────────────────────────────
   const handleConnectExternal = useCallback(() => {
@@ -95,14 +98,20 @@ const WalletChoiceStep = () => {
   }, [login, setWalletConnecting, hideModal, setModalError]);
 
   // ── Button labels ───────────────────────────────────────────────────
-  let embeddedLabel = "Create a wallet for me";
-  let embeddedSublabel = "No app needed. We handle fees and approvals automatically.";
+  let embeddedLabel = hasEmbeddedWallet ? "Proceed with your Element Wallet" : "Create your Element Wallet";
+  let embeddedSublabel = hasEmbeddedWallet
+    ? "Use the embedded wallet already linked to your account."
+    : "No app needed. We handle fees and approvals automatically.";
   if (creating) {
-    embeddedLabel = "Creating wallet...";
-    embeddedSublabel = "Please wait while we set up your wallet";
+    embeddedLabel = hasEmbeddedWallet ? "Opening your Element Wallet..." : "Creating your Element Wallet...";
+    embeddedSublabel = hasEmbeddedWallet
+      ? "Please wait while we open your existing embedded wallet"
+      : "Please wait while we set up your wallet";
   } else if (isWaiting) {
     embeddedLabel = "Connecting...";
-    embeddedSublabel = "Setting up secure wallet service";
+    embeddedSublabel = hasEmbeddedWallet
+      ? "Setting up secure wallet service for your Element Wallet"
+      : "Setting up secure wallet service";
   }
 
   return (

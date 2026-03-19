@@ -3,9 +3,9 @@
 import React, { useCallback, useState } from "react";
 import { ShieldCheck, X } from "lucide-react";
 import { motion } from "framer-motion";
-import { usePrivy } from "@privy-io/react-auth";
 import { useDisconnect } from "wagmi";
 import { useAuthModalStore } from "@/stores/authModalStore";
+import { useAuthStore } from "@/stores/authStore";
 import { useWalletStore } from "@/lib/useWallet";
 
 /**
@@ -19,7 +19,6 @@ import { useWalletStore } from "@/lib/useWallet";
  * to the wallet selection step.
  */
 const WalletLinkingStep = () => {
-  const { logout: privyLogout } = usePrivy();
   const { disconnect: wagmiDisconnect } = useDisconnect();
   const { disconnect: storeDisconnect } = useWalletStore();
   const [cancelling, setCancelling] = useState(false);
@@ -31,13 +30,10 @@ const WalletLinkingStep = () => {
     // Reset walletConnecting first — PrivyWalletListener's .then()/.catch()
     // will check this and bail out, effectively cancelling the operation.
     m.setWalletConnecting(false);
+    useAuthStore.getState().setWalletPreference(null);
 
-    // Disconnect Privy + wagmi so the user can pick a different wallet
-    try {
-      await privyLogout();
-    } catch (e) {
-      console.warn("[WalletLinkingStep] Privy logout error (non-fatal):", e);
-    }
+    // Keep the Privy JWT session intact. We only clear the active wallet
+    // attempt so the user can choose a different wallet.
     wagmiDisconnect();
     storeDisconnect();
     if (typeof window !== "undefined") {
@@ -47,7 +43,7 @@ const WalletLinkingStep = () => {
     // Return to wallet-choice step so user can retry
     m.setStep("wallet-choice");
     setCancelling(false);
-  }, [privyLogout, wagmiDisconnect, storeDisconnect]);
+  }, [wagmiDisconnect, storeDisconnect]);
 
   return (
     <motion.div

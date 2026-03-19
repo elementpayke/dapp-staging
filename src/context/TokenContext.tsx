@@ -6,6 +6,9 @@ import { readContract, type Config } from "@wagmi/core";
 import { erc20Abi } from "viem";
 import { SUPPORTED_TOKENS, SupportedToken } from "@/constants/supportedTokens";
 import { wagmiConfig } from "@/lib/wagmi-config";
+import { useWallets } from "@privy-io/react-auth";
+import { useAuthStore } from "@/stores/authStore";
+import { getExplicitSelectedWalletAddress } from "@/lib/privy-wallet-selection";
 
 // Map chain IDs to chain names
 const CHAIN_ID_TO_NAME: Record<number, string> = {
@@ -43,10 +46,20 @@ interface TokenProviderProps {
 export const TokenProvider: React.FC<TokenProviderProps> = ({ children }) => {
   const currentChainId = useChainId();
   const { switchChainAsync, isPending: isSwitchingChain } = useSwitchChain();
-  const { address, isConnected } = useAccount();
+  const { address: wagmiAddress } = useAccount();
+  const { wallets } = useWallets();
+  const walletPreference = useAuthStore((s) => s.walletPreference);
+  const isWalletRegistered = useAuthStore((s) => s.isWalletRegistered);
   const [selectedToken, setSelectedTokenState] = useState<SupportedToken>(SUPPORTED_TOKENS[0]);
   const [prevChainId, setPrevChainId] = useState<number | undefined>(undefined);
-  const autoDetectRanRef = useRef(false);
+  const autoDetectedAddressRef = useRef<string | null>(null);
+
+  const selectedWalletAddress = getExplicitSelectedWalletAddress({
+    walletPreference,
+    wallets,
+    wagmiAddress,
+  });
+  const hasSelectedWallet = Boolean(selectedWalletAddress) && isWalletRegistered;
 
   // Check if we're on the correct network for the selected token
   const isCorrectNetwork = currentChainId === CHAIN_NAME_TO_ID[selectedToken.chain];
@@ -56,15 +69,15 @@ export const TokenProvider: React.FC<TokenProviderProps> = ({ children }) => {
   // Priority: Base > Lisk > Scroll > Arbitrum (SUPPORTED_TOKENS order).
   // Picks the first token with a non-zero balance; defaults to Base otherwise.
   useEffect(() => {
-    if (!address || !isConnected) {
-      autoDetectRanRef.current = false;
+    if (!selectedWalletAddress || !hasSelectedWallet) {
+      autoDetectedAddressRef.current = null;
       return;
     }
-    if (autoDetectRanRef.current) return;
-    autoDetectRanRef.current = true;
+    if (autoDetectedAddressRef.current === selectedWalletAddress) return;
+    autoDetectedAddressRef.current = selectedWalletAddress;
 
     const detectBestToken = async () => {
-      console.log("[TokenContext] Auto-detecting best chain for", address);
+      console.log("[TokenContext] Auto-detecting best chain for", selectedWalletAddress);
 
       // Read balances on every supported chain in parallel
       const results = await Promise.allSettled(
@@ -76,7 +89,7 @@ export const TokenProvider: React.FC<TokenProviderProps> = ({ children }) => {
               address: token.tokenAddress as `0x${string}`,
               abi: erc20Abi,
               functionName: "balanceOf",
-              args: [address as `0x${string}`],
+              args: [selectedWalletAddress as `0x${string}`],
               chainId,
             });
             return { token, balance: bal as bigint };
@@ -113,7 +126,7 @@ export const TokenProvider: React.FC<TokenProviderProps> = ({ children }) => {
     };
 
     detectBestToken();
-  }, [address, isConnected, currentChainId, switchChainAsync]);
+  }, [selectedWalletAddress, hasSelectedWallet, currentChainId, switchChainAsync]);
 
   // Handle manual token selection (without chain switch)
   const setSelectedToken = useCallback((token: SupportedToken) => {

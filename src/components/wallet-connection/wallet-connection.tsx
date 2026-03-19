@@ -17,6 +17,7 @@ import {
 import { twMerge } from "tailwind-merge";
 import { useRouter } from "next/navigation";
 import { usePrivy } from "@privy-io/react-auth";
+import { useWallets } from "@privy-io/react-auth";
 import { useDisconnect } from "wagmi";
 import { LogOut, Wallet as WalletIcon } from "lucide-react";
 import ClientOnly from "@/components/shared/ClientOnly";
@@ -24,6 +25,7 @@ import { useWalletStore } from "@/lib/useWallet";
 import { useAuthStore } from "@/stores/authStore";
 import { useAuthModalStore } from "@/stores/authModalStore";
 import { useAuthSyncStore } from "@/stores/authSyncStore";
+import { getExplicitSelectedWalletAddress } from "@/lib/privy-wallet-selection";
 
 const buttonStyles = {
   default:
@@ -51,13 +53,18 @@ const WalletConnection = ({
   showDebugBanner?: boolean;
 }) => {
   const { login, linkWallet, logout: privyLogout, authenticated, ready, user } = usePrivy();
+  const { wallets } = useWallets();
   const { disconnect: wagmiDisconnect } = useDisconnect();
   const { disconnect: storeDisconnect } = useWalletStore();
 
   const router = useRouter();
 
   // ─── Derived wallet state ──────────────────────────────────────────
-  const walletAddress = user?.wallet?.address;
+  const walletPreference = useAuthStore((s) => s.walletPreference);
+  const walletAddress = getExplicitSelectedWalletAddress({
+    walletPreference,
+    wallets,
+  });
   const linkedAccounts = user?.linkedAccounts;
 
   // ─── App-level auth state ───────────────────────────────────────
@@ -144,8 +151,8 @@ const WalletConnection = ({
     console.log("app.isOtpVerified:", isOtpVerified);
     console.log("user:", user ? JSON.stringify({
       id: user.id,
-      wallet: user.wallet ? { address: user.wallet.address } : null,
-      linkedAccountTypes: linkedAccounts?.map((a: any) => `${a.type}${a.address ? `:${a.address}` : ""}`),
+      selectedWalletAddress: walletAddress ?? null,
+      linkedAccountTypes: linkedAccounts?.map((a: any) => `${a.connectorType ?? a.type}${a.address ? `:${a.address}` : ""}`),
     }, null, 2) : null);
     console.log("walletAddress:", walletAddress ?? "none");
     console.log("isMobile:", isMobile, "isHero:", isHero);
