@@ -3,7 +3,7 @@
 import React, { useCallback, useState, useEffect, useRef } from "react";
 import { Wallet, Sparkles, ExternalLink, Loader2, Shield, RefreshCw } from "lucide-react";
 import { motion } from "framer-motion";
-import { usePrivy } from "@privy-io/react-auth";
+import { usePrivy, useWallets } from "@privy-io/react-auth";
 import { useDisconnect } from "wagmi";
 import { useAuthModalStore } from "@/stores/authModalStore";
 import { useAuthStore } from "@/stores/authStore";
@@ -25,6 +25,7 @@ const AUTH_TIMEOUT_MS = 15_000;
  */
 const WalletChoiceStep = () => {
   const { createWallet, authenticated, ready, user, login, linkWallet } = usePrivy();
+  const { wallets } = useWallets();
   const setWalletConnecting = useAuthModalStore((s) => s.setWalletConnecting);
   const hideModal = useAuthModalStore((s) => s.hideModal);
   const setModalError = useAuthModalStore((s) => s.setErrorMessage);
@@ -33,7 +34,8 @@ const WalletChoiceStep = () => {
   const { disconnect: wagmiDisconnect } = useDisconnect();
   const { disconnect: storeDisconnect } = useWalletStore();
   const hasEmbeddedWallet = hasEmbeddedPrivyWallet(user);
-  const hasExistingEmbeddedWallet = hasEmbeddedWallet || Boolean(user?.wallet?.address);
+  const hasExistingEmbeddedWallet =
+    hasEmbeddedWallet || wallets.some((wallet) => wallet.walletClientType === "privy");
 
   const [creating, setCreating] = useState(false);
   const [timedOut, setTimedOut] = useState(false);
@@ -66,7 +68,10 @@ const WalletChoiceStep = () => {
     setCreating(true);
     try {
       if (!hasExistingEmbeddedWallet) {
+        console.log("[WalletChoiceStep] No embedded wallet found - creating one now");
         await createWallet();
+      } else {
+        console.log("[WalletChoiceStep] Reusing existing embedded wallet");
       }
       setWalletConnecting(true);
     } catch (err: any) {
@@ -74,7 +79,14 @@ const WalletChoiceStep = () => {
       setModalError(err?.message ?? "Failed to create wallet. Please try again.");
       setCreating(false);
     }
-  }, [privyReady, hasExistingEmbeddedWallet, createWallet, setWalletConnecting, setModalError, setWalletPreference]);
+  }, [
+    privyReady,
+    hasExistingEmbeddedWallet,
+    createWallet,
+    setWalletConnecting,
+    setModalError,
+    setWalletPreference,
+  ]);
 
   // ── External wallet handler ─────────────────────────────────────────
   const handleConnectExternal = useCallback(() => {
@@ -122,18 +134,18 @@ const WalletChoiceStep = () => {
   }, [login, setWalletConnecting, hideModal, setModalError]);
 
   // ── Button labels ───────────────────────────────────────────────────
-  let embeddedLabel = hasEmbeddedWallet ? "Proceed with your Element Wallet" : "Create your Element Wallet";
-  let embeddedSublabel = hasEmbeddedWallet
+  let embeddedLabel = hasExistingEmbeddedWallet ? "Proceed with your Element Wallet" : "Create your Element Wallet";
+  let embeddedSublabel = hasExistingEmbeddedWallet
     ? "Use the embedded wallet already linked to your account."
     : "No app needed. We handle fees and approvals automatically.";
   if (creating) {
-    embeddedLabel = hasEmbeddedWallet ? "Opening your Element Wallet..." : "Creating your Element Wallet...";
-    embeddedSublabel = hasEmbeddedWallet
+    embeddedLabel = hasExistingEmbeddedWallet ? "Opening your Element Wallet..." : "Creating your Element Wallet...";
+    embeddedSublabel = hasExistingEmbeddedWallet
       ? "Please wait while we open your existing embedded wallet"
       : "Please wait while we set up your wallet";
   } else if (isWaiting) {
     embeddedLabel = "Connecting...";
-    embeddedSublabel = hasEmbeddedWallet
+    embeddedSublabel = hasExistingEmbeddedWallet
       ? "Setting up secure wallet service for your Element Wallet"
       : "Setting up secure wallet service";
   }
