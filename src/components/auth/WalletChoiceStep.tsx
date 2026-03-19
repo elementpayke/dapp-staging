@@ -4,9 +4,11 @@ import React, { useCallback, useState, useEffect, useRef } from "react";
 import { Wallet, Sparkles, ExternalLink, Loader2, Shield, RefreshCw } from "lucide-react";
 import { motion } from "framer-motion";
 import { usePrivy } from "@privy-io/react-auth";
+import { useDisconnect } from "wagmi";
 import { useAuthModalStore } from "@/stores/authModalStore";
 import { useAuthStore } from "@/stores/authStore";
 import { hasEmbeddedPrivyWallet } from "@/lib/privy-wallet-selection";
+import { useWalletStore } from "@/lib/useWallet";
 
 /** How long to wait for Privy authentication before showing fallback. */
 const AUTH_TIMEOUT_MS = 15_000;
@@ -26,7 +28,10 @@ const WalletChoiceStep = () => {
   const setWalletConnecting = useAuthModalStore((s) => s.setWalletConnecting);
   const hideModal = useAuthModalStore((s) => s.hideModal);
   const setModalError = useAuthModalStore((s) => s.setErrorMessage);
+  const startExternalWalletSelection = useAuthModalStore((s) => s.startExternalWalletSelection);
   const setWalletPreference = useAuthStore((s) => s.setWalletPreference);
+  const { disconnect: wagmiDisconnect } = useDisconnect();
+  const { disconnect: storeDisconnect } = useWalletStore();
   const hasEmbeddedWallet = hasEmbeddedPrivyWallet(user);
   const hasExistingEmbeddedWallet = hasEmbeddedWallet || Boolean(user?.wallet?.address);
 
@@ -75,6 +80,15 @@ const WalletChoiceStep = () => {
   const handleConnectExternal = useCallback(() => {
     if (!authenticated) return;
     setModalError(null);
+    // Clear any stale active wallet transport state before opening Privy's
+    // selector so the next external wallet always comes from an explicit
+    // choice in this flow, not from a previously active connection.
+    wagmiDisconnect();
+    storeDisconnect();
+    if (typeof window !== "undefined") {
+      localStorage.removeItem("wallet-storage");
+    }
+    startExternalWalletSelection();
     setWalletPreference("external");
     setWalletConnecting(true);
     hideModal();
@@ -82,7 +96,17 @@ const WalletChoiceStep = () => {
       console.log("[WalletChoiceStep] Calling linkWallet() for external wallet");
       linkWallet();
     }, 150);
-  }, [authenticated, linkWallet, setWalletConnecting, hideModal, setModalError, setWalletPreference]);
+  }, [
+    authenticated,
+    linkWallet,
+    setWalletConnecting,
+    hideModal,
+    setModalError,
+    startExternalWalletSelection,
+    setWalletPreference,
+    wagmiDisconnect,
+    storeDisconnect,
+  ]);
 
   // ── Fallback: explicit user action when JWT auth fails ──────────────
   // Only called via the "Try another way" button — NEVER automatically.

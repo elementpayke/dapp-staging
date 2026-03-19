@@ -47,18 +47,43 @@ export default function PrivyWalletListener() {
   const setWalletRegistered = useAuthStore((s) => s.setWalletRegistered);
 
   const walletConnecting = useAuthModalStore((s) => s.walletConnecting);
+  const externalWalletSelectionPending = useAuthModalStore((s) => s.externalWalletSelectionPending);
+  const externalWalletSelectionModalOpened = useAuthModalStore((s) => s.externalWalletSelectionModalOpened);
+  const markExternalWalletSelectionModalOpened = useAuthModalStore((s) => s.markExternalWalletSelectionModalOpened);
+  const clearExternalWalletSelection = useAuthModalStore((s) => s.clearExternalWalletSelection);
   const walletPreference = useAuthStore((s) => s.walletPreference);
   const { wallets } = useWallets();
 
   // Resolve the correct wallet based on user's preference so we
   // register the right address with the backend.
-  const walletAddress = useMemo(() => {
+  const resolvedWalletAddress = useMemo(() => {
     return getExplicitSelectedWalletAddress({
       walletPreference,
       wallets,
       wagmiAddress,
     });
   }, [walletPreference, wallets, wagmiAddress]);
+
+  const walletAddress = useMemo(() => {
+    if (walletPreference !== "external") {
+      return resolvedWalletAddress;
+    }
+
+    if (!externalWalletSelectionPending) {
+      return resolvedWalletAddress;
+    }
+
+    if (!externalWalletSelectionModalOpened) {
+      return null;
+    }
+
+    return resolvedWalletAddress;
+  }, [
+    walletPreference,
+    resolvedWalletAddress,
+    externalWalletSelectionPending,
+    externalWalletSelectionModalOpened,
+  ]);
 
   // Guard against double-fire
   const calledRef = useRef(false);
@@ -76,8 +101,28 @@ export default function PrivyWalletListener() {
   useEffect(() => {
     if (!walletConnecting) {
       calledRef.current = false;
+      if (externalWalletSelectionPending) {
+        clearExternalWalletSelection();
+      }
     }
-  }, [walletConnecting]);
+  }, [walletConnecting, externalWalletSelectionPending, clearExternalWalletSelection]);
+
+  useEffect(() => {
+    if (
+      walletConnecting &&
+      walletPreference === "external" &&
+      externalWalletSelectionPending &&
+      privyModalOpen
+    ) {
+      markExternalWalletSelectionModalOpened();
+    }
+  }, [
+    walletConnecting,
+    walletPreference,
+    externalWalletSelectionPending,
+    privyModalOpen,
+    markExternalWalletSelectionModalOpened,
+  ]);
 
   // ── Privy dismiss detection ────────────────────────────────────────────
   // Track whether Privy's `authenticated` was ever true during this
@@ -104,6 +149,7 @@ export default function PrivyWalletListener() {
       if (!modal.isOpen) {
         console.log("[WALLET-LINK] Privy dismissed after auth — resuming at wallet-choice step");
         modal.setWalletConnecting(false);
+        modal.clearExternalWalletSelection();
         modal.setStep("wallet-choice");
         modal.resumeAuthModal();
       }
@@ -147,6 +193,7 @@ export default function PrivyWalletListener() {
       if (!modal.isOpen && modal.walletConnecting) {
         console.log("[WALLET-LINK] Privy linkWallet modal dismissed — resuming at wallet-choice step");
         modal.setWalletConnecting(false);
+        modal.clearExternalWalletSelection();
         modal.setStep("wallet-choice");
         modal.resumeAuthModal();
       }
@@ -221,6 +268,7 @@ export default function PrivyWalletListener() {
         // Success — close modal and go to dashboard
         const m = useAuthModalStore.getState();
         m.setWalletConnecting(false);
+        m.clearExternalWalletSelection();
         m.closeAuthModal();
         m.reset();
 
@@ -246,6 +294,7 @@ export default function PrivyWalletListener() {
 
         const m = useAuthModalStore.getState();
         m.setWalletConnecting(false);
+        m.clearExternalWalletSelection();
 
         const isConflict = isWalletOwnershipConflictError(error);
         const errorMsg = isConflict

@@ -30,6 +30,7 @@ const WalletLinkingStep = () => {
     // Reset walletConnecting first — PrivyWalletListener's .then()/.catch()
     // will check this and bail out, effectively cancelling the operation.
     m.setWalletConnecting(false);
+    m.clearExternalWalletSelection();
     useAuthStore.getState().setWalletPreference(null);
 
     // Keep the Privy JWT session intact. We only clear the active wallet
