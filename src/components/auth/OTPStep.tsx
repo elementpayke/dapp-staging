@@ -35,6 +35,8 @@ const OTPStep = () => {
   const setAuth = useAuthStore((s) => s.setAuth);
   const setStep = useAuthModalStore((s) => s.setStep);
   const setModalError = useAuthModalStore((s) => s.setErrorMessage);
+  const otp = digits.join("");
+  const isComplete = otp.length === OTP_LENGTH;
 
   // If the OTP has expired (> 15 min) send user back to email step
   useEffect(() => {
@@ -73,34 +75,7 @@ const OTPStep = () => {
     [digits, error, setModalError],
   );
 
-  const handleKeyDown = useCallback(
-    (idx: number, e: React.KeyboardEvent<HTMLInputElement>) => {
-      if (e.key === "Backspace" && !digits[idx] && idx > 0) {
-        inputsRef.current[idx - 1]?.focus();
-      }
-    },
-    [digits],
-  );
-
-  const handlePaste = useCallback(
-    (e: React.ClipboardEvent) => {
-      e.preventDefault();
-      const pasted = e.clipboardData.getData("text").replace(/\D/g, "").slice(0, OTP_LENGTH);
-      if (!pasted) return;
-      const next = [...digits];
-      for (let i = 0; i < pasted.length; i++) {
-        next[i] = pasted[i];
-      }
-      setDigits(next);
-      // Focus the next empty or the last
-      const focusIdx = Math.min(pasted.length, OTP_LENGTH - 1);
-      inputsRef.current[focusIdx]?.focus();
-    },
-    [digits],
-  );
-
-  const handleContinue = useCallback(async () => {
-    const otp = digits.join("");
+  const submitOtp = useCallback(async () => {
     if (otp.length !== OTP_LENGTH) {
       setError("Please enter the full 6-digit code");
       return;
@@ -143,7 +118,41 @@ const OTPStep = () => {
     } finally {
       setLoading(false);
     }
-  }, [digits, pendingEmail, setAuth, setStep, setModalError]);
+  }, [otp, pendingEmail, setAuth, setStep, setModalError]);
+
+  const handleKeyDown = useCallback(
+    (idx: number, e: React.KeyboardEvent<HTMLInputElement>) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        if (isComplete && !loading) {
+          void submitOtp();
+        }
+        return;
+      }
+
+      if (e.key === "Backspace" && !digits[idx] && idx > 0) {
+        inputsRef.current[idx - 1]?.focus();
+      }
+    },
+    [digits, isComplete, loading, submitOtp],
+  );
+
+  const handlePaste = useCallback(
+    (e: React.ClipboardEvent) => {
+      e.preventDefault();
+      const pasted = e.clipboardData.getData("text").replace(/\D/g, "").slice(0, OTP_LENGTH);
+      if (!pasted) return;
+      const next = [...digits];
+      for (let i = 0; i < pasted.length; i++) {
+        next[i] = pasted[i];
+      }
+      setDigits(next);
+      // Focus the next empty or the last
+      const focusIdx = Math.min(pasted.length, OTP_LENGTH - 1);
+      inputsRef.current[focusIdx]?.focus();
+    },
+    [digits],
+  );
 
   const handleResend = useCallback(async () => {
     if (cooldown > 0 || !pendingEmail) return;
@@ -159,9 +168,6 @@ const OTPStep = () => {
       setError("Failed to resend. Try again.");
     }
   }, [cooldown, pendingEmail, setModalError]);
-
-  const otp = digits.join("");
-  const isComplete = otp.length === OTP_LENGTH;
 
   return (
     <motion.div
@@ -187,61 +193,69 @@ const OTPStep = () => {
         </span>
       </p>
 
-      {/* OTP digit boxes */}
-      <div className="flex gap-2.5 mb-4" onPaste={handlePaste}>
-        {digits.map((d, i) => (
-          <input
-            key={i}
-            ref={(el) => { inputsRef.current[i] = el; }}
-            type="text"
-            inputMode="numeric"
-            maxLength={1}
-            value={d}
-            onChange={(e) => handleChange(i, e.target.value)}
-            onKeyDown={(e) => handleKeyDown(i, e)}
-            className={`
-              w-12 h-14 rounded-xl border text-center text-xl font-semibold
-              bg-[var(--landing-input-bg)] text-[var(--landing-heading)]
-              outline-none transition-all
-              ${error
-                ? "border-red-400"
-                : d
-                  ? "border-[var(--landing-accent)] ring-2 ring-[var(--landing-accent)]/20"
-                  : "border-[var(--landing-input-border)] focus:border-[var(--landing-accent)] focus:ring-2 focus:ring-[var(--landing-accent)]/20"
-              }
-            `}
-            aria-label={`Digit ${i + 1}`}
-          />
-        ))}
-      </div>
-
-      {error && (
-        <p className="text-xs text-red-500 mb-4" role="alert">
-          {error}
-        </p>
-      )}
-
-      <button
-        type="button"
-        onClick={handleContinue}
-        disabled={loading || !isComplete}
-        className="
-          w-full max-w-sm flex items-center justify-center gap-2
-          rounded-xl py-3.5 text-base font-semibold
-          text-white bg-[var(--landing-accent)] hover:bg-[var(--landing-accent-hover)]
-          disabled:opacity-50 disabled:cursor-not-allowed
-          transition-colors focus:outline-none focus:ring-2 focus:ring-[var(--landing-accent)]/40
-        "
+      <form
+        className="w-full max-w-sm"
+        onSubmit={(e) => {
+          e.preventDefault();
+          if (loading || !isComplete) return;
+          void submitOtp();
+        }}
       >
-        {loading ? (
-          <Loader2 className="w-5 h-5 animate-spin" />
-        ) : (
-          <>
-            Verify
-            <ArrowRight className="w-4 h-4" />
-          </>
+        {/* OTP digit boxes */}
+        <div className="flex gap-2.5 mb-4" onPaste={handlePaste}>
+          {digits.map((d, i) => (
+            <input
+              key={i}
+              ref={(el) => { inputsRef.current[i] = el; }}
+              type="text"
+              inputMode="numeric"
+              maxLength={1}
+              value={d}
+              onChange={(e) => handleChange(i, e.target.value)}
+              onKeyDown={(e) => handleKeyDown(i, e)}
+              className={`
+                w-12 h-14 rounded-xl border text-center text-xl font-semibold
+                bg-[var(--landing-input-bg)] text-[var(--landing-heading)]
+                outline-none transition-all
+                ${error
+                  ? "border-red-400"
+                  : d
+                    ? "border-[var(--landing-accent)] ring-2 ring-[var(--landing-accent)]/20"
+                    : "border-[var(--landing-input-border)] focus:border-[var(--landing-accent)] focus:ring-2 focus:ring-[var(--landing-accent)]/20"
+                }
+              `}
+              aria-label={`Digit ${i + 1}`}
+            />
+          ))}
+        </div>
+
+        {error && (
+          <p className="text-xs text-red-500 mb-4" role="alert">
+            {error}
+          </p>
         )}
-      </button>
+
+        <button
+          type="submit"
+          disabled={loading || !isComplete}
+          className="
+            w-full max-w-sm flex items-center justify-center gap-2
+            rounded-xl py-3.5 text-base font-semibold
+            text-white bg-[var(--landing-accent)] hover:bg-[var(--landing-accent-hover)]
+            disabled:opacity-50 disabled:cursor-not-allowed
+            transition-colors focus:outline-none focus:ring-2 focus:ring-[var(--landing-accent)]/40
+          "
+        >
+          {loading ? (
+            <Loader2 className="w-5 h-5 animate-spin" />
+          ) : (
+            <>
+              Verify
+              <ArrowRight className="w-4 h-4" />
+            </>
+          )}
+        </button>
+      </form>
 
       {/* Resend */}
       <button
