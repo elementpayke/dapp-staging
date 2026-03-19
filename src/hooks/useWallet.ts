@@ -64,6 +64,14 @@ export const useWallet = () => {
   }, [fetchUSDCBalance]);
 
   useEffect(() => {
+    if (!walletAddress) {
+      setUsdcBalance(0);
+      return;
+    }
+    setUsdcBalance(0);
+  }, [walletAddress, setUsdcBalance]);
+
+  useEffect(() => {
     if (usdcBalanceData?.formatted) {
       setUsdcBalance(parseFloat(usdcBalanceData.formatted));
       console.log("Fetched USDC Balance:", usdcBalanceData.formatted);

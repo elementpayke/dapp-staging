@@ -19,7 +19,11 @@ const normalize = (value: string) => value.toLowerCase();
 
 const isEmbeddedWallet = (wallet: PrivyWalletLike) => wallet.walletClientType === "privy";
 
-const sameAddress = (left: string, right: string) => normalize(left) === normalize(right);
+export const sameWalletAddress = (left: string | null | undefined, right: string | null | undefined) =>
+{
+  if (!left || !right) return false;
+  return normalize(left) === normalize(right);
+};
 
 export function hasEmbeddedPrivyWallet(user: PrivyUserLike | null | undefined): boolean {
   return (
@@ -42,7 +46,7 @@ export function getExplicitSelectedWalletAddress({
   if (walletPreference === "external") {
     const externalWallets = wallets.filter((wallet) => !isEmbeddedWallet(wallet));
     if (wagmiAddress) {
-      const wagmiMatch = externalWallets.find((wallet) => sameAddress(wallet.address, wagmiAddress));
+      const wagmiMatch = externalWallets.find((wallet) => sameWalletAddress(wallet.address, wagmiAddress));
       if (wagmiMatch) return wagmiMatch.address;
     }
     return null;
