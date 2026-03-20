@@ -19,7 +19,6 @@ import {
   useSwitchChain,
   useChainId,
   usePublicClient,
-  useWalletClient,
 } from "wagmi";
 import { erc20Abi } from "@/app/api/abi";
 
@@ -58,11 +57,18 @@ import {
 } from "@/utils/feeStructure";
 import { validateKenyanPhoneNumber as validatePhoneLocal, formatKenyanPhoneNumber } from "@/utils/phoneValidation";
 import { useSelectedToken } from "@/context/TokenContext";
+import { useWallet } from "@/hooks/useWallet";
 import {
   executeOfframpOrder as executeOfframpOrderFlow,
   getOfframpContractAddress,
   mapOffRampMethodToPaymentMethod,
+  type SponsoredApprovalParams,
 } from "@/utils/offrampExecution";
+import { usePrivySponsoredWithdrawal } from "@/hooks/usePrivySponsoredWithdrawal";
+import {
+  DEFAULT_SPONSORED_WITHDRAW_CHAIN_KEY,
+  getSponsoredWithdrawChainKeyForTokenChain,
+} from "@/lib/privy-sponsorship/chains";
 
 interface TransactionReceipt {
   amount: string;
@@ -220,8 +226,8 @@ const SendCryptoModal: React.FC = () => {
 
   const account = useAccount();
   const { connector } = account;
+  const { address: walletAddress } = useWallet();
   const { writeContractAsync } = useWriteContract();
-  const { data: walletClient } = useWalletClient();
 
   // Detect if user is on mobile device
   const isMobileDevice = useMemo(() => {
@@ -501,7 +507,7 @@ const SendCryptoModal: React.FC = () => {
     }
 
     // Need wallet address to fetch quote
-    if (!account.address) {
+    if (!walletAddress) {
       setQuoteValidation((prev) => ({
         ...prev,
         error: "Please connect your wallet",
@@ -517,7 +523,7 @@ const SendCryptoModal: React.FC = () => {
       const quoteResponse = await fetchOrderQuote({
         amountFiat: amountNum,
         tokenAddress: selectedToken.tokenAddress,
-        walletAddress: account.address,
+        walletAddress,
         orderType: 1, // OffRamp
         currency: "KES",
       });
@@ -530,12 +536,13 @@ const SendCryptoModal: React.FC = () => {
         // Convert from raw units to standard units
         const requiredTokenAmount =
           quoteData.required_token_amount_raw / Math.pow(10, decimals);
-        const currentBalance = quoteData.current_balance_raw
-          ? quoteData.current_balance_raw / Math.pow(10, decimals)
+        const hasApiBalance =
+          quoteData.current_balance_raw !== undefined &&
+          quoteData.current_balance_raw !== null;
+        const currentBalance = hasApiBalance
+          ? (quoteData.current_balance_raw ?? 0) / Math.pow(10, decimals)
           : selectedTokenBalance;
-
         const hasSufficientBalance =
-          quoteData.has_sufficient_balance ??
           currentBalance >= requiredTokenAmount;
 
         console.log("💰 Quote validation:", {
@@ -583,7 +590,7 @@ const SendCryptoModal: React.FC = () => {
         hasSufficientBalance: null,
       });
     }
-  }, [amount, selectedToken, account.address, selectedTokenBalance]);
+  }, [amount, selectedToken, walletAddress, selectedTokenBalance]);
 
   useEffect(() => {
     if (!mobileNumber) {
@@ -608,7 +615,7 @@ const SendCryptoModal: React.FC = () => {
   // Validate amount with quote when amount changes (debounced)
   // Uses local validation first for instant feedback, then confirms with API
   useEffect(() => {
-    if (!amount || !account.address) {
+    if (!amount || !walletAddress) {
       setQuoteValidation({
         isValidating: false,
         isValid: false,
@@ -660,7 +667,7 @@ const SendCryptoModal: React.FC = () => {
     }, 500); // Reduced from 800ms to 500ms since we have caching now
 
     return () => clearTimeout(timeoutId);
-  }, [amount, selectedToken, account.address, validateAmountWithQuote, exchangeRate, selectedTokenBalance]);
+  }, [amount, selectedToken, walletAddress, validateAmountWithQuote, exchangeRate, selectedTokenBalance]);
 
   // ✅ FIXED: Use dynamic fee structure instead of hardcoded 1% fee
   const transactionSummary = useMemo(() => {
@@ -891,6 +898,23 @@ const SendCryptoModal: React.FC = () => {
   ]);
 
   const contractAddress = getOfframpContractAddress(selectedToken.chain);
+  const sponsoredChainKey = useMemo(
+    () => getSponsoredWithdrawChainKeyForTokenChain(selectedToken.chain),
+    [selectedToken.chain],
+  );
+  const {
+    sendSponsoredApproval,
+    isEmbeddedWalletActive,
+    isWorking: isSponsoredTransferWorking,
+  } = usePrivySponsoredWithdrawal(
+    sponsoredChainKey ?? DEFAULT_SPONSORED_WITHDRAW_CHAIN_KEY,
+  );
+  const canUsePrivySponsoredTransfer = Boolean(
+    sponsoredChainKey && isEmbeddedWalletActive,
+  );
+  const isSponsoredProcessing =
+    canUsePrivySponsoredTransfer &&
+    (isApproving || isSponsoredTransferWorking);
 
   const cleanupOrderStates = useCallback(() => {
     // Abort any in-flight offramp execution so its background polling
@@ -1000,6 +1024,58 @@ const SendCryptoModal: React.FC = () => {
     }
   };
 
+  const executeSponsoredApproval = useCallback(
+    async ({
+      amount,
+      spender,
+      tokenAddress,
+    }: SponsoredApprovalParams): Promise<string | null> => {
+      if (!canUsePrivySponsoredTransfer || !sponsoredChainKey) {
+        return null;
+      }
+
+      if (spender.toLowerCase() !== contractAddress.toLowerCase()) {
+        toast.error("Sponsored approval spender mismatch. Please try again.");
+        return null;
+      }
+
+      if (
+        tokenAddress.toLowerCase() !== selectedToken.tokenAddress.toLowerCase()
+      ) {
+        toast.error("Sponsored approval token mismatch. Please refresh and try again.");
+        return null;
+      }
+
+      try {
+        const execution = await sendSponsoredApproval({
+          amount,
+          chainKey: sponsoredChainKey,
+          spenderAddress: contractAddress as `0x${string}`,
+          tokenAddress,
+        });
+
+        return execution.transactionHash;
+      } catch (error: any) {
+        const message =
+          error instanceof Error
+            ? error.message
+            : typeof error?.message === "string"
+            ? error.message
+              : "Sponsored approval failed";
+
+        toast.error(message);
+        return null;
+      }
+    },
+    [
+      canUsePrivySponsoredTransfer,
+      contractAddress,
+      sponsoredChainKey,
+      selectedToken.tokenAddress,
+      sendSponsoredApproval,
+    ],
+  );
+
   const executeOfframpOrder = async () => {
     // Abort any previous in-flight execution before starting a new one
     abortControllerRef.current?.abort();
@@ -1012,7 +1088,7 @@ const SendCryptoModal: React.FC = () => {
       connector,
       switchChainAsync,
       isMobileWalletFlow,
-      accountAddress: account.address,
+      accountAddress: walletAddress || undefined,
       amountFiat: amount,
       messageHash,
       reason,
@@ -1025,6 +1101,13 @@ const SendCryptoModal: React.FC = () => {
       selectedTokenBalance,
       cashoutType: getCashoutType(),
       approveTokenIfNeeded,
+      sponsoredApproval: canUsePrivySponsoredTransfer
+        ? {
+            enabled: true,
+            spenderAddress: contractAddress as `0x${string}`,
+            execute: executeSponsoredApproval,
+          }
+        : undefined,
       setApproving: setIsApproving,
       setProcessing: setIsProcessing,
       setShowProcessingPopup,
@@ -1070,7 +1153,7 @@ const SendCryptoModal: React.FC = () => {
   executeOfframpOrderRef.current = executeOfframpOrder;
 
   const handleApproveToken = async () => {
-    if (!account.address) {
+    if (!walletAddress) {
       toast.error("Please connect your wallet first");
       return;
     }
@@ -1179,21 +1262,21 @@ const SendCryptoModal: React.FC = () => {
       setTransactionReciept((prev) => ({
         ...prev,
         amount: amount || "0.00",
-        amountUSDC: transactionSummary.usdcAmount || 0,
+        amountUSDC: transactionSummary.totalUSDC || 0,
         phoneNumber: recipientInfo,
-        address: account.address || "",
+        address: walletAddress || "",
       }));
     }
   }, [
     isBrowser,
     amount,
-    transactionSummary.usdcAmount,
+    transactionSummary.totalUSDC,
     mobileNumber,
     paybillNumber,
     accountNumber,
     tillNumber,
     getCashoutType,
-    account.address,
+    walletAddress,
   ]);
 
   console.log(
@@ -1457,6 +1540,7 @@ const SendCryptoModal: React.FC = () => {
               onClick={handleApproveToken}
               disabled={
                 isApproving ||
+                isSponsoredTransferWorking ||
                 !isFormValid() ||
                 Number.parseFloat(amount) < MIN_TRANSACTION_AMOUNT_KES
               }
@@ -1469,7 +1553,9 @@ const SendCryptoModal: React.FC = () => {
                   ? `Switch to ${selectedToken.chain}`
                   : quoteValidation.isValidating
                     ? "Validating…"
-                    : isApproving
+                    : isSponsoredProcessing
+                      ? "Processing…"
+                      : isApproving
                       ? "Approving…"
                       : isValidatingPhone
                         ? "Validating…"
@@ -1561,7 +1647,10 @@ const SendCryptoModal: React.FC = () => {
               amount,
             currency: "KES",
             tokenSymbol: selectedToken.symbol,
-            tokenAmount: transactionSummary.usdcAmount.toFixed(6),
+            tokenAmount:
+              transactionReciept.amountUSDC > 0
+                ? transactionReciept.amountUSDC.toFixed(6)
+                : transactionSummary.totalUSDC.toFixed(6),
             network: selectedToken.chain,
             recipient:
               finalTransactionData?.receiver_name ||

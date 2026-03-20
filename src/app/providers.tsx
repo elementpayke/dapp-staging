@@ -117,9 +117,12 @@ function SessionGuard() {
  * 3. Smart wallet's internal chain selection
  */
 export function Providers(props: { children: ReactNode }) {
+  const privyAppId =
+    process.env.NEXT_PUBLIC_PRIVY_APP_ID ?? "cmkn2mzls02apjp0cvfjkr4ab";
+
   return (
     <PrivyProvider
-      appId={"cmkn2mzls02apjp0cvfjkr4ab"}
+      appId={privyAppId}
       config={{
         appearance: {
           theme: "dark",
