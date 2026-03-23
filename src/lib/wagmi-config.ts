@@ -92,7 +92,7 @@ export const wagmiConfig = createConfig({
     [lisk.id]: http("https://rpc.api.lisk.com"),
     [scroll.id]: http("https://rpc.scroll.io/"),
     [arbitrum.id]: http("https://arb1.arbitrum.io/rpc"),
-    [polygon.id]: http("https://polygon-rpc.com"),
+    [polygon.id]: createTransportWithFallback(polygonRpcUrls),
   },
   ssr: true,
 });

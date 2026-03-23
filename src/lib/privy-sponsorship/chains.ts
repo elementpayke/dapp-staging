@@ -60,7 +60,7 @@ const SPONSORED_WITHDRAW_CHAIN_CONFIG = {
     rpcUrl:
       process.env.NEXT_PUBLIC_POLYGON_RPC_URL ??
       polygon.rpcUrls.default.http[0] ??
-      "https://polygon-rpc.com",
+      "https://polygon-bor-rpc.publicnode.com",
     supportedTokens: buildSupportedTokensForChain("Polygon"),
   },
   ethereum: {

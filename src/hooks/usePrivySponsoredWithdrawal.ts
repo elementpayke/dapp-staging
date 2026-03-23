@@ -602,6 +602,7 @@ export function usePrivySponsoredWithdrawal(
           {
             address: embeddedWallet.address,
             sponsor: true,
+            uiOptions: { showWalletUIs: false },
           },
         );
         const receipt = await publicClient.waitForTransactionReceipt({ hash });
@@ -681,6 +682,7 @@ export function usePrivySponsoredWithdrawal(
           {
             address: embeddedWallet.address,
             sponsor: true,
+            uiOptions: { showWalletUIs: false },
           },
         );
         const receipt = await publicClient.waitForTransactionReceipt({ hash });

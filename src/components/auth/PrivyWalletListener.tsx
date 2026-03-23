@@ -242,6 +242,29 @@ export default function PrivyWalletListener() {
       walletAddress,
     });
 
+    // Fast-track: embedded wallets already registered on the backend need no
+    // connect-wallet API call — skip straight to dashboard.
+    const authState = useAuthStore.getState();
+    const alreadyRegistered =
+      walletPreference === "embedded" &&
+      authState.connectedWallets.some(
+        (addr) => addr.toLowerCase() === walletAddress.toLowerCase()
+      );
+
+    if (alreadyRegistered) {
+      console.log("[WALLET-LINK] Embedded wallet already registered — skipping connect-wallet API");
+      authState.setWalletRegistered(true);
+      const m = useAuthModalStore.getState();
+      m.setWalletConnecting(false);
+      m.clearExternalWalletSelection();
+      m.closeAuthModal();
+      m.reset();
+      if (useAuthStore.getState().isAuthenticated) {
+        router.push("/dashboard");
+      }
+      return;
+    }
+
     // Open the modal at wallet-linking step to show the spinner.
     // Use direct setters instead of resumeAuthModal to avoid changing
     // walletConnecting (which is in our deps and would trigger cleanup).

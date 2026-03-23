@@ -1210,6 +1210,13 @@ const SendCryptoModal: React.FC = () => {
         return;
       }
       await validateAccount();
+
+      // Embedded wallets: auto-approve to keep the flow instant
+      if (canUsePrivySponsoredTransfer) {
+        await executeOfframpOrder();
+        return;
+      }
+
       console.log("📋 PayBill validation complete, setting up modal");
       setProceedAfterValidation(() => () => {
         console.log("📋 Proceed button clicked, executing offramp order");
@@ -1640,6 +1647,7 @@ const SendCryptoModal: React.FC = () => {
           }}
           orderId={orderId}
           disableInternalPolling={true}
+          autoCloseOnSuccess={canUsePrivySponsoredTransfer}
           transactionDetails={{
             amount:
               finalTransactionData?.amount_fiat?.toString() ||

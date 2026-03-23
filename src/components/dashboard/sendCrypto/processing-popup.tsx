@@ -18,6 +18,8 @@ interface ProcessingPopupProps {
   orderId: string;
   transactionDetails: TransactionDetails;
   disableInternalPolling?: boolean; // Flag to disable ProcessingPopup's own polling
+  /** When true, auto-close popup shortly after success (embedded wallet instant UX). */
+  autoCloseOnSuccess?: boolean;
   branding?: {
     primaryColor: string;
     logo?: string;
@@ -34,6 +36,7 @@ const ProcessingPopup: React.FC<ProcessingPopupProps> = ({
   orderId,
   transactionDetails: initialTransactionDetails,
   disableInternalPolling = false,
+  autoCloseOnSuccess = false,
   branding = {
     primaryColor: "#4f46e5",
     companyName: "Element Pay",
@@ -164,6 +167,15 @@ const ProcessingPopup: React.FC<ProcessingPopupProps> = ({
       setPopupLocked(true);
     }
   }, [status, isVisible, setPopupLocked]);
+
+  // Auto-close popup on success for embedded wallets (instant fintech UX)
+  useEffect(() => {
+    if (!autoCloseOnSuccess || status !== "success" || !isVisible) return;
+    const timer = setTimeout(() => {
+      onClose();
+    }, 1500);
+    return () => clearTimeout(timer);
+  }, [autoCloseOnSuccess, status, isVisible, onClose]);
 
   // Reset state when popup becomes invisible
   useEffect(() => {

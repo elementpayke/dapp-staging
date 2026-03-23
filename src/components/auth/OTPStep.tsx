@@ -110,6 +110,26 @@ const OTPStep = () => {
         useAuthStore.getState().setPrivyToken(res.privy_token);
       }
 
+      // Fast-track: if backend already has a registered embedded wallet for
+      // this user, skip wallet-choice and connect-wallet steps entirely.
+      const hasRegisteredEmbeddedWallet = res.user?.wallets?.some(
+        (w) => w.wallet_type === "embedded" || w.wallet_type === "privy"
+      );
+
+      if (hasRegisteredEmbeddedWallet) {
+        console.log("[OTPStep] User already has embedded wallet — fast-tracking to dashboard");
+        const store = useAuthStore.getState();
+        store.setWalletPreference("embedded");
+        store.setWalletRegistered(true);
+        const embeddedAddr = res.user.wallets?.find(
+          (w) => w.wallet_type === "embedded" || w.wallet_type === "privy"
+        )?.address;
+        if (embeddedAddr) store.addConnectedWallet(embeddedAddr);
+        useAuthModalStore.getState().closeAuthModal();
+        useAuthModalStore.getState().reset();
+        return;
+      }
+
       // Move to wallet choice step (embedded vs external)
       console.log("[OTPStep] Moving to wallet choice step");
       setStep("wallet-choice");

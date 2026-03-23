@@ -88,6 +88,17 @@ const WalletChoiceStep = () => {
     setWalletPreference,
   ]);
 
+  // ── Auto-select embedded wallet for users who already have one ──────
+  // Skips the wallet-choice UI entirely — more velocity.
+  const autoTriggeredRef = useRef(false);
+  useEffect(() => {
+    if (autoTriggeredRef.current || creating) return;
+    if (!privyReady || !hasExistingEmbeddedWallet) return;
+    autoTriggeredRef.current = true;
+    console.log("[WalletChoiceStep] Auto-selecting existing embedded wallet — skipping choice UI");
+    handleCreateEmbedded();
+  }, [privyReady, hasExistingEmbeddedWallet, creating, handleCreateEmbedded]);
+
   // ── External wallet handler ─────────────────────────────────────────
   const handleConnectExternal = useCallback(() => {
     if (!authenticated) return;
