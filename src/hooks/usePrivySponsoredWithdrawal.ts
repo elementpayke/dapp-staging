@@ -650,26 +650,79 @@ export function usePrivySponsoredWithdrawal(
       setResult(null);
 
       try {
-        setStatus("estimating");
-
-        const { amountRaw, gasEstimate: nextGasEstimate } =
-          await estimateSponsoredApproval(params);
-
         if (!embeddedWallet) {
           throw new Error("Embedded wallet not available.");
+        }
+
+        if (!params.amount || Number(params.amount) <= 0) {
+          throw new Error("Approval amount must be greater than zero.");
         }
 
         const chainKey = params.chainKey ?? defaultChainKey;
         const chainConfig = getPrivySponsoredWithdrawChainConfig(chainKey);
         const token = resolveSupportedToken(chainKey, params.tokenAddress);
+
+        // Compute amountRaw directly — no RPC needed for this.
+        const amountRaw = parseUnits(params.amount, token.decimals);
+
+        // Optional balance pre-check. If it fails (e.g. RPC flake) we still
+        // attempt the on-chain approval and let Privy/the node reject it.
+        setStatus("estimating");
+        let nextGasEstimate: PrivySponsoredTransferGasEstimate | null = null;
+        try {
+          const publicClient = getPublicClientForChain(chainKey);
+          const balance = await publicClient.readContract({
+            address: token.address,
+            abi: erc20Abi,
+            functionName: "balanceOf",
+            args: [embeddedWallet.address as Address],
+          });
+
+          if (balance < amountRaw) {
+            // This is a hard failure — user genuinely lacks funds.
+            throw new Error(
+              `Insufficient balance. Wallet has ${formatUnits(
+                balance,
+                token.decimals,
+              )} ${token.symbol}.`,
+            );
+          }
+
+          setEmbeddedWalletAddress(embeddedWallet.address as Address);
+          setEmbeddedWalletBalance(formatUnits(balance, token.decimals));
+        } catch (preCheckError: any) {
+          // Re-throw genuine insufficient-balance errors.
+          if (preCheckError?.message?.includes("Insufficient balance")) {
+            throw preCheckError;
+          }
+          // RPC flake — log and proceed; the on-chain tx will fail if truly
+          // problematic, and Privy handles gas estimation internally.
+          console.warn(
+            "[SponsoredApproval] Balance pre-check failed (RPC issue), proceeding anyway:",
+            preCheckError?.message,
+          );
+        }
+
         const callData = encodeFunctionData({
           abi: erc20Abi,
           functionName: "approve",
           args: [params.spenderAddress, amountRaw],
         });
-        const publicClient = getPublicClientForChain(chainKey);
+
+        // Safety: never approve the token contract to spend itself
+        if (params.spenderAddress.toLowerCase() === token.address.toLowerCase()) {
+          throw new Error(
+            `Approval target (${params.spenderAddress}) must not equal the token address (${token.address}). Check NEXT_PUBLIC_CONTRACT_ADDRESS_POLYGON env var.`,
+          );
+        }
 
         setStatus("submitting");
+        console.log("[SponsoredApproval] Sending approval tx via Privy:", {
+          chainId: chainConfig.chainId,
+          token: token.address,
+          spender: params.spenderAddress,
+          amount: params.amount,
+        });
 
         const { hash } = await sendTransaction(
           {
@@ -685,16 +738,23 @@ export function usePrivySponsoredWithdrawal(
             uiOptions: { showWalletUIs: false },
           },
         );
+
+        console.log("[SponsoredApproval] Tx submitted, hash:", hash);
+
+        // Wait for on-chain confirmation using the public client.
+        const publicClient = getPublicClientForChain(chainKey);
         const receipt = await publicClient.waitForTransactionReceipt({ hash });
 
         if (receipt.status !== "success") {
           throw new Error("Sponsored approval failed before confirmation.");
         }
 
+        console.log("[SponsoredApproval] Tx confirmed on-chain");
+
         const executionResult: PrivySponsoredTransferExecutionResult = {
           chainId: chainConfig.chainId,
           embeddedWalletAddress: embeddedWallet.address as Address,
-          gasEstimate: nextGasEstimate,
+          gasEstimate: nextGasEstimate ?? { transferGasLimit: "0" },
           transactionHash: hash,
         };
 
@@ -708,6 +768,7 @@ export function usePrivySponsoredWithdrawal(
 
         return executionResult;
       } catch (sendError) {
+        console.error("[SponsoredApproval] Failed:", sendError);
         const normalized = toSponsoredError(sendError);
         setError(normalized);
         setStatus("error");
@@ -717,7 +778,6 @@ export function usePrivySponsoredWithdrawal(
     [
       defaultChainKey,
       embeddedWallet,
-      estimateSponsoredApproval,
       getPublicClientForChain,
       refreshEmbeddedWalletState,
       resolveSupportedToken,

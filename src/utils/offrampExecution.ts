@@ -106,11 +106,11 @@ const CONTRACT_ADDRESS_MAP: Record<string, string | undefined> = {
 };
 
 export const getOfframpContractAddress = (chain: string): string => {
-  if (Object.prototype.hasOwnProperty.call(CONTRACT_ADDRESS_MAP, chain)) {
-    return CONTRACT_ADDRESS_MAP[chain] ?? "";
-  }
-
-  return CONTRACT_ADDRESS_MAP.Base ?? "";
+  const address = Object.prototype.hasOwnProperty.call(CONTRACT_ADDRESS_MAP, chain)
+    ? (CONTRACT_ADDRESS_MAP[chain] ?? "")
+    : (CONTRACT_ADDRESS_MAP.Base ?? "");
+  console.log("[getOfframpContractAddress]", { chain, address, envPolygon: process.env.NEXT_PUBLIC_CONTRACT_ADDRESS_POLYGON });
+  return address;
 };
 
 export const getTargetChainIdForToken = (token: SupportedToken): number =>

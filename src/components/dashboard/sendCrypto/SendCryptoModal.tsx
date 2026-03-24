@@ -2,6 +2,7 @@
 
 import type React from "react";
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
+import { createPortal } from "react-dom";
 import { ArrowUpRight, ChevronDown, Check, Loader2, Send, ShoppingBag, Receipt, Zap } from "lucide-react";
 import { toast } from "react-toastify";
 import MaxOfframpButton from "./MaxOfframpButton";
@@ -212,11 +213,30 @@ const SendCryptoModal: React.FC = () => {
   const [typedValue, setTypedValue] = useState("");
   const [showTokenDropdown, setShowTokenDropdown] = useState(false);
   const tokenDropdownRef = useRef<HTMLDivElement>(null);
+  const [dropdownPos, setDropdownPos] = useState<{ top: number; right: number } | null>(null);
+
+  // Compute dropdown position when it opens
+  useEffect(() => {
+    if (!showTokenDropdown || !tokenDropdownRef.current) {
+      setDropdownPos(null);
+      return;
+    }
+    const rect = tokenDropdownRef.current.getBoundingClientRect();
+    setDropdownPos({
+      top: rect.bottom + 4,
+      right: window.innerWidth - rect.right,
+    });
+  }, [showTokenDropdown]);
 
   // Close token dropdown on outside click
+  const tokenDropdownListRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const handleClick = (e: MouseEvent) => {
-      if (tokenDropdownRef.current && !tokenDropdownRef.current.contains(e.target as Node)) {
+      const target = e.target as Node;
+      if (
+        tokenDropdownRef.current && !tokenDropdownRef.current.contains(target) &&
+        (!tokenDropdownListRef.current || !tokenDropdownListRef.current.contains(target))
+      ) {
         setShowTokenDropdown(false);
       }
     };
@@ -1030,7 +1050,23 @@ const SendCryptoModal: React.FC = () => {
       spender,
       tokenAddress,
     }: SponsoredApprovalParams): Promise<string | null> => {
+      console.log("[executeSponsoredApproval] Runtime values:", {
+        contractAddress,
+        selectedTokenChain: selectedToken.chain,
+        selectedTokenAddress: selectedToken.tokenAddress,
+        spenderFromParams: spender,
+        tokenAddressFromParams: tokenAddress,
+        envPolygon: process.env.NEXT_PUBLIC_CONTRACT_ADDRESS_POLYGON,
+      });
+
       if (!canUsePrivySponsoredTransfer || !sponsoredChainKey) {
+        return null;
+      }
+
+      // Safety: spender must NOT equal the token address (that would approve the token to spend itself)
+      if (spender.toLowerCase() === tokenAddress.toLowerCase()) {
+        console.error("[executeSponsoredApproval] CRITICAL: spender === tokenAddress! This is a bug.", { spender, tokenAddress });
+        toast.error("Internal error: approval target mismatch. Please restart the app.");
         return null;
       }
 
@@ -1043,6 +1079,16 @@ const SendCryptoModal: React.FC = () => {
         tokenAddress.toLowerCase() !== selectedToken.tokenAddress.toLowerCase()
       ) {
         toast.error("Sponsored approval token mismatch. Please refresh and try again.");
+        return null;
+      }
+
+      // Final safety: contractAddress must not equal the token address
+      if (contractAddress.toLowerCase() === selectedToken.tokenAddress.toLowerCase()) {
+        console.error("[executeSponsoredApproval] CRITICAL: contractAddress === tokenAddress!", {
+          contractAddress,
+          tokenAddress: selectedToken.tokenAddress,
+        });
+        toast.error("Configuration error: contract address matches token address. Please contact support.");
         return null;
       }
 
@@ -1458,8 +1504,12 @@ const SendCryptoModal: React.FC = () => {
                     <ChevronDown className={`h-3.5 w-3.5 transition-transform ${showTokenDropdown ? "rotate-180" : ""}`} />
                   </button>
 
-                  {showTokenDropdown && (
-                    <div className="absolute right-0 top-full z-20 mt-1 w-64 rounded-xl border border-[var(--ep-border)] bg-[var(--ep-bg-card)] p-1.5 shadow-lg">
+                  {showTokenDropdown && dropdownPos && createPortal(
+                    <div
+                      ref={tokenDropdownListRef}
+                      className="fixed z-[100] w-64 rounded-xl border border-[var(--ep-border)] bg-[var(--ep-bg-card)] p-1.5 shadow-lg"
+                      style={{ top: dropdownPos.top, right: dropdownPos.right }}
+                    >
                       {SUPPORTED_TOKENS.map((token) => {
                         const isActive = token.symbol === selectedToken.symbol && token.chain === selectedToken.chain;
                         return (
@@ -1488,7 +1538,8 @@ const SendCryptoModal: React.FC = () => {
                           </button>
                         );
                       })}
-                    </div>
+                    </div>,
+                    document.body,
                   )}
 
                   {isSwitchingChain && (
