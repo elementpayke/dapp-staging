@@ -128,7 +128,6 @@ const SendCryptoModal: React.FC = () => {
   // Refetch balance when token changes or when we switch to the correct network
   useEffect(() => {
     if (isCorrectNetwork && selectedToken) {
-      console.log(`[BALANCE] Refetching balance for ${selectedToken.symbol} on ${selectedToken.chain}`);
       refetchBalance();
     }
   }, [selectedToken, isCorrectNetwork, refetchBalance]);
@@ -175,6 +174,7 @@ const SendCryptoModal: React.FC = () => {
     status: "switching" as "switching" | "success" | "error",
   });
 
+  const [messageHash, setMessageHash] = useState("");
   useEffect(() => {
     console.log("[ORDER ID CHANGE] orderId changed to:", orderId);
     console.log(
@@ -274,7 +274,6 @@ const SendCryptoModal: React.FC = () => {
     networkName: string,
     status: "switching" | "success" | "error",
   ) => {
-    console.log(`🔔 Network notification: ${status} for ${networkName}`);
     setNetworkSwitchNotification({
       isVisible: true,
       networkName,
@@ -321,7 +320,6 @@ const SendCryptoModal: React.FC = () => {
   }, []);
 
   const validateAccount = async () => {
-
     const cashoutType = getCashoutType();
     if (cashoutType === "PAYBILL") {
       setValidatedAccountInfo(`PayBill ${paybillNumber}`);
@@ -395,8 +393,6 @@ const SendCryptoModal: React.FC = () => {
           action: "OffRamp",
         });
 
-        console.log("[FEE-STRUCTURE] API response:", feeData.data);
-
         // Set fee bands from fee-structure API
         setFeeBands(feeData.data.fee_bands);
 
@@ -412,12 +408,6 @@ const SendCryptoModal: React.FC = () => {
             source: "fee-structure",
             fallbackUsed: false,
           });
-          console.log(
-            "[FEE-STRUCTURE] Exchange rate set:",
-            baseRate,
-            "KES per",
-            selectedToken.symbol,
-          );
         } else {
           console.warn("[FEE-STRUCTURE] No valid base_rate in response");
           setExchangeRate(null);
@@ -451,17 +441,6 @@ const SendCryptoModal: React.FC = () => {
     fetchFeeStructureAndRate();
   }, [isBrowser, selectedToken.symbol]);
 
-  // Log exchange rate changes (inside useEffect to prevent spam on every render)
-  useEffect(() => {
-    if (exchangeRate !== null) {
-      console.log(
-        "[FEE-STRUCTURE] Exchange rate updated:",
-        exchangeRate,
-        "KES per token",
-        rateMeta,
-      );
-    }
-  }, [exchangeRate, rateMeta]);
   const validatePhoneWithBackend = async (
     phoneNumber: string,
   ): Promise<boolean> => {
@@ -564,13 +543,6 @@ const SendCryptoModal: React.FC = () => {
           : selectedTokenBalance;
         const hasSufficientBalance =
           currentBalance >= requiredTokenAmount;
-
-        console.log("💰 Quote validation:", {
-          requiredTokenAmount,
-          currentBalance,
-          hasSufficientBalance,
-          amountKES: amountNum,
-        });
 
         if (!hasSufficientBalance) {
           setQuoteValidation({
@@ -719,8 +691,6 @@ const SendCryptoModal: React.FC = () => {
         feeBands,
         orderType: "OffRamp",
       });
-
-      console.log("[TRANSACTION SUMMARY] Using fee structure:", costResult);
 
       return {
         kesAmount,
@@ -959,7 +929,6 @@ const SendCryptoModal: React.FC = () => {
   // Helper to refresh transaction list after order completion
   const refreshTransactionList = useCallback(() => {
     if (typeof window !== "undefined") {
-      console.log("🔄 Dispatching transaction refresh event");
       window.dispatchEvent(new CustomEvent("elementpay:refresh-transactions"));
     }
   }, []);
@@ -1332,15 +1301,6 @@ const SendCryptoModal: React.FC = () => {
     walletAddress,
   ]);
 
-  console.log(
-    "🔍 Form validation state:",
-    {
-      isApproving,
-      isFormValid: isFormValid(),
-      quoteValidation: quoteValidation.isValidating,
-    }
-  );
-
   return (
     <>
       <Dialog open={isMainDialogOpen} onOpenChange={setIsMainDialogOpen}>
@@ -1690,10 +1650,6 @@ const SendCryptoModal: React.FC = () => {
         <ProcessingPopup
           isVisible={showProcessingPopup}
           onClose={() => {
-            console.log(
-              "[POPUP CLOSE] Processing popup closing, orderId was:",
-              orderId,
-            );
             cleanupOrderStates();
           }}
           orderId={orderId}

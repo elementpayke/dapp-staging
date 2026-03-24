@@ -130,14 +130,11 @@ export const TokenProvider: React.FC<TokenProviderProps> = ({ children }) => {
 
   // Handle manual token selection (without chain switch)
   const setSelectedToken = useCallback((token: SupportedToken) => {
-    console.log(`[TokenContext] Manual token selection: ${token.symbol} on ${token.chain}`);
     setSelectedTokenState(token);
   }, []);
 
   // Handle token selection WITH automatic chain switching
   const selectTokenAndSwitchChain = useCallback(async (token: SupportedToken) => {
-    console.log(`[TokenContext] Token selection with chain switch: ${token.symbol} on ${token.chain}`);
-    
     // Update the selected token first
     setSelectedTokenState(token);
     
@@ -146,15 +143,12 @@ export const TokenProvider: React.FC<TokenProviderProps> = ({ children }) => {
     
     // If already on the correct chain, no need to switch
     if (currentChainId === targetChainId) {
-      console.log(`[TokenContext] Already on ${token.chain}, no switch needed`);
       return;
     }
     
     // Switch to the token's chain
     try {
-      console.log(`[TokenContext] Switching chain from ${currentChainId} to ${targetChainId} (${token.chain})`);
       await switchChainAsync({ chainId: targetChainId });
-      console.log(`[TokenContext] Successfully switched to ${token.chain}`);
     } catch (error: any) {
       console.error(`[TokenContext] Failed to switch chain:`, error);
       // Don't revert token selection - user can manually switch or try again
@@ -175,20 +169,17 @@ export const TokenProvider: React.FC<TokenProviderProps> = ({ children }) => {
       return;
     }
 
-    console.log(`[TokenContext] Wallet chain changed externally: ${prevChainId} -> ${currentChainId}`);
     setPrevChainId(currentChainId);
 
     if (!currentChainId) return;
 
     const chainName = CHAIN_ID_TO_NAME[currentChainId];
     if (!chainName) {
-      console.log(`[TokenContext] Unknown chain ID: ${currentChainId}`);
       return;
     }
 
     // Check if current selected token matches the wallet's chain
     if (selectedToken.chain === chainName) {
-      console.log(`[TokenContext] Token already matches chain: ${chainName}`);
       return;
     }
 
@@ -198,10 +189,7 @@ export const TokenProvider: React.FC<TokenProviderProps> = ({ children }) => {
     );
 
     if (tokenOnCurrentChain) {
-      console.log(`[TokenContext] Auto-switching token to ${tokenOnCurrentChain.symbol} on ${chainName}`);
       setSelectedTokenState(tokenOnCurrentChain);
-    } else {
-      console.log(`[TokenContext] No supported token found for chain: ${chainName}`);
     }
   }, [currentChainId, prevChainId, selectedToken.chain]);
 
