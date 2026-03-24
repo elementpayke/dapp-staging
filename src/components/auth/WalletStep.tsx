@@ -1,14 +1,18 @@
 "use client";
 
-import React, { useCallback, useState } from "react";
-import { Wallet, LinkIcon, Copy, Check, Unplug, AlertCircle } from "lucide-react";
+import React, { useCallback, useState, useEffect, useRef } from "react";
+import { Wallet, LinkIcon, Copy, Check, Unplug, AlertCircle, RefreshCw } from "lucide-react";
 import { motion } from "framer-motion";
 import { usePrivy } from "@privy-io/react-auth";
 import { useDisconnect } from "wagmi";
 import { useAuthModalStore } from "@/stores/authModalStore";
 import { useAuthStore } from "@/stores/authStore";
+import { useAuthSyncStore } from "@/stores/authSyncStore";
 import { useWalletStore } from "@/lib/useWallet";
 import WalletConnection from "../wallet-connection/wallet-connection";
+
+/** How long to wait for Privy to authenticate before showing fallback options */
+const AUTH_TIMEOUT_MS = 12_000;
 
 const WalletStep = () => {
   const setWalletConnecting = useAuthModalStore((s) => s.setWalletConnecting);
@@ -16,14 +20,44 @@ const WalletStep = () => {
   const setModalError = useAuthModalStore((s) => s.setErrorMessage);
   const errorMessage = useAuthModalStore((s) => s.errorMessage);
 
-  const { authenticated, user, logout: privyLogout } = usePrivy();
+  const { authenticated, ready, user, logout: privyLogout, linkWallet, login } = usePrivy();
   const { disconnect: wagmiDisconnect } = useDisconnect();
   const { disconnect: storeDisconnect } = useWalletStore();
   const isOtpVerified = useAuthStore((s) => s.isOtpVerified);
   const walletAddress = user?.wallet?.address ?? null;
 
+  const authSyncStatus = useAuthSyncStore((s) => s.status);
+
   const [copied, setCopied] = useState(false);
   const [disconnecting, setDisconnecting] = useState(false);
+  const [timedOut, setTimedOut] = useState(false);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const privyReady = ready && authenticated;
+
+  // Timeout: if Privy doesn't authenticate within AUTH_TIMEOUT_MS, allow fallback
+  useEffect(() => {
+    if (privyReady || timedOut) return;
+    timerRef.current = setTimeout(() => setTimedOut(true), AUTH_TIMEOUT_MS);
+    return () => {
+      if (timerRef.current) clearTimeout(timerRef.current);
+    };
+  }, [privyReady, timedOut]);
+
+  // Recover from timeout if Privy eventually authenticates
+  useEffect(() => {
+    if (privyReady && timedOut) setTimedOut(false);
+  }, [privyReady, timedOut]);
+
+  // Fast-track timeout when authSyncStore reports failure
+  useEffect(() => {
+    if (authSyncStatus === "failed" && !privyReady) {
+      setTimedOut(true);
+    }
+  }, [authSyncStatus, privyReady]);
+
+  // Whether to show the loading spinner (only while waiting, not timed out)
+  const showAuthSpinner = isOtpVerified && !authenticated && !timedOut;
 
   // True when Privy already has a connected wallet but we haven't
   // registered it with our backend yet.
@@ -64,7 +98,7 @@ const WalletStep = () => {
     setDisconnecting(false);
   }, [privyLogout, wagmiDisconnect, storeDisconnect, setModalError]);
 
-  const handleConnect = useCallback((login: () => void) => {
+  const handleConnect = useCallback(() => {
     setModalError(null);
     setWalletConnecting(true);
     // Hide our modal (keeps walletConnecting=true) so it doesn't conflict
@@ -72,9 +106,18 @@ const WalletStep = () => {
     // "wallet-linking" once the API call starts.
     hideModal();
     setTimeout(() => {
-      login();
+      // When already authenticated via custom JWT, use linkWallet().
+      // When auth timed out / failed, fall back to login() which
+      // opens Privy's own wallet-connect modal (bypassing JWT auth).
+      if (authenticated) {
+        console.log("[WalletStep] Calling linkWallet() for external wallet connection");
+        linkWallet();
+      } else {
+        console.log("[WalletStep] Privy not authenticated — calling login() for wallet connection");
+        login();
+      }
     }, 150);
-  }, [setWalletConnecting, hideModal, setModalError]);
+  }, [setWalletConnecting, hideModal, setModalError, linkWallet, login, authenticated]);
 
   /** When the wallet is already connected via Privy, just flip the
    *  walletConnecting flag — PrivyWalletListener will pick it up
@@ -112,7 +155,37 @@ const WalletStep = () => {
         </div>
       )}
 
-      {walletAlreadyConnected ? (
+      {/* Privy is still authenticating via custom JWT — show a loading state */}
+      {showAuthSpinner ? (
+        <div className="w-full max-w-sm flex flex-col items-center py-6">
+          <svg className="animate-spin h-6 w-6 text-[var(--landing-accent)] mb-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+          </svg>
+          <p className="text-sm text-[var(--landing-muted)]">Preparing wallet connection&hellip;</p>
+        </div>
+      ) : timedOut && !authenticated ? (
+        /* Privy auth timed out — show fallback options so the user isn't stuck */
+        <div className="w-full max-w-sm space-y-3">
+          <div className="flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 dark:border-amber-800/40 dark:bg-amber-900/20 px-3 py-2.5 mb-3">
+            <RefreshCw className="w-4 h-4 text-amber-500 shrink-0" />
+            <p className="text-xs text-amber-700 dark:text-amber-400 text-left">
+              Wallet service is taking longer than expected. You can still connect an external wallet below.
+            </p>
+          </div>
+          <WalletConnection
+            isMobile={false}
+            isHero={false}
+            showDebugBanner={false}
+            onConnectWalletClick={() => handleConnect()}
+            buttonClassName="
+              w-full max-w-sm justify-center
+              rounded-lg px-6 py-3.5 text-base font-semibold
+              focus:outline-none focus:ring-2 focus:ring-[var(--landing-accent)]/40
+            "
+          />
+        </div>
+      ) : walletAlreadyConnected ? (
         /* Wallet already connected via Privy — just needs backend registration */
         <div className="w-full max-w-sm space-y-3">
           <div className="flex items-center gap-2 rounded-lg border border-[var(--landing-input-border)] bg-[var(--landing-input-bg)] px-4 py-3">
@@ -175,7 +248,7 @@ const WalletStep = () => {
           isHero={false}
           showDebugBanner={false}
           
-          onConnectWalletClick={handleConnect}
+          onConnectWalletClick={() => handleConnect()}
           buttonClassName="
             w-full max-w-sm justify-center
             rounded-lg px-6 py-3.5 text-base font-semibold

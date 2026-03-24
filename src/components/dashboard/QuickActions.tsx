@@ -1,7 +1,7 @@
 "use client";
 import React, { FC, useState, useEffect } from "react";
 import { Bell, MoreHorizontal } from "lucide-react";
-import { useBalance, useAccount } from "wagmi";
+import { useBalance } from "wagmi";
 import dynamic from "next/dynamic";
 import Image from "next/image";
 import {
@@ -9,18 +9,21 @@ import {
   fetchFeeStructureCached,
 } from "@/utils/feeStructure";
 import { useSelectedToken } from "@/context/TokenContext";
+import { useWallet } from "@/hooks/useWallet";
 import TokenDropdown from "@/components/ui/TokenDropdown";
 
 import ARBITRUM_LOGO from "@/assets/ARBITRUM_LOGO.png";
 import BASE_LOGO from "@/assets/BASE_LOGO.png";
 import LISK_LOGO from "@/assets/LISK_LOGO.png";
 import SCROLL_LOGO from "@/assets/SCROLL_LOGO.png";
+import POLYGON_LOGO from "@/assets/POLYGON_LOGO.png";
 
 const NETWORK_LOGOS: Record<string, typeof ARBITRUM_LOGO> = {
   Arbitrum: ARBITRUM_LOGO,
   Base: BASE_LOGO,
   Lisk: LISK_LOGO,
   Scroll: SCROLL_LOGO,
+  Polygon: POLYGON_LOGO,
 };
 
 // Dynamically import modals with no SSR to prevent wagmi context issues
@@ -33,14 +36,14 @@ const DepositCryptoModal = dynamic(
 );
 
 const QuickActions: FC = () => {
-  const { address } = useAccount();
+  const { address } = useWallet();
 
   // Use shared token context for consistent token selection across modals
   const { selectedToken, selectTokenAndSwitchChain, isCorrectNetwork, isSwitchingChain } = useSelectedToken();
 
   // Fetch balance for the selected token
   const { data: tokenBalanceData, isLoading: isBalanceLoading } = useBalance({
-    address: address,
+    address: (address ?? undefined) as `0x${string}` | undefined,
     token: selectedToken.tokenAddress as `0x${string}`,
     query: {
       enabled: isCorrectNetwork && !!address,

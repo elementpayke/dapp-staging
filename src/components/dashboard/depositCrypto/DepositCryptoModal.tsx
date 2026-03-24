@@ -136,8 +136,9 @@ const DepositCryptoModal: React.FC = () => {
   } | null>(null);
   const [isFetchingQuote, setIsFetchingQuote] = useState(false);
   const TRANSACTION_FEE_RATE = 0.005;
-  const addressOwner = useAccount();
-  const { chain, connector } = addressOwner; // Get connector for smart wallet detection
+  const accountState = useAccount();
+  const { chain, connector } = accountState; // Get connector for smart wallet detection
+  const { address: walletAddress } = useWallet();
   const { switchChainAsync } = useSwitchChain();
   const currentChainId = useChainId();
   const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
@@ -184,6 +185,8 @@ const DepositCryptoModal: React.FC = () => {
         return 534352;
       case "Arbitrum":
         return 42161;
+      case "Polygon":
+        return 137;
       default:
         return 8453; // Default to Base
     }
@@ -310,7 +313,7 @@ const DepositCryptoModal: React.FC = () => {
 
   // Fetch quote when amount or token changes
   const fetchQuote = async (fiatAmount: number) => {
-    if (!fiatAmount || fiatAmount <= 0 || !addressOwner.address) {
+    if (!fiatAmount || fiatAmount <= 0 || !walletAddress) {
       setQuoteData(null);
       return;
     }
@@ -320,7 +323,7 @@ const DepositCryptoModal: React.FC = () => {
       const quoteResponse = await fetchOrderQuote({
         amountFiat: fiatAmount,
         tokenAddress: selectedToken.tokenAddress,
-        walletAddress: addressOwner.address,
+        walletAddress,
         orderType: 0, // OnRamp
         currency: "KES",
       });
@@ -477,10 +480,10 @@ const DepositCryptoModal: React.FC = () => {
     }, 500); // 500ms debounce
 
     return () => clearTimeout(timeoutId);
-  }, [amount, selectedToken.tokenAddress, addressOwner.address]);
+  }, [amount, selectedToken.tokenAddress, walletAddress]);
 
   const handleConfirmPayment = async () => {
-    if (!addressOwner.address)
+    if (!walletAddress)
       return toast.error("Please connect your wallet first.");
     if (parseFloat(amount) <= 0)
       return toast.error("Amount must be greater than zero.");
@@ -565,7 +568,7 @@ const DepositCryptoModal: React.FC = () => {
     const processOrder = async () => {
       try {
         console.log("🚀 Creating onramp order...");
-        if (!addressOwner.address) {
+        if (!walletAddress) {
           throw new Error("Wallet address is not available");
         }
 
@@ -574,7 +577,7 @@ const DepositCryptoModal: React.FC = () => {
           symbol: selectedToken.symbol,
           chain: selectedToken.chain,
           tokenAddress: selectedToken.tokenAddress,
-          userAddress: addressOwner.address,
+          userAddress: walletAddress,
           amount: parseFloat(amount),
           phoneNumber: fullPhoneNumber,
           reason,
@@ -583,7 +586,7 @@ const DepositCryptoModal: React.FC = () => {
         // Add specific timeout for WXM orders
         const res = await Promise.race([
           createOnRampOrder({
-            userAddress: addressOwner.address,
+            userAddress: walletAddress,
             tokenAddress: String(selectedToken.tokenAddress),
             amount: parseFloat(amount),
             phoneNumber: fullPhoneNumber,
@@ -622,7 +625,7 @@ const DepositCryptoModal: React.FC = () => {
           amount: 0,
           amountCrypto: 0, // Renamed from amountUSDC
           transactionHash: txHash,
-          address: addressOwner.address || "",
+          address: walletAddress || "",
           phoneNumber: fullPhoneNumber,
         });
         continuePollingRef.current = true;
@@ -806,7 +809,7 @@ const DepositCryptoModal: React.FC = () => {
                 <p className="mt-1 text-xs text-red-500">{phoneValidation.error}</p>
               )}
               <p className="mt-1 text-[10px] text-[var(--ep-muted)]">
-                You will receive an M-Pesa STK push on this number
+                You will receive an M-Phecheesa STK push on this number
               </p>
             </div>
 

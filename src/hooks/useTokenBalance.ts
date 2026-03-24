@@ -1,6 +1,6 @@
 import { useBalance, useChainId } from "wagmi";
-import { useAccount } from "wagmi";
 import { SupportedToken } from "@/constants/supportedTokens";
+import { useWallet } from "./useWallet";
 
 interface UseTokenBalanceProps {
   token: SupportedToken;
@@ -8,7 +8,7 @@ interface UseTokenBalanceProps {
 }
 
 export const useTokenBalance = ({ token, enabled = true }: UseTokenBalanceProps) => {
-  const { address } = useAccount();
+  const { address } = useWallet();
   const currentChainId = useChainId();
   
   // Map chain names to chain IDs
@@ -16,14 +16,15 @@ export const useTokenBalance = ({ token, enabled = true }: UseTokenBalanceProps)
     "Base": 8453,
     "Lisk": 1135,
     "Scroll": 534352,
-    "Arbitrum": 42161
+    "Arbitrum": 42161,
+    "Polygon": 137
   };
   
   const requiredChainId = chainNameToId[token.chain];
   const isCorrectNetwork = currentChainId === requiredChainId;
   
   const { data: tokenBalanceData, isLoading, error, refetch } = useBalance({
-    address: address,
+    address: (address ?? undefined) as `0x${string}` | undefined,
     token: token.tokenAddress as `0x${string}`,
     query: {
       enabled: enabled && isCorrectNetwork && !!address,

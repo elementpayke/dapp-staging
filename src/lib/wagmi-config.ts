@@ -1,5 +1,5 @@
 import { http } from "wagmi";
-import { base, arbitrum } from "wagmi/chains";
+import { base, arbitrum, polygon } from "wagmi/chains";
 import type { Chain } from "wagmi/chains";
 import { createConfig } from "@privy-io/wagmi";
 
@@ -18,6 +18,15 @@ const arbitrumRpcUrls = [
   "https://arbitrum.drpc.org",
   "https://arbitrum-one.public.blastapi.io",
   "https://arbitrum.blockpi.network/v1/rpc/public",
+];
+
+// Polygon RPC endpoints (CORS-friendly)
+const polygonRpcUrls = [
+  process.env.NEXT_PUBLIC_POLYGON_RPC_URL ||
+    "https://polygon-bor-rpc.publicnode.com",
+  "https://polygon.drpc.org",
+  "https://polygon.public.blastapi.io",
+  "https://polygon.blockpi.network/v1/rpc/public",
 ];
 
 // Create HTTP transport with retry and fallback logic
@@ -77,12 +86,13 @@ export const scroll = {
  * with Privy's connection flow and cause the modal to hang.
  */
 export const wagmiConfig = createConfig({
-  chains: [base, lisk, scroll, arbitrum],
+  chains: [base, lisk, scroll, arbitrum, polygon],
   transports: {
     [base.id]: createTransportWithFallback(baseRpcUrls),
     [lisk.id]: http("https://rpc.api.lisk.com"),
     [scroll.id]: http("https://rpc.scroll.io/"),
     [arbitrum.id]: http("https://arb1.arbitrum.io/rpc"),
+    [polygon.id]: createTransportWithFallback(polygonRpcUrls),
   },
   ssr: true,
 });

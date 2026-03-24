@@ -62,7 +62,7 @@ const Header = () => {
 
   const handleAuthClick = useCallback(() => {
     if (isOtpVerified && !isWalletRegistered) {
-      setStep("wallet");
+      setStep("wallet-choice");
       resumeAuthModal();
     } else {
       openAuthModal();
