@@ -1,10 +1,21 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useWallet } from "@/hooks/useWallet";
-import { Copy, Check } from "lucide-react";
+import { Copy, Check, ArrowLeftRight } from "lucide-react";
+import { useWallets } from "@privy-io/react-auth";
+import { sameWalletAddress } from "@/lib/privy-wallet-selection";
+import SwitchWalletModal from "./SwitchWalletModal";
+import { WalletClientIcon, walletLabel, truncateAddress } from "./wallet-branding";
 
 const DashboardHeader = () => {
   const { address } = useWallet();
+  const { wallets } = useWallets();
   const [copied, setCopied] = useState(false);
+  const [switchOpen, setSwitchOpen] = useState(false);
+
+  const activeWallet = useMemo(
+    () => wallets.find((wallet) => sameWalletAddress(wallet.address, address)) ?? null,
+    [wallets, address],
+  );
 
   const handleCopyAddress = () => {
     navigator.clipboard.writeText(address || "");
@@ -26,21 +37,45 @@ const DashboardHeader = () => {
         </div>
 
         {address && (
-          <button
-            onClick={handleCopyAddress}
-            className="flex items-center gap-2 self-start rounded-full px-4 py-1.5 bg-[var(--ep-accent-muted)] text-[var(--ep-accent)] border border-[var(--ep-accent)]/20 hover:bg-[var(--ep-accent)]/15 transition-colors"
-          >
-            <span className="text-xs font-mono truncate max-w-[140px] sm:max-w-[200px]">
-              {address}
-            </span>
-            {copied ? (
-              <Check className="h-3.5 w-3.5 text-emerald-500 flex-shrink-0" />
-            ) : (
-              <Copy className="h-3.5 w-3.5 flex-shrink-0" />
-            )}
-          </button>
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 self-start">
+            <button
+              onClick={handleCopyAddress}
+              className="flex items-center gap-3 rounded-2xl px-3 py-1 bg-[var(--ep-accent-muted)] text-[var(--ep-heading)] border border-[var(--ep-accent)]/20 hover:bg-[var(--ep-accent)]/15 transition-colors"
+            >
+              <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-2xl bg-white/90 shadow-sm">
+                <WalletClientIcon clientType={activeWallet?.walletClientType} size={20} />
+              </div>
+              <div className="min-w-0 text-left">
+               
+                <p className="text-sm font-semibold text-[var(--ep-heading)]">
+                  {walletLabel(activeWallet?.walletClientType)}
+                </p>
+                <p className="text-xs font-mono text-[var(--ep-accent)] truncate max-w-[180px] sm:max-w-[250px]">
+                  {truncateAddress(address)}
+                </p>
+              </div>
+              <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-white/80">
+                {copied ? (
+                  <Check className="h-3.5 w-3.5 text-emerald-500" />
+                ) : (
+                  <Copy className="h-3.5 w-3.5 text-[var(--ep-accent)]" />
+                )}
+              </div>
+            </button>
+
+            <button
+              onClick={() => setSwitchOpen(true)}
+              className="flex items-center justify-center gap-2 rounded-2xl px-4 py-3 text-sm font-semibold bg-[var(--ep-bg-input)] text-[var(--ep-heading)] border border-[var(--ep-border)] hover:border-[var(--ep-accent)]/40 hover:bg-[var(--ep-accent-muted)] hover:text-[var(--ep-accent)] transition-colors"
+              aria-label="Switch wallet"
+            >
+              <ArrowLeftRight className="h-4 w-4" />
+              <span>Switch Wallet</span>
+            </button>
+          </div>
         )}
       </div>
+
+      <SwitchWalletModal open={switchOpen} onOpenChange={setSwitchOpen} />
     </div>
   );
 };

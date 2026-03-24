@@ -220,6 +220,11 @@
     --landing-input-border: #e5e3ef;
     --landing-cta-bg: #4339CA;
     --landing-cta-fg: #ffffff;
+    /* Frosted header background (light) */
+    --landing-header-bg: rgba(255, 255, 255, 0.82);
+    /* Danger action hover (light) */
+    --landing-danger-hover-bg: #fef2f2;
+    --landing-danger-fg: #dc2626;
 
     /* ── ElementPay Design System (unified tokens) ────────────────── */
     --ep-accent: #4339CA;
@@ -361,4 +366,26 @@
   --border: 260 15% 18%;
   --input: 260 15% 18%;
   --ring: 260 10% 80%;
+
+  /* ── Landing page dark overrides ─────────────────────────────── */
+  --landing-bg: #0F0E14;
+  --landing-bg-subtle: #1A1924;
+  --landing-heading: #F0EFF4;
+  --landing-body: #B0ADBA;
+  --landing-muted: #6E6B7B;
+  --landing-accent: #6C63FF;
+  --landing-accent-hover: #5B52E0;
+  --landing-card-bg: #1A1924;
+  --landing-card-fg: #F0EFF4;
+  --landing-card-border: #2E2D3D;
+  --landing-card-shadow: 0 4px 24px rgba(0, 0, 0, 0.35);
+  --landing-input-bg: #22212E;
+  --landing-input-border: #2E2D3D;
+  --landing-cta-bg: #6C63FF;
+  --landing-cta-fg: #ffffff;
+  /* Frosted header background (dark) */
+  --landing-header-bg: rgba(15, 14, 20, 0.82);
+  /* Danger action hover (dark) */
+  --landing-danger-hover-bg: rgba(220, 38, 38, 0.12);
+  --landing-danger-fg: #f87171;
 }

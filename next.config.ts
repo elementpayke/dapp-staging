@@ -10,6 +10,12 @@ const nextConfig: NextConfig = {
   experimental: {
     optimizePackageImports: ["@coinbase/onchainkit"],
   },
+  // Turbopack equivalent of the webpack resolve.alias below
+  turbopack: {
+    resolveAlias: {
+      "@react-native-async-storage/async-storage": { browser: "" },
+    },
+  },
   // Ensure proper handling of dynamic imports and client-side code
   webpack: (config, { isServer }) => {
     if (!isServer) {

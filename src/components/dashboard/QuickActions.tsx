@@ -1,7 +1,7 @@
 "use client";
 import React, { FC, useState, useEffect } from "react";
 import { Bell, MoreHorizontal } from "lucide-react";
-import { useBalance, useAccount } from "wagmi";
+import { useBalance } from "wagmi";
 import dynamic from "next/dynamic";
 import Image from "next/image";
 import {
@@ -9,42 +9,41 @@ import {
   fetchFeeStructureCached,
 } from "@/utils/feeStructure";
 import { useSelectedToken } from "@/context/TokenContext";
+import { useWallet } from "@/hooks/useWallet";
 import TokenDropdown from "@/components/ui/TokenDropdown";
 
 import ARBITRUM_LOGO from "@/assets/ARBITRUM_LOGO.png";
 import BASE_LOGO from "@/assets/BASE_LOGO.png";
 import LISK_LOGO from "@/assets/LISK_LOGO.png";
 import SCROLL_LOGO from "@/assets/SCROLL_LOGO.png";
+import POLYGON_LOGO from "@/assets/POLYGON_LOGO.png";
 
 const NETWORK_LOGOS: Record<string, typeof ARBITRUM_LOGO> = {
   Arbitrum: ARBITRUM_LOGO,
   Base: BASE_LOGO,
   Lisk: LISK_LOGO,
   Scroll: SCROLL_LOGO,
+  Polygon: POLYGON_LOGO,
 };
 
 // Dynamically import modals with no SSR to prevent wagmi context issues
 const SendCryptoModal = dynamic(() => import("./sendCrypto/SendCryptoModal"), {
   ssr: false,
 });
-const SendCryptoModalV2 = dynamic(
-  () => import("./sendCrypto/SendCryptoModalV2"),
-  { ssr: false },
-);
 const DepositCryptoModal = dynamic(
   () => import("./depositCrypto/DepositCryptoModal"),
   { ssr: false },
 );
 
 const QuickActions: FC = () => {
-  const { address } = useAccount();
-  
+  const { address } = useWallet();
+
   // Use shared token context for consistent token selection across modals
   const { selectedToken, selectTokenAndSwitchChain, isCorrectNetwork, isSwitchingChain } = useSelectedToken();
 
   // Fetch balance for the selected token
   const { data: tokenBalanceData, isLoading: isBalanceLoading } = useBalance({
-    address: address,
+    address: (address ?? undefined) as `0x${string}` | undefined,
     token: selectedToken.tokenAddress as `0x${string}`,
     query: {
       enabled: isCorrectNetwork && !!address,
@@ -117,8 +116,8 @@ const QuickActions: FC = () => {
   const networkLogo = NETWORK_LOGOS[selectedToken.chain];
 
   return (
-    <div className="p-4 sm:p-5 bg-[var(--ep-bg-card)] shadow-[var(--ep-card-shadow)] rounded-2xl border border-[var(--ep-border)]">
-      <div className="flex items-start justify-between mb-0 h-fit  min-h-[15vh]">
+    <div className="p-4 sm:p-5 bg-[var(--ep-bg-card)] shadow-[var(--ep-card-shadow)] rounded-2xl border border-[var(--ep-border)] relative">
+      <div className="flex flex-col md:flex-row items-start justify-between mb-0 min-h-[15vh]">
         {/* Left: Balance & Token Selector */}
         <div className="flex-1 min-w-0 h-fit">
           <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[var(--ep-muted)] mb-0.5">
@@ -166,8 +165,8 @@ const QuickActions: FC = () => {
           </div>
         </div>
 
-        {/* Right: Connected Network Indicator & Logo */}
-        <div className="flex flex-col items-end justify-between min-h-[15vh] ml-4 shrink-0">
+        {/* Right: Connected Network Indicator & Logo — hidden on mobile */}
+        <div className="hidden md:flex flex-col items-end justify-between min-h-[15vh] ml-4 shrink-0">
           {/* Connected Network Badge + Action Buttons */}
           <div className="flex items-center gap-2 ">
             <div className="flex items-center gap-1.5 px-3 py-1 rounded-full border border-[var(--ep-border)] bg-[var(--ep-bg-card)]">
@@ -184,24 +183,25 @@ const QuickActions: FC = () => {
             </button>
           </div>
 
-          {/* Network Logo */}
-          {networkLogo && (
-            <div className="flex flex-col items-end">
-              <Image
-                src={networkLogo}
-                alt={`${selectedToken.chain} logo`}
-                width={240}
-                height={240}
-                className="object-contain"
-                priority
-              />
-              <span className="text-[9px] font-bold uppercase tracking-[0.2em] text-[var(--ep-muted)] mt-1">
-                Proud Partners
-              </span>
-            </div>
-          )}
+          {/* Network Logo - Moved to bottom right absolute positioning */}
         </div>
       </div>
+
+      {networkLogo && (
+        <div className="hidden md:flex flex-col items-end absolute bottom-5 right-5 z-0 opacity-80 pointer-events-none">
+          <Image
+            src={networkLogo}
+            alt={`${selectedToken.chain} logo`}
+            width={180}
+            height={180}
+            className="object-contain"
+            priority
+          />
+          <span className="text-[9px] font-bold uppercase tracking-[0.2em] text-[var(--ep-muted)] mt-1 ml-4">
+            Proud Partners
+          </span>
+        </div>
+      )}
     </div>
   );
 };

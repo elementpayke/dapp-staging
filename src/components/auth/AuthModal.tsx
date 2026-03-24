@@ -4,35 +4,34 @@ import React, { useCallback, useEffect } from "react";
 import { X } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAuthModalStore } from "@/stores/authModalStore";
-import { useAuthStore } from "@/stores/authStore";
 import EmailStep from "./EmailStep";
 import OTPStep from "./OTPStep";
-import WalletStep from "./WalletStep";
+import WalletChoiceStep from "./WalletChoiceStep";
 import WalletLinkingStep from "./WalletLinkingStep";
 
 const STEP_LABELS: Record<string, string> = {
   email: "Email",
   otp: "Verify",
-  wallet: "Wallet",
+  "wallet-choice": "Wallet",
   "wallet-linking": "Linking",
 } as const;
 
-const STEPS = ["email", "otp", "wallet", "wallet-linking"] as const;
+const STEPS = ["email", "otp", "wallet-choice", "wallet-linking"] as const;
 
 const AuthModal = () => {
   const isOpen = useAuthModalStore((s) => s.isOpen);
   const step = useAuthModalStore((s) => s.step);
   const errorMessage = useAuthModalStore((s) => s.errorMessage);
   const closeAuthModal = useAuthModalStore((s) => s.closeAuthModal);
-  const clearPending = useAuthStore((s) => s.clearPending);
 
   const isLinking = step === "wallet-linking";
 
   const handleClose = useCallback(() => {
     if (isLinking) return; // block close while API is in-flight
     closeAuthModal();
-    clearPending();
-  }, [isLinking, closeAuthModal, clearPending]);
+    // Don't call clearPending — preserve OTP/auth state so the user can
+    // resume where they left off when they reopen the modal.
+  }, [isLinking, closeAuthModal]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -132,7 +131,7 @@ const AuthModal = () => {
           <AnimatePresence mode="wait">
             {step === "email" && <EmailStep key="email" />}
             {step === "otp" && <OTPStep key="otp" />}
-            {step === "wallet" && <WalletStep key="wallet" />}
+            {step === "wallet-choice" && <WalletChoiceStep key="wallet-choice" />}
             {step === "wallet-linking" && <WalletLinkingStep key="wallet-linking" />}
           </AnimatePresence>
         </div>

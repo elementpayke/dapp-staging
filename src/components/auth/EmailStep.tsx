@@ -17,31 +17,37 @@ const EmailStep = () => {
   const setPendingEmail = useAuthStore((s) => s.setPendingEmail);
   const setStep = useAuthModalStore((s) => s.setStep);
   const setModalError = useAuthModalStore((s) => s.setErrorMessage);
+  const normalizedEmail = email.trim().toLowerCase();
+  const isValidEmail = EMAIL_RE.test(normalizedEmail);
+
+  const submitEmail = useCallback(async () => {
+    setError(null);
+    setModalError(null);
+
+    if (!isValidEmail) {
+      setError("Please enter a valid email address");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      await requestOTP(normalizedEmail);
+      setPendingEmail(normalizedEmail);
+      setStep("otp");
+    } catch (err: any) {
+      setError(err.message ?? "Something went wrong. Try again.");
+    } finally {
+      setLoading(false);
+    }
+  }, [isValidEmail, normalizedEmail, setPendingEmail, setStep, setModalError]);
 
   const handleSubmit = useCallback(
     async (e: React.FormEvent) => {
       e.preventDefault();
-      setError(null);
-      setModalError(null);
-
-      const trimmed = email.trim().toLowerCase();
-      if (!EMAIL_RE.test(trimmed)) {
-        setError("Please enter a valid email address");
-        return;
-      }
-
-      setLoading(true);
-      try {
-        await requestOTP(trimmed);
-        setPendingEmail(trimmed);
-        setStep("otp");
-      } catch (err: any) {
-        setError(err.message ?? "Something went wrong. Try again.");
-      } finally {
-        setLoading(false);
-      }
+      if (loading) return;
+      await submitEmail();
     },
-    [email, setPendingEmail, setStep, setModalError],
+    [loading, submitEmail],
   );
 
   return (
@@ -82,6 +88,12 @@ const EmailStep = () => {
               if (error) setError(null);
               setModalError(null);
             }}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && isValidEmail && !loading) {
+                e.preventDefault();
+                void submitEmail();
+              }
+            }}
             className={`
               w-full rounded-xl border px-4 py-3.5 text-base
               bg-[var(--landing-input-bg)] text-[var(--landing-heading)]
@@ -102,7 +114,7 @@ const EmailStep = () => {
 
         <button
           type="submit"
-          disabled={loading || !email.trim()}
+          disabled={loading || !isValidEmail}
           className="
             w-full flex items-center justify-center gap-2
             rounded-xl py-3.5 text-base font-semibold

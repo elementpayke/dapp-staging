@@ -133,18 +133,32 @@ const CryptoPrices: React.FC = () => {
   return (
     <ClientOnly
       fallback={
-        <div className="flex items-center gap-2 text-[var(--ep-muted)] py-1 px-4 sm:px-0">
-          <Loader2 className="w-4 h-4 animate-spin" />
-          Loading prices...
+        <div className="py-1 overflow-x-auto w-full">
+           <div className="flex flex-col space-y-2 sm:space-y-0 sm:flex-row sm:gap-3 w-full">
+             {[1, 2, 3].map((i) => (
+                <div key={i} className="flex items-center gap-2 sm:gap-3 min-w-[200px] p-2 sm:p-2.5 rounded-xl bg-[var(--ep-bg-card)] border border-[var(--ep-border)] shadow-sm animate-pulse">
+                    <div className="w-6 h-6 rounded-full bg-[var(--ep-accent-subtle)]/50 shrink-0" />
+                    <div className="w-10 h-4 rounded bg-[var(--ep-accent-subtle)]/50" />
+                    <div className="w-16 h-4 rounded bg-[var(--ep-accent-subtle)]/50" />
+                    <div className="w-12 h-4 rounded bg-[var(--ep-accent-subtle)]/50 ml-auto sm:ml-0" />
+                </div>
+             ))}
+           </div>
         </div>
       }
     >
-      <div className="py-1 overflow-x-auto">
+      <div className="py-1 overflow-x-auto w-full">
         {loading ? (
-          <div className="flex items-center gap-2 text-[var(--ep-muted)] px-4 sm:px-0">
-            <Loader2 className="w-4 h-4 animate-spin" />
-            Loading prices...
-          </div>
+           <div className="flex flex-col space-y-2 sm:space-y-0 sm:flex-row sm:gap-3 w-full">
+             {[1, 2, 3].map((i) => (
+                <div key={i} className="flex items-center gap-2 sm:gap-3 min-w-[200px] p-2 sm:p-2.5 rounded-xl bg-[var(--ep-bg-card)] border border-[var(--ep-border)] shadow-sm animate-[pulse_1.5s_ease-in-out_infinite]">
+                    <div className="w-6 h-6 rounded-full bg-[var(--ep-accent-subtle)]/60 shrink-0" />
+                    <div className="w-10 h-4 rounded bg-[var(--ep-accent-subtle)]/40" />
+                    <div className="w-16 h-4 rounded bg-[var(--ep-accent-subtle)]/40" />
+                    <div className="w-12 h-4 rounded bg-[var(--ep-accent-subtle)]/40 ml-auto sm:ml-0" />
+                </div>
+             ))}
+           </div>
         ) : (
           <div className="flex flex-col space-y-2 sm:space-y-0 sm:flex-row sm:gap-3 w-full">
             {prices.map((price) => (

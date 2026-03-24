@@ -33,8 +33,6 @@ const stagger = {
 const HeroSection = () => {
   const formRef = useRef<HTMLDivElement>(null);
   const openAuthModal = useAuthModalStore((s) => s.openAuthModal);
-  const resumeAuthModal = useAuthModalStore((s) => s.resumeAuthModal);
-  const setStep = useAuthModalStore((s) => s.setStep);
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const isOtpVerified = useAuthStore((s) => s.isOtpVerified);
   const isWalletRegistered = useAuthStore((s) => s.isWalletRegistered);
@@ -44,35 +42,25 @@ const HeroSection = () => {
     formRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
   }, []);
 
-  
-
   const handleCTA = () => {
-    console.log("CTA clicked. Current auth state:", {
-      isAuthenticated,
-      isOtpVerified,
-      isWalletRegistered,
-    });
     if (isAuthenticated && isOtpVerified && isWalletRegistered) {
-      console.log("[HeroSection] User is fully authenticated, redirecting to dashboard");
       navigation?.push("/dashboard");
-    } else if (isOtpVerified && !isWalletRegistered) {
-      // OTP done but wallet not yet linked — resume at wallet step
-      setStep("wallet");
-      resumeAuthModal();
     } else {
+      // openAuthModal handles resume logic: OTP verified → wallet-choice
       openAuthModal();
     }
-  }
+  };
 
   return (
     <section className="landing-page relative h-fit overflow-x-hidden" aria-label="Hero">
+      {/* Background gradient — uses CSS vars so it responds to dark mode */}
       <div
         className="absolute inset-0 z-0"
         style={{
           background: `
-            radial-gradient(ellipse 70% 50% at 75% 30%, rgba(67, 57, 202, 0.04) 0%, transparent 60%),
-            radial-gradient(ellipse 50% 40% at 15% 80%, rgba(67, 57, 202, 0.03) 0%, transparent 60%),
-            linear-gradient(180deg, #ffffff 0%, var(--landing-bg) 100%)
+            radial-gradient(ellipse 70% 50% at 75% 30%, var(--ep-accent-muted) 0%, transparent 60%),
+            radial-gradient(ellipse 50% 40% at 15% 80%, var(--ep-accent-subtle) 0%, transparent 60%),
+            linear-gradient(180deg, var(--landing-card-bg) 0%, var(--landing-bg) 100%)
           `,
         }}
       />
@@ -126,7 +114,8 @@ const HeroSection = () => {
                   text-white bg-[var(--landing-accent)] hover:bg-[var(--landing-accent-hover)]
                   shadow-[0_2px_16px_rgba(67,57,202,0.25)] hover:shadow-[0_4px_24px_rgba(67,57,202,0.35)]
                   transition-all duration-200
-                  focus:outline-none focus:ring-2 focus:ring-[var(--landing-accent)]/40 focus:ring-offset-2 focus:ring-offset-white
+                  focus:outline-none focus:ring-2 focus:ring-[var(--landing-accent)]/40
+                  focus:ring-offset-2 focus:ring-offset-[var(--landing-bg)]
                 "
               >
                 {HERO.cta}
@@ -159,12 +148,14 @@ const HeroSection = () => {
                 {[0, 1, 2, 3].map((i) => (
                   <div
                     key={i}
-                    className="h-8 w-8 rounded-full border-2 border-white bg-gradient-to-br from-[var(--landing-accent)]/20 to-[var(--landing-accent)]/5"
+                    className="h-8 w-8 rounded-full border-2 border-[var(--landing-card-bg)] bg-gradient-to-br from-[var(--landing-accent)]/20 to-[var(--landing-accent)]/5"
                   />
                 ))}
               </div>
               <p className="text-sm text-[var(--landing-muted)]">
-                Trusted by <span className="font-medium text-[var(--landing-heading)]">2,000+</span> users across Kenya
+                Trusted by{" "}
+                <span className="font-medium text-[var(--landing-heading)]">2,000+</span>{" "}
+                users across Kenya
               </p>
             </motion.div>
           </div>

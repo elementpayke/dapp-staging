@@ -1,6 +1,6 @@
 import { FC, useEffect, useState, useCallback } from "react";
-import axios from "axios";
 import { Order, Tx } from "@/types/types";
+import { fetchWalletOrders } from "@/app/api/aggregator";
 import TransactionFilters from "./TransactionList/TransactionFilters";
 import TransactionTable from "./TransactionList/TransactionTable";
 import ClientOnly from "@/components/shared/ClientOnly";
@@ -108,15 +108,9 @@ const TransactionList: FC<{ walletAddress: string | null }> = ({
   // Fetch transactions function - memoized for reuse
   const fetchTransactions = useCallback(async () => {
     try {
-      const res = await axios.get<{
-        status: string;
-        message: string;
-        data: Order[];
-      }>(`/api/element-pay/orders/wallet`, {
-        params: { wallet_address: walletAddress },
-      });
+      const res = await fetchWalletOrders(walletAddress!);
 
-      const mapped: ExtendedTx[] = res.data?.data?.map((order: Order) => {
+      const mapped: ExtendedTx[] = res?.data?.map((order: Order) => {
         const createdDate = new Date(order.created_at);
         const settlementDate = order.updated_at
           ? new Date(order.updated_at)
@@ -186,9 +180,10 @@ const TransactionList: FC<{ walletAddress: string | null }> = ({
       });
 
       // Sort by created_at in descending order (newest first)
+      const orders: Order[] = res?.data ?? [];
       mapped.sort((a, b) => {
-        const bOrder = res.data.data.find((o: Order) => o.order_id === b.id);
-        const aOrder = res.data.data.find((o: Order) => o.order_id === a.id);
+        const bOrder = orders.find((o: Order) => o.order_id === b.id);
+        const aOrder = orders.find((o: Order) => o.order_id === a.id);
         return (
           new Date(bOrder?.created_at || 0).getTime() -
           new Date(aOrder?.created_at || 0).getTime()
@@ -422,61 +417,109 @@ const TransactionList: FC<{ walletAddress: string | null }> = ({
     0,
   );
 
-  if (loading) return <p className="px-4 text-[var(--ep-muted)]">Loading...</p>;
-
-  if (!loading && transactions.length === 0) {
-    return (
-      <div className="flex flex-col items-center justify-center py-10 px-4 text-center text-[var(--ep-muted)]">
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          width="120"
-          height="120"
-          viewBox="0 0 24 24"
-          fill="none"
-          className="mb-4 opacity-40"
+  // Skeleton loading component for transaction rows
+  const TransactionSkeleton = () => (
+    <div className="w-full animate-pulse space-y-4 p-2 sm:p-4">
+      {/* Skeleton date header */}
+      <div className="h-4 w-32 bg-[var(--ep-border)] rounded-md" />
+      
+      {/* Skeleton transaction rows */}
+      {[...Array(5)].map((_, i) => (
+        <div
+          key={i}
+          className="flex items-center gap-3 p-3 rounded-xl bg-[var(--ep-bg-card)] border border-[var(--ep-border)]"
         >
-          <path
-            d="M3 8C3 6.34315 4.34315 5 6 5H18C19.6569 5 21 6.34315 21 8V16C21 17.6569 19.6569 19 18 19H6C4.34315 19 3 17.6569 3 16V8Z"
-            stroke="var(--ep-border)"
-            strokeWidth="1.5"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-          <path
-            d="M3 10H21"
-            stroke="var(--ep-border)"
-            strokeWidth="1.5"
-            strokeLinecap="round"
-          />
-          <path
-            d="M7 15H9"
-            stroke="var(--ep-muted)"
-            strokeWidth="1.5"
-            strokeLinecap="round"
-          />
-        </svg>
-        <h3 className="text-lg font-semibold text-[var(--ep-heading)]">
-          No transactions yet
-        </h3>
-        <p className="mt-2 text-sm text-[var(--ep-muted)]">
-          You&apos;re connected with{" "}
-          <span className="text-[var(--ep-accent)] font-medium">
-            {walletAddress.slice(0, 6)}...{walletAddress.slice(-4)}
-          </span>
-          <br />
-          Once you send or receive crypto via Element Pay, your activity will
-          appear here.
-        </p>
-        <button className="mt-4 px-5 py-2.5 bg-[var(--ep-accent)] text-white text-sm rounded-full hover:opacity-90 transition font-medium">
-          Send your first payment
-        </button>
-      </div>
-    );
-  }
+          {/* Icon placeholder */}
+          <div className="w-10 h-10 rounded-full bg-[var(--ep-border)] shrink-0" />
+          
+          {/* Text placeholders */}
+          <div className="flex-1 min-w-0 space-y-2">
+            <div className="h-4 w-28 bg-[var(--ep-border)] rounded-md" />
+            <div className="h-3 w-40 bg-[var(--ep-border)] rounded-md opacity-60" />
+          </div>
+          
+          {/* Amount placeholder */}
+          <div className="text-right space-y-2 shrink-0">
+            <div className="h-4 w-20 bg-[var(--ep-border)] rounded-md ml-auto" />
+            <div className="h-3 w-14 bg-[var(--ep-border)] rounded-md ml-auto opacity-60" />
+          </div>
+        </div>
+      ))}
+
+      {/* Second date group skeleton */}
+      <div className="h-4 w-44 bg-[var(--ep-border)] rounded-md mt-6" />
+      {[...Array(3)].map((_, i) => (
+        <div
+          key={`g2-${i}`}
+          className="flex items-center gap-3 p-3 rounded-xl bg-[var(--ep-bg-card)] border border-[var(--ep-border)]"
+        >
+          <div className="w-10 h-10 rounded-full bg-[var(--ep-border)] shrink-0" />
+          <div className="flex-1 min-w-0 space-y-2">
+            <div className="h-4 w-24 bg-[var(--ep-border)] rounded-md" />
+            <div className="h-3 w-36 bg-[var(--ep-border)] rounded-md opacity-60" />
+          </div>
+          <div className="text-right space-y-2 shrink-0">
+            <div className="h-4 w-16 bg-[var(--ep-border)] rounded-md ml-auto" />
+            <div className="h-3 w-12 bg-[var(--ep-border)] rounded-md ml-auto opacity-60" />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+
+  // Empty state component - shown inline below the filters
+  const EmptyState = () => (
+    <div className="flex flex-col items-center justify-center py-10 px-4 text-center text-[var(--ep-muted)]">
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        width="120"
+        height="120"
+        viewBox="0 0 24 24"
+        fill="none"
+        className="mb-4 opacity-40"
+      >
+        <path
+          d="M3 8C3 6.34315 4.34315 5 6 5H18C19.6569 5 21 6.34315 21 8V16C21 17.6569 19.6569 19 18 19H6C4.34315 19 3 17.6569 3 16V8Z"
+          stroke="var(--ep-border)"
+          strokeWidth="1.5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+        <path
+          d="M3 10H21"
+          stroke="var(--ep-border)"
+          strokeWidth="1.5"
+          strokeLinecap="round"
+        />
+        <path
+          d="M7 15H9"
+          stroke="var(--ep-muted)"
+          strokeWidth="1.5"
+          strokeLinecap="round"
+        />
+      </svg>
+      <h3 className="text-lg font-semibold text-[var(--ep-heading)]">
+        No transactions yet
+      </h3>
+      <p className="mt-2 text-sm text-[var(--ep-muted)]">
+        You&apos;re connected with{" "}
+        <span className="text-[var(--ep-accent)] font-medium">
+          {walletAddress.slice(0, 6)}...{walletAddress.slice(-4)}
+        </span>
+        <br />
+        Once you send or receive crypto via Element Pay, your activity will
+        appear here.
+      </p>
+      <button className="mt-4 px-5 py-2.5 bg-[var(--ep-accent)] text-white text-sm rounded-full hover:opacity-90 transition font-medium">
+        Send your first payment
+      </button>
+    </div>
+  );
 
   return (
     <ClientOnly fallback={<div className="p-4">Loading transactions...</div>}>
       <div className="w-full p-2 sm:p-4 bg-[var(--ep-bg)] min-h-screen">
+        {/* Filters, search, refresh, pagination — always visible */}
         <TransactionFilters
           searchTerm={searchTerm}
           setSearchTerm={setSearchTerm}
@@ -500,17 +543,25 @@ const TransactionList: FC<{ walletAddress: string | null }> = ({
           setCurrentPage={setCurrentPage}
           totalTransactions={filteredTransactions.length}
         />
-        <TransactionTable
-          groupedTransactions={groupedTransactions}
-          filters={filters}
-          clearFilters={clearFilters}
-          filteredTransactions={filteredTransactions}
-          currentPage={currentPage}
-          setCurrentPage={setCurrentPage}
-          totalPages={totalPages}
-          rowsPerPage={rowsPerPage}
-          hidePagination={true}
-        />
+
+        {/* Transaction rows: skeleton while loading, empty state, or real data */}
+        {loading ? (
+          <TransactionSkeleton />
+        ) : !loading && transactions.length === 0 ? (
+          <EmptyState />
+        ) : (
+          <TransactionTable
+            groupedTransactions={groupedTransactions}
+            filters={filters}
+            clearFilters={clearFilters}
+            filteredTransactions={filteredTransactions}
+            currentPage={currentPage}
+            setCurrentPage={setCurrentPage}
+            totalPages={totalPages}
+            rowsPerPage={rowsPerPage}
+            hidePagination={true}
+          />
+        )}
       </div>
     </ClientOnly>
   );

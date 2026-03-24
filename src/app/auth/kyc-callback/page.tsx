@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Loader2, CheckCircle2, XCircle } from "lucide-react";
-import { checkKYCStatus } from "@/services/auth";
+import { checkKYCStatus, refreshAccessToken } from "@/services/auth";
 import { useAuthStore } from "@/stores/authStore";
 
 type Status = "loading" | "success" | "failed";
@@ -18,6 +18,11 @@ export default function KYCCallbackPage() {
   const updateKYCStatus = useAuthStore((s) => s.updateKYCStatus);
 
   useEffect(() => {
+    let cancelled = false;
+    let pollCount = 0;
+    const MAX_POLLS = 5;
+    const POLL_INTERVAL_MS = 3000;
+
     const verify = async () => {
       try {
         // Session ID from URL params or localStorage
@@ -46,12 +51,36 @@ export default function KYCCallbackPage() {
 
         if (res.kyc_status === "verified" && isAuthenticated) {
           setStatus("success");
+          setMessage("Identity verified! Refreshing your session…");
+
+          // Refresh the HTTP-only access token cookie so subsequent API calls
+          // carry the updated kyc_status claims from the backend JWT.
+          try {
+            await refreshAccessToken();
+            console.log("[KYC Callback] Access token refreshed with verified KYC status");
+          } catch (refreshErr) {
+            console.warn("[KYC Callback] Token refresh failed — user may need to retry transaction:", refreshErr);
+          }
+
           setMessage("Identity verified! Redirecting to your dashboard…");
           setTimeout(() => router.push("/dashboard"), 1500);
-        } else if (res.kyc_status === "pending" && isAuthenticated) {
-          setStatus("loading");
-          setMessage("Verification is still processing. You'll be notified when it's complete.");
-          setTimeout(() => router.push("/dashboard"), 3000);
+        } else if (res.kyc_status === "pending") {
+          // Poll until verified or max retries exhausted
+          if (pollCount < MAX_POLLS && !cancelled) {
+            pollCount++;
+            setStatus("loading");
+            setMessage(`Verification is processing… checking again (${pollCount}/${MAX_POLLS})`);
+            setTimeout(() => {
+              if (!cancelled) verify();
+            }, POLL_INTERVAL_MS);
+          } else {
+            // Gave up polling — redirect to dashboard anyway
+            setStatus("loading");
+            setMessage("Verification is still processing. You'll be notified when it's complete.");
+            if (isAuthenticated) {
+              setTimeout(() => router.push("/dashboard"), 2000);
+            }
+          }
         } else {
           setStatus("failed");
           setMessage("Verification was not successful. You can try again from your dashboard.");
@@ -63,6 +92,10 @@ export default function KYCCallbackPage() {
     };
 
     verify();
+
+    return () => {
+      cancelled = true;
+    };
   }, [isOtpVerified, searchParams, updateKYCStatus, router]);
 
   return (

@@ -96,7 +96,10 @@ const FeaturesSection = () => {
               className="group cursor-pointer p-2"
               aria-label={`Go to slide ${index + 1}`}
             >
-              <div className="h-1 w-16 md:w-24 rounded-full overflow-hidden bg-gray-200">
+              <div
+                className="h-1 w-16 md:w-24 rounded-full overflow-hidden"
+                style={{ backgroundColor: "var(--landing-card-border)" }}
+              >
                 <div
                   className={`h-full rounded-full transition-all duration-500 ${
                     index === activeCard
@@ -115,7 +118,11 @@ const FeaturesSection = () => {
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
           transition={{ duration: 0.5 }}
-          className="bg-white rounded-3xl shadow-sm border border-gray-100 p-8 md:p-12"
+          className="rounded-3xl shadow-sm p-8 md:p-12"
+          style={{
+            backgroundColor: "var(--landing-card-bg)",
+            border: "1px solid var(--landing-card-border)",
+          }}
         >
           <div className="grid lg:grid-cols-2 gap-8 lg:gap-12">
             {/* Left Column - Content */}
@@ -144,14 +151,17 @@ const FeaturesSection = () => {
                     {features[activeCard].subFeatures.map((sub, subIdx) => (
                       <div
                         key={subIdx}
-                        className="flex items-center gap-3 pb-3 border-b border-gray-100"
+                        className="flex items-center gap-3 pb-3"
+                        style={{ borderBottom: "1px solid var(--landing-card-border)" }}
                       >
                         <div
-                          className={`w-2 h-2 rounded-full ${
-                            sub.active
-                              ? "bg-[var(--landing-accent)]"
-                              : "bg-gray-300"
-                          }`}
+                          className="w-2 h-2 rounded-full"
+                          style={{
+                            backgroundColor: sub.active
+                              ? "var(--landing-accent)"
+                              : "var(--landing-muted)",
+                            opacity: sub.active ? 1 : 0.4,
+                          }}
                         />
                         <span
                           className="text-sm lg:text-base text-[var(--landing-body)]"

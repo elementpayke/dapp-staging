@@ -568,8 +568,11 @@ const feeStructureCache: Map<
 > = new Map();
 const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
 
+// In-flight request deduplication — prevents concurrent callers from all hitting the API
+const inFlightRequests: Map<string, Promise<FeeStructureResponse>> = new Map();
+
 /**
- * Fetch fee structure with caching
+ * Fetch fee structure with caching and in-flight deduplication
  */
 export async function fetchFeeStructureCached(
   params: FetchFeeStructureParams,
@@ -581,10 +584,23 @@ export async function fetchFeeStructureCached(
     return cached.data;
   }
 
-  const data = await fetchFeeStructure(params);
-  feeStructureCache.set(cacheKey, { data, timestamp: Date.now() });
+  // If there's already an in-flight request for the same key, reuse it
+  const existing = inFlightRequests.get(cacheKey);
+  if (existing) {
+    return existing;
+  }
 
-  return data;
+  const request = fetchFeeStructure(params)
+    .then((data) => {
+      feeStructureCache.set(cacheKey, { data, timestamp: Date.now() });
+      return data;
+    })
+    .finally(() => {
+      inFlightRequests.delete(cacheKey);
+    });
+
+  inFlightRequests.set(cacheKey, request);
+  return request;
 }
 
 /**

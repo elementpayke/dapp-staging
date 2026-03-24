@@ -13,30 +13,37 @@ interface WalletCardProps {
 
 const WalletCard: FC<WalletCardProps> = ({ type, crypto, address }) => {
   const isMetamask = type === "METAMASK";
-  const bgColor = isMetamask ? "bg-[#2C2D3B]" : "bg-[#2D2A3C]";
+
+  // ── Icon accent colours are brand colours, intentionally kept hardcoded ──
   const iconBg = isMetamask ? "bg-[#F6851B]" : "bg-[#0052FF]";
+  const symbolColor = isMetamask ? "text-[#F6851B]" : "text-[#0052FF]";
 
   return (
-    <div className={`${bgColor} rounded-xl p-4 text-white h-full`}>
+    // bg-[var(--ep-bg-card)] replaces the old hardcoded dark hex backgrounds
+    // so the card surfaces correctly in both light and dark themes.
+    <div className="bg-[var(--ep-bg-card)] border border-[var(--ep-border)] rounded-xl p-4 h-full">
       <div className="flex justify-between items-center">
         <div className="flex items-center gap-2">
           <div
-            className={`${iconBg} w-8 h-8 rounded-lg flex items-center justify-center text-white font-medium`}
+            className={`${iconBg} w-8 h-8 rounded-lg flex items-center justify-center text-white font-medium flex-shrink-0`}
           >
             {type[0]}
           </div>
-          <span className="font-medium whitespace-nowrap">{type}</span>
+          {/* text-[var(--ep-heading)] replaces hardcoded text-white */}
+          <span className="font-medium whitespace-nowrap text-[var(--ep-heading)]">{type}</span>
         </div>
-        <span className="text-xs text-gray-400">{address}</span>
+        {/* text-[var(--ep-muted)] replaces text-gray-400 */}
+        <span className="text-xs text-[var(--ep-muted)] font-mono truncate ml-2">{address}</span>
       </div>
+
       <div className="mt-4">
-        <div className="flex items-center gap-2 text-sm text-gray-300">
-          <span className={isMetamask ? "text-[#F6851B]" : "text-[#0052FF]"}>
-            {crypto.symbol}
-          </span>
+        {/* text-[var(--ep-muted)] replaces text-gray-300 */}
+        <div className="flex items-center gap-2 text-sm text-[var(--ep-muted)]">
+          <span className={`font-semibold ${symbolColor}`}>{crypto.symbol}</span>
           <span>{crypto.amount}</span>
         </div>
-        <div className="text-lg font-medium mt-1">
+        {/* text-[var(--ep-heading)] replaces implicit white / dark text */}
+        <div className="text-lg font-semibold mt-1 text-[var(--ep-heading)]">
           ${crypto.value.toLocaleString("en-US", { minimumFractionDigits: 2 })}
         </div>
       </div>
@@ -48,8 +55,10 @@ const CryptoWallet: FC = () => {
   return (
     <div className="space-y-4">
       <div className="flex justify-between items-center">
-        <h2 className="text-lg font-medium text-black">My Wallets</h2>
-        <Link href="#" className="text-blue-600 hover:text-blue-700">
+        {/* text-[var(--ep-heading)] replaces hardcoded text-black */}
+        <h2 className="text-lg font-medium text-[var(--ep-heading)]">My Wallets</h2>
+        {/* text-[var(--ep-accent)] replaces text-blue-600 */}
+        <Link href="#" className="text-[var(--ep-accent)] hover:text-[var(--ep-accent-hover)]">
           View All (3)
         </Link>
       </div>
@@ -65,10 +74,11 @@ const CryptoWallet: FC = () => {
           crypto={{ symbol: "USDC", amount: "509.56", value: 2679.9 }}
           address="0x1234...ABCD"
         />
-        <div className="border-2 border-dashed border-gray-200 rounded-xl flex items-center justify-center h-[140px] bg-white">
-          <button className="text-blue-600 flex flex-col items-center gap-2">
-            <span className="text-2xl">+</span>
-            <span>Add a Wallet</span>
+        {/* Add-wallet slot: border-[var(--ep-border)] replaces border-gray-200 */}
+        <div className="border-2 border-dashed border-[var(--ep-border)] rounded-xl flex items-center justify-center h-[140px] bg-[var(--ep-bg-input)]">
+          <button className="text-[var(--ep-accent)] flex flex-col items-center gap-2 hover:text-[var(--ep-accent-hover)] transition-colors">
+            <span className="text-2xl leading-none">+</span>
+            <span className="text-sm">Add a Wallet</span>
           </button>
         </div>
       </div>

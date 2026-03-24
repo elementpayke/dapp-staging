@@ -3,6 +3,7 @@ import type { SupportedToken } from "@/constants/supportedTokens";
 import { getTokenConfig } from "@/constants/tokenConfig";
 import { KYCRequiredError } from "@/services/kycError";
 import { isSmartWallet, safeChainSwitch } from "@/lib/wallet-utils";
+import { formatUnits } from "viem";
 
 export type OfframpCashoutType = "PHONE" | "PAYBILL" | "TILL";
 export type PaymentMethodLabel = "Send Money" | "Pay Bill" | "Buy Goods";
@@ -20,6 +21,13 @@ export interface OfframpSummary {
   canAfford: boolean;
   totalUSDC: number;
   usdcAmount: number;
+}
+
+export interface SponsoredApprovalParams {
+  amount: string;
+  chainId: number;
+  spender: `0x${string}`;
+  tokenAddress: `0x${string}`;
 }
 
 export interface OfframpNotifier {
@@ -46,11 +54,16 @@ export interface ExecuteOfframpOrderOptions {
   contractAddress: string;
   transactionSummary: OfframpSummary;
   selectedTokenBalance: number;
-  getCashoutType: () => OfframpCashoutType;
+  cashoutType: OfframpCashoutType;
   approveTokenIfNeeded: (
     spender: string,
     amount: string,
   ) => Promise<string | null>;
+  sponsoredApproval?: {
+    enabled: boolean;
+    spenderAddress: `0x${string}`;
+    execute: (params: SponsoredApprovalParams) => Promise<string | null>;
+  };
   setApproving: (value: boolean) => void;
   setProcessing: (value: boolean) => void;
   setShowProcessingPopup: (value: boolean) => void;
@@ -62,11 +75,15 @@ export interface ExecuteOfframpOrderOptions {
   ) => void;
   refreshTransactionList: () => void;
   onKycRequired: (err: KYCRequiredError) => void;
+  /** Called on early exit (cancel, validation failure, etc.) so the caller can reset stale state. */
+  onEarlyExit?: () => void;
   notify: OfframpNotifier;
   showNetworkSwitchNotification?: (
     networkName: string,
     status: "switching" | "success" | "error",
   ) => void;
+  /** AbortSignal to cancel the long-running flow when the user exits early. */
+  signal?: AbortSignal;
 }
 
 const CHAIN_ID_MAP: Record<string, number> = {
@@ -74,17 +91,27 @@ const CHAIN_ID_MAP: Record<string, number> = {
   Lisk: 1135,
   Scroll: 534352,
   Arbitrum: 42161,
+  Polygon: 137,
 };
 
-const CONTRACT_ADDRESS_MAP: Record<string, string> = {
-  Base: process.env.NEXT_PUBLIC_CONTRACT_ADDRESS_BASE!,
-  Lisk: process.env.NEXT_PUBLIC_CONTRACT_ADDRESS_LISK!,
-  Scroll: process.env.NEXT_PUBLIC_CONTRACT_ADDRESS_SCROLL!,
-  Arbitrum: process.env.NEXT_PUBLIC_CONTRACT_ADDRESS_ARBITRUM!,
+const CONTRACT_ADDRESS_MAP: Record<string, string | undefined> = {
+  Base: process.env.NEXT_PUBLIC_CONTRACT_ADDRESS_BASE,
+  Lisk: process.env.NEXT_PUBLIC_CONTRACT_ADDRESS_LISK,
+  Scroll: process.env.NEXT_PUBLIC_CONTRACT_ADDRESS_SCROLL,
+  Arbitrum: process.env.NEXT_PUBLIC_CONTRACT_ADDRESS_ARBITRUM,
+  Polygon: process.env.NEXT_PUBLIC_CONTRACT_ADDRESS_POLYGON,
+  Ethereum:
+    process.env.NEXT_PUBLIC_CONTRACT_ADDRESS_ETHEREUM ??
+    process.env.NEXT_PUBLIC_CONTRACT_ADDRESS_MAINNET,
 };
 
-export const getOfframpContractAddress = (chain: string): string =>
-  CONTRACT_ADDRESS_MAP[chain] || CONTRACT_ADDRESS_MAP.Base;
+export const getOfframpContractAddress = (chain: string): string => {
+  const address = Object.prototype.hasOwnProperty.call(CONTRACT_ADDRESS_MAP, chain)
+    ? (CONTRACT_ADDRESS_MAP[chain] ?? "")
+    : (CONTRACT_ADDRESS_MAP.Base ?? "");
+  console.log("[getOfframpContractAddress]", { chain, address, envPolygon: process.env.NEXT_PUBLIC_CONTRACT_ADDRESS_POLYGON });
+  return address;
+};
 
 export const getTargetChainIdForToken = (token: SupportedToken): number =>
   CHAIN_ID_MAP[token.chain] || CHAIN_ID_MAP.Base;
@@ -118,12 +145,14 @@ export const buildRecipientLabel = (params: {
 
 export const pollOfframpOrderStatus = async (
   txHash: string,
+  signal?: AbortSignal,
 ): Promise<any | null> => {
   let attempts = 0;
   const maxAttempts = 30;
   const delay = 2000;
 
   while (attempts < maxAttempts) {
+    if (signal?.aborted) return null;
     try {
       const res = await fetch(
         `/api/element-pay/orders/status?txHash=${encodeURIComponent(txHash)}`,
@@ -176,6 +205,7 @@ export const pollOfframpOrderStatus = async (
 
     await new Promise((resolve) => setTimeout(resolve, delay));
     attempts++;
+    if (signal?.aborted) return null;
   }
 
   return null;
@@ -201,8 +231,9 @@ export const executeOfframpOrder = async (
     contractAddress,
     transactionSummary,
     selectedTokenBalance,
-    getCashoutType,
+    cashoutType,
     approveTokenIfNeeded,
+    sponsoredApproval,
     setApproving,
     setProcessing,
     setShowProcessingPopup,
@@ -212,8 +243,10 @@ export const executeOfframpOrder = async (
     setTransactionReceipt,
     refreshTransactionList,
     onKycRequired,
+    onEarlyExit,
     notify,
     showNetworkSwitchNotification,
+    signal,
   } = opts;
 
   const targetChainId = getTargetChainIdForToken(selectedToken);
@@ -247,6 +280,7 @@ export const executeOfframpOrder = async (
         if (!switchResult.success) {
           showNetworkSwitchNotification?.(selectedToken.chain, "error");
           notify.error(switchResult.message);
+          onEarlyExit?.();
           return;
         }
 
@@ -259,16 +293,19 @@ export const executeOfframpOrder = async (
             notify.success(
               `Switched to ${selectedToken.chain}. Please try again.`,
             );
+            onEarlyExit?.();
             return;
           }
         } else if (switchResult.method === "manual-required") {
           showNetworkSwitchNotification?.(selectedToken.chain, "error");
           notify.warning(switchResult.message);
+          onEarlyExit?.();
           return;
         }
       } catch {
         showNetworkSwitchNotification?.(selectedToken.chain, "error");
         notify.error(`Please switch to ${selectedToken.chain} to continue.`);
+        onEarlyExit?.();
         return;
       }
     }
@@ -277,16 +314,25 @@ export const executeOfframpOrder = async (
   try {
     setApproving(true);
 
+    if (!contractAddress) {
+      notify.error(
+        `Offramp is not configured for ${selectedToken.chain} yet. Add the chain contract address before retrying.`,
+      );
+      setApproving(false);
+      setProcessing(false);
+      onEarlyExit?.();
+      return;
+    }
+
     if (!transactionSummary.canAfford) {
       notify.error(
         `Insufficient balance. You need ${transactionSummary.totalUSDC.toFixed(6)} ${selectedToken.symbol} but only have ${selectedTokenBalance.toFixed(6)} ${selectedToken.symbol}`,
       );
       setApproving(false);
       setProcessing(false);
+      onEarlyExit?.();
       return;
     }
-
-    const cashoutType = getCashoutType();
 
     let validationError = "";
     if (!accountAddress || !selectedToken.tokenAddress || !amountFiat || !messageHash) {
@@ -308,6 +354,7 @@ export const executeOfframpOrder = async (
       notify.error(validationError);
       setApproving(false);
       setProcessing(false);
+      onEarlyExit?.();
       return;
     }
 
@@ -330,7 +377,7 @@ export const executeOfframpOrder = async (
     setTransactionReceipt((prev) => ({
       ...prev,
       amount: amountFiat,
-      amountUSDC: transactionSummary.usdcAmount,
+      amountUSDC: transactionSummary.totalUSDC,
       phoneNumber: recipientLabel,
       address: accountAddress || "",
       transactionHash: "",
@@ -342,10 +389,13 @@ export const executeOfframpOrder = async (
       setApproving(false);
       setProcessing(false);
       setShowProcessingPopup(false);
+      onEarlyExit?.();
       return;
     }
 
     let requiredApprovalAmount = "";
+    let requiredTransferAmount = "";
+    let requiredTransferAmountNumber = 0;
     let hasSufficientAllowance = false;
 
     try {
@@ -364,12 +414,24 @@ export const executeOfframpOrder = async (
 
       const tokenConfig = getTokenConfig(selectedToken.tokenAddress);
       const decimals = tokenConfig?.decimals || 6;
+      const requiredTokenAmountRaw = BigInt(
+        quoteResponse.data.required_token_amount_raw,
+      );
       const baseAmount =
         quoteResponse.data.required_token_amount_raw / Math.pow(10, decimals);
+      requiredTransferAmount = formatUnits(requiredTokenAmountRaw, decimals);
+      requiredTransferAmountNumber = Number(requiredTransferAmount);
       const bufferedAmount = baseAmount * 1.005;
       requiredApprovalAmount = bufferedAmount.toFixed(decimals);
       hasSufficientAllowance =
         quoteResponse.data.has_sufficient_allowance ?? false;
+
+      if (Number.isFinite(requiredTransferAmountNumber) && requiredTransferAmountNumber > 0) {
+        setTransactionReceipt((prev) => ({
+          ...prev,
+          amountUSDC: requiredTransferAmountNumber,
+        }));
+      }
     } catch (quoteError: any) {
       setShowProcessingPopup(false);
       setApproving(false);
@@ -379,10 +441,44 @@ export const executeOfframpOrder = async (
           quoteError?.message ||
           "Failed to calculate required approval amount. Please try again.",
       );
+      onEarlyExit?.();
       return;
     }
 
-    if (!hasSufficientAllowance) {
+    if (sponsoredApproval?.enabled) {
+      if (!requiredApprovalAmount) {
+        setShowProcessingPopup(false);
+        setApproving(false);
+        setProcessing(false);
+        notify.error("Failed to prepare the sponsored approval amount. Please try again.");
+        onEarlyExit?.();
+        return;
+      }
+
+      notify.info("Please confirm the sponsored approval to continue.", {
+        autoClose: 15000,
+      });
+
+      const approvalTxHash = await sponsoredApproval.execute({
+        amount: requiredApprovalAmount,
+        chainId: targetChainId,
+        spender: sponsoredApproval.spenderAddress,
+        tokenAddress: selectedToken.tokenAddress as `0x${string}`,
+      });
+
+      if (!approvalTxHash) {
+        setShowProcessingPopup(false);
+        setApproving(false);
+        setProcessing(false);
+        notify.error("Sponsored approval failed. Cannot proceed with order creation.");
+        onEarlyExit?.();
+        return;
+      }
+
+      notify.info("Approval confirmed. Creating your payout order...", {
+        autoClose: 8000,
+      });
+    } else if (!hasSufficientAllowance) {
       if (isMobileWalletFlow) {
         notify.info("Approval needed. Please approve in your wallet app.", {
           autoClose: 15000,
@@ -399,6 +495,7 @@ export const executeOfframpOrder = async (
         setApproving(false);
         setProcessing(false);
         notify.error("Token approval failed. Cannot proceed with order creation.");
+        onEarlyExit?.();
         return;
       }
 
@@ -415,6 +512,7 @@ export const executeOfframpOrder = async (
       setApproving(false);
       setProcessing(false);
       notify.error("Order details are incomplete. Please try again.");
+      onEarlyExit?.();
       return;
     }
 
@@ -424,7 +522,11 @@ export const executeOfframpOrder = async (
         createOffRampOrder({
           userAddress: accountAddress,
           tokenAddress: selectedToken.tokenAddress,
-          amount: Number(amountFiat),
+          amount:
+            Number.isFinite(requiredTransferAmountNumber) &&
+            requiredTransferAmountNumber > 0
+              ? requiredTransferAmountNumber
+              : transactionSummary.totalUSDC,
           amountFiat: Number(amountFiat),
           phoneNumber: cashoutType === "PHONE" ? mobileNumber : "",
           messageHash,
@@ -453,6 +555,7 @@ export const executeOfframpOrder = async (
         onKycRequired(apiError);
         setApproving(false);
         setProcessing(false);
+        onEarlyExit?.();
         return;
       }
 
@@ -461,6 +564,7 @@ export const executeOfframpOrder = async (
       notify.error(errorMessage);
       setApproving(false);
       setProcessing(false);
+      onEarlyExit?.();
       return;
     }
 
@@ -472,6 +576,7 @@ export const executeOfframpOrder = async (
       setShowProcessingPopup(false);
       setApproving(false);
       setProcessing(false);
+      onEarlyExit?.();
       return;
     }
 
@@ -481,7 +586,15 @@ export const executeOfframpOrder = async (
       transactionHash: orderId,
     }));
 
-    const statusData = await pollOfframpOrderStatus(orderId);
+    // If the user cancelled while the API call was in flight, bail out now
+    // so we don't overwrite state that belongs to a new transaction.
+    if (signal?.aborted) return;
+
+    const statusData = await pollOfframpOrderStatus(orderId, signal);
+
+    // Guard: user may have cancelled during polling
+    if (signal?.aborted) return;
+
     if (statusData) {
       const isSettled = statusData.status === "SETTLED";
       const isFailed = statusData.status === "FAILED";
@@ -496,6 +609,8 @@ export const executeOfframpOrder = async (
       }));
 
       refreshTransactionList();
+
+      if (signal?.aborted) return;
 
       if (isSettled) {
         notify.success(
@@ -514,6 +629,9 @@ export const executeOfframpOrder = async (
         );
       }
     } else {
+      // polling returned null — either timed out or was aborted
+      if (signal?.aborted) return;
+
       setPollingComplete(true);
       setTransactionReceipt((prev) => ({
         ...prev,
@@ -528,6 +646,7 @@ export const executeOfframpOrder = async (
     setShowProcessingPopup(false);
     refreshTransactionList();
     notify.error(err?.message || "Transaction failed. Please try again.");
+    onEarlyExit?.();
   } finally {
     setApproving(false);
     setProcessing(false);

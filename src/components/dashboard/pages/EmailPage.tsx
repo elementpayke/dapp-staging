@@ -10,7 +10,6 @@ const EmailPage = () => {
   });
   const [status, setStatus] = useState<"idle" | "success" | "error">("idle");
 
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setStatus("idle");
@@ -29,14 +28,12 @@ const EmailPage = () => {
       );
 
       setStatus("success");
-      setFormData({ firstName: "", lastName: "", email: "", message: "" }); // reset form
+      setFormData({ firstName: "", lastName: "", email: "", message: "" });
     } catch (error) {
       console.error("Failed to send email:", error);
       setStatus("error");
     }
   };
-
-
 
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
@@ -48,29 +45,51 @@ const EmailPage = () => {
   };
 
   return (
-    <div className="p-4 sm:p-8 space-y-6">
-      <h1 className="text-2xl font-semibold text-black">Email</h1>
+    <div className="min-h-screen bg-[var(--ep-bg)] px-6 py-6 space-y-5">
+      {/* Page Title */}
+      <h1 className="text-xl font-bold tracking-tight text-[var(--ep-heading)]">
+        Contact Us
+      </h1>
 
-      <div className="bg-white rounded-3xl p-8 shadow-sm">
+      {/* Card */}
+      <div
+        className="
+          rounded-2xl
+          border border-[var(--ep-border)]
+          bg-[var(--ep-bg-card)]
+          shadow-[var(--ep-card-shadow)]
+          p-5 sm:p-6
+        "
+      >
+        {/* Eyebrow */}
+        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--ep-muted)] mb-5">
+          Send a message
+        </p>
+
+        {/* Status Banners */}
         {status === "success" && (
-          <div className="p-4 rounded-lg bg-green-50 text-green-700 border border-green-200">
-            Your message has been sent successfully.
+          <div className="mb-5 flex items-center gap-3 rounded-xl px-4 py-3 bg-emerald-50 dark:bg-emerald-500/10">
+            <span className="text-emerald-600 text-sm font-medium">
+              ✓ Your message has been sent successfully.
+            </span>
           </div>
         )}
 
         {status === "error" && (
-          <div className="p-4 rounded-lg bg-red-50 text-red-700 border border-red-200">
-            Failed to send message. Please try again or contact support directly.
+          <div className="mb-5 flex items-center gap-3 rounded-xl px-4 py-3 bg-red-50 dark:bg-red-500/10">
+            <span className="text-red-500 text-sm font-medium">
+              Failed to send message. Please try again or contact support directly.
+            </span>
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="space-y-6">
+        <form onSubmit={handleSubmit} className="space-y-5">
           {/* Name Fields */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="space-y-2">
+            <div className="space-y-1.5">
               <label
                 htmlFor="firstName"
-                className="block text-sm font-medium text-gray-700"
+                className="block text-xs font-semibold uppercase tracking-[0.18em] text-[var(--ep-muted)]"
               >
                 First name
               </label>
@@ -81,14 +100,23 @@ const EmailPage = () => {
                 value={formData.firstName}
                 onChange={handleChange}
                 placeholder="John"
-                className="w-full p-3 rounded-lg bg-gray-50 border-none"
+                className="
+                  w-full rounded-xl
+                  border border-[var(--ep-border)]
+                  bg-[var(--ep-bg-input)]
+                  px-3 py-2.5 text-sm text-[var(--ep-heading)]
+                  placeholder:text-[var(--ep-muted)]
+                  focus:outline-none focus:border-[var(--ep-border-focus)]
+                  focus:ring-2 focus:ring-[var(--ep-accent)]/10
+                  transition-colors duration-150
+                "
               />
             </div>
 
-            <div className="space-y-2">
+            <div className="space-y-1.5">
               <label
                 htmlFor="lastName"
-                className="block text-sm font-medium text-gray-700"
+                className="block text-xs font-semibold uppercase tracking-[0.18em] text-[var(--ep-muted)]"
               >
                 Last name
               </label>
@@ -99,16 +127,25 @@ const EmailPage = () => {
                 value={formData.lastName}
                 onChange={handleChange}
                 placeholder="Doe"
-                className="w-full p-3 rounded-lg bg-gray-50 border-none"
+                className="
+                  w-full rounded-xl
+                  border border-[var(--ep-border)]
+                  bg-[var(--ep-bg-input)]
+                  px-3 py-2.5 text-sm text-[var(--ep-heading)]
+                  placeholder:text-[var(--ep-muted)]
+                  focus:outline-none focus:border-[var(--ep-border-focus)]
+                  focus:ring-2 focus:ring-[var(--ep-accent)]/10
+                  transition-colors duration-150
+                "
               />
             </div>
           </div>
 
           {/* Email Field */}
-          <div className="space-y-2">
+          <div className="space-y-1.5">
             <label
               htmlFor="email"
-              className="block text-sm font-medium text-gray-700"
+              className="block text-xs font-semibold uppercase tracking-[0.18em] text-[var(--ep-muted)]"
             >
               Email address
             </label>
@@ -119,15 +156,24 @@ const EmailPage = () => {
               value={formData.email}
               onChange={handleChange}
               placeholder="johndoe@example.com"
-              className="w-full p-3 rounded-lg bg-gray-50 border-none"
+              className="
+                w-full rounded-xl
+                border border-[var(--ep-border)]
+                bg-[var(--ep-bg-input)]
+                px-3 py-2.5 text-sm text-[var(--ep-heading)]
+                placeholder:text-[var(--ep-muted)]
+                focus:outline-none focus:border-[var(--ep-border-focus)]
+                focus:ring-2 focus:ring-[var(--ep-accent)]/10
+                transition-colors duration-150
+              "
             />
           </div>
 
           {/* Message Field */}
-          <div className="space-y-2">
+          <div className="space-y-1.5">
             <label
               htmlFor="message"
-              className="block text-sm font-medium text-gray-700"
+              className="block text-xs font-semibold uppercase tracking-[0.18em] text-[var(--ep-muted)]"
             >
               Message
             </label>
@@ -138,16 +184,33 @@ const EmailPage = () => {
               onChange={handleChange}
               placeholder="Write your message here"
               rows={6}
-              className="w-full p-3 rounded-lg bg-gray-50 border-none resize-none"
+              className="
+                w-full rounded-xl
+                border border-[var(--ep-border)]
+                bg-[var(--ep-bg-input)]
+                px-3 py-2.5 text-sm text-[var(--ep-heading)]
+                placeholder:text-[var(--ep-muted)]
+                focus:outline-none focus:border-[var(--ep-border-focus)]
+                focus:ring-2 focus:ring-[var(--ep-accent)]/10
+                transition-colors duration-150
+                resize-none
+              "
             />
           </div>
 
-          {/* Submit Button */}
+          {/* Submit Button — Primary CTA */}
           <button
             type="submit"
-            className="w-full bg-blue-600 text-white py-3 rounded-lg font-medium hover:bg-blue-700 transition-colors"
+            className="
+              w-full rounded-full px-6 py-3 text-sm font-semibold text-white
+              bg-[var(--ep-accent)] hover:bg-[var(--ep-accent-hover)]
+              shadow-[0_2px_16px_rgba(67,57,202,0.25)]
+              hover:shadow-[0_4px_24px_rgba(67,57,202,0.35)]
+              transition-all duration-200
+              disabled:opacity-50
+            "
           >
-            Submit
+            Send Message
           </button>
         </form>
       </div>

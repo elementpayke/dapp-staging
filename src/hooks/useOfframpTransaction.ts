@@ -47,6 +47,7 @@ const CHAIN_IDS: Record<string, number> = {
   Lisk: 1135,
   Scroll: 534352,
   Arbitrum: 42161,
+  Polygon: 137,
 };
 
 // Contract address mapping
@@ -55,6 +56,7 @@ const CONTRACT_ADDRESSES: Record<string, string> = {
   Lisk: process.env.NEXT_PUBLIC_CONTRACT_ADDRESS_LISK!,
   Scroll: process.env.NEXT_PUBLIC_CONTRACT_ADDRESS_SCROLL!,
   Arbitrum: process.env.NEXT_PUBLIC_CONTRACT_ADDRESS_ARBITRUM!,
+  Polygon: process.env.NEXT_PUBLIC_CONTRACT_ADDRESS_POLYGON!,
 };
 
 export interface OfframpParams {

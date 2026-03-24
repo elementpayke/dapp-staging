@@ -3,16 +3,72 @@
 import type { ReactNode } from "react";
 import { OnchainKitProvider } from "@coinbase/onchainkit";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { base, arbitrum } from "wagmi/chains";
+import { base, arbitrum, polygon } from "wagmi/chains";
 import { wagmiConfig, lisk, scroll } from "@/lib/wagmi-config";
 import { useWalletStore } from "@/lib/useWallet";
 import LogoImage from "@/assets/logo.png";
 import { useEffect } from "react";
 import { PrivyProvider } from "@privy-io/react-auth";
+import { SmartWalletsProvider } from "@privy-io/react-auth/smart-wallets";
 import { WagmiProvider } from "@privy-io/wagmi";
 import { TokenProvider } from "@/context/TokenContext";
 import PrivyWalletListener from "@/components/auth/PrivyWalletListener";
+import PrivyAuthSync from "@/components/auth/PrivyAuthSync";
 import AuthModal from "@/components/auth/AuthModal";
+import { useSessionGuard } from "@/hooks/useSessionGuard";
+
+/**
+ * Repair corrupted WalletConnect IndexedDB.
+ *
+ * WalletConnect stores data in an IndexedDB database called
+ * "WALLET_CONNECT_V2_INDEXED_DB" with an object store named
+ * "keyvaluestorage". If the DB exists but the object store is missing
+ * (e.g. after a failed migration or browser storage hiccup), every
+ * subsequent read throws:
+ *   NotFoundError: 'keyvaluestorage' is not a known object store name
+ *
+ * This helper opens the DB, checks for the store, and deletes the
+ * entire database when it is corrupt so WalletConnect can recreate it
+ * cleanly on next use.
+ */
+function repairWalletConnectDB(): Promise<void> {
+  if (typeof indexedDB === "undefined") return Promise.resolve();
+
+  const DB_NAME = "WALLET_CONNECT_V2_INDEXED_DB";
+  const STORE_NAME = "keyvaluestorage";
+
+  return new Promise<void>((resolve) => {
+    try {
+      const req = indexedDB.open(DB_NAME);
+
+      req.onsuccess = () => {
+        const db = req.result;
+        if (!db.objectStoreNames.contains(STORE_NAME)) {
+          db.close();
+          const delReq = indexedDB.deleteDatabase(DB_NAME);
+          delReq.onsuccess = () => {
+            console.info("[WC] Deleted corrupted IndexedDB — will recreate on next connect");
+            resolve();
+          };
+          delReq.onerror = () => resolve();
+          delReq.onblocked = () => resolve();
+        } else {
+          db.close();
+          resolve();
+        }
+      };
+
+      req.onerror = () => resolve();
+      // If an upgrade is needed the DB didn't exist yet — nothing to fix.
+      req.onupgradeneeded = () => {
+        req.transaction?.abort();
+        resolve();
+      };
+    } catch {
+      resolve();
+    }
+  });
+}
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -34,11 +90,19 @@ const queryClient = new QueryClient({
   },
 });
 
-// Hydration component for Zustand store
+// Hydration component for Zustand store + WalletConnect DB repair
 function StoreHydration() {
   useEffect(() => {
-    useWalletStore.persist.rehydrate();
+    repairWalletConnectDB().then(() => {
+      useWalletStore.persist.rehydrate();
+    });
   }, []);
+  return null;
+}
+
+/** Guards the session — triggers full logout on 401 / expired tokens. */
+function SessionGuard() {
+  useSessionGuard();
   return null;
 }
 
@@ -53,9 +117,12 @@ function StoreHydration() {
  * 3. Smart wallet's internal chain selection
  */
 export function Providers(props: { children: ReactNode }) {
+  const privyAppId =
+    process.env.NEXT_PUBLIC_PRIVY_APP_ID ?? "cmkn2mzls02apjp0cvfjkr4ab";
+
   return (
     <PrivyProvider
-      appId={"cmkn2mzls02apjp0cvfjkr4ab"}
+      appId={privyAppId}
       config={{
         appearance: {
           theme: "dark",
@@ -76,10 +143,10 @@ export function Providers(props: { children: ReactNode }) {
         loginMethods: ["wallet"],
         // Support multiple chains
         defaultChain: base,
-        supportedChains: [base, arbitrum, lisk, scroll],
+        supportedChains: [base, arbitrum, lisk, scroll, polygon],
         embeddedWallets: {
           ethereum: {
-            createOnLogin: "users-without-wallets",
+            createOnLogin: "off",
           },
         },
         // Enhanced WalletConnect configuration for mobile
@@ -96,7 +163,9 @@ export function Providers(props: { children: ReactNode }) {
     >
       <QueryClientProvider client={queryClient}>
         <WagmiProvider config={wagmiConfig}>
+          <SmartWalletsProvider>
           <StoreHydration />
+          <SessionGuard />
           <OnchainKitProvider
             apiKey={process.env.NEXT_PUBLIC_ONCHAINKIT_API_KEY}
             chain={base}
@@ -115,11 +184,13 @@ export function Providers(props: { children: ReactNode }) {
             }}
           >
             <TokenProvider>
+              <PrivyAuthSync />
               <PrivyWalletListener />
               <AuthModal />
               {props.children}
             </TokenProvider>
           </OnchainKitProvider>
+          </SmartWalletsProvider>
         </WagmiProvider>
       </QueryClientProvider>
     </PrivyProvider>

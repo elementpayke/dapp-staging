@@ -29,23 +29,28 @@ const testimonials = [
 
 const Testimonials = () => {
   return (
-    <div className="bg-[#f0f4ff] py-20 px-6 md:px-12">
+    <div className="py-20 px-6 md:px-12" style={{ backgroundColor: "var(--landing-bg-subtle)" }}>
       <div className="max-w-6xl mx-auto text-center">
-        <h2 className="text-3xl md:text-4xl font-bold text-[#1c2b4d] mb-10">
+        <h2 className="text-3xl md:text-4xl font-bold text-[var(--landing-heading)] mb-10">
           Real Stories. Real Impact.
         </h2>
-        <p className="text-lg text-gray-600 mb-16 max-w-2xl mx-auto">
-          ElementPay is transforming how Kenyans make payments—whether for your daily commute, shopping, or paying your local vendor. Here&apos;s how we&apos;re making it easier for everyday transactions.
+        <p className="text-lg text-[var(--landing-body)] mb-16 max-w-2xl mx-auto">
+          ElementPay is transforming how Kenyans make payments—whether for your daily commute,
+          shopping, or paying your local vendor. Here&apos;s how we&apos;re making it easier for
+          everyday transactions.
         </p>
 
         <div className="grid md:grid-cols-2 gap-10">
           {testimonials.map((item, index) => (
             <div
               key={index}
-              className="bg-white rounded-2xl shadow-md p-6 text-left border-l-4 border-[#0514eb]"
+              className="rounded-2xl shadow-md p-6 text-left border-l-4 border-[var(--landing-accent)]"
+              style={{ backgroundColor: "var(--landing-card-bg)" }}
             >
-              <p className="text-gray-700 italic mb-4">&quot;{item.feedback}&quot;</p>
-              <p className="text-sm text-gray-500 font-semibold">
+              <p className="italic mb-4 text-[var(--landing-body)]">
+                &quot;{item.feedback}&quot;
+              </p>
+              <p className="text-sm font-semibold text-[var(--landing-muted)]">
                 — {item.name}, {item.location}
               </p>
             </div>

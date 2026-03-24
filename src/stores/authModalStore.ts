@@ -5,6 +5,8 @@
 
 import { create } from "zustand";
 import type { AuthStep } from "./authStore";
+import { useAuthStore } from "./authStore";
+import { hasLiveOtp } from "@/services/auth";
 
 interface AuthModalState {
   isOpen: boolean;
@@ -13,6 +15,10 @@ interface AuthModalState {
   walletConnecting: boolean;
   /** Optional auth flow error shown in the modal. */
   errorMessage: string | null;
+  /** True while the user is actively choosing an external wallet in Privy. */
+  externalWalletSelectionPending: boolean;
+  /** Tracks whether the current Privy external-wallet picker has opened. */
+  externalWalletSelectionModalOpened: boolean;
 }
 
 interface AuthModalActions {
@@ -27,6 +33,9 @@ interface AuthModalActions {
   setStep: (step: AuthStep) => void;
   setWalletConnecting: (v: boolean) => void;
   setErrorMessage: (message: string | null) => void;
+  startExternalWalletSelection: () => void;
+  markExternalWalletSelectionModalOpened: () => void;
+  clearExternalWalletSelection: () => void;
   reset: () => void;
 }
 
@@ -37,18 +46,74 @@ export const useAuthModalStore = create<AuthModalStore>((set) => ({
   step: "email",
   walletConnecting: false,
   errorMessage: null,
+  externalWalletSelectionPending: false,
+  externalWalletSelectionModalOpened: false,
 
-  openAuthModal: () =>
-    set({ isOpen: true, step: "email", walletConnecting: false, errorMessage: null }),
+  openAuthModal: () => {
+    const { isOtpVerified, isWalletRegistered, pendingEmail } = useAuthStore.getState();
+
+    // Already fully registered — nothing to do
+    if (isWalletRegistered) return;
+
+    // OTP already verified — resume at wallet-choice
+    if (isOtpVerified) {
+      set({
+        isOpen: true,
+        step: "wallet-choice",
+        walletConnecting: false,
+        errorMessage: null,
+        externalWalletSelectionPending: false,
+        externalWalletSelectionModalOpened: false,
+      });
+      return;
+    }
+
+    // If the user has a live (unexpired) OTP session, resume at the OTP
+    // entry step instead of forcing them to re-enter their email.
+    const resumeAtOtp = pendingEmail && hasLiveOtp(pendingEmail);
+    set({
+      isOpen: true,
+      step: resumeAtOtp ? "otp" : "email",
+      walletConnecting: false,
+      errorMessage: null,
+      externalWalletSelectionPending: false,
+      externalWalletSelectionModalOpened: false,
+    });
+  },
   resumeAuthModal: () =>
     set({ isOpen: true }),
   closeAuthModal: () =>
-    set({ isOpen: false, walletConnecting: false, errorMessage: null }),
+    set({
+      isOpen: false,
+      walletConnecting: false,
+      errorMessage: null,
+      externalWalletSelectionPending: false,
+      externalWalletSelectionModalOpened: false,
+    }),
   hideModal: () =>
     set({ isOpen: false }),
   setStep: (step) => set({ step }),
   setWalletConnecting: (walletConnecting) => set({ walletConnecting }),
   setErrorMessage: (errorMessage) => set({ errorMessage }),
+  startExternalWalletSelection: () =>
+    set({
+      externalWalletSelectionPending: true,
+      externalWalletSelectionModalOpened: false,
+    }),
+  markExternalWalletSelectionModalOpened: () =>
+    set({ externalWalletSelectionModalOpened: true }),
+  clearExternalWalletSelection: () =>
+    set({
+      externalWalletSelectionPending: false,
+      externalWalletSelectionModalOpened: false,
+    }),
   reset: () =>
-    set({ isOpen: false, step: "email", walletConnecting: false, errorMessage: null }),
+    set({
+      isOpen: false,
+      step: "email",
+      walletConnecting: false,
+      errorMessage: null,
+      externalWalletSelectionPending: false,
+      externalWalletSelectionModalOpened: false,
+    }),
 }));

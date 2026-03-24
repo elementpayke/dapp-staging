@@ -3,24 +3,47 @@
 import React, { useState, useRef, useCallback, useEffect } from "react";
 import { ShieldCheck, ArrowRight, Loader2, RotateCcw } from "lucide-react";
 import { motion } from "framer-motion";
-import { verifyOTP } from "@/services/auth";
+import { verifyOTP, OTP_TTL_MS } from "@/services/auth";
 import { useAuthStore } from "@/stores/authStore";
 import { useAuthModalStore } from "@/stores/authModalStore";
 
 const OTP_LENGTH = 6;
 const RESEND_COOLDOWN = 60; // seconds
 
+/**
+ * Compute the initial resend-cooldown based on the stored OTP request time.
+ * If the OTP was requested recently (< RESEND_COOLDOWN ago), return the
+ * remaining seconds.  Otherwise return 0 (allow immediate resend).
+ */
+function initialCooldown(): number {
+  const { otpRequestedAt } = useAuthStore.getState();
+  if (!otpRequestedAt) return 0;
+  const elapsed = Math.floor((Date.now() - otpRequestedAt) / 1000);
+  const remaining = RESEND_COOLDOWN - elapsed;
+  return remaining > 0 ? remaining : 0;
+}
+
 const OTPStep = () => {
   const [digits, setDigits] = useState<string[]>(Array(OTP_LENGTH).fill(""));
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const [cooldown, setCooldown] = useState(RESEND_COOLDOWN);
+  const [cooldown, setCooldown] = useState(initialCooldown);
   const inputsRef = useRef<(HTMLInputElement | null)[]>([]);
 
   const pendingEmail = useAuthStore((s) => s.pendingEmail);
+  const otpRequestedAt = useAuthStore((s) => s.otpRequestedAt);
   const setAuth = useAuthStore((s) => s.setAuth);
   const setStep = useAuthModalStore((s) => s.setStep);
   const setModalError = useAuthModalStore((s) => s.setErrorMessage);
+  const otp = digits.join("");
+  const isComplete = otp.length === OTP_LENGTH;
+
+  // If the OTP has expired (> 15 min) send user back to email step
+  useEffect(() => {
+    if (!otpRequestedAt || Date.now() - otpRequestedAt < OTP_TTL_MS) return;
+    setModalError("Your verification code has expired. Please request a new one.");
+    setStep("email");
+  }, [otpRequestedAt, setStep, setModalError]);
 
   // Countdown timer for resend
   useEffect(() => {
@@ -52,34 +75,7 @@ const OTPStep = () => {
     [digits, error, setModalError],
   );
 
-  const handleKeyDown = useCallback(
-    (idx: number, e: React.KeyboardEvent<HTMLInputElement>) => {
-      if (e.key === "Backspace" && !digits[idx] && idx > 0) {
-        inputsRef.current[idx - 1]?.focus();
-      }
-    },
-    [digits],
-  );
-
-  const handlePaste = useCallback(
-    (e: React.ClipboardEvent) => {
-      e.preventDefault();
-      const pasted = e.clipboardData.getData("text").replace(/\D/g, "").slice(0, OTP_LENGTH);
-      if (!pasted) return;
-      const next = [...digits];
-      for (let i = 0; i < pasted.length; i++) {
-        next[i] = pasted[i];
-      }
-      setDigits(next);
-      // Focus the next empty or the last
-      const focusIdx = Math.min(pasted.length, OTP_LENGTH - 1);
-      inputsRef.current[focusIdx]?.focus();
-    },
-    [digits],
-  );
-
-  const handleContinue = useCallback(async () => {
-    const otp = digits.join("");
+  const submitOtp = useCallback(async () => {
     if (otp.length !== OTP_LENGTH) {
       setError("Please enter the full 6-digit code");
       return;
@@ -107,24 +103,83 @@ const OTPStep = () => {
       };
 
       setAuth(user);
-      // OTP is now verified, but wallet is not yet registered
-      // isAuthenticated will only be true after wallet registration
 
-      // Move to wallet connection step
-      console.log("[OTPStep] Moving to wallet connection step");
-      setStep("wallet");
+      // Store pre-fetched Privy RS256 token so PrivyAuthSync can use it
+      // without making a second HTTP call.
+      if (res.privy_token) {
+        useAuthStore.getState().setPrivyToken(res.privy_token);
+      }
+
+      // Fast-track: if backend already has a registered embedded wallet for
+      // this user, skip wallet-choice and connect-wallet steps entirely.
+      const hasRegisteredEmbeddedWallet = res.user?.wallets?.some(
+        (w) => w.wallet_type === "embedded" || w.wallet_type === "privy"
+      );
+
+      if (hasRegisteredEmbeddedWallet) {
+        console.log("[OTPStep] User already has embedded wallet — fast-tracking to dashboard");
+        const store = useAuthStore.getState();
+        store.setWalletPreference("embedded");
+        store.setWalletRegistered(true);
+        const embeddedAddr = res.user.wallets?.find(
+          (w) => w.wallet_type === "embedded" || w.wallet_type === "privy"
+        )?.address;
+        if (embeddedAddr) store.addConnectedWallet(embeddedAddr);
+        useAuthModalStore.getState().closeAuthModal();
+        useAuthModalStore.getState().reset();
+        return;
+      }
+
+      // Move to wallet choice step (embedded vs external)
+      console.log("[OTPStep] Moving to wallet choice step");
+      setStep("wallet-choice");
     } catch (err: any) {
       setError(err.message ?? "Invalid code. Try again.");
     } finally {
       setLoading(false);
     }
-  }, [digits, pendingEmail, setAuth, setStep, setModalError]);
+  }, [otp, pendingEmail, setAuth, setStep, setModalError]);
+
+  const handleKeyDown = useCallback(
+    (idx: number, e: React.KeyboardEvent<HTMLInputElement>) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        if (isComplete && !loading) {
+          void submitOtp();
+        }
+        return;
+      }
+
+      if (e.key === "Backspace" && !digits[idx] && idx > 0) {
+        inputsRef.current[idx - 1]?.focus();
+      }
+    },
+    [digits, isComplete, loading, submitOtp],
+  );
+
+  const handlePaste = useCallback(
+    (e: React.ClipboardEvent) => {
+      e.preventDefault();
+      const pasted = e.clipboardData.getData("text").replace(/\D/g, "").slice(0, OTP_LENGTH);
+      if (!pasted) return;
+      const next = [...digits];
+      for (let i = 0; i < pasted.length; i++) {
+        next[i] = pasted[i];
+      }
+      setDigits(next);
+      // Focus the next empty or the last
+      const focusIdx = Math.min(pasted.length, OTP_LENGTH - 1);
+      inputsRef.current[focusIdx]?.focus();
+    },
+    [digits],
+  );
 
   const handleResend = useCallback(async () => {
     if (cooldown > 0 || !pendingEmail) return;
     try {
       const { requestOTP } = await import("@/services/auth");
-      await requestOTP(pendingEmail);
+      // Force a fresh OTP request (bypass idempotency)
+      await requestOTP(pendingEmail, { force: true });
       setModalError(null);
       setCooldown(RESEND_COOLDOWN);
       setDigits(Array(OTP_LENGTH).fill(""));
@@ -133,9 +188,6 @@ const OTPStep = () => {
       setError("Failed to resend. Try again.");
     }
   }, [cooldown, pendingEmail, setModalError]);
-
-  const otp = digits.join("");
-  const isComplete = otp.length === OTP_LENGTH;
 
   return (
     <motion.div
@@ -161,61 +213,69 @@ const OTPStep = () => {
         </span>
       </p>
 
-      {/* OTP digit boxes */}
-      <div className="flex gap-2.5 mb-4" onPaste={handlePaste}>
-        {digits.map((d, i) => (
-          <input
-            key={i}
-            ref={(el) => { inputsRef.current[i] = el; }}
-            type="text"
-            inputMode="numeric"
-            maxLength={1}
-            value={d}
-            onChange={(e) => handleChange(i, e.target.value)}
-            onKeyDown={(e) => handleKeyDown(i, e)}
-            className={`
-              w-12 h-14 rounded-xl border text-center text-xl font-semibold
-              bg-[var(--landing-input-bg)] text-[var(--landing-heading)]
-              outline-none transition-all
-              ${error
-                ? "border-red-400"
-                : d
-                  ? "border-[var(--landing-accent)] ring-2 ring-[var(--landing-accent)]/20"
-                  : "border-[var(--landing-input-border)] focus:border-[var(--landing-accent)] focus:ring-2 focus:ring-[var(--landing-accent)]/20"
-              }
-            `}
-            aria-label={`Digit ${i + 1}`}
-          />
-        ))}
-      </div>
-
-      {error && (
-        <p className="text-xs text-red-500 mb-4" role="alert">
-          {error}
-        </p>
-      )}
-
-      <button
-        type="button"
-        onClick={handleContinue}
-        disabled={loading || !isComplete}
-        className="
-          w-full max-w-sm flex items-center justify-center gap-2
-          rounded-xl py-3.5 text-base font-semibold
-          text-white bg-[var(--landing-accent)] hover:bg-[var(--landing-accent-hover)]
-          disabled:opacity-50 disabled:cursor-not-allowed
-          transition-colors focus:outline-none focus:ring-2 focus:ring-[var(--landing-accent)]/40
-        "
+      <form
+        className="w-full max-w-sm"
+        onSubmit={(e) => {
+          e.preventDefault();
+          if (loading || !isComplete) return;
+          void submitOtp();
+        }}
       >
-        {loading ? (
-          <Loader2 className="w-5 h-5 animate-spin" />
-        ) : (
-          <>
-            Verify
-            <ArrowRight className="w-4 h-4" />
-          </>
+        {/* OTP digit boxes */}
+        <div className="flex gap-2.5 mb-4" onPaste={handlePaste}>
+          {digits.map((d, i) => (
+            <input
+              key={i}
+              ref={(el) => { inputsRef.current[i] = el; }}
+              type="text"
+              inputMode="numeric"
+              maxLength={1}
+              value={d}
+              onChange={(e) => handleChange(i, e.target.value)}
+              onKeyDown={(e) => handleKeyDown(i, e)}
+              className={`
+                w-12 h-14 rounded-xl border text-center text-xl font-semibold
+                bg-[var(--landing-input-bg)] text-[var(--landing-heading)]
+                outline-none transition-all
+                ${error
+                  ? "border-red-400"
+                  : d
+                    ? "border-[var(--landing-accent)] ring-2 ring-[var(--landing-accent)]/20"
+                    : "border-[var(--landing-input-border)] focus:border-[var(--landing-accent)] focus:ring-2 focus:ring-[var(--landing-accent)]/20"
+                }
+              `}
+              aria-label={`Digit ${i + 1}`}
+            />
+          ))}
+        </div>
+
+        {error && (
+          <p className="text-xs text-red-500 mb-4" role="alert">
+            {error}
+          </p>
         )}
-      </button>
+
+        <button
+          type="submit"
+          disabled={loading || !isComplete}
+          className="
+            w-full max-w-sm flex items-center justify-center gap-2
+            rounded-xl py-3.5 text-base font-semibold
+            text-white bg-[var(--landing-accent)] hover:bg-[var(--landing-accent-hover)]
+            disabled:opacity-50 disabled:cursor-not-allowed
+            transition-colors focus:outline-none focus:ring-2 focus:ring-[var(--landing-accent)]/40
+          "
+        >
+          {loading ? (
+            <Loader2 className="w-5 h-5 animate-spin" />
+          ) : (
+            <>
+              Verify
+              <ArrowRight className="w-4 h-4" />
+            </>
+          )}
+        </button>
+      </form>
 
       {/* Resend */}
       <button

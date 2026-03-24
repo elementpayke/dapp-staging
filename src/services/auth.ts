@@ -12,6 +12,30 @@ import {
   WALLET_OWNERSHIP_CONFLICT_CODE,
   WALLET_OWNERSHIP_CONFLICT_MESSAGE,
 } from "@/lib/wallet-link-policy";
+import { useAuthStore } from "@/stores/authStore";
+
+// ─── OTP time-to-live ────────────────────────────────────────────────────────
+
+/** OTP codes expire server-side after 15 minutes. */
+export const OTP_TTL_MS = 15 * 60 * 1000;
+
+/**
+ * Check whether an OTP previously requested for the given email is still
+ * valid (i.e. within the 15-minute expiry window).
+ *
+ * Safe to call outside React — reads from the persisted Zustand store.
+ */
+export function hasLiveOtp(email: string): boolean {
+  const { pendingEmail, otpRequestedAt } = useAuthStore.getState();
+  if (
+    !pendingEmail ||
+    !otpRequestedAt ||
+    pendingEmail.toLowerCase() !== email.toLowerCase()
+  ) {
+    return false;
+  }
+  return Date.now() - otpRequestedAt < OTP_TTL_MS;
+}
 
 export interface AuthUser {
   id: string;
@@ -59,6 +83,7 @@ export interface OTPRequestResponse {
 
 export interface OTPVerifyResponse {
   user: AuthUser;
+  privy_token?: string;
 }
 
 export interface KYCInitiateResponse {
@@ -107,8 +132,25 @@ const headers = { "Content-Type": "application/json" };
 
 /**
  * Request an OTP to be sent to the given email address.
+ *
+ * **Idempotent:** If an OTP for this email was already requested within the
+ * last 15 minutes (the server-side TTL), the API call is skipped and a
+ * cached-style response is returned. This handles the mobile-browser case
+ * where the browser restarts when the user switches to Gmail to read the code.
  */
-export async function requestOTP(email: string): Promise<OTPRequestResponse> {
+export async function requestOTP(
+  email: string,
+  options?: { force?: boolean },
+): Promise<OTPRequestResponse> {
+  const force = options?.force ?? false;
+
+  // ── Idempotency check ────────────────────────────────────────────────
+  if (!force && hasLiveOtp(email)) {
+    console.log("[auth] requestOTP — reusing live OTP for", email);
+    return { success: true, message: "OTP already sent — check your email" };
+  }
+
+  // ── Fresh request ────────────────────────────────────────────────────
   console.log("[auth] requestOTP ->", { email });
   const res = await fetch("/api/auth/request-otp", {
     method: "POST",
@@ -124,6 +166,11 @@ export async function requestOTP(email: string): Promise<OTPRequestResponse> {
 
   const data = await res.json();
   console.log("[auth] requestOTP response:", data);
+
+  // Record the timestamp so subsequent calls (or browser restarts) can
+  // skip the redundant request while the OTP is still valid.
+  useAuthStore.getState().setOtpRequestedAt(Date.now());
+
   return data;
 }
 
@@ -158,6 +205,9 @@ export async function verifyOTP(
     console.error("[auth] verifyOTP — no user in response! Full payload:", JSON.stringify(raw));
     throw new Error("No user data received from server");
   }
+
+  // privy_token may live at root or nested in data
+  data.privy_token = raw.privy_token ?? raw.data?.privy_token ?? undefined;
 
   return data;
 }
@@ -217,6 +267,7 @@ export async function getWallets(): Promise<GetWalletsResponse> {
 /**
  * Refresh the current access token.
  * Refresh token is sent via HTTP-only cookie automatically.
+ * Fires an auth-expired event on failure so the session guard can auto-logout.
  */
 export async function refreshAccessToken(): Promise<{ success: boolean }> {
   const res = await fetch("/api/auth/refresh-token", {
@@ -225,6 +276,10 @@ export async function refreshAccessToken(): Promise<{ success: boolean }> {
   });
 
   if (!res.ok) {
+    // Import dynamically to avoid circular deps in SSR
+    import("@/hooks/useSessionGuard").then(({ fireAuthExpired }) => {
+      fireAuthExpired();
+    }).catch(() => {});
     throw new Error("Token refresh failed");
   }
 
@@ -282,4 +337,23 @@ export async function checkKYCStatus(
   const data = await res.json();
   console.log("[auth] checkKYCStatus response:", data);
   return data;
+}
+
+// ─── Privy token bridge ──────────────────────────────────────────────────────
+
+/**
+ * Fetch the user's access token from the HTTP-only cookie via our API route.
+ * Used to pass the token to Privy's `loginWithCustomAccessToken`.
+ */
+export async function getPrivyToken(): Promise<{ token: string }> {
+  const res = await fetch("/api/auth/privy-token", {
+    method: "POST",
+    headers,
+  });
+
+  if (!res.ok) {
+    throw new Error("No active session — cannot fetch Privy token");
+  }
+
+  return res.json();
 }

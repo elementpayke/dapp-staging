@@ -29,11 +29,10 @@ export async function authFetch(
 
   const res = await fetch(url, { ...fetchOptions, headers });
 
-  // 401 → token expired or invalid → clear auth
+  // 401 → token expired or invalid → clear auth (if session is old enough)
   if (res.status === 401 && !skipAuth) {
-    useAuthStore.getState().clearAuth();
-    // Redirect to landing (in SPA context)
-    if (typeof window !== "undefined") {
+    const cleared = useAuthStore.getState().safeClearAuth();
+    if (cleared && typeof window !== "undefined") {
       window.location.href = "/";
     }
   }

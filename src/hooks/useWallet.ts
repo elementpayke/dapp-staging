@@ -1,21 +1,25 @@
 import { useWalletStore } from "@/lib/useWallet";
-import { useEffect, useCallback } from "react";
+import { useEffect, useCallback, useMemo } from "react";
 import { useAccount, useEnsName, useBalance, useDisconnect } from "wagmi";
-import { usePrivy } from "@privy-io/react-auth";
+import { usePrivy, useWallets } from "@privy-io/react-auth";
+import { useAuthStore } from "@/stores/authStore";
 import { withRetry } from "@/lib/wagmi-config";
+import { getExplicitSelectedWalletAddress } from "@/lib/privy-wallet-selection";
 
 export const useWallet = () => {
-  const { address: wagmiAddress, isConnected: wagmiConnected } = useAccount();
-  const {
-    authenticated,
-    user,
-    logout: privyLogout,
-    ready: privyReady,
-  } = usePrivy();
+  const { address: wagmiAddress } = useAccount();
+  const { authenticated, logout: privyLogout, ready: privyReady } = usePrivy();
+  const { wallets } = useWallets();
+  const walletPreference = useAuthStore((s) => s.walletPreference);
 
-  // Get wallet address from Privy user or wagmi
-  const walletAddress = user?.wallet?.address || wagmiAddress;
-  const isConnected = authenticated || wagmiConnected;
+  const walletAddress = useMemo(() => {
+    return getExplicitSelectedWalletAddress({
+      walletPreference,
+      wallets,
+      wagmiAddress,
+    });
+  }, [walletPreference, wallets, wagmiAddress]);
+  const isConnected = Boolean(walletAddress);
 
   const { data: ensName } = useEnsName({
     address: walletAddress as `0x${string}` | undefined,
@@ -58,6 +62,14 @@ export const useWallet = () => {
       );
     }
   }, [fetchUSDCBalance]);
+
+  useEffect(() => {
+    if (!walletAddress) {
+      setUsdcBalance(0);
+      return;
+    }
+    setUsdcBalance(0);
+  }, [walletAddress, setUsdcBalance]);
 
   useEffect(() => {
     if (usdcBalanceData?.formatted) {
