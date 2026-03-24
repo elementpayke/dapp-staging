@@ -174,7 +174,6 @@ const SendCryptoModal: React.FC = () => {
     status: "switching" as "switching" | "success" | "error",
   });
 
-  const [messageHash, setMessageHash] = useState("");
   useEffect(() => {
     console.log("[ORDER ID CHANGE] orderId changed to:", orderId);
     console.log(
