@@ -4,7 +4,7 @@ import React, { createContext, useContext, useState, useEffect, useCallback, use
 import { useChainId, useSwitchChain, useAccount } from "wagmi";
 import { readContract, type Config } from "@wagmi/core";
 import { erc20Abi } from "viem";
-import { SUPPORTED_TOKENS, SupportedToken } from "@/constants/supportedTokens";
+import { SUPPORTED_TOKENS, SupportedToken, getAvailableTokens } from "@/constants/supportedTokens";
 import { wagmiConfig } from "@/lib/wagmi-config";
 import { useWallets } from "@privy-io/react-auth";
 import { useAuthStore } from "@/stores/authStore";
@@ -50,7 +50,9 @@ export const TokenProvider: React.FC<TokenProviderProps> = ({ children }) => {
   const { wallets } = useWallets();
   const walletPreference = useAuthStore((s) => s.walletPreference);
   const isWalletRegistered = useAuthStore((s) => s.isWalletRegistered);
-  const [selectedToken, setSelectedTokenState] = useState<SupportedToken>(SUPPORTED_TOKENS[0]);
+  const isEmbeddedWallet = walletPreference === "embedded";
+  const availableTokens = getAvailableTokens(isEmbeddedWallet);
+  const [selectedToken, setSelectedTokenState] = useState<SupportedToken>(availableTokens[0]);
   const [prevChainId, setPrevChainId] = useState<number | undefined>(undefined);
   const autoDetectedAddressRef = useRef<string | null>(null);
 
@@ -63,6 +65,17 @@ export const TokenProvider: React.FC<TokenProviderProps> = ({ children }) => {
 
   // Check if we're on the correct network for the selected token
   const isCorrectNetwork = currentChainId === CHAIN_NAME_TO_ID[selectedToken.chain];
+
+  // ── Fallback if current token is no longer in the available list ───────
+  // (e.g. user switches from external → embedded wallet while on Scroll/Lisk)
+  useEffect(() => {
+    const stillAvailable = availableTokens.some(
+      (t) => t.symbol === selectedToken.symbol && t.chain === selectedToken.chain,
+    );
+    if (!stillAvailable) {
+      setSelectedTokenState(availableTokens[0]);
+    }
+  }, [availableTokens, selectedToken]);
 
   // ── Auto-detect best token/chain on wallet connect ────────────────────
   // Probes ERC-20 balances across all supported chains (no chain switch needed).
@@ -81,7 +94,7 @@ export const TokenProvider: React.FC<TokenProviderProps> = ({ children }) => {
 
       // Read balances on every supported chain in parallel
       const results = await Promise.allSettled(
-        SUPPORTED_TOKENS.map(async (token) => {
+        availableTokens.map(async (token) => {
           const chainId = CHAIN_NAME_TO_ID[token.chain];
           if (!chainId) return { token, balance: 0n };
           try {
@@ -184,7 +197,7 @@ export const TokenProvider: React.FC<TokenProviderProps> = ({ children }) => {
     }
 
     // Find a token on the current chain
-    const tokenOnCurrentChain = SUPPORTED_TOKENS.find(
+    const tokenOnCurrentChain = availableTokens.find(
       (token) => token.chain === chainName
     );
 

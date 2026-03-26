@@ -11,6 +11,7 @@ import {
 import { useSelectedToken } from "@/context/TokenContext";
 import { useWallet } from "@/hooks/useWallet";
 import TokenDropdown from "@/components/ui/TokenDropdown";
+import { useAuthStore } from "@/stores/authStore";
 
 import ARBITRUM_LOGO from "@/assets/ARBITRUM_LOGO.png";
 import BASE_LOGO from "@/assets/BASE_LOGO.png";
@@ -40,6 +41,7 @@ const QuickActions: FC = () => {
 
   // Use shared token context for consistent token selection across modals
   const { selectedToken, selectTokenAndSwitchChain, isCorrectNetwork, isSwitchingChain } = useSelectedToken();
+  const isEmbeddedWallet = useAuthStore((s) => s.walletPreference) === "embedded";
 
   // Fetch balance for the selected token
   const { data: tokenBalanceData, isLoading: isBalanceLoading } = useBalance({
@@ -148,6 +150,7 @@ const QuickActions: FC = () => {
               <TokenDropdown
                 selected={selectedToken}
                 onSelect={selectTokenAndSwitchChain}
+                isEmbeddedWallet={isEmbeddedWallet}
               />
               {isSwitchingChain && (
                 <div className="absolute inset-0 bg-[var(--ep-bg-card)]/50 flex items-center justify-center rounded-lg">

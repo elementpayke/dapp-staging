@@ -1,13 +1,14 @@
 import { useState } from "react";
-import { SUPPORTED_TOKENS, SupportedToken } from "@/constants/supportedTokens";
+import { getAvailableTokens, SupportedToken } from "@/constants/supportedTokens";
 
 interface TokenDropdownProps {
   selected: SupportedToken;
   onSelect: (token: SupportedToken) => void | Promise<void>;
   disabled?: boolean;
+  isEmbeddedWallet?: boolean;
 }
 
-export default function TokenDropdown({ selected, onSelect, disabled = false }: TokenDropdownProps) {
+export default function TokenDropdown({ selected, onSelect, disabled = false, isEmbeddedWallet = false }: TokenDropdownProps) {
   const [open, setOpen] = useState(false);
 
   const handleToggle = () => {
@@ -58,7 +59,7 @@ export default function TokenDropdown({ selected, onSelect, disabled = false }: 
           className="absolute z-50 mt-2 w-full bg-[var(--ep-bg-card)] border border-[var(--ep-border)] rounded-lg shadow-lg max-h-60 overflow-y-auto"
           style={{ minHeight: "100px" }}
         >
-          {SUPPORTED_TOKENS.map((token) => {
+          {getAvailableTokens(isEmbeddedWallet).map((token) => {
             const isSelected = token.symbol === selected.symbol && token.chain === selected.chain;
             return (
               <button

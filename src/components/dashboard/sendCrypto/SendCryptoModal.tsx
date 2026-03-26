@@ -44,7 +44,7 @@ import { fetchOrderQuote } from "@/app/api/aggregator";
 import { extractKYCLimitSnapshot } from "@/services/kycError";
 import { useKYCModalStore } from "@/stores/kycModalStore";
 import { ethers } from "ethers";
-import { SUPPORTED_TOKENS } from "@/constants/supportedTokens";
+import { SUPPORTED_TOKENS, getAvailableTokens } from "@/constants/supportedTokens";
 import { getTokenConfig } from "@/constants/tokenConfig";
 import { useOnboardingStore } from "@/stores/onboardingStore";
 import {
@@ -354,7 +354,7 @@ const SendCryptoModal: React.FC = () => {
     setInitialPaymentMethod(mapOffRampMethodToPaymentMethod(landingOffRampMethod));
 
     if (landingTokenSymbol) {
-      const matchedToken = SUPPORTED_TOKENS.find(
+      const matchedToken = getAvailableTokens(isEmbeddedWalletActive).find(
         (token) => token.symbol === landingTokenSymbol,
       );
       if (matchedToken) {
@@ -1469,7 +1469,7 @@ const SendCryptoModal: React.FC = () => {
                       className="fixed z-[100] w-64 rounded-xl border border-[var(--ep-border)] bg-[var(--ep-bg-card)] p-1.5 shadow-lg"
                       style={{ top: dropdownPos.top, right: dropdownPos.right }}
                     >
-                      {SUPPORTED_TOKENS.map((token) => {
+                      {getAvailableTokens(isEmbeddedWalletActive).map((token) => {
                         const isActive = token.symbol === selectedToken.symbol && token.chain === selectedToken.chain;
                         return (
                           <button

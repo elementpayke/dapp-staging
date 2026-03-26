@@ -62,3 +62,14 @@ export const SUPPORTED_TOKENS: SupportedToken[] = [
     supportsPermit: true,
   }
 ];
+
+/** Chains that Privy cannot sponsor gas for embedded wallets */
+export const EMBEDDED_WALLET_UNSUPPORTED_CHAINS: string[] = ["Scroll", "Lisk"];
+
+/** Return the token list filtered for the current wallet type */
+export function getAvailableTokens(isEmbeddedWallet: boolean): SupportedToken[] {
+  if (!isEmbeddedWallet) return SUPPORTED_TOKENS;
+  return SUPPORTED_TOKENS.filter(
+    (t) => !EMBEDDED_WALLET_UNSUPPORTED_CHAINS.includes(t.chain),
+  );
+}

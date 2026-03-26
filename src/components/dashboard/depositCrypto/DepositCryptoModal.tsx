@@ -24,7 +24,7 @@ import { useWallet } from "@/hooks/useWallet";
 import { useTokenBalance } from "@/hooks/useTokenBalance";
 import { useModalOverlay } from "@/hooks/useModalOverlay";
 import { TransactionReceipt } from "@/types/types";
-import { SUPPORTED_TOKENS, SupportedToken } from "@/constants/supportedTokens";
+import { SUPPORTED_TOKENS, SupportedToken, getAvailableTokens } from "@/constants/supportedTokens";
 import ConversionWidget, { EditableSide } from "@/components/shared/ConversionWidget";
 import CompactSummaryRows from "@/components/shared/CompactSummaryRows";
 import { useOnboardingStore } from "@/stores/onboardingStore";
@@ -33,6 +33,7 @@ import {
   fetchFeeStructureCached,
 } from "@/utils/feeStructure";
 import { useSelectedToken } from "@/context/TokenContext";
+import { useAuthStore } from "@/stores/authStore";
 
 interface CreateOrderResponse {
   status: string;
@@ -61,6 +62,7 @@ const DepositCryptoModal: React.FC = () => {
 
   // Use shared token context for consistent token selection across modals
   const { selectedToken, setSelectedToken, selectTokenAndSwitchChain, isSwitchingChain } = useSelectedToken();
+  const isEmbeddedWallet = useAuthStore((s) => s.walletPreference) === "embedded";
 
   // ── Landing page prefill (onramp flow) ────────────────────────────────────
   const landingInitiated = useOnboardingStore((s) => s.initiatedFromLanding);
@@ -86,7 +88,7 @@ const DepositCryptoModal: React.FC = () => {
     if (landingAmount) setAmount(landingAmount);
 
     if (landingTokenSymbol) {
-      const matchedToken = SUPPORTED_TOKENS.find(
+      const matchedToken = getAvailableTokens(isEmbeddedWallet).find(
         (t) => t.symbol === landingTokenSymbol,
       );
       if (matchedToken) setSelectedToken(matchedToken);
@@ -844,7 +846,7 @@ const DepositCryptoModal: React.FC = () => {
 
                   {showTokenDropdown && (
                     <div className="absolute right-0 top-full z-20 mt-1 w-64 rounded-xl border border-[var(--ep-border)] bg-[var(--ep-bg-card)] p-1.5 shadow-lg">
-                      {SUPPORTED_TOKENS.map((token) => {
+                      {getAvailableTokens(isEmbeddedWallet).map((token) => {
                         const isActive = token.symbol === selectedToken.symbol && token.chain === selectedToken.chain;
                         return (
                           <button
