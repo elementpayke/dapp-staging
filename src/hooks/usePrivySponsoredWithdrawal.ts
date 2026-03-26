@@ -668,7 +668,7 @@ export function usePrivySponsoredWithdrawal(
         // Optional balance pre-check. If it fails (e.g. RPC flake) we still
         // attempt the on-chain approval and let Privy/the node reject it.
         setStatus("estimating");
-        let nextGasEstimate: PrivySponsoredTransferGasEstimate | null = null;
+        const nextGasEstimate: PrivySponsoredTransferGasEstimate | null = null;
         try {
           const publicClient = getPublicClientForChain(chainKey);
           const balance = await publicClient.readContract({
