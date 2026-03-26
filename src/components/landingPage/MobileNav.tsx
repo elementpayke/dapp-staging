@@ -71,7 +71,7 @@ const MobileNav = () => {
   const handleAuthClick = useCallback(() => {
     close();
     if (isOtpVerified && !isWalletRegistered) {
-      setStep("wallet");
+      setStep("wallet-choice");
       resumeAuthModal();
     } else {
       openAuthModal();
