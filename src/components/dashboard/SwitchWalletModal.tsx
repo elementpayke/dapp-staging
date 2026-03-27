@@ -218,8 +218,14 @@ export default function SwitchWalletModal({ open, onOpenChange }: SwitchWalletMo
   const isActive = (address: string, type: "embedded" | "external"): boolean =>
     walletPreference === type && sameWalletAddress(selectedWalletAddress, address);
 
+  // Hide our modal while Privy's wallet-linking modal is open so the user
+  // can interact with it (type, scroll, etc.).  The cleanup effect above
+  // only watches the `open` prop from the parent, which stays `true`, so
+  // our internal state (linking, etc.) is preserved.
+  const hideForPrivy = linking && privyModalOpen;
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open && !hideForPrivy} onOpenChange={onOpenChange}>
       <DialogContent className="bg-[var(--ep-bg-card)] border-[var(--ep-border)] sm:max-w-md">
         <DialogHeader>
           <DialogTitle className="text-[var(--ep-heading)]">Switch Wallet</DialogTitle>
