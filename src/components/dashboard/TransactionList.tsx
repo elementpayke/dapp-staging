@@ -201,14 +201,17 @@ const TransactionList: FC<{ walletAddress: string | null }> = ({
   // Search by transaction hash
   const searchByTxHash = useCallback(async (txHash: string) => {
     try {
-      const res = await axios.get<{
-        status: string;
-        message: string;
-        data: Order;
-      }>(`/api/element-pay/orders/tx/${encodeURIComponent(txHash)}`);
+      const res = await fetch(`/api/element-pay/orders/tx/${encodeURIComponent(txHash)}`);
 
-      if (res.data?.data) {
-        const order = res.data.data;
+      if (!res.ok) {
+        console.error("Failed to search by tx hash", res.status);
+        return null;
+      }
+
+      const json: { status: string; message: string; data: Order } = await res.json();
+
+      if (json?.data) {
+        const order = json.data;
         const createdDate = new Date(order.created_at);
         const settlementDate = order.updated_at
           ? new Date(order.updated_at)

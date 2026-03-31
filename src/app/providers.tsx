@@ -16,6 +16,8 @@ import PrivyWalletListener from "@/components/auth/PrivyWalletListener";
 import PrivyAuthSync from "@/components/auth/PrivyAuthSync";
 import AuthModal from "@/components/auth/AuthModal";
 import { useSessionGuard } from "@/hooks/useSessionGuard";
+import { useSessionHealthCheck } from "@/hooks/useSessionHealthCheck";
+import LogoutOverlay from "@/components/shared/LogoutOverlay";
 
 /**
  * Repair corrupted WalletConnect IndexedDB.
@@ -103,6 +105,7 @@ function StoreHydration() {
 /** Guards the session — triggers full logout on 401 / expired tokens. */
 function SessionGuard() {
   useSessionGuard();
+  useSessionHealthCheck();
   return null;
 }
 
@@ -187,6 +190,7 @@ export function Providers(props: { children: ReactNode }) {
               <PrivyAuthSync />
               <PrivyWalletListener />
               <AuthModal />
+              <LogoutOverlay />
               {props.children}
             </TokenProvider>
           </OnchainKitProvider>

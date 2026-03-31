@@ -114,7 +114,7 @@ const TransactionDetailModal: FC<TransactionDetailModalProps> = ({
       onClick={onClose}
     >
       <div
-        className="bg-[var(--ep-bg-card)] w-full max-w-[420px] rounded-t-3xl sm:rounded-3xl shadow-2xl overflow-hidden flex flex-col border border-[var(--ep-border)] max-h-[92vh] sm:max-h-[85vh] animate-in slide-in-from-bottom-5 sm:slide-in-from-bottom-0 sm:fade-in-0 sm:zoom-in-95"
+        className="bg-[var(--ep-bg-card)] w-full max-w-[420px] rounded-t-3xl sm:rounded-3xl shadow-2xl overflow-hidden flex flex-col border border-[var(--ep-border)] max-h-[75vh] sm:max-h-[85vh] animate-in slide-in-from-bottom-5 sm:slide-in-from-bottom-0 sm:fade-in-0 sm:zoom-in-95"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Top action bar */}
@@ -135,8 +135,8 @@ const TransactionDetailModal: FC<TransactionDetailModalProps> = ({
         </div>
 
         {/* Receipt Header */}
-        <div className="flex flex-col items-center px-6 pt-2 pb-6 bg-[var(--ep-bg-card)]">
-          <div className={`p-3 rounded-full mb-3 ${statusInfo.bgColor} ${statusInfo.color}`}>
+        <div className="flex flex-col items-center px-6 pt-2 pb-3 sm:pb-6 bg-[var(--ep-bg-card)]">
+          <div className={`p-2 sm:p-3 rounded-full mb-2 sm:mb-3 ${statusInfo.bgColor} ${statusInfo.color}`}>
             {statusInfo.icon}
           </div>
           
@@ -154,11 +154,11 @@ const TransactionDetailModal: FC<TransactionDetailModalProps> = ({
             </div>
           )}
 
-          <div className="text-3xl font-extrabold text-[var(--ep-heading)] tracking-tight">
+          <div className="text-2xl sm:text-3xl font-extrabold text-[var(--ep-heading)] tracking-tight">
             {amountSign}KE {parsedAmount}
           </div>
           
-          <div className={`mt-3 px-3 py-1 text-xs font-semibold uppercase tracking-wider rounded-full border ${statusInfo.color} ${statusInfo.bgColor} ${statusInfo.borderColor}`}>
+          <div className={`mt-2 sm:mt-3 px-3 py-1 text-xs font-semibold uppercase tracking-wider rounded-full border ${statusInfo.color} ${statusInfo.bgColor} ${statusInfo.borderColor}`}>
             {statusInfo.label}
           </div>
         </div>
@@ -171,7 +171,7 @@ const TransactionDetailModal: FC<TransactionDetailModalProps> = ({
         </div>
 
         {/* Body content */}
-        <div className="px-6 py-6 pb-8 space-y-4 flex-1 overflow-y-auto bg-[var(--ep-bg-card)] custom-scrollbar">
+        <div className="px-6 py-4 sm:py-6 pb-6 sm:pb-8 space-y-4 flex-1 min-h-0 overflow-y-auto bg-[var(--ep-bg-card)] custom-scrollbar">
           <div className="flex flex-col gap-3.5">
             {transaction.fee !== undefined && (
               <DetailRow label="Fee Charged" value={`${transaction.fee}`} />

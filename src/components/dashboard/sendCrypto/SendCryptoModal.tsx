@@ -1304,10 +1304,10 @@ const SendCryptoModal: React.FC = () => {
     <>
       <Dialog open={isMainDialogOpen} onOpenChange={setIsMainDialogOpen}>
         <DialogTrigger
-          className="flex items-center gap-2 bg-[var(--ep-accent)] text-white text-sm font-semibold py-3 px-5 rounded-full hover:bg-[var(--ep-accent-hover)] transition-all duration-200 shadow-[0_2px_16px_rgba(67,57,202,0.25)] hover:shadow-[0_4px_24px_rgba(67,57,202,0.35)]"
+          className="flex items-center gap-1.5 sm:gap-2 bg-[var(--ep-accent)] text-white text-xs sm:text-sm font-semibold py-2 px-3 sm:py-3 sm:px-5 rounded-full hover:bg-[var(--ep-accent-hover)] transition-all duration-200 shadow-[0_2px_16px_rgba(67,57,202,0.25)] hover:shadow-[0_4px_24px_rgba(67,57,202,0.35)]"
           onClick={() => setIsMainDialogOpen(true)}
         >
-          <ArrowUpRight size={18} />
+          <ArrowUpRight size={16} className="sm:w-[18px] sm:h-[18px]" />
           Spend Crypto
         </DialogTrigger>
 

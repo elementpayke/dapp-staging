@@ -2,6 +2,7 @@ import { createOffRampOrder, fetchOrderQuote } from "@/app/api/aggregator";
 import type { SupportedToken } from "@/constants/supportedTokens";
 import { getTokenConfig } from "@/constants/tokenConfig";
 import { KYCRequiredError } from "@/services/kycError";
+import { InsufficientAllowanceError } from "@/services/allowanceError";
 import { isSmartWallet, safeChainSwitch } from "@/lib/wallet-utils";
 import { formatUnits } from "viem";
 
@@ -517,26 +518,28 @@ export const executeOfframpOrder = async (
     }
 
     let apiResponse: any;
-    try {
-      apiResponse = await Promise.race([
-        createOffRampOrder({
-          userAddress: accountAddress,
-          tokenAddress: selectedToken.tokenAddress,
-          amount:
-            Number.isFinite(requiredTransferAmountNumber) &&
-            requiredTransferAmountNumber > 0
-              ? requiredTransferAmountNumber
-              : transactionSummary.totalUSDC,
-          amountFiat: Number(amountFiat),
-          phoneNumber: cashoutType === "PHONE" ? mobileNumber : "",
-          messageHash,
-          reason: reason || "",
-          cashoutType,
-          paybillNumber: cashoutType === "PAYBILL" ? paybillNumber : "",
-          accountNumber: cashoutType === "PAYBILL" ? accountNumber : "",
-          tillNumber: cashoutType === "TILL" ? tillNumber : "",
-        }),
-        new Promise((_, reject) =>
+    const createOrderPayload = {
+      userAddress: accountAddress,
+      tokenAddress: selectedToken.tokenAddress,
+      amount:
+        Number.isFinite(requiredTransferAmountNumber) &&
+        requiredTransferAmountNumber > 0
+          ? requiredTransferAmountNumber
+          : transactionSummary.totalUSDC,
+      amountFiat: Number(amountFiat),
+      phoneNumber: cashoutType === "PHONE" ? mobileNumber : "",
+      messageHash,
+      reason: reason || "",
+      cashoutType,
+      paybillNumber: cashoutType === "PAYBILL" ? paybillNumber : "",
+      accountNumber: cashoutType === "PAYBILL" ? accountNumber : "",
+      tillNumber: cashoutType === "TILL" ? tillNumber : "",
+    };
+
+    const callCreateOrder = () =>
+      Promise.race([
+        createOffRampOrder(createOrderPayload),
+        new Promise<never>((_, reject) =>
           setTimeout(
             () =>
               reject(
@@ -548,24 +551,97 @@ export const executeOfframpOrder = async (
           ),
         ),
       ]);
-    } catch (apiError: any) {
-      setShowProcessingPopup(false);
 
-      if (apiError instanceof KYCRequiredError) {
-        onKycRequired(apiError);
+    try {
+      apiResponse = await callCreateOrder();
+    } catch (apiError: any) {
+      // ── Insufficient allowance → force re-approve + retry once ──
+      if (apiError instanceof InsufficientAllowanceError) {
+        console.warn(
+          "[Offramp] Insufficient allowance detected, forcing re-approval...",
+          { current: apiError.currentAllowance, required: apiError.requiredAllowance },
+        );
+
+        notify.info(
+          "Approval is syncing on-chain. Retrying automatically...",
+          { autoClose: 10000 },
+        );
+
+        // Wait for RPC propagation before re-approving
+        await new Promise((resolve) => setTimeout(resolve, 3000));
+
+        let retryApprovalOk = false;
+        if (sponsoredApproval?.enabled) {
+          const retryHash = await sponsoredApproval.execute({
+            amount: requiredApprovalAmount,
+            chainId: targetChainId,
+            spender: sponsoredApproval.spenderAddress,
+            tokenAddress: selectedToken.tokenAddress as `0x${string}`,
+          });
+          retryApprovalOk = !!retryHash;
+        } else {
+          const retryHash = await approveTokenIfNeeded(
+            contractAddress,
+            requiredApprovalAmount,
+          );
+          retryApprovalOk = !!retryHash;
+        }
+
+        if (!retryApprovalOk) {
+          setShowProcessingPopup(false);
+          setApproving(false);
+          setProcessing(false);
+          notify.error("Re-approval failed. Please try the transaction again.");
+          onEarlyExit?.();
+          return;
+        }
+
+        // Extra delay after approval confirmation to let backend RPC catch up
+        await new Promise((resolve) => setTimeout(resolve, 4000));
+
+        try {
+          apiResponse = await callCreateOrder();
+          notify.success("Order created successfully on retry!");
+        } catch (retryError: any) {
+          setShowProcessingPopup(false);
+
+          if (retryError instanceof KYCRequiredError) {
+            onKycRequired(retryError);
+            setApproving(false);
+            setProcessing(false);
+            onEarlyExit?.();
+            return;
+          }
+
+          const retryMsg =
+            retryError instanceof InsufficientAllowanceError
+              ? "Approval is still syncing on-chain. Please wait a moment and try again."
+              : retryError?.message || "Payment processing failed. Please try again.";
+          notify.error(retryMsg);
+          setApproving(false);
+          setProcessing(false);
+          onEarlyExit?.();
+          return;
+        }
+      } else {
+        setShowProcessingPopup(false);
+
+        if (apiError instanceof KYCRequiredError) {
+          onKycRequired(apiError);
+          setApproving(false);
+          setProcessing(false);
+          onEarlyExit?.();
+          return;
+        }
+
+        const errorMessage =
+          apiError?.message || "Payment processing failed. Please try again.";
+        notify.error(errorMessage);
         setApproving(false);
         setProcessing(false);
         onEarlyExit?.();
         return;
       }
-
-      const errorMessage =
-        apiError?.message || "Payment processing failed. Please try again.";
-      notify.error(errorMessage);
-      setApproving(false);
-      setProcessing(false);
-      onEarlyExit?.();
-      return;
     }
 
     const orderId = apiResponse?.data?.tx_hash || "";

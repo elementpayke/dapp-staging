@@ -1,6 +1,11 @@
 import axios from "axios";
 
 import { KYCRequiredError } from "@/services/kycError";
+import {
+  InsufficientAllowanceError,
+  isInsufficientAllowanceMessage,
+  parseAllowanceError,
+} from "@/services/allowanceError";
 import { fireAuthExpired } from "@/hooks/useSessionGuard";
 import type {
   RatePayload,
@@ -655,6 +660,24 @@ export const createOffRampOrder = async ({
           : [],
       },
     });
+
+    // Detect insufficient-allowance errors (400 from backend)
+    const allowanceMsg =
+      error.response?.data?.message ||
+      error.response?.data?.error ||
+      error?.message ||
+      "";
+    if (
+      error.response?.status === 400 &&
+      isInsufficientAllowanceMessage(allowanceMsg)
+    ) {
+      const parsed = parseAllowanceError(allowanceMsg);
+      throw new InsufficientAllowanceError(
+        allowanceMsg,
+        parsed.current,
+        parsed.required,
+      );
+    }
 
     const kycSignal = parseKYCSignal(error.response?.data);
     if (kycSignal.isMatch) {

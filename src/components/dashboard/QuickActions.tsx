@@ -162,7 +162,7 @@ const QuickActions: FC = () => {
             </div>
           </div>
 
-          <div className="flex gap-3 flex-wrap">
+          <div className="flex gap-2 sm:gap-3 flex-nowrap">
             <SendCryptoModal />
             <DepositCryptoModal />
           </div>
