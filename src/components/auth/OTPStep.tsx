@@ -10,11 +10,6 @@ import { useAuthModalStore } from "@/stores/authModalStore";
 const OTP_LENGTH = 6;
 const RESEND_COOLDOWN = 60; // seconds
 
-/**
- * Compute the initial resend-cooldown based on the stored OTP request time.
- * If the OTP was requested recently (< RESEND_COOLDOWN ago), return the
- * remaining seconds.  Otherwise return 0 (allow immediate resend).
- */
 function initialCooldown(): number {
   const { otpRequestedAt } = useAuthStore.getState();
   if (!otpRequestedAt) return 0;
@@ -38,41 +33,68 @@ const OTPStep = () => {
   const otp = digits.join("");
   const isComplete = otp.length === OTP_LENGTH;
 
-  // If the OTP has expired (> 15 min) send user back to email step
   useEffect(() => {
     if (!otpRequestedAt || Date.now() - otpRequestedAt < OTP_TTL_MS) return;
     setModalError("Your verification code has expired. Please request a new one.");
     setStep("email");
   }, [otpRequestedAt, setStep, setModalError]);
 
-  // Countdown timer for resend
   useEffect(() => {
     if (cooldown <= 0) return;
     const id = setInterval(() => setCooldown((c) => c - 1), 1000);
     return () => clearInterval(id);
   }, [cooldown]);
 
-  // Auto-focus first input on mount
   useEffect(() => {
     inputsRef.current[0]?.focus();
   }, []);
 
+  /**
+   * Core helper: fill digits array from a raw string and focus appropriately.
+   * Used by both paste and onChange handlers.
+   */
+  const applyDigits = useCallback(
+    (raw: string, startIdx = 0) => {
+      const cleaned = raw.replace(/\D/g, "").slice(0, OTP_LENGTH - startIdx);
+      if (!cleaned) return;
+      setDigits((prev) => {
+        const next = [...prev];
+        for (let i = 0; i < cleaned.length; i++) {
+          next[startIdx + i] = cleaned[i];
+        }
+        return next;
+      });
+      setError(null);
+      setModalError(null);
+      const focusIdx = Math.min(startIdx + cleaned.length, OTP_LENGTH - 1);
+      // defer so the state update has landed before we shift focus
+      requestAnimationFrame(() => inputsRef.current[focusIdx]?.focus());
+    },
+    [setModalError],
+  );
+
   const handleChange = useCallback(
     (idx: number, value: string) => {
-      // Only allow single digit
+      // Mobile paste via onChange: value may be > 1 char
+      if (value.length > 1) {
+        applyDigits(value, idx === 0 ? 0 : idx);
+        return;
+      }
+
       const digit = value.replace(/\D/g, "").slice(-1);
-      const next = [...digits];
-      next[idx] = digit;
-      setDigits(next);
+      setDigits((prev) => {
+        const next = [...prev];
+        next[idx] = digit;
+        return next;
+      });
       if (error) setError(null);
       setModalError(null);
 
-      // Auto-advance to next input
       if (digit && idx < OTP_LENGTH - 1) {
         inputsRef.current[idx + 1]?.focus();
       }
     },
-    [digits, error, setModalError],
+    [error, setModalError, applyDigits],
   );
 
   const submitOtp = useCallback(async () => {
@@ -88,30 +110,21 @@ const OTPStep = () => {
     setLoading(true);
     setModalError(null);
     try {
-      // Call verify-otp which returns user data (tokens stored as HTTP-only cookies)
       const res = await verifyOTP(pendingEmail, otp);
       console.log("[OTPStep] verifyOTP response received");
-
       console.log("[OTPStep] User KYC status:", res.user?.kyc_status ?? "not returned");
       console.log("[OTPStep] User wallets:", res.user?.wallets ?? "not returned");
 
-      // Store auth — user profile may be incomplete until KYC is done
-      // kyc_status defaults to "none" if backend doesn't send it yet
       const user = {
         ...res.user,
         kyc_status: res.user?.kyc_status ?? "none",
       };
-
       setAuth(user);
 
-      // Store pre-fetched Privy RS256 token so PrivyAuthSync can use it
-      // without making a second HTTP call.
       if (res.privy_token) {
         useAuthStore.getState().setPrivyToken(res.privy_token);
       }
 
-      // Fast-track: if backend already has a registered embedded wallet for
-      // this user, skip wallet-choice and connect-wallet steps entirely.
       const hasRegisteredEmbeddedWallet = res.user?.wallets?.some(
         (w) => w.wallet_type === "embedded" || w.wallet_type === "privy"
       );
@@ -130,7 +143,6 @@ const OTPStep = () => {
         return;
       }
 
-      // Move to wallet choice step (embedded vs external)
       console.log("[OTPStep] Moving to wallet choice step");
       setStep("wallet-choice");
     } catch (err: any) {
@@ -144,12 +156,9 @@ const OTPStep = () => {
     (idx: number, e: React.KeyboardEvent<HTMLInputElement>) => {
       if (e.key === "Enter") {
         e.preventDefault();
-        if (isComplete && !loading) {
-          void submitOtp();
-        }
+        if (isComplete && !loading) void submitOtp();
         return;
       }
-
       if (e.key === "Backspace" && !digits[idx] && idx > 0) {
         inputsRef.current[idx - 1]?.focus();
       }
@@ -157,28 +166,24 @@ const OTPStep = () => {
     [digits, isComplete, loading, submitOtp],
   );
 
+  /**
+   * Paste handler — covers:
+   *  - Desktop: clipboardData fires on the wrapping div
+   *  - iOS/Android: if browser fires paste on the input itself
+   */
   const handlePaste = useCallback(
-    (e: React.ClipboardEvent) => {
+    (e: React.ClipboardEvent, startIdx = 0) => {
       e.preventDefault();
-      const pasted = e.clipboardData.getData("text").replace(/\D/g, "").slice(0, OTP_LENGTH);
-      if (!pasted) return;
-      const next = [...digits];
-      for (let i = 0; i < pasted.length; i++) {
-        next[i] = pasted[i];
-      }
-      setDigits(next);
-      // Focus the next empty or the last
-      const focusIdx = Math.min(pasted.length, OTP_LENGTH - 1);
-      inputsRef.current[focusIdx]?.focus();
+      const text = e.clipboardData.getData("text");
+      applyDigits(text, startIdx);
     },
-    [digits],
+    [applyDigits],
   );
 
   const handleResend = useCallback(async () => {
     if (cooldown > 0 || !pendingEmail) return;
     try {
       const { requestOTP } = await import("@/services/auth");
-      // Force a fresh OTP request (bypass idempotency)
       await requestOTP(pendingEmail, { force: true });
       setModalError(null);
       setCooldown(RESEND_COOLDOWN);
@@ -214,27 +219,33 @@ const OTPStep = () => {
       </p>
 
       <form
-        className="w-full max-w-sm"
+        className="w-full"
         onSubmit={(e) => {
           e.preventDefault();
           if (loading || !isComplete) return;
           void submitOtp();
         }}
       >
-        {/* OTP digit boxes */}
-        <div className="flex gap-2.5 mb-4" onPaste={handlePaste}>
+        {/* OTP digit boxes — flex so they shrink on narrow screens */}
+        <div
+          className="flex gap-2 mb-4 w-full"
+          onPaste={(e) => handlePaste(e, 0)}
+        >
           {digits.map((d, i) => (
             <input
               key={i}
               ref={(el) => { inputsRef.current[i] = el; }}
               type="text"
               inputMode="numeric"
-              maxLength={1}
+              autoComplete={i === 0 ? "one-time-code" : "off"}
+              maxLength={6}   /* allow full paste into a single box on iOS */
               value={d}
               onChange={(e) => handleChange(i, e.target.value)}
               onKeyDown={(e) => handleKeyDown(i, e)}
+              onPaste={(e) => handlePaste(e, i)}
               className={`
-                w-12 h-14 rounded-xl border text-center text-xl font-semibold
+                flex-1 min-w-0 h-12 sm:h-14 rounded-xl border text-center
+                text-lg sm:text-xl font-semibold
                 bg-[var(--landing-input-bg)] text-[var(--landing-heading)]
                 outline-none transition-all
                 ${error
@@ -250,7 +261,7 @@ const OTPStep = () => {
         </div>
 
         {error && (
-          <p className="text-xs text-red-500 mb-4" role="alert">
+          <p className="text-xs text-red-500 mb-4 text-left" role="alert">
             {error}
           </p>
         )}
@@ -259,7 +270,7 @@ const OTPStep = () => {
           type="submit"
           disabled={loading || !isComplete}
           className="
-            w-full max-w-sm flex items-center justify-center gap-2
+            w-full flex items-center justify-center gap-2
             rounded-xl py-3.5 text-base font-semibold
             text-white bg-[var(--landing-accent)] hover:bg-[var(--landing-accent-hover)]
             disabled:opacity-50 disabled:cursor-not-allowed
@@ -285,9 +296,7 @@ const OTPStep = () => {
         className="mt-4 flex items-center gap-1.5 text-sm text-[var(--landing-muted)] hover:text-[var(--landing-accent)] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
       >
         <RotateCcw className="w-3.5 h-3.5" />
-        {cooldown > 0
-          ? `Resend code in ${cooldown}s`
-          : "Resend code"}
+        {cooldown > 0 ? `Resend code in ${cooldown}s` : "Resend code"}
       </button>
     </motion.div>
   );
