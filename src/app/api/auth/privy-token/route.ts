@@ -56,7 +56,7 @@ export async function POST() {
   if (!accessToken) {
     console.log("[privy-token] No access token — attempting refresh.");
     refreshedTokens = await tryRefreshToken();
-    accessToken = refreshedTokens?.accessToken ?? null;
+    accessToken = refreshedTokens?.accessToken ?? undefined;
   }
 
   if (!accessToken) {
