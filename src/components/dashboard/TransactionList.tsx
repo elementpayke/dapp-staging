@@ -23,6 +23,8 @@ interface ExtendedTx extends Tx {
   invoiceId?: string;
   orderType: string;
   rawDate: Date; // For date filtering
+  phoneNumber?: string;
+  mpesaReceiptNumber?: string;
 }
 
 interface FilterState {
@@ -172,10 +174,12 @@ const TransactionList: FC<{ walletAddress: string | null }> = ({
           paymentMethod: "M-pesa",
           direction: order.order_type === 0 ? "Receive" : "Send",
           processingTime,
-          receiptNumber: undefined,
+          receiptNumber: order.mpesa_receipt_number,
           invoiceId: order.invoice_id,
           orderType: order.order_type === 0 ? "OnRamp" : "OffRamp",
           rawDate: createdDate, // Store raw date for filtering
+          phoneNumber: order.phone_number,
+          mpesaReceiptNumber: order.mpesa_receipt_number,
         };
       });
 
@@ -270,10 +274,12 @@ const TransactionList: FC<{ walletAddress: string | null }> = ({
           paymentMethod: "M-pesa",
           direction: order.order_type === 0 ? "Receive" : "Send",
           processingTime,
-          receiptNumber: undefined,
+          receiptNumber: order.mpesa_receipt_number,
           invoiceId: order.invoice_id,
           orderType: order.order_type === 0 ? "OnRamp" : "OffRamp",
           rawDate: createdDate,
+          phoneNumber: order.phone_number,
+          mpesaReceiptNumber: order.mpesa_receipt_number,
         };
 
         return mappedTx;

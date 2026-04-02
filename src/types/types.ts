@@ -220,6 +220,7 @@ export type Order = {
   settlement_transaction_hash?: string;
   refund_transaction_hash?: string;
   order_type: 0 | 1; // 0 = OnRamp, 1 = OffRamp
+  mpesa_receipt_number?: string;
   wallet_address?: string;
   created_at: string;
   updated_at?: string;

@@ -62,7 +62,6 @@ import { useWallet } from "@/hooks/useWallet";
 import {
   executeOfframpOrder as executeOfframpOrderFlow,
   getOfframpContractAddress,
-  mapOffRampMethodToPaymentMethod,
   type SponsoredApprovalParams,
 } from "@/utils/offrampExecution";
 import { usePrivySponsoredWithdrawal } from "@/hooks/usePrivySponsoredWithdrawal";
@@ -111,9 +110,6 @@ const SendCryptoModal: React.FC = () => {
   // Full international number for validation & backend calls
   const fullMobileNumber = mobileNumber ? `254${mobileNumber}` : "";
   const [reason, setReason] = useState(""); // Optional reason for payment
-  const [initialPaymentMethod, setInitialPaymentMethod] = useState<
-    "Send Money" | "Pay Bill" | "Buy Goods" | undefined
-  >(undefined);
   const [isApproving, setIsApproving] = useState(false);
   const [, setIsProcessing] = useState(false);
 
@@ -336,12 +332,16 @@ const SendCryptoModal: React.FC = () => {
 
   useEffect(() => {
     if (!isBrowser) return;
-    if (landingPrefillAppliedRef.current) return;
     if (!initiatedFromLanding || landingFlow !== "offramp") return;
 
+    // Reset the ref so subsequent re-transact / landing prefills work
     landingPrefillAppliedRef.current = true;
 
-    if (landingAmount) setAmount(landingAmount);
+    if (landingAmount) {
+      setAmount(landingAmount);
+      setTypedValue(landingAmount);
+      setEditableSide("KES");
+    }
     if (landingPhoneNumber) {
       // Strip any "254" prefix so we store only the 9-digit local part.
       const digits = landingPhoneNumber.replace(/\D/g, "");
@@ -352,7 +352,10 @@ const SendCryptoModal: React.FC = () => {
     if (landingAccountNumber) setAccountNumber(landingAccountNumber);
     if (landingTillNumber) setTillNumber(landingTillNumber);
 
-    setInitialPaymentMethod(mapOffRampMethodToPaymentMethod(landingOffRampMethod));
+    // Apply the payment method to the active cashoutType (not just the unused initialPaymentMethod)
+    if (landingOffRampMethod) {
+      setCashoutType(landingOffRampMethod);
+    }
 
     if (landingTokenSymbol) {
       const matchedToken = getAvailableTokens(isEmbeddedWalletActive).find(
