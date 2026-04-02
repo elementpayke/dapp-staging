@@ -1,7 +1,8 @@
 import { FC, useState } from "react";
-import { X, Copy, ExternalLink, CheckCircle, Clock, XCircle, AlertCircle } from "lucide-react";
+import { X, Copy, ExternalLink, CheckCircle, Clock, XCircle, AlertCircle, RotateCcw } from "lucide-react";
 import { getExplorerInfo } from "@/utils/explorerUtils";
 import { SUPPORTED_TOKENS } from "@/constants/supportedTokens";
+import { useOnboardingStore } from "@/stores/onboardingStore";
 
 interface TransactionDetailModalProps {
   transaction: {
@@ -102,6 +103,68 @@ const TransactionDetailModal: FC<TransactionDetailModalProps> = ({
 
   const openInExplorer = () => {
     if (explorerInfo) window.open(explorerInfo.url, "_blank");
+  };
+
+  const setLandingForm = useOnboardingStore((s) => s.setLandingForm);
+  const setInitiatedFromLanding = useOnboardingStore((s) => s.setInitiatedFromLanding);
+
+  /** Pre-fill the SendCrypto modal with this transaction's details and close */
+  const handleTransactAgain = () => {
+    // Parse amount — strip " KES" suffix
+    const rawAmount = transaction.amount?.replace(/\s*KES\s*/i, "").trim() || "";
+
+    // Resolve token symbol from API format "USDC_BASE" → "USDC"
+    const apiToken = transaction.tokenSymbol?.replace(/_/g, " ") || "";
+    const [symbolPart, chainPart] = apiToken.split(" ");
+    // Try to find a matching supported token for accurate symbol
+    const matchedToken = SUPPORTED_TOKENS.find(
+      (t) =>
+        t.symbol.toLowerCase() === (symbolPart || "").toLowerCase() &&
+        (!chainPart || t.chain.toLowerCase() === chainPart.toLowerCase()),
+    );
+
+    // Determine off-ramp method from payment method string
+    const pm = (transaction.paymentMethod || "").toLowerCase();
+    const offRampMethod = pm.includes("paybill")
+      ? "PAYBILL" as const
+      : pm.includes("till") || pm.includes("buy goods")
+        ? "TILL" as const
+        : "PHONE" as const;
+
+    // Parse receiver: might be phone, "PayBill: 123 - Acc", "Till: 123", or a name
+    let phoneNumber = "";
+    let paybillNumber = "";
+    let accountNumber = "";
+    let tillNumber = "";
+    const receiver = transaction.receiverDisplay || "";
+
+    if (offRampMethod === "PAYBILL") {
+      const parts = receiver.replace(/^PayBill:\s*/i, "").split(/\s*-\s*/);
+      paybillNumber = parts[0]?.trim() || "";
+      accountNumber = parts[1]?.trim() || "";
+    } else if (offRampMethod === "TILL") {
+      tillNumber = receiver.replace(/^Till:\s*/i, "").trim();
+    } else {
+      // Try to extract phone from receiver (digits only, strip name)
+      const digits = receiver.replace(/\D/g, "");
+      if (digits.length >= 9) {
+        phoneNumber = digits.startsWith("254") ? digits.slice(3) : digits.slice(-9);
+      }
+    }
+
+    setLandingForm({
+      flow: "offramp",
+      offRampMethod,
+      amount: rawAmount,
+      phoneNumber,
+      paybillNumber,
+      accountNumber,
+      tillNumber,
+      tokenSymbol: matchedToken?.symbol || symbolPart || null,
+      initiatedFromLanding: true,
+    });
+    setInitiatedFromLanding(true);
+    onClose();
   };
 
   const isReceive = transaction.direction === 'Receive';
@@ -223,8 +286,19 @@ const TransactionDetailModal: FC<TransactionDetailModalProps> = ({
         </div>
 
         {/* Footer Actions */}
-        {transaction.fullHash !== "—" && explorerInfo && (
-          <div className="p-4 bg-[var(--ep-bg)] border-t border-[var(--ep-border)]">
+        <div className="p-4 bg-[var(--ep-bg)] border-t border-[var(--ep-border)] flex flex-col gap-2">
+          {/* Re-transact — only for outgoing (Send) transactions */}
+          {!isReceive && (
+            <button
+              onClick={handleTransactAgain}
+              className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-full text-sm font-medium text-[var(--ep-body)] hover:text-[var(--ep-heading)] hover:bg-[var(--ep-accent-subtle)] transition-colors duration-150"
+            >
+              <RotateCcw size={15} />
+              Transact Again
+            </button>
+          )}
+
+          {transaction.fullHash !== "—" && explorerInfo && (
             <button
               onClick={openInExplorer}
               className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-[var(--ep-accent)] text-white rounded-xl hover:opacity-90 transition-opacity font-medium shadow-sm"
@@ -232,8 +306,8 @@ const TransactionDetailModal: FC<TransactionDetailModalProps> = ({
               <ExternalLink size={18} />
               View on {explorerInfo.name}
             </button>
-          </div>
-        )}
+          )}
+        </div>
       </div>
     </div>
   );

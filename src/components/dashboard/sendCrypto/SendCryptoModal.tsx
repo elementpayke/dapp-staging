@@ -70,6 +70,7 @@ import {
   DEFAULT_SPONSORED_WITHDRAW_CHAIN_KEY,
   getSponsoredWithdrawChainKeyForTokenChain,
 } from "@/lib/privy-sponsorship/chains";
+import { useFavoritesStore } from "@/stores/favoritesStore";
 
 interface TransactionReceipt {
   amount: string;
@@ -932,6 +933,9 @@ const SendCryptoModal: React.FC = () => {
     }
   }, []);
 
+  // Save to favorites when a PHONE (Send Money) transaction settles successfully
+  const addFavorite = useFavoritesStore((s) => s.addFavorite);
+
   const publicClient = usePublicClient();
 
   const { switchChainAsync } = useSwitchChain();
@@ -1299,6 +1303,30 @@ const SendCryptoModal: React.FC = () => {
     getCashoutType,
     walletAddress,
   ]);
+
+  // Save to favorites when a PHONE (Send Money) transaction settles successfully
+  useEffect(() => {
+    if (
+      isPollingComplete &&
+      transactionReciept.status === 1 &&
+      cashoutType === "PHONE" &&
+      fullMobileNumber &&
+      finalTransactionData
+    ) {
+      const receiverName =
+        finalTransactionData.receiver_name ||
+        formatReceiverName(fullMobileNumber);
+      addFavorite({
+        name: receiverName,
+        phoneNumber: fullMobileNumber,
+        tokenSymbol: selectedToken.symbol,
+        chain: selectedToken.chain,
+        amountKES: amount,
+        lastTransactedAt: new Date().toISOString(),
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isPollingComplete, transactionReciept.status]);
 
   return (
     <>

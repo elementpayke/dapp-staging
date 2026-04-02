@@ -1,6 +1,6 @@
 "use client";
 import React, { FC, useState, useEffect } from "react";
-import { Bell, MoreHorizontal } from "lucide-react";
+import { Bell, Eye, EyeOff, MoreHorizontal } from "lucide-react";
 import { useBalance } from "wagmi";
 import dynamic from "next/dynamic";
 import Image from "next/image";
@@ -42,6 +42,19 @@ const QuickActions: FC = () => {
   // Use shared token context for consistent token selection across modals
   const { selectedToken, selectTokenAndSwitchChain, isCorrectNetwork, isSwitchingChain } = useSelectedToken();
   const isEmbeddedWallet = useAuthStore((s) => s.walletPreference) === "embedded";
+
+  // Balance visibility toggle (persisted in localStorage)
+  const [balanceHidden, setBalanceHidden] = useState(() => {
+    if (typeof window === "undefined") return false;
+    return localStorage.getItem("ep-balance-hidden") === "true";
+  });
+  const toggleBalanceVisibility = () => {
+    setBalanceHidden((prev) => {
+      const next = !prev;
+      localStorage.setItem("ep-balance-hidden", String(next));
+      return next;
+    });
+  };
 
   // Fetch balance for the selected token
   const { data: tokenBalanceData, isLoading: isBalanceLoading } = useBalance({
@@ -124,14 +137,25 @@ const QuickActions: FC = () => {
         <div className="flex-1 min-w-0 h-fit">
           <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[var(--ep-muted)] mb-0.5">
             Wallet Balance
+            <button
+              onClick={toggleBalanceVisibility}
+              className="ml-2 inline-flex items-center justify-center p-1 rounded-full hover:bg-[var(--ep-accent-muted)] transition-colors duration-150 align-middle"
+              aria-label={balanceHidden ? "Show balance" : "Hide balance"}
+            >
+              {balanceHidden ? (
+                <EyeOff size={13} className="text-[var(--ep-muted)] hover:text-[var(--ep-accent)]" />
+              ) : (
+                <Eye size={13} className="text-[var(--ep-muted)] hover:text-[var(--ep-accent)]" />
+              )}
+            </button>
           </p>
           <p className="text-2xl font-bold text-[var(--ep-heading)] leading-tight">
             <span>KES </span>
-            <span className={`${isCorrectNetwork ? 'text-[var(--ep-accent)]' : 'text-yellow-600'}`}>
+            <span className={`${isCorrectNetwork ? 'text-[var(--ep-accent)]' : 'text-yellow-600'} ${balanceHidden ? 'blur-md select-none' : ''} transition-all duration-200`}>
               {rawKesBalance()}
             </span>
           </p>
-          <p className="text-sm text-[var(--ep-muted)] mt-1">
+          <p className={`text-sm text-[var(--ep-muted)] mt-1 ${balanceHidden ? 'blur-md select-none' : ''} transition-all duration-200`}>
             {isCorrectNetwork ? (
               <>
                 {tokenBalance.toFixed(6)} {selectedToken.symbol}
