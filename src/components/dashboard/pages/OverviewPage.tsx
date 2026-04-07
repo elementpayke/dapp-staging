@@ -2,6 +2,7 @@ import React from "react";
 import DashboardHeader from "../DashboardHeader";
 import CryptoPrices from "../CryptoPrices";
 import QuickActions from "../QuickActions";
+import RecentContacts from "../RecentContacts";
 import TransactionList from "../TransactionList";
 import { useWallet } from "@/hooks/useWallet";
 
@@ -14,6 +15,7 @@ const OverviewPage = () => {
         <DashboardHeader />
         <CryptoPrices />
         <QuickActions />
+        <RecentContacts />
       </div>
       <div className="flex-1">
         {address && <TransactionList walletAddress={address} />}

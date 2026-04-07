@@ -37,8 +37,8 @@ const CryptoPrice: React.FC<CryptoPriceProps> = ({
   };
 
   return (
-    <div className="flex items-center gap-2 sm:gap-3 min-w-[200px] p-2 sm:p-2.5 rounded-xl bg-[var(--ep-bg-card)] border border-[var(--ep-border)] shadow-[var(--ep-card-shadow)]">
-      <div className="relative w-6 h-6 flex-shrink-0 rounded-full bg-[var(--ep-accent-subtle)] p-0.5">
+    <div className="flex items-center gap-1.5 sm:gap-3 min-w-[150px] sm:min-w-[200px] p-1.5 sm:p-2.5 rounded-lg sm:rounded-xl bg-[var(--ep-bg-card)] border border-[var(--ep-border)] shadow-[var(--ep-card-shadow)] flex-shrink-0">
+      <div className="relative w-5 h-5 sm:w-6 sm:h-6 flex-shrink-0 rounded-full bg-[var(--ep-accent-subtle)] p-0.5">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src={image}
@@ -47,13 +47,13 @@ const CryptoPrice: React.FC<CryptoPriceProps> = ({
         />
       </div>
       <span
-        className={`font-semibold text-sm ${
+        className={`font-semibold text-xs sm:text-sm ${
           symbolColors[symbol as keyof typeof symbolColors]
         }`}
       >
         {symbol}
       </span>
-      <span className="text-[var(--ep-heading)] font-medium text-sm">
+      <span className="text-[var(--ep-heading)] font-medium text-xs sm:text-sm">
         $
         {price.toLocaleString(undefined, {
           minimumFractionDigits: 2,
@@ -63,7 +63,7 @@ const CryptoPrice: React.FC<CryptoPriceProps> = ({
       <span
         className={`${
           isPositive ? "text-green-500" : "text-red-500"
-        } text-xs font-medium ml-auto sm:ml-0 px-1.5 py-0.5 rounded-full ${
+        } text-[10px] sm:text-xs font-medium ml-auto sm:ml-0 px-1 sm:px-1.5 py-0.5 rounded-full ${
           isPositive ? "bg-green-50" : "bg-red-50"
         }`}
       >
@@ -134,9 +134,9 @@ const CryptoPrices: React.FC = () => {
     <ClientOnly
       fallback={
         <div className="py-1 overflow-x-auto w-full">
-           <div className="flex flex-col space-y-2 sm:space-y-0 sm:flex-row sm:gap-3 w-full">
+           <div className="flex flex-row gap-2 sm:gap-3 w-full">
              {[1, 2, 3].map((i) => (
-                <div key={i} className="flex items-center gap-2 sm:gap-3 min-w-[200px] p-2 sm:p-2.5 rounded-xl bg-[var(--ep-bg-card)] border border-[var(--ep-border)] shadow-sm animate-pulse">
+                <div key={i} className="flex items-center gap-1.5 sm:gap-3 min-w-[150px] sm:min-w-[200px] p-1.5 sm:p-2.5 rounded-lg sm:rounded-xl bg-[var(--ep-bg-card)] border border-[var(--ep-border)] shadow-sm animate-pulse flex-shrink-0">
                     <div className="w-6 h-6 rounded-full bg-[var(--ep-accent-subtle)]/50 shrink-0" />
                     <div className="w-10 h-4 rounded bg-[var(--ep-accent-subtle)]/50" />
                     <div className="w-16 h-4 rounded bg-[var(--ep-accent-subtle)]/50" />
@@ -147,11 +147,11 @@ const CryptoPrices: React.FC = () => {
         </div>
       }
     >
-      <div className="py-1 overflow-x-auto w-full">
+      <div className="py-1 w-full relative">
         {loading ? (
-           <div className="flex flex-col space-y-2 sm:space-y-0 sm:flex-row sm:gap-3 w-full">
+           <div className="flex flex-row gap-2 sm:gap-3 w-full overflow-x-auto scrollbar-hide" style={{ WebkitOverflowScrolling: 'touch', msOverflowStyle: 'none', scrollbarWidth: 'none' }}>
              {[1, 2, 3].map((i) => (
-                <div key={i} className="flex items-center gap-2 sm:gap-3 min-w-[200px] p-2 sm:p-2.5 rounded-xl bg-[var(--ep-bg-card)] border border-[var(--ep-border)] shadow-sm animate-[pulse_1.5s_ease-in-out_infinite]">
+                <div key={i} className="flex items-center gap-1.5 sm:gap-3 min-w-[150px] sm:min-w-[200px] p-1.5 sm:p-2.5 rounded-lg sm:rounded-xl bg-[var(--ep-bg-card)] border border-[var(--ep-border)] shadow-sm animate-[pulse_1.5s_ease-in-out_infinite] flex-shrink-0">
                     <div className="w-6 h-6 rounded-full bg-[var(--ep-accent-subtle)]/60 shrink-0" />
                     <div className="w-10 h-4 rounded bg-[var(--ep-accent-subtle)]/40" />
                     <div className="w-16 h-4 rounded bg-[var(--ep-accent-subtle)]/40" />
@@ -160,12 +160,14 @@ const CryptoPrices: React.FC = () => {
              ))}
            </div>
         ) : (
-          <div className="flex flex-col space-y-2 sm:space-y-0 sm:flex-row sm:gap-3 w-full">
+          <div className="flex flex-row gap-2 sm:gap-3 w-full overflow-x-auto scrollbar-hide" style={{ WebkitOverflowScrolling: 'touch', msOverflowStyle: 'none', scrollbarWidth: 'none' }}>
             {prices.map((price) => (
               <CryptoPrice key={price.symbol} {...price} />
             ))}
           </div>
         )}
+        {/* Fade-out edge on right for carousel effect */}
+        <div className="absolute right-0 top-0 bottom-0 w-8 pointer-events-none bg-gradient-to-l from-[var(--ep-bg)] to-transparent sm:hidden" />
       </div>
     </ClientOnly>
   );

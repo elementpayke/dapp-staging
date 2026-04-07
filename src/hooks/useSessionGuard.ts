@@ -10,6 +10,7 @@
 import { useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useAuthStore } from "@/stores/authStore";
+import { useLogoutOverlayStore } from "@/stores/logoutOverlayStore";
 
 // Custom event name fired when our API layer encounters a 401
 export const AUTH_EXPIRED_EVENT = "elementpay:auth-expired";
@@ -41,6 +42,9 @@ export function useSessionGuard() {
 
       console.warn("[SessionGuard] Auth expired — forcing full logout.");
 
+      // Show full-screen loading overlay to prevent layout glitching
+      useLogoutOverlayStore.getState().setLoggingOut(true);
+
       try {
         // 1. Call server-side logout to clear HTTP-only cookies
         await fetch("/api/auth/logout", { method: "POST" }).catch(() => {});
@@ -52,6 +56,7 @@ export function useSessionGuard() {
       const cleared = safeClearAuth();
       if (!cleared) {
         console.warn("[SessionGuard] Auth clear blocked — session too fresh, ignoring stale 401.");
+        useLogoutOverlayStore.getState().setLoggingOut(false);
         loggingOutRef.current = false;
         return;
       }
@@ -64,8 +69,9 @@ export function useSessionGuard() {
       // 4. Redirect to home
       router.push("/");
 
-      // Reset after a brief delay so future logouts work
+      // Reset after navigation settles
       setTimeout(() => {
+        useLogoutOverlayStore.getState().setLoggingOut(false);
         loggingOutRef.current = false;
       }, 2000);
     };

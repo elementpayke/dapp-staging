@@ -1,46 +1,130 @@
-import { FC } from "react";
+"use client";
+import { FC, useRef, useState, useEffect } from "react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
+import { useFavoritesStore, FavoriteContact } from "@/stores/favoritesStore";
+import { useOnboardingStore } from "@/stores/onboardingStore";
 
-interface Contact {
-  initial: string;
-  name: string;
-  bgColor: string;
-}
+/** Deterministic avatar colour based on name hash */
+const AVATAR_COLORS = [
+  "bg-[#6C63FF]",
+  "bg-[#FF6B6B]",
+  "bg-[#4ECDC4]",
+  "bg-[#45B7D1]",
+  "bg-[#96CEB4]",
+  "bg-[#FF7F50]",
+  "bg-[#A78BFA]",
+  "bg-[#F472B6]",
+  "bg-[#34D399]",
+  "bg-[#FBBF24]",
+];
+
+const colorForName = (name: string) => {
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash);
+  return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length];
+};
+
+const initials = (name: string) => {
+  const parts = name.trim().split(/\s+/);
+  if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
+  return name.slice(0, 2).toUpperCase();
+};
+
+/** Truncate display name to max chars */
+const truncate = (s: string, max = 12) => (s.length > max ? s.slice(0, max) + "…" : s);
 
 const RecentContacts: FC = () => {
-  const contacts: Contact[] = [
-    { initial: "J", name: "Jeff Mwango", bgColor: "bg-[#FF6B6B]" },
-    { initial: "E", name: "Equity Paybill", bgColor: "bg-[#4ECDC4]" },
-    { initial: "R", name: "Rent Account", bgColor: "bg-[#45B7D1]" },
-    { initial: "K", name: "Kivian wa..", bgColor: "bg-[#96CEB4]" },
-    { initial: "M", name: "My Wife", bgColor: "bg-[#FF7F50]" },
-  ];
+  const favorites = useFavoritesStore((s) => s.favorites);
+  const setLandingForm = useOnboardingStore((s) => s.setLandingForm);
+  const setInitiatedFromLanding = useOnboardingStore((s) => s.setInitiatedFromLanding);
+
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const [canScrollLeft, setCanScrollLeft] = useState(false);
+  const [canScrollRight, setCanScrollRight] = useState(false);
+
+  const updateScrollState = () => {
+    const el = scrollRef.current;
+    if (!el) return;
+    setCanScrollLeft(el.scrollLeft > 2);
+    setCanScrollRight(el.scrollLeft + el.clientWidth < el.scrollWidth - 2);
+  };
+
+  useEffect(() => {
+    updateScrollState();
+    const el = scrollRef.current;
+    if (el) el.addEventListener("scroll", updateScrollState, { passive: true });
+    return () => el?.removeEventListener("scroll", updateScrollState);
+  }, [favorites.length]);
+
+  const scroll = (dir: "left" | "right") => {
+    scrollRef.current?.scrollBy({ left: dir === "left" ? -160 : 160, behavior: "smooth" });
+  };
+
+  const handleQuickSend = (fav: FavoriteContact) => {
+    // Strip country code for local 9-digit storage
+    const localPhone = fav.phoneNumber.startsWith("254")
+      ? fav.phoneNumber.slice(3)
+      : fav.phoneNumber;
+
+    setLandingForm({
+      flow: "offramp",
+      offRampMethod: "PHONE",
+      phoneNumber: localPhone,
+      tokenSymbol: fav.tokenSymbol,
+      initiatedFromLanding: true,
+    });
+    setInitiatedFromLanding(true);
+  };
+
+  if (favorites.length === 0) return null;
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       <div className="flex justify-between items-center">
-        <h2 className="text-lg font-medium text-black">Transact again</h2>
-        <button className="text-blue-600">Add</button>
+        <h2 className="text-sm font-semibold text-[var(--ep-heading)]">Transact Again</h2>
+        {/* Scroll arrows */}
+        <div className="flex items-center gap-1">
+          {canScrollLeft && (
+            <button
+              onClick={() => scroll("left")}
+              className="p-1 rounded-full hover:bg-[var(--ep-accent-muted)] transition-colors duration-150"
+            >
+              <ChevronLeft size={16} className="text-[var(--ep-muted)]" />
+            </button>
+          )}
+          {canScrollRight && (
+            <button
+              onClick={() => scroll("right")}
+              className="p-1 rounded-full hover:bg-[var(--ep-accent-muted)] transition-colors duration-150"
+            >
+              <ChevronRight size={16} className="text-[var(--ep-muted)]" />
+            </button>
+          )}
+        </div>
       </div>
 
-      <div className="flex gap-8 overflow-x-auto py-2">
-        {contacts.map((contact, index) => (
-          <div key={index} className="flex flex-col items-center">
+      <div
+        ref={scrollRef}
+        className="flex gap-5 overflow-x-auto py-2 scrollbar-none"
+        style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
+      >
+        {favorites.map((fav) => (
+          <button
+            key={fav.phoneNumber}
+            onClick={() => handleQuickSend(fav)}
+            className="flex flex-col items-center shrink-0 group cursor-pointer"
+            title={`Send to ${fav.name} (${fav.phoneNumber})`}
+          >
             <div
-              className={`w-12 h-12 ${contact.bgColor} rounded-full flex items-center justify-center text-white font-medium`}
+              className={`w-12 h-12 ${colorForName(fav.name)} rounded-full flex items-center justify-center text-white text-sm font-semibold shadow-sm group-hover:scale-105 group-hover:shadow-md transition-all duration-200`}
             >
-              {contact.initial}
+              {initials(fav.name)}
             </div>
-            <span className="mt-2 text-sm text-gray-600 whitespace-nowrap">
-              {contact.name}
+            <span className="mt-1.5 text-[11px] text-[var(--ep-body)] whitespace-nowrap font-medium group-hover:text-[var(--ep-heading)] transition-colors">
+              {truncate(fav.name)}
             </span>
-          </div>
+          </button>
         ))}
-        <div className="flex flex-col items-center">
-          <div className="w-12 h-12 border-2 border-dashed border-gray-300 rounded-full flex items-center justify-center text-gray-400">
-            +
-          </div>
-          <span className="mt-2 text-sm text-gray-600">Add Favorite</span>
-        </div>
       </div>
     </div>
   );

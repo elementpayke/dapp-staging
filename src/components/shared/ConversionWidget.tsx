@@ -125,8 +125,8 @@ const ConversionWidget: React.FC<ConversionWidgetProps> = ({
         </div>
       </div>
 
-      {/* ── 3-column converter grid ──────────────────────────── */}
-      <div className="grid grid-cols-[1fr_auto_1fr] items-stretch gap-2 p-2">
+      {/* ── Converter grid: stacked on mobile, side-by-side on sm+ */}
+      <div className="flex flex-col sm:grid sm:grid-cols-[1fr_auto_1fr] sm:items-stretch gap-2 p-2">
         {/* ─ Crypto side ─ */}
         <div
           className={`rounded-xl border px-3 py-2.5 transition-colors ${cryptoBorder}`}
@@ -174,7 +174,7 @@ const ConversionWidget: React.FC<ConversionWidgetProps> = ({
         </div>
 
         {/* ─ Swap button ─ */}
-        <div className="flex items-center justify-center">
+        <div className="flex items-center justify-center py-1 sm:py-0">
           <button
             type="button"
             onClick={() => {

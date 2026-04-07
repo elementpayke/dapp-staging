@@ -62,7 +62,6 @@ import { useWallet } from "@/hooks/useWallet";
 import {
   executeOfframpOrder as executeOfframpOrderFlow,
   getOfframpContractAddress,
-  mapOffRampMethodToPaymentMethod,
   type SponsoredApprovalParams,
 } from "@/utils/offrampExecution";
 import { usePrivySponsoredWithdrawal } from "@/hooks/usePrivySponsoredWithdrawal";
@@ -70,6 +69,7 @@ import {
   DEFAULT_SPONSORED_WITHDRAW_CHAIN_KEY,
   getSponsoredWithdrawChainKeyForTokenChain,
 } from "@/lib/privy-sponsorship/chains";
+import { useFavoritesStore } from "@/stores/favoritesStore";
 
 interface TransactionReceipt {
   amount: string;
@@ -110,9 +110,6 @@ const SendCryptoModal: React.FC = () => {
   // Full international number for validation & backend calls
   const fullMobileNumber = mobileNumber ? `254${mobileNumber}` : "";
   const [reason, setReason] = useState(""); // Optional reason for payment
-  const [initialPaymentMethod, setInitialPaymentMethod] = useState<
-    "Send Money" | "Pay Bill" | "Buy Goods" | undefined
-  >(undefined);
   const [isApproving, setIsApproving] = useState(false);
   const [, setIsProcessing] = useState(false);
 
@@ -335,12 +332,16 @@ const SendCryptoModal: React.FC = () => {
 
   useEffect(() => {
     if (!isBrowser) return;
-    if (landingPrefillAppliedRef.current) return;
     if (!initiatedFromLanding || landingFlow !== "offramp") return;
 
+    // Reset the ref so subsequent re-transact / landing prefills work
     landingPrefillAppliedRef.current = true;
 
-    if (landingAmount) setAmount(landingAmount);
+    if (landingAmount) {
+      setAmount(landingAmount);
+      setTypedValue(landingAmount);
+      setEditableSide("KES");
+    }
     if (landingPhoneNumber) {
       // Strip any "254" prefix so we store only the 9-digit local part.
       const digits = landingPhoneNumber.replace(/\D/g, "");
@@ -351,7 +352,10 @@ const SendCryptoModal: React.FC = () => {
     if (landingAccountNumber) setAccountNumber(landingAccountNumber);
     if (landingTillNumber) setTillNumber(landingTillNumber);
 
-    setInitialPaymentMethod(mapOffRampMethodToPaymentMethod(landingOffRampMethod));
+    // Apply the payment method to the active cashoutType (not just the unused initialPaymentMethod)
+    if (landingOffRampMethod) {
+      setCashoutType(landingOffRampMethod);
+    }
 
     if (landingTokenSymbol) {
       const matchedToken = getAvailableTokens(isEmbeddedWalletActive).find(
@@ -932,6 +936,9 @@ const SendCryptoModal: React.FC = () => {
     }
   }, []);
 
+  // Save to favorites when a PHONE (Send Money) transaction settles successfully
+  const addFavorite = useFavoritesStore((s) => s.addFavorite);
+
   const publicClient = usePublicClient();
 
   const { switchChainAsync } = useSwitchChain();
@@ -1300,14 +1307,38 @@ const SendCryptoModal: React.FC = () => {
     walletAddress,
   ]);
 
+  // Save to favorites when a PHONE (Send Money) transaction settles successfully
+  useEffect(() => {
+    if (
+      isPollingComplete &&
+      transactionReciept.status === 1 &&
+      cashoutType === "PHONE" &&
+      fullMobileNumber &&
+      finalTransactionData
+    ) {
+      const receiverName =
+        finalTransactionData.receiver_name ||
+        formatReceiverName(fullMobileNumber);
+      addFavorite({
+        name: receiverName,
+        phoneNumber: fullMobileNumber,
+        tokenSymbol: selectedToken.symbol,
+        chain: selectedToken.chain,
+        amountKES: amount,
+        lastTransactedAt: new Date().toISOString(),
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isPollingComplete, transactionReciept.status]);
+
   return (
     <>
       <Dialog open={isMainDialogOpen} onOpenChange={setIsMainDialogOpen}>
         <DialogTrigger
-          className="flex items-center gap-2 bg-[var(--ep-accent)] text-white text-sm font-semibold py-3 px-5 rounded-full hover:bg-[var(--ep-accent-hover)] transition-all duration-200 shadow-[0_2px_16px_rgba(67,57,202,0.25)] hover:shadow-[0_4px_24px_rgba(67,57,202,0.35)]"
+          className="flex items-center gap-1.5 sm:gap-2 bg-[var(--ep-accent)] text-white text-xs sm:text-sm font-semibold py-2 px-3 sm:py-3 sm:px-5 rounded-full hover:bg-[var(--ep-accent-hover)] transition-all duration-200 shadow-[0_2px_16px_rgba(67,57,202,0.25)] hover:shadow-[0_4px_24px_rgba(67,57,202,0.35)]"
           onClick={() => setIsMainDialogOpen(true)}
         >
-          <ArrowUpRight size={18} />
+          <ArrowUpRight size={16} className="sm:w-[18px] sm:h-[18px]" />
           Spend Crypto
         </DialogTrigger>
 

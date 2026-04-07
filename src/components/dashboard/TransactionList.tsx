@@ -23,6 +23,8 @@ interface ExtendedTx extends Tx {
   invoiceId?: string;
   orderType: string;
   rawDate: Date; // For date filtering
+  phoneNumber?: string;
+  mpesaReceiptNumber?: string;
 }
 
 interface FilterState {
@@ -172,10 +174,12 @@ const TransactionList: FC<{ walletAddress: string | null }> = ({
           paymentMethod: "M-pesa",
           direction: order.order_type === 0 ? "Receive" : "Send",
           processingTime,
-          receiptNumber: undefined,
+          receiptNumber: order.mpesa_receipt_number,
           invoiceId: order.invoice_id,
           orderType: order.order_type === 0 ? "OnRamp" : "OffRamp",
           rawDate: createdDate, // Store raw date for filtering
+          phoneNumber: order.phone_number,
+          mpesaReceiptNumber: order.mpesa_receipt_number,
         };
       });
 
@@ -201,14 +205,17 @@ const TransactionList: FC<{ walletAddress: string | null }> = ({
   // Search by transaction hash
   const searchByTxHash = useCallback(async (txHash: string) => {
     try {
-      const res = await axios.get<{
-        status: string;
-        message: string;
-        data: Order;
-      }>(`/api/element-pay/orders/tx/${encodeURIComponent(txHash)}`);
+      const res = await fetch(`/api/element-pay/orders/tx/${encodeURIComponent(txHash)}`);
 
-      if (res.data?.data) {
-        const order = res.data.data;
+      if (!res.ok) {
+        console.error("Failed to search by tx hash", res.status);
+        return null;
+      }
+
+      const json: { status: string; message: string; data: Order } = await res.json();
+
+      if (json?.data) {
+        const order = json.data;
         const createdDate = new Date(order.created_at);
         const settlementDate = order.updated_at
           ? new Date(order.updated_at)
@@ -267,10 +274,12 @@ const TransactionList: FC<{ walletAddress: string | null }> = ({
           paymentMethod: "M-pesa",
           direction: order.order_type === 0 ? "Receive" : "Send",
           processingTime,
-          receiptNumber: undefined,
+          receiptNumber: order.mpesa_receipt_number,
           invoiceId: order.invoice_id,
           orderType: order.order_type === 0 ? "OnRamp" : "OffRamp",
           rawDate: createdDate,
+          phoneNumber: order.phone_number,
+          mpesaReceiptNumber: order.mpesa_receipt_number,
         };
 
         return mappedTx;

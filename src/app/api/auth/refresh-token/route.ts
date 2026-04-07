@@ -25,12 +25,18 @@ export async function POST(req: NextRequest) {
     const data = await res.json().catch(() => ({}));
 
     if (!res.ok) {
-      // Refresh failed — clear stale cookies
       const errResponse = NextResponse.json(
         { success: false, message: "Token refresh failed" },
         { status: res.status },
       );
-      clearAuthCookies(errResponse);
+
+      // Only clear cookies on 401 (genuine auth rejection).
+      // Other errors (404, 500) indicate server issues, not invalid tokens —
+      // clearing cookies on those would nuke a valid session.
+      if (res.status === 401) {
+        clearAuthCookies(errResponse);
+      }
+
       return errResponse;
     }
 

@@ -15,8 +15,9 @@ export type AuthStep = "email" | "otp" | "wallet-choice" | "wallet-linking";
 export type WalletPreference = "embedded" | "external" | null;
 
 /** Minimum age (ms) of a session before automated 401 handlers can clear it.
- *  Prevents freshly-established sessions from being nuked by stale responses. */
-const SESSION_PROTECTION_MS = 10_000;
+ *  Prevents freshly-established sessions from being nuked by stale responses
+ *  (e.g. slow compilation or backend hiccups during initial login). */
+const SESSION_PROTECTION_MS = 30_000;
 
 interface AuthState {
   /** Authenticated user profile */

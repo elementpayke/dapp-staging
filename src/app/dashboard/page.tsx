@@ -11,6 +11,7 @@ import { useRouter } from "next/navigation";
 import { useWallet } from "@/hooks/useWallet";
 import { useAuthStore } from "@/stores/authStore";
 import { useOnboardingStore } from "@/stores/onboardingStore";
+import { useLogoutOverlayStore } from "@/stores/logoutOverlayStore";
 import { useTheme } from "@/lib/useTheme";
 
 type PageComponent =
@@ -82,9 +83,25 @@ export default function Dashboard() {
   const handleLogout = async () => {
     setShowDropdown(false);
     setSidebarOpen(false);
+
+    // Show full-screen loading overlay to prevent layout glitching
+    useLogoutOverlayStore.getState().setLoggingOut(true);
+
+    try {
+      // Server-side logout to clear HTTP-only cookies
+      await fetch("/api/auth/logout", { method: "POST" }).catch(() => {});
+    } catch {
+      // best-effort
+    }
+
     clearAuth();
     localStorage.removeItem("wallet-storage");
     router.push("/");
+
+    // Clear overlay after navigation settles
+    setTimeout(() => {
+      useLogoutOverlayStore.getState().setLoggingOut(false);
+    }, 2000);
   };
 
   const getAvatarInitial = (email: string | undefined) => {

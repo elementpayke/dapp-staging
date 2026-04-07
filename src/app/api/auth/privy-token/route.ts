@@ -11,11 +11,53 @@
  */
 
 import { NextResponse } from "next/server";
-import { getTokenFromCookies } from "@/lib/auth-cookies";
+import { getTokenFromCookies, getRefreshTokenFromCookies, setAuthCookies } from "@/lib/auth-cookies";
 import { fetchBackend, createBackendErrorResponse } from "@/lib/backend-fetch";
 
+/**
+ * Attempt a server-side token refresh using the refresh-token cookie.
+ * Returns the new tokens on success, or null on failure.
+ */
+async function tryRefreshToken(): Promise<{
+  accessToken: string;
+  refreshToken?: string;
+} | null> {
+  try {
+    const refreshToken = await getRefreshTokenFromCookies();
+    if (!refreshToken) return null;
+
+    const res = await fetchBackend("/auth/refresh-token", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ refresh_token: refreshToken }),
+    });
+
+    if (!res.ok) return null;
+
+    const data = await res.json().catch(() => ({}));
+    const newAccessToken: string | undefined =
+      data.access_token ?? data.data?.access_token;
+    const newRefreshToken: string | undefined =
+      data.refresh_token ?? data.data?.refresh_token;
+
+    if (!newAccessToken) return null;
+
+    return { accessToken: newAccessToken, refreshToken: newRefreshToken };
+  } catch {
+    return null;
+  }
+}
+
 export async function POST() {
-  const accessToken = await getTokenFromCookies();
+  let accessToken = await getTokenFromCookies();
+  let refreshedTokens: { accessToken: string; refreshToken?: string } | null = null;
+
+  // If access token is missing or expired, try refreshing first
+  if (!accessToken) {
+    console.log("[privy-token] No access token — attempting refresh.");
+    refreshedTokens = await tryRefreshToken();
+    accessToken = refreshedTokens?.accessToken ?? undefined;
+  }
 
   if (!accessToken) {
     return NextResponse.json(
@@ -25,13 +67,29 @@ export async function POST() {
   }
 
   try {
-    const res = await fetchBackend("/auth/privy/token", {
+    let res = await fetchBackend("/auth/privy/token", {
       method: "POST",
       headers: {
         Authorization: `Bearer ${accessToken}`,
         "Content-Type": "application/json",
       },
     });
+
+    // If backend returns 401 and we haven't refreshed yet, try refresh + retry
+    if (res.status === 401 && !refreshedTokens) {
+      console.log("[privy-token] Backend returned 401 — attempting refresh and retry.");
+      refreshedTokens = await tryRefreshToken();
+      if (refreshedTokens?.accessToken) {
+        accessToken = refreshedTokens.accessToken;
+        res = await fetchBackend("/auth/privy/token", {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            "Content-Type": "application/json",
+          },
+        });
+      }
+    }
 
     if (!res.ok) {
       const body = await res.text();
@@ -75,7 +133,12 @@ export async function POST() {
       console.warn("[privy-token] Backend response has no token field. Keys:", Object.keys(data));
     }
 
-    return NextResponse.json({ token: data.token });
+    // Persist refreshed cookies if tokens were refreshed during this request
+    const response = NextResponse.json({ token: data.token });
+    if (refreshedTokens) {
+      setAuthCookies(response, refreshedTokens.accessToken, refreshedTokens.refreshToken);
+    }
+    return response;
   } catch (error) {
     console.error("[privy-token] Proxy error:", error);
     return createBackendErrorResponse(error, "Failed to obtain Privy token");
