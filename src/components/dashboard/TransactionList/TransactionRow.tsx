@@ -5,6 +5,7 @@ import { Copy, MoreHorizontal, ExternalLink, X } from "lucide-react";
 import ClientOnly from "@/components/shared/ClientOnly";
 import TransactionDetailModal from "./TransactionDetailModal";
 import { getExplorerInfo } from "@/utils/explorerUtils";
+import { useBalanceVisibilityStore } from "@/stores/balanceVisibilityStore";
 
 interface ExtendedTx {
   id: string;
@@ -65,6 +66,11 @@ const Arrow = ({ direction, status }: { direction: 'in' | 'out', status?: string
 const TransactionRow: FC<TransactionRowProps> = ({ tx }: { tx: ExtendedTx }) => {
   const [showModal, setShowModal] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
+  const balanceHidden = useBalanceVisibilityStore((s) => s.balanceHidden);
+  const hideMode = useBalanceVisibilityStore((s) => s.hideMode);
+  const isStarsMode = balanceHidden && hideMode === "stars";
+  const blurClass = balanceHidden && hideMode === "blur" ? "blur-md select-none" : "";
+  const maskText = (text: React.ReactNode) => (isStarsMode ? "••••••" : text);
 
   // Reactively track data-theme="dark" on <html> using a MutationObserver.
   // This re-renders the component whenever the user toggles the theme,
@@ -160,8 +166,8 @@ const TransactionRow: FC<TransactionRowProps> = ({ tx }: { tx: ExtendedTx }) => 
         <div className="col-span-3 flex items-center min-w-0">
           <Arrow status={tx.status} direction={isReceive ? 'in' : 'out'} />
           <div className="min-w-0">
-            <div className="font-medium text-[var(--ep-heading)] truncate">
-              {isReceive ? 'Received from OnRamp' : `Sent to ${displayValue(tx.receiverDisplay)}`}
+            <div className={`font-medium text-[var(--ep-heading)] truncate transition-all duration-200 ${blurClass}`}>
+              {maskText(isReceive ? 'Received from OnRamp' : `Sent to ${displayValue(tx.receiverDisplay)}`)}
             </div>
             <div className="text-xs text-[var(--ep-muted)] mt-0.5">
               {displayValue(tx.time)} • {displayValue(tx.date)}
@@ -181,15 +187,15 @@ const TransactionRow: FC<TransactionRowProps> = ({ tx }: { tx: ExtendedTx }) => 
 
         {/* Amount */}
         <div className="col-span-2 text-left">
-          <div className={`font-semibold ${amountColor}`}>
-            {amountSign}KE {round2(tx.amount ? tx.amount.replace(' KES', '') : undefined)}
+          <div className={`font-semibold ${amountColor} transition-all duration-200 ${blurClass}`}>
+            {isStarsMode ? '••••••' : `${amountSign}KE ${round2(tx.amount ? tx.amount.replace(' KES', '') : undefined)}`}
           </div>
         </div>
 
         {/* Crypto Value */}
         <div className="col-span-2 text-left">
-          <div className="font-mono text-[var(--ep-heading)]">
-            {round2(tx.cryptoAmount?.split(' ')[0])} {formatTokenDisplay(displayValue(tx.tokenSymbol))}
+          <div className={`font-mono text-[var(--ep-heading)] transition-all duration-200 ${blurClass}`}>
+            {isStarsMode ? '••••••' : `${round2(tx.cryptoAmount?.split(' ')[0])} ${formatTokenDisplay(displayValue(tx.tokenSymbol))}`}
           </div>
         </div>
 
@@ -261,8 +267,8 @@ const TransactionRow: FC<TransactionRowProps> = ({ tx }: { tx: ExtendedTx }) => 
         <div className="flex items-center gap-3 overflow-hidden">
           <Arrow status={tx.status} direction={isReceive ? 'in' : 'out'} />
           <div className="flex flex-col min-w-0 justify-center">
-            <span className="text-sm font-medium text-[var(--ep-heading)] truncate w-full">
-              {displayValue(mobileDisplayName)}
+            <span className={`text-sm font-medium text-[var(--ep-heading)] truncate w-full transition-all duration-200 ${blurClass}`}>
+              {isStarsMode ? '••••••' : displayValue(mobileDisplayName)}
             </span>
             <div className="flex items-center text-[11px] text-[var(--ep-muted)] mt-0.5 gap-1.5">
               <span>{displayValue(tx.time)} • {displayValue(tx.date)}</span>
@@ -276,8 +282,8 @@ const TransactionRow: FC<TransactionRowProps> = ({ tx }: { tx: ExtendedTx }) => 
         </div>
 
         <div className="flex flex-col items-end flex-shrink-0 ml-3 justify-center">
-          <div className={`text-sm font-semibold ${amountColor}`}>
-            {amountSign}KE {round2(tx.amount ? tx.amount.replace(' KES', '') : undefined)}
+          <div className={`text-sm font-semibold ${amountColor} transition-all duration-200 ${blurClass}`}>
+            {isStarsMode ? '••••••' : `${amountSign}KE ${round2(tx.amount ? tx.amount.replace(' KES', '') : undefined)}`}
           </div>
           {/* CHANGE 5 — mobile success pill: same green contrast fix */}
           <div className="mt-1">

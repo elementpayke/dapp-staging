@@ -1,6 +1,6 @@
 "use client";
-import React, { FC, useState, useEffect } from "react";
-import { Bell, Eye, EyeOff, MoreHorizontal } from "lucide-react";
+import React, { FC, useState, useEffect, useRef } from "react";
+import { Bell, Eye, EyeOff, MoreHorizontal, Check } from "lucide-react";
 import { useBalance } from "wagmi";
 import dynamic from "next/dynamic";
 import Image from "next/image";
@@ -12,6 +12,7 @@ import { useSelectedToken } from "@/context/TokenContext";
 import { useWallet } from "@/hooks/useWallet";
 import TokenDropdown from "@/components/ui/TokenDropdown";
 import { useAuthStore } from "@/stores/authStore";
+import { useBalanceVisibilityStore } from "@/stores/balanceVisibilityStore";
 
 import ARBITRUM_LOGO from "@/assets/ARBITRUM_LOGO.png";
 import BASE_LOGO from "@/assets/BASE_LOGO.png";
@@ -43,18 +44,29 @@ const QuickActions: FC = () => {
   const { selectedToken, selectTokenAndSwitchChain, isCorrectNetwork, isSwitchingChain } = useSelectedToken();
   const isEmbeddedWallet = useAuthStore((s) => s.walletPreference) === "embedded";
 
-  // Balance visibility toggle (persisted in localStorage)
-  const [balanceHidden, setBalanceHidden] = useState(() => {
-    if (typeof window === "undefined") return false;
-    return localStorage.getItem("ep-balance-hidden") === "true";
-  });
-  const toggleBalanceVisibility = () => {
-    setBalanceHidden((prev) => {
-      const next = !prev;
-      localStorage.setItem("ep-balance-hidden", String(next));
-      return next;
-    });
-  };
+  // Balance visibility (shared store, persisted)
+  const balanceHidden = useBalanceVisibilityStore((s) => s.balanceHidden);
+  const hideMode = useBalanceVisibilityStore((s) => s.hideMode);
+  const toggleBalanceVisibility = useBalanceVisibilityStore((s) => s.toggleBalanceHidden);
+  const setHideMode = useBalanceVisibilityStore((s) => s.setHideMode);
+
+  // Visibility settings dropdown
+  const [visibilityMenuOpen, setVisibilityMenuOpen] = useState(false);
+  const visibilityMenuRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!visibilityMenuOpen) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      if (visibilityMenuRef.current && !visibilityMenuRef.current.contains(e.target as Node)) {
+        setVisibilityMenuOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [visibilityMenuOpen]);
+
+  const isBlurMode = hideMode === "blur";
+  const isStarsMode = hideMode === "stars";
+  const maskedStars = "••••••";
 
   // Fetch balance for the selected token
   const { data: tokenBalanceData, isLoading: isBalanceLoading } = useBalance({
@@ -151,15 +163,19 @@ const QuickActions: FC = () => {
           </p>
           <p className="text-2xl font-bold text-[var(--ep-heading)] leading-tight">
             <span>KES </span>
-            <span className={`${isCorrectNetwork ? 'text-[var(--ep-accent)]' : 'text-yellow-600'} ${balanceHidden ? 'blur-md select-none' : ''} transition-all duration-200`}>
-              {rawKesBalance()}
+            <span className={`${isCorrectNetwork ? 'text-[var(--ep-accent)]' : 'text-yellow-600'} ${balanceHidden && isBlurMode ? 'blur-md select-none' : ''} transition-all duration-200`}>
+              {balanceHidden && isStarsMode ? maskedStars : rawKesBalance()}
             </span>
           </p>
-          <p className={`text-sm text-[var(--ep-muted)] mt-1 ${balanceHidden ? 'blur-md select-none' : ''} transition-all duration-200`}>
+          <p className={`text-sm text-[var(--ep-muted)] mt-1 ${balanceHidden && isBlurMode ? 'blur-md select-none' : ''} transition-all duration-200`}>
             {isCorrectNetwork ? (
-              <>
-                {tokenBalance.toFixed(6)} {selectedToken.symbol}
-              </>
+              balanceHidden && isStarsMode ? (
+                <>{maskedStars} {selectedToken.symbol}</>
+              ) : (
+                <>
+                  {tokenBalance.toFixed(6)} {selectedToken.symbol}
+                </>
+              )
             ) : (
               <span className="text-yellow-600">
                 Please switch to {selectedToken.chain} network
@@ -205,9 +221,58 @@ const QuickActions: FC = () => {
             <button className="p-2 rounded-full border border-[var(--ep-border)] hover:bg-[var(--ep-accent-subtle)] transition-colors">
               <Bell size={18} className="text-[var(--ep-muted)]" />
             </button>
-            <button className="p-2 rounded-full border border-[var(--ep-border)] hover:bg-[var(--ep-accent-subtle)] transition-colors">
-              <MoreHorizontal size={18} className="text-[var(--ep-muted)]" />
-            </button>
+            <div className="relative" ref={visibilityMenuRef}>
+              <button
+                onClick={() => setVisibilityMenuOpen((o) => !o)}
+                className="p-2 rounded-full border border-[var(--ep-border)] hover:bg-[var(--ep-accent-subtle)] transition-colors"
+                aria-label="Visibility settings"
+                aria-haspopup="menu"
+                aria-expanded={visibilityMenuOpen}
+              >
+                <MoreHorizontal size={18} className="text-[var(--ep-muted)]" />
+              </button>
+              {visibilityMenuOpen && (
+                <div
+                  role="menu"
+                  className="absolute right-0 mt-2 w-60 z-20 rounded-xl border border-[var(--ep-border)] bg-[var(--ep-bg-card)] shadow-[var(--ep-card-shadow)] p-2"
+                >
+                  <p className="px-3 pt-2 pb-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-[var(--ep-muted)]">
+                    Visibility Settings
+                  </p>
+                  <p className="px-3 pb-2 text-[11px] text-[var(--ep-muted)]">
+                    Choose how to hide your balance
+                  </p>
+                  <button
+                    role="menuitemradio"
+                    aria-checked={isBlurMode}
+                    onClick={() => setHideMode("blur")}
+                    className="w-full flex items-center justify-between gap-3 px-3 py-2 rounded-lg hover:bg-[var(--ep-accent-subtle)] transition-colors"
+                  >
+                    <span className="flex items-center gap-2">
+                      <span className="flex h-4 w-4 items-center justify-center rounded border border-[var(--ep-border)]">
+                        {isBlurMode && <Check size={12} className="text-[var(--ep-accent)]" />}
+                      </span>
+                      <span className="text-sm text-[var(--ep-heading)]">Blur effect</span>
+                    </span>
+                    <span className="text-xs text-[var(--ep-muted)] blur-[3px] select-none">1234</span>
+                  </button>
+                  <button
+                    role="menuitemradio"
+                    aria-checked={isStarsMode}
+                    onClick={() => setHideMode("stars")}
+                    className="w-full flex items-center justify-between gap-3 px-3 py-2 rounded-lg hover:bg-[var(--ep-accent-subtle)] transition-colors"
+                  >
+                    <span className="flex items-center gap-2">
+                      <span className="flex h-4 w-4 items-center justify-center rounded border border-[var(--ep-border)]">
+                        {isStarsMode && <Check size={12} className="text-[var(--ep-accent)]" />}
+                      </span>
+                      <span className="text-sm text-[var(--ep-heading)]">Hide with ••••</span>
+                    </span>
+                    <span className="text-xs text-[var(--ep-muted)]">••••</span>
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Network Logo - Moved to bottom right absolute positioning */}
