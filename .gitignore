@@ -45,3 +45,5 @@ next-env.d.ts
 pnpm-lock.yaml
 /node_modules_bak
 .pnpm-store
+
+
