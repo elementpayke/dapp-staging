@@ -1,5 +1,5 @@
 import { useReadContract } from "wagmi";
-import { erc20Abi } from "viem";
+import { erc20Abi, formatUnits } from "viem";
 import { SupportedToken } from "@/constants/supportedTokens";
 
 /**
@@ -32,7 +32,9 @@ const CHAIN_ID: Partial<Record<string, number>> = {
 
 /**
  * Token decimals per symbol.
- * Used to convert the raw bigint from balanceOf() into a human-readable number.
+ * Used by formatUnits() to convert the raw bigint from balanceOf()
+ * into a human-readable number safely (avoids JS number precision issues
+ * that can occur with Number(bigint) on large values).
  */
 const TOKEN_DECIMALS: Partial<Record<string, number>> = {
   USDC: 6,
@@ -44,11 +46,8 @@ const TOKEN_DECIMALS: Partial<Record<string, number>> = {
  * Gas buffer per chain — a small token amount reserved to cover the
  * on-chain transaction cost of sending the token to the user.
  *
- * This is an estimate in token units (not KES or USD).
- * We add this to whatever the user needs so the contract doesn't
- * get drained to exactly zero and fail the transfer.
- *
- * These are conservative estimates — adjust if gas costs change.
+ * Added on top of the requested amount AND the minimum floor in all cases.
+ * This ensures the contract is never drained to exactly zero.
  */
 const GAS_BUFFER_TOKEN: Partial<Record<string, number>> = {
   Base:     0.5,   // Base is cheap — 0.5 USDC buffer is plenty
@@ -58,9 +57,20 @@ const GAS_BUFFER_TOKEN: Partial<Record<string, number>> = {
 };
 
 /**
- * Absolute minimum floor — even if the user requests a tiny amount,
- * we don't allow onramps if the contract holds less than this.
- * Prevents edge cases where the contract is nearly empty.
+ * Absolute minimum operational floor per token.
+ *
+ * This floor is ALWAYS required in addition to whatever the user requests.
+ * The contract must hold at least (minimumFloor + gasBuffer + requestedAmount)
+ * for an onramp to be allowed.
+ *
+ * When requestedToken === 0 (user hasn't entered an amount yet), we check:
+ *   balance >= minimumFloor + gasBuffer
+ * This is an "is the contract operational?" check before the user sizes an order.
+ *
+ * When requestedToken > 0, we check:
+ *   balance >= requestedToken + minimumFloor + gasBuffer
+ * The floor stays in place — we never fulfil an order if doing so would
+ * drop the contract below the minimum operational reserve.
  */
 const MINIMUM_FLOOR_TOKEN: Partial<Record<string, number>> = {
   USDC: 10,
@@ -72,22 +82,31 @@ export interface UseLiquidityBalanceResult {
   /** Human-readable balance of the token in the liquidity contract */
   balance: number;
   /**
-   * Maximum token amount the contract can fulfil right now
-   * after subtracting the gas buffer.
-   * Use this to cap what the user can request or show a partial offer.
+   * Maximum token amount the contract can give out right now after
+   * subtracting the gas buffer AND the minimum floor reserve.
+   * Used internally — do NOT display this to users (security risk).
    */
   maxAvailableToken: number;
   /**
-   * Maximum KES amount the contract can cover at the current exchange rate.
-   * Ready to show directly in the UI e.g. "You can deposit up to KES 6,000"
+   * Maximum KES value of maxAvailableToken at the current exchange rate.
+   * Used internally — do NOT display this to users (security risk).
    */
   maxAvailableKES: number;
-  /** True if the contract can cover the user's specific requested amount */
+  /**
+   * True if the contract can cover the full request:
+   *   balance >= requestedToken + minimumFloor + gasBuffer
+   */
   hasLiquidity: boolean;
   /**
-   * True if liquidity exists but is less than what the user wants.
-   * Use this to show the partial availability message instead of
-   * fully blocking the user.
+   * True when:
+   *   - onramp is supported for this chain/token
+   *   - hasLiquidity is false (this order size is too large)
+   *   - user has entered a positive requestedToken amount
+   *   - maxAvailableToken >= minimumFloor (pool is not meaningfully empty)
+   *
+   * "Partial" here means: the pool has enough to process a smaller order,
+   * but not this one. It is a prompt to lower the amount — NOT a promise
+   * of a partial fill. The deposit button must remain disabled in this state.
    */
   isPartiallyAvailable: boolean;
   /** True if this chain/token combo supports onramp at all */
@@ -100,14 +119,16 @@ export interface UseLiquidityBalanceResult {
  * Checks whether the Element Pay liquidity contract holds enough of the
  * given token to safely fulfil the user's specific requested amount.
  *
- * Instead of a fixed threshold, this dynamically compares:
- *   contract balance >= requested token amount + gas buffer
+ * The check is:
+ *   balance >= requestedToken + minimumFloor + gasBuffer
  *
- * If the contract can partially cover the request, isPartiallyAvailable
- * is true and maxAvailableKES tells you the maximum we can offer right now.
+ * Both the minimum floor and gas buffer are always required on top of
+ * the requested amount, so we never drain the contract below its
+ * operational reserve.
  *
  * Uses wagmi's useReadContract — same pattern as useTokenBalance,
  * just pointed at the contract wallet instead of the user's wallet.
+ * Uses viem's formatUnits() for safe bigint → number conversion.
  *
  * IMPORTANT — RPC cost:
  * Results are cached for 5 minutes (staleTime + refetchInterval).
@@ -149,31 +170,34 @@ export function useLiquidityBalance(
     },
   });
 
-  // Convert raw bigint to human-readable number
-  // e.g. 100_000_000n → 100 for USDC (6 decimals)
-  const balance = rawBalance ? Number(rawBalance) / 10 ** decimals : 0;
+  // Use viem's formatUnits for safe bigint → number conversion.
+  // Number(bigint) can lose precision on very large values — formatUnits
+  // handles the decimal shift correctly for all token denominations.
+  const balance = rawBalance ? parseFloat(formatUnits(rawBalance, decimals)) : 0;
 
-  // How much the contract can actually give out after reserving gas
-  // and respecting the absolute minimum floor
-  const maxAvailableToken = Math.max(balance - gasBuffer, 0);
+  // The maximum the contract can give out while keeping the floor reserve intact.
+  // Used internally to determine isPartiallyAvailable — never shown to the user.
+  const maxAvailableToken = Math.max(balance - gasBuffer - minimumFloor, 0);
 
-  // Convert to KES so we can show the user a friendly number
-  // e.g. "You can deposit up to KES 6,240 right now"
+  // KES equivalent of maxAvailableToken — internal use only, not shown in UI.
   const maxAvailableKES = exchangeRate > 0
     ? Math.floor(maxAvailableToken * exchangeRate)
     : 0;
 
-  // The amount we need the contract to have:
-  // what the user wants + gas buffer + minimum floor
+  // Full check: balance must cover the request PLUS the floor PLUS gas.
+  // When requestedToken === 0 we just check the floor + gas ("is the contract operational?").
   const requiredAmount = requestedToken > 0
-    ? requestedToken + gasBuffer
+    ? requestedToken + minimumFloor + gasBuffer
     : minimumFloor + gasBuffer;
 
-  // Full liquidity — contract covers the full request
   const hasLiquidity = isOnrampSupported && balance >= requiredAmount;
 
-  // Partial liquidity — contract has some funds but not enough for the full request.
-  // Only meaningful when the user has actually entered an amount.
+  /**
+   * Partial availability:
+   * The pool isn't empty (maxAvailableToken >= minimumFloor) but this specific
+   * order is too large. The user should be prompted to lower their amount.
+   * The deposit button must remain disabled — this is NOT a partial fill offer.
+   */
   const isPartiallyAvailable =
     isOnrampSupported &&
     !hasLiquidity &&

@@ -61,84 +61,57 @@ const DepositCryptoModal: React.FC = () => {
   const [isTransactionModalOpen, setIsTransactionModalOpen] = useState(false);
   const [isReceiptModalOpen, setIsReceiptModalOpen] = useState(false);
 
-  // Use shared token context for consistent token selection across modals
   const { selectedToken, setSelectedToken, selectTokenAndSwitchChain, isSwitchingChain } = useSelectedToken();
   const isEmbeddedWallet = useAuthStore((s) => s.walletPreference) === "embedded";
 
   // ── Landing page prefill (onramp flow) ────────────────────────────────────
-  const landingInitiated = useOnboardingStore((s) => s.initiatedFromLanding);
-  const landingFlow = useOnboardingStore((s) => s.flow);
-  const landingAmount = useOnboardingStore((s) => s.amount);
+  const landingInitiated   = useOnboardingStore((s) => s.initiatedFromLanding);
+  const landingFlow        = useOnboardingStore((s) => s.flow);
+  const landingAmount      = useOnboardingStore((s) => s.amount);
   const landingTokenSymbol = useOnboardingStore((s) => s.tokenSymbol);
   const setLandingInitiated = useOnboardingStore((s) => s.setInitiatedFromLanding);
   const landingPrefillAppliedRef = useRef(false);
 
-  // Ensure component only renders on client after mount
-  useEffect(() => {
-    setIsMounted(true);
-  }, []);
+  useEffect(() => { setIsMounted(true); }, []);
 
-  // Apply landing-page prefill once for onramp flow
   useEffect(() => {
     if (!isMounted) return;
     if (landingPrefillAppliedRef.current) return;
     if (!landingInitiated || landingFlow !== "onramp") return;
 
     landingPrefillAppliedRef.current = true;
-
     if (landingAmount) setAmount(landingAmount);
-
     if (landingTokenSymbol) {
       const matchedToken = getAvailableTokens(isEmbeddedWallet).find(
         (t) => t.symbol === landingTokenSymbol,
       );
       if (matchedToken) setSelectedToken(matchedToken);
     }
-
     setIsConfirmModalOpen(true);
     setLandingInitiated(false);
-  }, [
-    isMounted,
-    landingInitiated,
-    landingFlow,
-    landingAmount,
-    landingTokenSymbol,
-    setSelectedToken,
-    setLandingInitiated,
-  ]);
+  }, [isMounted, landingInitiated, landingFlow, landingAmount, landingTokenSymbol, setSelectedToken, setLandingInitiated]);
 
-  // Get balance for the selected token dynamically
   const {
     balance: selectedTokenBalance,
     isCorrectNetwork,
     requiredChainId,
-  } = useTokenBalance({
-    token: selectedToken,
-  });
+  } = useTokenBalance({ token: selectedToken });
 
   const [amount, setAmount] = useState("0.00");
   const [depositFrom, setDepositFrom] = useState("MPESA");
-  const [phoneNumber, setPhoneNumber] = useState(""); // Stores only local 9-digit part (e.g. "712345678")
-
-  // Full international number for validation & backend calls
+  const [phoneNumber, setPhoneNumber] = useState("");
   const fullPhoneNumber = phoneNumber ? `254${phoneNumber}` : "";
 
   const [reason, setReason] = useState("Transport");
   const [isLoading, setIsLoading] = useState(false);
   const [exchangeRate, setExchangeRate] = useState<number | null>(null);
   const [isFavorite, setIsFavorite] = useState(false);
-  const [phoneValidation, setPhoneValidation] = useState<{
-    isValid: boolean;
-    error?: string;
-  }>({ isValid: false });
+  const [phoneValidation, setPhoneValidation] = useState<{ isValid: boolean; error?: string }>({ isValid: false });
   const [isValidatingPhone, setIsValidatingPhone] = useState(false);
-  const [quoteData, setQuoteData] = useState<{
-    tokenAmount: number;
-    feeAmount: number;
-    effectiveRate: number;
-  } | null>(null);
+  const [quoteData, setQuoteData] = useState<{ tokenAmount: number; feeAmount: number; effectiveRate: number } | null>(null);
   const [isFetchingQuote, setIsFetchingQuote] = useState(false);
   const TRANSACTION_FEE_RATE = 0.005;
+
   const accountState = useAccount();
   const { chain, connector } = accountState;
   const { address: walletAddress } = useWallet();
@@ -153,7 +126,6 @@ const DepositCryptoModal: React.FC = () => {
   const [showTokenDropdown, setShowTokenDropdown] = useState(false);
   const tokenDropdownRef = useRef<HTMLDivElement>(null);
 
-  // Close token dropdown on outside click
   useEffect(() => {
     const handler = (e: MouseEvent) => {
       if (tokenDropdownRef.current && !tokenDropdownRef.current.contains(e.target as Node)) {
@@ -164,25 +136,17 @@ const DepositCryptoModal: React.FC = () => {
     return () => document.removeEventListener("mousedown", handler);
   }, []);
 
-  // Hide dropdowns when any modal is open
-  useModalOverlay(
-    isConfirmModalOpen || isTransactionModalOpen || isReceiptModalOpen,
-  );
+  useModalOverlay(isConfirmModalOpen || isTransactionModalOpen || isReceiptModalOpen);
 
-  // Close the main Radix Dialog when child modals open so its overlay
-  // and focus-trap no longer intercept pointer events on higher-z popups.
   useEffect(() => {
-    if (isTransactionModalOpen || isReceiptModalOpen) {
-      setIsConfirmModalOpen(false);
-    }
+    if (isTransactionModalOpen || isReceiptModalOpen) setIsConfirmModalOpen(false);
   }, [isTransactionModalOpen, isReceiptModalOpen]);
 
-  // Get target chain ID based on selected token
   const getTargetChainId = () => {
     switch (selectedToken.chain) {
-      case "Base":   return 8453;
-      case "Lisk":   return 1135;
-      case "Scroll": return 534352;
+      case "Base":     return 8453;
+      case "Lisk":     return 1135;
+      case "Scroll":   return 534352;
       case "Arbitrum": return 42161;
       case "Polygon":  return 137;
       default:         return 8453;
@@ -190,23 +154,18 @@ const DepositCryptoModal: React.FC = () => {
   };
 
   const transactionSummary = useMemo(() => {
-    const fiatAmount = parseFloat(amount) || 0;
-    const tokenAmount =
-      quoteData?.tokenAmount || (exchangeRate ? fiatAmount / exchangeRate : 0);
-    const feeAmount = quoteData?.feeAmount || 0;
+    const fiatAmount    = parseFloat(amount) || 0;
+    const tokenAmount   = quoteData?.tokenAmount || (exchangeRate ? fiatAmount / exchangeRate : 0);
+    const feeAmount     = quoteData?.feeAmount || 0;
     const effectiveRate = quoteData?.effectiveRate || exchangeRate || 0;
-    const totalUSDC = tokenAmount;
-    const remainingBalance = (selectedTokenBalance ?? 0) + totalUSDC;
-    const totalKES = (selectedTokenBalance ?? 0) * effectiveRate;
-    const totalKESBalance = totalKES + fiatAmount;
+    const totalUSDC         = tokenAmount;
+    const remainingBalance  = (selectedTokenBalance ?? 0) + totalUSDC;
+    const totalKES          = (selectedTokenBalance ?? 0) * effectiveRate;
+    const totalKESBalance   = totalKES + fiatAmount;
 
     return {
-      kesAmount: fiatAmount,
-      usdcAmount: tokenAmount,
-      transactionCharge: feeAmount,
-      totalUSDC,
-      totalKES,
-      totalKESBalance,
+      kesAmount: fiatAmount, usdcAmount: tokenAmount, transactionCharge: feeAmount,
+      totalUSDC, totalKES, totalKESBalance,
       walletBalance: selectedTokenBalance ?? 0,
       remainingBalance: Math.max(remainingBalance, 0),
       usdcBalance: selectedTokenBalance ?? 0,
@@ -214,31 +173,18 @@ const DepositCryptoModal: React.FC = () => {
     };
   }, [amount, exchangeRate, selectedTokenBalance, quoteData]);
 
-  // ── Conversion helpers (bi-directional) ───────────────────────────────
   const sanitizeDecimalInput = useCallback(
     (val: string) => val.replace(/[^\d.]/g, "").replace(/(\..*?)\..*/g, "$1"),
     [],
   );
 
-  const toInputNumber = (v: string) => {
-    const n = parseFloat(v);
-    return isNaN(n) || n <= 0 ? 0 : n;
-  };
-
+  const toInputNumber = (v: string) => { const n = parseFloat(v); return isNaN(n) || n <= 0 ? 0 : n; };
   const numericTyped = toInputNumber(typedValue);
   const rate = exchangeRate ?? 0;
 
-  const derivedKes =
-    editableSide === "KES"
-      ? typedValue
-      : rate > 0 ? (numericTyped * rate).toFixed(2) : "0";
+  const derivedKes   = editableSide === "KES"   ? typedValue : rate > 0 ? (numericTyped * rate).toFixed(2) : "0";
+  const derivedToken = editableSide === "TOKEN"  ? typedValue : rate > 0 ? (numericTyped / rate).toFixed(6) : "0";
 
-  const derivedToken =
-    editableSide === "TOKEN"
-      ? typedValue
-      : rate > 0 ? (numericTyped / rate).toFixed(6) : "0";
-
-  // Keep `amount` in sync for the rest of the logic (amount is always KES)
   useEffect(() => {
     const kes = editableSide === "KES" ? typedValue : derivedKes;
     if (kes !== amount) setAmount(kes || "0");
@@ -254,10 +200,11 @@ const DepositCryptoModal: React.FC = () => {
   }, [derivedKes, quoteData, TRANSACTION_FEE_RATE]);
 
   // ── Liquidity check ───────────────────────────────────────────────────────
-  // Compares the contract balance against what the user is asking for
-  // plus a per-chain gas buffer. Cached 5 mins to keep RPC costs low.
-  // NOTE: maxAvailableKES is intentionally NOT shown to the user —
-  // displaying exact liquidity amounts is a security risk (supervisor feedback).
+  // Checks: balance >= requestedToken + minimumFloor + gasBuffer
+  // Both floor and gas buffer are always required on top of the request.
+  // maxAvailableKES is intentionally NOT shown to the user (security risk).
+  // When isPartiallyAvailable is true the button stays disabled —
+  // it means "try a lower amount", NOT "we will partially fill your order".
   const requestedTokenAmount = transactionSummary.usdcAmount;
   const {
     hasLiquidity,
@@ -266,25 +213,15 @@ const DepositCryptoModal: React.FC = () => {
     isLoading: isCheckingLiquidity,
   } = useLiquidityBalance(selectedToken, requestedTokenAmount, exchangeRate ?? 0);
 
-  const [transactionReceipt, setTransactionReceipt] =
-    useState<TransactionReceipt>({
-      orderId: "",
-      status: "pending",
-      reason: "",
-      amount: 0,
-      amountCrypto: 0,
-      transactionHash: "",
-      address: "",
-      phoneNumber: "",
-    });
+  const [transactionReceipt, setTransactionReceipt] = useState<TransactionReceipt>({
+    orderId: "", status: "pending", reason: "", amount: 0,
+    amountCrypto: 0, transactionHash: "", address: "", phoneNumber: "",
+  });
 
   const fetchExchangeRate = async () => {
     try {
       const currency = getApiCurrencyFromToken(selectedToken.symbol);
-      const feeData = await fetchFeeStructureCached({
-        token: currency,
-        action: "OnRamp",
-      });
+      const feeData  = await fetchFeeStructureCached({ token: currency, action: "OnRamp" });
 
       if (feeData.data.base_rate && feeData.data.base_rate > 0) {
         setExchangeRate(feeData.data.base_rate);
@@ -304,28 +241,16 @@ const DepositCryptoModal: React.FC = () => {
   };
 
   const fetchQuote = async (fiatAmount: number) => {
-    if (!fiatAmount || fiatAmount <= 0 || !walletAddress) {
-      setQuoteData(null);
-      return;
-    }
-
+    if (!fiatAmount || fiatAmount <= 0 || !walletAddress) { setQuoteData(null); return; }
     setIsFetchingQuote(true);
     try {
       const quoteResponse = await fetchOrderQuote({
-        amountFiat: fiatAmount,
-        tokenAddress: selectedToken.tokenAddress,
-        walletAddress,
-        orderType: 0,
-        currency: "KES",
+        amountFiat: fiatAmount, tokenAddress: selectedToken.tokenAddress,
+        walletAddress, orderType: 0, currency: "KES",
       });
-
       if (quoteResponse.status === "success" && quoteResponse.data) {
         const data = quoteResponse.data;
-        setQuoteData({
-          tokenAmount: data.required_token_amount,
-          feeAmount: data.fee_amount,
-          effectiveRate: data.effective_rate,
-        });
+        setQuoteData({ tokenAmount: data.required_token_amount, feeAmount: data.fee_amount, effectiveRate: data.effective_rate });
         setExchangeRate(data.effective_rate);
       } else {
         setQuoteData(null);
@@ -339,15 +264,12 @@ const DepositCryptoModal: React.FC = () => {
   };
 
   const pollOrderStatusByTxHash = async (txHash: string) => {
-    if (!txHash) return;
-    if (!continuePollingRef.current) return;
-
+    if (!txHash || !continuePollingRef.current) return;
     const MAX_ATTEMPTS = 30;
     let attempts = 0;
 
     const poll = async () => {
       if (!continuePollingRef.current) return;
-
       if (attempts >= MAX_ATTEMPTS) {
         setIsTransactionModalOpen(false);
         toast.error("Transaction verification timed out. Please check your M-Pesa for confirmation.");
@@ -360,10 +282,9 @@ const DepositCryptoModal: React.FC = () => {
 
       try {
         const response = await fetch(`/api/orders/poll?txHash=${encodeURIComponent(txHash)}`);
-
         if (response.ok || response.status === 202) {
           const responseData = await response.json();
-          const orderData = responseData?.data;
+          const orderData    = responseData?.data;
 
           if (!orderData) {
             console.log(`[Poll ${attempts}/${MAX_ATTEMPTS}] No order data yet...`);
@@ -371,8 +292,8 @@ const DepositCryptoModal: React.FC = () => {
             return;
           }
 
-          const status = orderData.status?.toLowerCase();
-          const txHashes = orderData.transaction_hashes || {};
+          const status       = orderData.status?.toLowerCase();
+          const txHashes     = orderData.transaction_hashes || {};
           const settlementHash = txHashes.settlement || txHashes.creation || txHash;
 
           const getUserFriendlyError = (reason: string) => {
@@ -384,8 +305,7 @@ const DepositCryptoModal: React.FC = () => {
           };
 
           setTransactionReceipt({
-            orderId: orderData.order_id,
-            status,
+            orderId: orderData.order_id, status,
             reason: status === "failed" ? getUserFriendlyError(orderData.failure_reason || "") : "",
             amount: orderData.amount_fiat,
             amountCrypto: orderData.amount_fiat / (exchangeRate ?? 1),
@@ -411,7 +331,6 @@ const DepositCryptoModal: React.FC = () => {
             return;
           }
         }
-
         if (continuePollingRef.current) setTimeout(poll, 10000);
       } catch (err) {
         console.error(`[Poll ${attempts}/${MAX_ATTEMPTS}] Error:`, err);
@@ -422,16 +341,11 @@ const DepositCryptoModal: React.FC = () => {
     poll();
   };
 
-  useEffect(() => {
-    fetchExchangeRate();
-  }, []);
+  useEffect(() => { fetchExchangeRate(); }, []);
 
   useEffect(() => {
     const fiatAmount = parseFloat(amount);
-    if (!fiatAmount || fiatAmount <= 0) {
-      setQuoteData(null);
-      return;
-    }
+    if (!fiatAmount || fiatAmount <= 0) { setQuoteData(null); return; }
     const timeoutId = setTimeout(() => fetchQuote(fiatAmount), 500);
     return () => clearTimeout(timeoutId);
   }, [amount, selectedToken.tokenAddress, walletAddress]);
@@ -443,20 +357,15 @@ const DepositCryptoModal: React.FC = () => {
     const targetChainId = getTargetChainId();
     if (chain?.id !== targetChainId) {
       const isSmartWalletConnected = isSmartWallet(connector);
-
       if (isSmartWalletConnected) {
         console.log(`📱 Smart wallet detected (${connector?.name}), proceeding without chain switch`);
         toast.info(`Smart wallet detected. Proceeding with ${selectedToken.chain} transaction.`);
       } else {
         try {
           const switchResult = await safeChainSwitch({
-            connector,
-            currentChainId: chain?.id || currentChainId,
-            targetChainId,
-            switchChainAsyncFn: switchChainAsync,
-            chainName: selectedToken.chain,
+            connector, currentChainId: chain?.id || currentChainId,
+            targetChainId, switchChainAsyncFn: switchChainAsync, chainName: selectedToken.chain,
           });
-
           if (switchResult.success) {
             if (switchResult.method === "switched") {
               toast.success(`Switched to ${selectedToken.chain}. Please click Confirm again.`);
@@ -481,14 +390,9 @@ const DepositCryptoModal: React.FC = () => {
       toast.error(phoneValidation.error || "Please enter a valid phone number");
       return;
     }
-
-    if (!phoneValidation.isValid) {
-      const isValid = await validatePhoneWithBackend(fullPhoneNumber);
-      if (!isValid) {
-        toast.error("Phone number validation failed. Please check and try again.");
-        return;
-      }
-    }
+    // Note: the second phoneValidation block that previously appeared here was
+    // unreachable — the first block always returns if isValid is false.
+    // Removed as per PR feedback.
 
     setIsLoading(true);
 
@@ -498,22 +402,15 @@ const DepositCryptoModal: React.FC = () => {
         if (!walletAddress) throw new Error("Wallet address is not available");
 
         console.log("🔍 Token details:", {
-          symbol: selectedToken.symbol,
-          chain: selectedToken.chain,
-          tokenAddress: selectedToken.tokenAddress,
-          userAddress: walletAddress,
-          amount: parseFloat(amount),
-          phoneNumber: fullPhoneNumber,
-          reason,
+          symbol: selectedToken.symbol, chain: selectedToken.chain,
+          tokenAddress: selectedToken.tokenAddress, userAddress: walletAddress,
+          amount: parseFloat(amount), phoneNumber: fullPhoneNumber, reason,
         });
 
         const res = await Promise.race([
           createOnRampOrder({
-            userAddress: walletAddress,
-            tokenAddress: String(selectedToken.tokenAddress),
-            amount: parseFloat(amount),
-            phoneNumber: fullPhoneNumber,
-            reason,
+            userAddress: walletAddress, tokenAddress: String(selectedToken.tokenAddress),
+            amount: parseFloat(amount), phoneNumber: fullPhoneNumber, reason,
           }),
           new Promise((_, reject) =>
             setTimeout(() => reject(new Error(
@@ -531,14 +428,8 @@ const DepositCryptoModal: React.FC = () => {
         setIsLoading(false);
 
         setTransactionReceipt({
-          orderId: "",
-          status: "pending",
-          reason: "",
-          amount: 0,
-          amountCrypto: 0,
-          transactionHash: txHash,
-          address: walletAddress || "",
-          phoneNumber: fullPhoneNumber,
+          orderId: "", status: "pending", reason: "", amount: 0, amountCrypto: 0,
+          transactionHash: txHash, address: walletAddress || "", phoneNumber: fullPhoneNumber,
         });
         continuePollingRef.current = true;
         pollOrderStatusByTxHash(txHash);
@@ -575,17 +466,6 @@ const DepositCryptoModal: React.FC = () => {
     processOrder();
   };
 
-  const validatePhoneWithBackend = async (phoneNumber: string): Promise<boolean> => {
-    setIsValidatingPhone(true);
-    try {
-      const result = validateKenyanPhoneNumber(phoneNumber);
-      setPhoneValidation(result);
-      return result.isValid;
-    } finally {
-      setIsValidatingPhone(false);
-    }
-  };
-
   const handlePhoneNumberChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     let digits = e.target.value.replace(/\D/g, "");
     if (digits.startsWith("254")) digits = digits.slice(3);
@@ -607,20 +487,26 @@ const DepositCryptoModal: React.FC = () => {
   if (!isMounted) return null;
 
   // ── Button state ──────────────────────────────────────────────────────────
+  // isPartiallyAvailable means the pool has some funds but not enough for
+  // this order — the button stays DISABLED. The user must reduce their amount.
+  // We show a distinct label so "Confirm Deposit" never appears greyed out
+  // without explanation, which would look broken (PR feedback).
   const isButtonDisabled =
     isLoading ||
     isCheckingLiquidity ||
-    (!hasLiquidity && !isPartiallyAvailable) ||
+    !hasLiquidity ||          // covers both fully unavailable AND partial
     !isOnrampSupported ||
     parseFloat(amount) <= 0 ||
     !phoneValidation.isValid ||
     isValidatingPhone;
 
   const buttonLabel = (() => {
-    if (isLoading)           return "Processing…";
-    if (isCheckingLiquidity) return "Checking availability…";
-    if (!isOnrampSupported)  return "Onramp is currently unavailable";
-    if (isValidatingPhone)   return "Validating…";
+    if (isLoading)                return "Processing…";
+    if (isCheckingLiquidity)      return "Checking availability…";
+    if (!isOnrampSupported)       return "Onramp is currently unavailable";
+    if (isPartiallyAvailable)     return "Try a lower amount";
+    if (!hasLiquidity)            return "Onramp is currently unavailable";
+    if (isValidatingPhone)        return "Validating…";
     return "Confirm Deposit";
   })();
 
@@ -660,13 +546,11 @@ const DepositCryptoModal: React.FC = () => {
             )}
 
             {/* ── Partial liquidity banner ───────────────────────────────────
-                Shown when the contract has some funds but not enough to
-                cover the user's full requested amount.
-
-                IMPORTANT: We deliberately do NOT show the exact available
-                amount (maxAvailableKES) here. Revealing the precise liquidity
-                figure is a security risk — it exposes internal contract balance
-                information. We only tell the user to try a lower amount.       */}
+                Shown when the pool has funds but not enough for this order size.
+                "Partial" = prompt to lower amount, NOT a partial fill offer.
+                The button is also disabled in this state (see isButtonDisabled).
+                We do NOT show the exact available amount — that would reveal
+                internal contract balance info (security risk per supervisor feedback). */}
             {isPartiallyAvailable && (
               <div className="p-3 rounded-xl bg-amber-50 border border-amber-200 dark:bg-amber-500/10 dark:border-amber-500/20">
                 <p className="text-xs font-semibold text-amber-700 dark:text-amber-400 mb-0.5">
@@ -757,14 +641,9 @@ const DepositCryptoModal: React.FC = () => {
                           <button
                             key={token.symbol + token.chain}
                             type="button"
-                            onClick={() => {
-                              selectTokenAndSwitchChain(token);
-                              setShowTokenDropdown(false);
-                            }}
+                            onClick={() => { selectTokenAndSwitchChain(token); setShowTokenDropdown(false); }}
                             className={`flex w-full items-center justify-between rounded-lg px-2.5 py-2 text-left transition-colors ${
-                              isActive
-                                ? "bg-[var(--ep-accent-muted)] text-[var(--ep-heading)]"
-                                : "text-[var(--ep-body)] hover:bg-[var(--ep-bg-input)]"
+                              isActive ? "bg-[var(--ep-accent-muted)] text-[var(--ep-heading)]" : "text-[var(--ep-body)] hover:bg-[var(--ep-bg-input)]"
                             }`}
                           >
                             <span className="flex items-center gap-2">
