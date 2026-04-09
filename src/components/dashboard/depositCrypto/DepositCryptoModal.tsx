@@ -746,3 +746,4 @@ const DepositCryptoModal: React.FC = () => {
 };
 
 export default DepositCryptoModal;
+  
