@@ -919,6 +919,8 @@ const SendCryptoModal: React.FC = () => {
     setShowProcessingPopup(false);
     setFinalTransactionData(null);
     setIsPollingComplete(false);
+    setIsApproving(false);
+    setIsProcessing(false);
     setTransactionReciept({
       amount: "0.00",
       amountUSDC: 0,
@@ -959,11 +961,19 @@ const SendCryptoModal: React.FC = () => {
   const approveTokenIfNeeded = async (spender: string, amount: string) => {
     try {
       setIsApproving(true);
+      console.log("[approveTokenIfNeeded] Starting approval", {
+        spender,
+        amount,
+        tokenAddress: selectedToken.tokenAddress,
+        chain: selectedToken.chain,
+        hasWriteContract: !!writeContractAsync,
+        hasPublicClient: !!publicClient,
+      });
 
       if (!writeContractAsync) {
-        throw new Error(
-          "Contract write function not available. Please refresh the page.",
-        );
+        const msg = "Contract write function not available. Please refresh the page.";
+        console.error("[approveTokenIfNeeded]", msg);
+        throw new Error(msg);
       }
 
       // For mobile wallets, show guidance toast
@@ -997,22 +1007,75 @@ const SendCryptoModal: React.FC = () => {
       );
 
       const approveHash = await Promise.race([approvalPromise, timeoutPromise]);
+      console.log("[approveTokenIfNeeded] Approval tx submitted, hash:", approveHash);
 
       if (publicClient) {
         try {
-          await publicClient.waitForTransactionReceipt({ hash: approveHash });
+          const receipt = await publicClient.waitForTransactionReceipt({ hash: approveHash });
+          if (receipt.status === "reverted") {
+            console.error("[approveTokenIfNeeded] Approval tx reverted on-chain", { hash: approveHash });
+            toast.error("Token approval was reverted on-chain. Please try again.");
+            return null;
+          }
+          console.log("[approveTokenIfNeeded] Approval confirmed on-chain", { status: receipt.status });
         } catch (receiptError: any) {
           console.warn(
-            "Error waiting for receipt (transaction may still succeed):",
-            receiptError,
+            "[approveTokenIfNeeded] Error waiting for receipt (transaction may still succeed):",
+            receiptError?.message,
           );
         }
       }
 
       return approveHash;
     } catch (err: any) {
-      console.error("Token approval failed:", err);
-      toast.error(err?.message || "Token approval failed");
+      const errMsg = err?.message || "";
+      const errLower = errMsg.toLowerCase();
+      console.error("[approveTokenIfNeeded] Approval failed:", {
+        message: errMsg,
+        code: err?.code,
+        name: err?.name,
+        shortMessage: err?.shortMessage,
+      });
+
+      // User rejected in wallet
+      if (
+        errLower.includes("user rejected") ||
+        errLower.includes("user denied") ||
+        errLower.includes("rejected the request") ||
+        err?.code === 4001 ||
+        err?.code === "ACTION_REJECTED"
+      ) {
+        toast.error("You rejected the approval in your wallet. Please try again and confirm the transaction.");
+        return null;
+      }
+
+      // Wallet disconnected or connector issue
+      if (
+        errLower.includes("connector not connected") ||
+        errLower.includes("no provider") ||
+        errLower.includes("wallet not connected") ||
+        errLower.includes("disconnected")
+      ) {
+        toast.error("Wallet disconnected. Please reconnect your wallet and try again.");
+        return null;
+      }
+
+      // Insufficient gas / funds for gas
+      if (
+        errLower.includes("insufficient funds") ||
+        errLower.includes("gas required exceeds")
+      ) {
+        toast.error("Insufficient gas to complete the approval. Please add native tokens for gas fees.");
+        return null;
+      }
+
+      // Timeout
+      if (errLower.includes("timed out")) {
+        toast.error(errMsg);
+        return null;
+      }
+
+      toast.error(err?.shortMessage || errMsg || "Token approval failed. Please try again.");
       return null;
     } finally {
       setIsApproving(false);
@@ -1333,7 +1396,14 @@ const SendCryptoModal: React.FC = () => {
 
   return (
     <>
-      <Dialog open={isMainDialogOpen} onOpenChange={setIsMainDialogOpen}>
+      <Dialog open={isMainDialogOpen} onOpenChange={(open) => {
+        setIsMainDialogOpen(open);
+        if (!open) {
+          // Reset stuck states when closing the modal so reopening works cleanly
+          setIsApproving(false);
+          setIsProcessing(false);
+        }
+      }}>
         <DialogTrigger
           className="flex items-center gap-1.5 sm:gap-2 bg-[var(--ep-accent)] text-white text-xs sm:text-sm font-semibold py-2 px-3 sm:py-3 sm:px-5 rounded-full hover:bg-[var(--ep-accent-hover)] transition-all duration-200 shadow-[0_2px_16px_rgba(67,57,202,0.25)] hover:shadow-[0_4px_24px_rgba(67,57,202,0.35)]"
           onClick={() => setIsMainDialogOpen(true)}

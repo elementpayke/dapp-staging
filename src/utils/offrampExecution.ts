@@ -252,6 +252,22 @@ export const executeOfframpOrder = async (
 
   const targetChainId = getTargetChainIdForToken(selectedToken);
 
+  console.log("[executeOfframpOrder] Starting offramp execution", {
+    chain: selectedToken.chain,
+    token: selectedToken.symbol,
+    tokenAddress: selectedToken.tokenAddress,
+    currentChainId,
+    targetChainId,
+    accountAddress,
+    amountFiat,
+    cashoutType,
+    contractAddress,
+    hasSponsoredApproval: !!sponsoredApproval?.enabled,
+    canAfford: transactionSummary.canAfford,
+    totalUSDC: transactionSummary.totalUSDC,
+    selectedTokenBalance,
+  });
+
   if (currentChainId !== targetChainId && switchChainAsync) {
     const smartWallet = isSmartWallet(connector);
 
@@ -399,6 +415,7 @@ export const executeOfframpOrder = async (
     let requiredTransferAmountNumber = 0;
     let hasSufficientAllowance = false;
 
+    console.log("[executeOfframpOrder] Fetching order quote...");
     try {
       const quoteResponse = await fetchOrderQuote({
         amountFiat: Number(amountFiat),
@@ -427,6 +444,12 @@ export const executeOfframpOrder = async (
       hasSufficientAllowance =
         quoteResponse.data.has_sufficient_allowance ?? false;
 
+      console.log("[executeOfframpOrder] Quote received", {
+        requiredApprovalAmount,
+        requiredTransferAmount,
+        hasSufficientAllowance,
+      });
+
       if (Number.isFinite(requiredTransferAmountNumber) && requiredTransferAmountNumber > 0) {
         setTransactionReceipt((prev) => ({
           ...prev,
@@ -434,6 +457,11 @@ export const executeOfframpOrder = async (
         }));
       }
     } catch (quoteError: any) {
+      console.error("[executeOfframpOrder] Quote fetch failed:", {
+        message: quoteError?.message,
+        status: quoteError?.response?.status,
+        data: quoteError?.response?.data,
+      });
       setShowProcessingPopup(false);
       setApproving(false);
       setProcessing(false);
@@ -447,7 +475,9 @@ export const executeOfframpOrder = async (
     }
 
     if (sponsoredApproval?.enabled) {
+      console.log("[executeOfframpOrder] Using sponsored approval path");
       if (!requiredApprovalAmount) {
+        console.error("[executeOfframpOrder] No approval amount calculated");
         setShowProcessingPopup(false);
         setApproving(false);
         setProcessing(false);
@@ -468,18 +498,26 @@ export const executeOfframpOrder = async (
       });
 
       if (!approvalTxHash) {
+        console.error("[executeOfframpOrder] Sponsored approval returned null");
         setShowProcessingPopup(false);
         setApproving(false);
         setProcessing(false);
-        notify.error("Sponsored approval failed. Cannot proceed with order creation.");
+        notify.error("Sponsored approval failed. Please try again or contact support if the issue persists.");
         onEarlyExit?.();
         return;
       }
 
+      console.log("[executeOfframpOrder] Sponsored approval confirmed:", approvalTxHash);
       notify.info("Approval confirmed. Creating your payout order...", {
         autoClose: 8000,
       });
     } else if (!hasSufficientAllowance) {
+      console.log("[executeOfframpOrder] Insufficient allowance, requesting wallet approval", {
+        contractAddress,
+        requiredApprovalAmount,
+        isMobileWalletFlow,
+      });
+
       if (isMobileWalletFlow) {
         notify.info("Approval needed. Please approve in your wallet app.", {
           autoClose: 15000,
@@ -492,13 +530,15 @@ export const executeOfframpOrder = async (
       );
 
       if (!approveTxHash) {
+        console.error("[executeOfframpOrder] Wallet approval returned null — user likely rejected or it timed out");
         setShowProcessingPopup(false);
         setApproving(false);
         setProcessing(false);
-        notify.error("Token approval failed. Cannot proceed with order creation.");
+        // Don't show a duplicate toast — approveTokenIfNeeded already shows a specific one
         onEarlyExit?.();
         return;
       }
+      console.log("[executeOfframpOrder] Wallet approval confirmed:", approveTxHash);
 
       if (isMobileWalletFlow) {
         await new Promise((resolve) => setTimeout(resolve, 2000));
@@ -506,9 +546,12 @@ export const executeOfframpOrder = async (
           autoClose: 10000,
         });
       }
+    } else {
+      console.log("[executeOfframpOrder] Sufficient allowance already exists, skipping approval");
     }
 
     if (!messageHash) {
+      console.error("[executeOfframpOrder] messageHash is empty after approval — cannot create order");
       setShowProcessingPopup(false);
       setApproving(false);
       setProcessing(false);
@@ -516,6 +559,8 @@ export const executeOfframpOrder = async (
       onEarlyExit?.();
       return;
     }
+
+    console.log("[executeOfframpOrder] Approval phase complete, creating order...");
 
     let apiResponse: any;
     const createOrderPayload = {
@@ -553,8 +598,16 @@ export const executeOfframpOrder = async (
       ]);
 
     try {
+      console.log("[executeOfframpOrder] Calling createOffRampOrder...");
       apiResponse = await callCreateOrder();
+      console.log("[executeOfframpOrder] Order created successfully", { txHash: apiResponse?.data?.tx_hash });
     } catch (apiError: any) {
+      console.error("[executeOfframpOrder] createOffRampOrder failed:", {
+        name: apiError?.name,
+        message: apiError?.message,
+        status: apiError?.response?.status,
+        data: apiError?.response?.data,
+      });
       // ── Insufficient allowance → force re-approve + retry once ──
       if (apiError instanceof InsufficientAllowanceError) {
         console.warn(
@@ -719,9 +772,32 @@ export const executeOfframpOrder = async (
       );
     }
   } catch (err: any) {
+    const errMsg = (err?.message || "").toLowerCase();
+    console.error("[executeOfframpOrder] Unhandled error in offramp flow:", {
+      message: err?.message,
+      name: err?.name,
+      code: err?.code,
+      stack: err?.stack?.split("\n").slice(0, 5).join("\n"),
+    });
+
     setShowProcessingPopup(false);
     refreshTransactionList();
-    notify.error(err?.message || "Transaction failed. Please try again.");
+
+    // Provide user-friendly messages for common unhandled errors
+    if (
+      errMsg.includes("user rejected") ||
+      errMsg.includes("user denied") ||
+      err?.code === 4001 ||
+      err?.code === "ACTION_REJECTED"
+    ) {
+      notify.error("Transaction was rejected in your wallet. Please try again.");
+    } else if (errMsg.includes("insufficient funds") || errMsg.includes("gas required exceeds")) {
+      notify.error("Insufficient gas to complete the transaction. Please add native tokens for gas fees.");
+    } else if (errMsg.includes("disconnected") || errMsg.includes("no provider")) {
+      notify.error("Wallet disconnected. Please reconnect and try again.");
+    } else {
+      notify.error(err?.message || "Transaction failed. Please try again.");
+    }
     onEarlyExit?.();
   } finally {
     setApproving(false);
