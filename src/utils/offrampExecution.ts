@@ -508,9 +508,13 @@ export const executeOfframpOrder = async (
       }
 
       console.log("[executeOfframpOrder] Sponsored approval confirmed:", approvalTxHash);
-      notify.info("Approval confirmed. Creating your payout order...", {
+      notify.info("Approval confirmed. Waiting for on-chain sync...", {
         autoClose: 8000,
       });
+      // Wait for the backend's RPC node to index the new allowance.
+      // Without this delay the backend reads stale allowance and returns 400.
+      console.log("[executeOfframpOrder] Waiting for RPC propagation after sponsored approval...");
+      await new Promise((resolve) => setTimeout(resolve, 5000));
     } else if (!hasSufficientAllowance) {
       console.log("[executeOfframpOrder] Insufficient allowance, requesting wallet approval", {
         contractAddress,
@@ -540,12 +544,14 @@ export const executeOfframpOrder = async (
       }
       console.log("[executeOfframpOrder] Wallet approval confirmed:", approveTxHash);
 
-      if (isMobileWalletFlow) {
-        await new Promise((resolve) => setTimeout(resolve, 2000));
-        notify.info("Approval successful! Now signing the transaction...", {
-          autoClose: 10000,
-        });
-      }
+      // Wait for the backend's RPC node to index the new allowance.
+      // Without this delay the backend reads stale allowance and returns 400.
+      const propagationDelay = isMobileWalletFlow ? 6000 : 5000;
+      console.log(`[executeOfframpOrder] Waiting ${propagationDelay}ms for RPC propagation after wallet approval...`);
+      notify.info("Approval confirmed! Syncing with network...", {
+        autoClose: 8000,
+      });
+      await new Promise((resolve) => setTimeout(resolve, propagationDelay));
     } else {
       console.log("[executeOfframpOrder] Sufficient allowance already exists, skipping approval");
     }
@@ -608,73 +614,116 @@ export const executeOfframpOrder = async (
         status: apiError?.response?.status,
         data: apiError?.response?.data,
       });
-      // ── Insufficient allowance → force re-approve + retry once ──
+      // ── Insufficient allowance → the approval IS on-chain but the backend's
+      //    RPC node hasn't indexed it yet. Wait and retry WITHOUT re-approving. ──
       if (apiError instanceof InsufficientAllowanceError) {
         console.warn(
-          "[Offramp] Insufficient allowance detected, forcing re-approval...",
+          "[Offramp] Insufficient allowance — backend RPC lag. Will wait and retry order (no re-approval).",
           { current: apiError.currentAllowance, required: apiError.requiredAllowance },
         );
 
         notify.info(
-          "Approval is syncing on-chain. Retrying automatically...",
-          { autoClose: 10000 },
+          "Approval confirmed on-chain — waiting for network sync before retrying...",
+          { autoClose: 12000 },
         );
 
-        // Wait for RPC propagation before re-approving
-        await new Promise((resolve) => setTimeout(resolve, 3000));
+        // Progressive retry: wait 5s, try order; if still stale, wait 7s more
+        const retryDelays = [5000, 7000];
+        let orderCreated = false;
 
-        let retryApprovalOk = false;
-        if (sponsoredApproval?.enabled) {
-          const retryHash = await sponsoredApproval.execute({
-            amount: requiredApprovalAmount,
-            chainId: targetChainId,
-            spender: sponsoredApproval.spenderAddress,
-            tokenAddress: selectedToken.tokenAddress as `0x${string}`,
-          });
-          retryApprovalOk = !!retryHash;
-        } else {
-          const retryHash = await approveTokenIfNeeded(
-            contractAddress,
-            requiredApprovalAmount,
-          );
-          retryApprovalOk = !!retryHash;
-        }
+        for (let i = 0; i < retryDelays.length; i++) {
+          console.log(`[Offramp] Retry ${i + 1}/${retryDelays.length}: waiting ${retryDelays[i]}ms for RPC propagation...`);
+          await new Promise((resolve) => setTimeout(resolve, retryDelays[i]));
 
-        if (!retryApprovalOk) {
-          setShowProcessingPopup(false);
-          setApproving(false);
-          setProcessing(false);
-          notify.error("Re-approval failed. Please try the transaction again.");
-          onEarlyExit?.();
-          return;
-        }
+          try {
+            apiResponse = await callCreateOrder();
+            console.log("[Offramp] Order created on retry", i + 1);
+            notify.success("Order created successfully!");
+            orderCreated = true;
+            break;
+          } catch (retryError: any) {
+            if (retryError instanceof KYCRequiredError) {
+              setShowProcessingPopup(false);
+              onKycRequired(retryError);
+              setApproving(false);
+              setProcessing(false);
+              onEarlyExit?.();
+              return;
+            }
 
-        // Extra delay after approval confirmation to let backend RPC catch up
-        await new Promise((resolve) => setTimeout(resolve, 4000));
+            if (retryError instanceof InsufficientAllowanceError) {
+              console.warn(`[Offramp] Retry ${i + 1} still got insufficient allowance, backend RPC still lagging`);
+              // Continue to next retry iteration
+              continue;
+            }
 
-        try {
-          apiResponse = await callCreateOrder();
-          notify.success("Order created successfully on retry!");
-        } catch (retryError: any) {
-          setShowProcessingPopup(false);
-
-          if (retryError instanceof KYCRequiredError) {
-            onKycRequired(retryError);
+            // Non-allowance error on retry — bail out
+            setShowProcessingPopup(false);
+            notify.error(retryError?.message || "Payment processing failed. Please try again.");
             setApproving(false);
             setProcessing(false);
             onEarlyExit?.();
             return;
           }
+        }
 
-          const retryMsg =
-            retryError instanceof InsufficientAllowanceError
-              ? "Approval is still syncing on-chain. Please wait a moment and try again."
-              : retryError?.message || "Payment processing failed. Please try again.";
-          notify.error(retryMsg);
-          setApproving(false);
-          setProcessing(false);
-          onEarlyExit?.();
-          return;
+        if (!orderCreated) {
+          // All retries exhausted — as last resort, force a fresh approval + one more attempt
+          console.warn("[Offramp] All wait-only retries exhausted, forcing re-approval as last resort");
+          notify.info("Re-approving tokens and retrying...", { autoClose: 10000 });
+
+          let reapprovalOk = false;
+          if (sponsoredApproval?.enabled) {
+            const retryHash = await sponsoredApproval.execute({
+              amount: requiredApprovalAmount,
+              chainId: targetChainId,
+              spender: sponsoredApproval.spenderAddress,
+              tokenAddress: selectedToken.tokenAddress as `0x${string}`,
+            });
+            reapprovalOk = !!retryHash;
+          } else {
+            const retryHash = await approveTokenIfNeeded(
+              contractAddress,
+              requiredApprovalAmount,
+            );
+            reapprovalOk = !!retryHash;
+          }
+
+          if (!reapprovalOk) {
+            setShowProcessingPopup(false);
+            setApproving(false);
+            setProcessing(false);
+            notify.error("Re-approval failed. Please try the transaction again.");
+            onEarlyExit?.();
+            return;
+          }
+
+          await new Promise((resolve) => setTimeout(resolve, 6000));
+
+          try {
+            apiResponse = await callCreateOrder();
+            notify.success("Order created successfully!");
+          } catch (finalError: any) {
+            setShowProcessingPopup(false);
+
+            if (finalError instanceof KYCRequiredError) {
+              onKycRequired(finalError);
+              setApproving(false);
+              setProcessing(false);
+              onEarlyExit?.();
+              return;
+            }
+
+            const msg =
+              finalError instanceof InsufficientAllowanceError
+                ? "Approval is still syncing on-chain. Please wait 30 seconds and try again."
+                : finalError?.message || "Payment processing failed. Please try again.";
+            notify.error(msg);
+            setApproving(false);
+            setProcessing(false);
+            onEarlyExit?.();
+            return;
+          }
         }
       } else {
         setShowProcessingPopup(false);
