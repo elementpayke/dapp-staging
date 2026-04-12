@@ -26,7 +26,6 @@ interface TransactionFiltersProps {
   activeFilterCount: number;
   handleFilterChange: (filterType: keyof FilterState, value: string) => void;
   clearFilters: () => void;
-  // New props for consolidated toolbar
   refreshing?: boolean;
   onRefresh?: () => void;
   currentPage?: number;
@@ -57,18 +56,12 @@ const TransactionFilters: FC<TransactionFiltersProps> = ({
   setCurrentPage,
   totalTransactions,
 }: TransactionFiltersProps) => {
-  // Use modal overlay hook to manage dropdown hiding
   useModalOverlay(showFilters);
 
-  // Helper function to format token display
-  const formatTokenDisplay = (token: string) => {
-    return token.replace(/_/g, " ");
-  };
+  const formatTokenDisplay = (token: string) => token.replace(/_/g, " ");
 
-  // Mobile-optimized filter content
   const MobileFilterContent = () => (
     <div className="space-y-6">
-      {/* Payment Method Filter - Most important, shown first on mobile */}
       <div>
         <label className="block text-base font-medium text-[var(--ep-heading)] mb-3">
           Payment Method
@@ -90,7 +83,6 @@ const TransactionFilters: FC<TransactionFiltersProps> = ({
         </div>
       </div>
 
-      {/* Status Filter - Second most important */}
       <div>
         <label className="block text-base font-medium text-[var(--ep-heading)] mb-3">
           Status
@@ -116,7 +108,6 @@ const TransactionFilters: FC<TransactionFiltersProps> = ({
         </div>
       </div>
 
-      {/* Direction Filter - Simple toggle */}
       <div>
         <label className="block text-base font-medium text-[var(--ep-heading)] mb-3">
           Direction
@@ -138,7 +129,6 @@ const TransactionFilters: FC<TransactionFiltersProps> = ({
         </div>
       </div>
 
-      {/* Token Filter - Last, as it's less commonly used */}
       <div>
         <label className="block text-base font-medium text-[var(--ep-heading)] mb-3">
           Token
@@ -162,10 +152,8 @@ const TransactionFilters: FC<TransactionFiltersProps> = ({
     </div>
   );
 
-  // Desktop filter content remains the same
   const DesktopFilterContent = () => (
     <div className="space-y-4">
-      {/* Status Filter */}
       <div>
         <label className="block text-sm font-medium text-[var(--ep-muted)] mb-2">
           Status
@@ -190,7 +178,6 @@ const TransactionFilters: FC<TransactionFiltersProps> = ({
           ))}
         </div>
       </div>
-      {/* Direction Filter */}
       <div>
         <label className="block text-sm font-medium text-[var(--ep-muted)] mb-2">
           Direction
@@ -211,7 +198,6 @@ const TransactionFilters: FC<TransactionFiltersProps> = ({
           ))}
         </div>
       </div>
-      {/* Payment Method Filter */}
       <div>
         <label className="block text-sm font-medium text-[var(--ep-muted)] mb-2">
           Payment Method
@@ -232,7 +218,6 @@ const TransactionFilters: FC<TransactionFiltersProps> = ({
           ))}
         </div>
       </div>
-      {/* Token Filter */}
       <div>
         <label className="block text-sm font-medium text-[var(--ep-muted)] mb-2">
           Token
@@ -258,15 +243,10 @@ const TransactionFilters: FC<TransactionFiltersProps> = ({
 
   return (
     <div className="mb-4">
-      {/* Desktop Consolidated Toolbar - Single Row */}
+      {/* ── Desktop Toolbar ── */}
       <div className="hidden sm:flex items-center gap-2 justify-between bg-[var(--ep-bg-card)] rounded-xl border border-[var(--ep-border)] p-2 shadow-[var(--ep-card-shadow)]">
-        {/* Refresh Button */}
-
         <div className="flex flex-row w-fit gap-2 items-center md:w-1/2">
-          {/* Divider */}
           <div className="w-px h-6 bg-[var(--ep-border)]" />
-
-          {/* Search Bar */}
           <div className="relative flex-1 max-w-md">
             <svg
               className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--ep-muted)]"
@@ -290,7 +270,6 @@ const TransactionFilters: FC<TransactionFiltersProps> = ({
             />
           </div>
 
-          {/* Filter Button */}
           <div className="relative">
             <button
               className="flex items-center gap-1.5 px-3 py-1.5 border border-[var(--ep-border)] rounded-lg hover:bg-[var(--ep-accent-subtle)] transition text-sm text-[var(--ep-body)]"
@@ -316,11 +295,12 @@ const TransactionFilters: FC<TransactionFiltersProps> = ({
                 </span>
               )}
             </button>
-            {/* Desktop Filter Dropdown */}
             {showFilters && (
               <div className="absolute top-full left-0 mt-2 w-80 bg-[var(--ep-bg-card)] border border-[var(--ep-border)] rounded-xl shadow-[var(--ep-card-shadow-hover)] z-dropdown p-4">
                 <div className="flex justify-between items-center mb-3">
-                  <h3 className="font-medium text-[var(--ep-heading)]">Filters</h3>
+                  <h3 className="font-medium text-[var(--ep-heading)]">
+                    Filters
+                  </h3>
                   <button
                     onClick={clearFilters}
                     className="text-sm text-[var(--ep-accent)] hover:underline"
@@ -335,7 +315,6 @@ const TransactionFilters: FC<TransactionFiltersProps> = ({
         </div>
 
         <div className="flex flex-row items-center gap-2">
-          {/* Divider */}
           <div className="w-px h-6 bg-[var(--ep-border)]" />
           {onRefresh && (
             <button
@@ -357,15 +336,16 @@ const TransactionFilters: FC<TransactionFiltersProps> = ({
                   d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
                 />
               </svg>
-              Refresh
               <span className="hidden lg:inline">
                 {refreshing ? "Refreshing..." : "Refresh"}
               </span>
             </button>
           )}
-          {/* Rows per page selector */}
           <div className="flex items-center gap-1.5">
-            <label htmlFor="rowsPerPage" className="text-xs text-[var(--ep-muted)]">
+            <label
+              htmlFor="rowsPerPage"
+              className="text-xs text-[var(--ep-muted)]"
+            >
               Show
             </label>
             <select
@@ -381,7 +361,6 @@ const TransactionFilters: FC<TransactionFiltersProps> = ({
             </select>
           </div>
 
-          {/* Pagination Controls */}
           {currentPage && totalPages && setCurrentPage && totalPages > 1 && (
             <>
               <div className="w-px h-6 bg-[var(--ep-border)]" />
@@ -411,7 +390,6 @@ const TransactionFilters: FC<TransactionFiltersProps> = ({
             </>
           )}
 
-          {/* Transaction Count */}
           {totalTransactions !== undefined && (
             <>
               <div className="w-px h-6 bg-[var(--ep-border)]" />
@@ -423,16 +401,15 @@ const TransactionFilters: FC<TransactionFiltersProps> = ({
         </div>
       </div>
 
-      {/* Mobile Consolidated Toolbar */}
+      {/* ── Mobile Toolbar ── */}
       <div className="sm:hidden space-y-2">
-        {/* Top row: Refresh + Search + Filter */}
+        {/* Row 1: Refresh + Search + Filter */}
         <div className="flex gap-2 bg-[var(--ep-bg-card)] rounded-xl border border-[var(--ep-border)] p-2">
-          {/* Refresh Button */}
           {onRefresh && (
             <button
               onClick={onRefresh}
               disabled={refreshing}
-              className="flex items-center justify-center w-9 h-9 bg-[var(--ep-accent)] text-white rounded-lg hover:opacity-90 transition disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex items-center justify-center w-9 h-9 flex-shrink-0 bg-[var(--ep-accent)] text-white rounded-lg hover:opacity-90 transition disabled:opacity-50 disabled:cursor-not-allowed"
               title="Refresh"
             >
               <svg
@@ -451,8 +428,7 @@ const TransactionFilters: FC<TransactionFiltersProps> = ({
             </button>
           )}
 
-          {/* Search Input */}
-          <div className="flex-1 relative">
+          <div className="flex-1 relative min-w-0">
             <svg
               className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--ep-muted)]"
               fill="none"
@@ -475,9 +451,8 @@ const TransactionFilters: FC<TransactionFiltersProps> = ({
             />
           </div>
 
-          {/* Filter Button */}
           <button
-            className="flex items-center justify-center w-9 h-9 border border-[var(--ep-border)] rounded-lg hover:bg-[var(--ep-accent-subtle)] transition relative"
+            className="flex items-center justify-center w-9 h-9 flex-shrink-0 border border-[var(--ep-border)] rounded-lg hover:bg-[var(--ep-accent-subtle)] transition relative"
             onClick={() => setShowFilters(!showFilters)}
           >
             <svg
@@ -494,61 +469,74 @@ const TransactionFilters: FC<TransactionFiltersProps> = ({
               />
             </svg>
             {activeFilterCount > 0 && (
-              <span className="absolute -top-1 -right-1 bg-[var(--ep-accent)] text-white text-xs rounded-full w-4 h-4 flex items-center justify-center">
+              <span className="absolute -top-1 -right-1 bg-[var(--ep-accent)] text-white text-xs rounded-full w-4 h-4 flex items-center justify-center leading-none">
                 {activeFilterCount}
               </span>
             )}
           </button>
         </div>
 
-        {/* Bottom row: Per page + Pagination + Count */}
-        <div className="flex items-center justify-between bg-[var(--ep-bg-card)] rounded-xl border border-[var(--ep-border)] px-2 py-1.5">
-          {/* Rows per page */}
-          <div className="flex items-center gap-1">
+        {/* ── Row 2: Per-page · Pagination · Count (FIXED) ── */}
+        <div className="flex items-center gap-2 bg-[var(--ep-bg-card)] rounded-xl border border-[var(--ep-border)] px-3 py-2">
+          {/* Rows per page – left-aligned */}
+          <div className="flex items-center gap-1.5 flex-shrink-0">
+            <span className="text-xs text-[var(--ep-muted)]">Show</span>
             <select
-              id="rowsPerPageMobile"
               value={rowsPerPage}
               onChange={(e) => setRowsPerPage(Number(e.target.value))}
-              className="border border-[var(--ep-border)] rounded px-1 py-0.5 text-xs bg-[var(--ep-bg)] text-[var(--ep-body)] focus:ring-2 focus:ring-[var(--ep-accent)]/30 outline-none"
+              className="border border-[var(--ep-border)] rounded-lg px-1.5 py-1 text-xs bg-[var(--ep-bg)] text-[var(--ep-body)] focus:ring-2 focus:ring-[var(--ep-accent)]/30 outline-none"
             >
               <option value={5}>5</option>
               <option value={20}>20</option>
               <option value={50}>50</option>
               <option value={100}>100</option>
             </select>
-            <span className="text-xs text-[var(--ep-muted)]">/page</span>
           </div>
 
-          {/* Pagination */}
-          {currentPage && totalPages && setCurrentPage && totalPages > 1 && (
-            <div className="flex items-center gap-1">
+          {/* Spacer pushes pagination to centre */}
+          <div className="flex-1" />
+
+          {/* Pagination – centred, only when multiple pages */}
+          {currentPage && totalPages && setCurrentPage && totalPages > 1 ? (
+            <div className="flex items-center gap-1 flex-shrink-0">
               <button
-                className="w-6 h-6 flex items-center justify-center rounded hover:bg-[var(--ep-accent-subtle)] text-[var(--ep-muted)] text-xs disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-[var(--ep-accent-subtle)] text-[var(--ep-muted)] text-sm disabled:opacity-40 disabled:cursor-not-allowed transition"
                 onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
                 disabled={currentPage === 1}
               >
-                &lt;
+                ‹
               </button>
-              <span className="text-xs text-[var(--ep-muted)]">
-                {currentPage}/{totalPages}
+              <span className="text-xs text-[var(--ep-muted)] tabular-nums px-1 min-w-[3rem] text-center">
+                {currentPage} / {totalPages}
               </span>
               <button
-                className="w-6 h-6 flex items-center justify-center rounded hover:bg-[var(--ep-accent-subtle)] text-[var(--ep-muted)] text-xs disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-[var(--ep-accent-subtle)] text-[var(--ep-muted)] text-sm disabled:opacity-40 disabled:cursor-not-allowed transition"
                 onClick={() =>
                   setCurrentPage(Math.min(totalPages, currentPage + 1))
                 }
                 disabled={currentPage === totalPages}
               >
-                &gt;
+                ›
               </button>
             </div>
+          ) : (
+            /* Keep layout stable even with no pagination */
+            <div className="flex-1" />
           )}
 
-          {/* Transaction Count */}
+          {/* Spacer */}
+          <div className="flex-1" />
+
+          {/* Transaction count – right-aligned, with clear spacing */}
           {totalTransactions !== undefined && (
-            <span className="text-xs text-[var(--ep-muted)]">
-              {totalTransactions} txs
-            </span>
+            <div className="flex items-center gap-1 flex-shrink-0">
+              <span className="text-xs font-semibold text-[var(--ep-heading)] tabular-nums">
+                {totalTransactions}
+              </span>
+              <span className="text-xs text-[var(--ep-muted)]">
+                {totalTransactions === 1 ? "tx" : "txs"}
+              </span>
+            </div>
           )}
         </div>
 
@@ -556,7 +544,6 @@ const TransactionFilters: FC<TransactionFiltersProps> = ({
         {showFilters && (
           <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-overlay">
             <div className="fixed inset-x-0 bottom-0 transform transition-transform duration-300 ease-in-out bg-[var(--ep-bg-card)] rounded-t-2xl z-overlay">
-              {/* Header */}
               <div className="sticky top-0 bg-[var(--ep-bg-card)] px-4 py-3 border-b border-[var(--ep-border)]">
                 <div className="flex justify-between items-center">
                   <h3 className="text-lg font-semibold text-[var(--ep-heading)]">
@@ -577,7 +564,6 @@ const TransactionFilters: FC<TransactionFiltersProps> = ({
                     </button>
                   </div>
                 </div>
-                {/* Active Filters */}
                 {activeFilterCount > 0 && (
                   <div className="flex flex-wrap gap-2 mt-3">
                     {Object.entries(filters).map(([filterType, filterValues]) =>
@@ -610,7 +596,6 @@ const TransactionFilters: FC<TransactionFiltersProps> = ({
                   </div>
                 )}
               </div>
-              {/* Filter Content */}
               <div
                 className="p-4 overflow-y-auto"
                 style={{ maxHeight: "calc(80vh - 80px)" }}
@@ -622,7 +607,7 @@ const TransactionFilters: FC<TransactionFiltersProps> = ({
         )}
       </div>
 
-      {/* Active Filters Display - Desktop only */}
+      {/* Active Filters Display – Desktop only */}
       {activeFilterCount > 0 && (
         <div className="hidden sm:flex mt-2 flex-wrap gap-2 items-center">
           <span className="text-xs text-[var(--ep-muted)]">Active:</span>

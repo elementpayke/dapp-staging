@@ -14,7 +14,7 @@ interface BalanceVisibilityState {
 export const useBalanceVisibilityStore = create<BalanceVisibilityState>()(
   persist(
     (set) => ({
-      balanceHidden: false,
+      balanceHidden: true,
       hideMode: "blur",
       toggleBalanceHidden: () => set((s) => ({ balanceHidden: !s.balanceHidden })),
       setBalanceHidden: (value) => set({ balanceHidden: value }),
