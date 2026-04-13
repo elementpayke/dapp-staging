@@ -3,6 +3,7 @@ import axios from "axios";
 import { KYCRequiredError } from "@/services/kycError";
 import {
   InsufficientAllowanceError,
+  isAllowanceErrorFromData,
   isInsufficientAllowanceMessage,
   parseAllowanceError,
 } from "@/services/allowanceError";
@@ -667,16 +668,27 @@ export const createOffRampOrder = async ({
       error.response?.data?.error ||
       error?.message ||
       "";
-    if (
-      error.response?.status === 400 &&
-      isInsufficientAllowanceMessage(allowanceMsg)
-    ) {
-      const parsed = parseAllowanceError(allowanceMsg);
-      throw new InsufficientAllowanceError(
-        allowanceMsg,
-        parsed.current,
-        parsed.required,
-      );
+    if (error.response?.status === 400) {
+      // Check message-based detection (e.g. "Insufficient allowance: current=X, required=Y"
+      // or "Approve the contract to spend your tokens before OffRamp.")
+      if (isInsufficientAllowanceMessage(allowanceMsg)) {
+        const parsed = parseAllowanceError(allowanceMsg);
+        throw new InsufficientAllowanceError(
+          allowanceMsg,
+          parsed.current,
+          parsed.required,
+        );
+      }
+
+      // Check structured data detection (nested data.data with required/current fields)
+      const structuredCheck = isAllowanceErrorFromData(error.response?.data);
+      if (structuredCheck.isMatch) {
+        throw new InsufficientAllowanceError(
+          allowanceMsg || "Insufficient allowance detected from response data",
+          structuredCheck.current,
+          structuredCheck.required,
+        );
+      }
     }
 
     const kycSignal = parseKYCSignal(error.response?.data);
