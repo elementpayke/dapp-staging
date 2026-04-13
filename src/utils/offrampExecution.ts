@@ -720,7 +720,7 @@ export const executeOfframpOrder = async (
 
             const msg =
               finalError instanceof InsufficientAllowanceError
-                ? "Approval is still syncing on-chain. Please wait 30 seconds and try again."
+                ? "Your approval was confirmed but the network is still syncing. Please wait about 30 seconds and try again — no need to re-approve."
                 : finalError?.message || "Payment processing failed. Please try again.";
             notify.error(msg);
             setApproving(false);
@@ -844,6 +844,8 @@ export const executeOfframpOrder = async (
       err?.code === "ACTION_REJECTED"
     ) {
       notify.error("Transaction was rejected in your wallet. Please try again.");
+    } else if (errMsg.includes("insufficient balance")) {
+      notify.error("Insufficient balance for this transaction. Please try a lower amount.");
     } else if (errMsg.includes("insufficient funds") || errMsg.includes("gas required exceeds")) {
       notify.error("Insufficient gas to complete the transaction. Please add native tokens for gas fees.");
     } else if (errMsg.includes("disconnected") || errMsg.includes("no provider")) {
