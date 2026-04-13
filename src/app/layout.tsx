@@ -6,6 +6,7 @@ import "@coinbase/onchainkit/styles.css";
 import { ThemeProvider } from "@/components/theme-provider";
 import { Toaster } from "@/components/ui/sonner";
 import Web3ErrorBoundary from "@/components/shared/Web3ErrorBoundary";
+import PWAInstallPrompt from "@/components/PWAInstallPrompt"; // ← NEW
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -17,14 +18,12 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
-/** Editorial landing: display (headlines) — Plus Jakarta Sans is bold, clean & highly readable */
 const plusJakarta = Plus_Jakarta_Sans({
   variable: "--font-landing-display",
   subsets: ["latin"],
   weight: ["600", "700", "800"],
 });
 
-/** Editorial landing: body */
 const figtree = Figtree({
   variable: "--font-landing-body",
   subsets: ["latin"],
@@ -35,11 +34,6 @@ export const metadata: Metadata = {
     template: "%s | ElementPay - Crypto Micro Payments Made Simple",
     default: "ElementPay - Crypto Micro Payments Made Simple",
   },
- // icons: {
- //   icon: '/favicon.ico',
- //  shortcut: '/favicon-16x16.png',
- //   apple: '/apple-touch-icon.png',
- // },
   description:
     "Use your crypto for everyday purchases with ElementPay. Make instant payments, and connect all your wallets in one place.",
   keywords: [
@@ -57,6 +51,8 @@ export const metadata: Metadata = {
   authors: [{ name: "ElementPay", url: "https://www.elementpay.net" }],
   generator: "Next.js",
   applicationName: "ElementPay",
+  // ↓ NEW: tells browsers where to find the PWA manifest
+  manifest: "/manifest.json",
   alternates: {
     canonical: "https://www.elementpay.net",
   },
@@ -87,11 +83,8 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
-        {/* Standard favicon for all browsers */}
         <link rel="icon" href="/favicon.ico" sizes="any" />
-        {/* High-res PNG for modern browsers and pinned tabs */}
         <link rel="icon" type="image/png" href="/elementpay.png" sizes="256x256" />
-        {/* Optional: Apple Touch Icon for iOS */}
         <link rel="apple-touch-icon" href="/elementpay.png" sizes="180x180" />
       </head>
       <body
@@ -105,7 +98,11 @@ export default function RootLayout({
             enableSystem={false}
             disableTransitionOnChange
           >
-            <Providers>{children}</Providers>
+            <Providers>
+              {children}
+              {/* ↓ NEW: renders on every page, handles its own visibility logic */}
+              <PWAInstallPrompt />
+            </Providers>
             <Toaster />
           </ThemeProvider>
         </Web3ErrorBoundary>
