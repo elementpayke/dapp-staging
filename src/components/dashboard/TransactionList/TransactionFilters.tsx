@@ -242,7 +242,7 @@ const TransactionFilters: FC<TransactionFiltersProps> = ({
   );
 
   return (
-    <div className="mb-4">
+    <div className="mb-4 w-full">
       {/* ── Desktop Toolbar ── */}
       <div className="hidden sm:flex items-center gap-2 justify-between bg-[var(--ep-bg-card)] rounded-xl border border-[var(--ep-border)] p-2 shadow-[var(--ep-card-shadow)]">
         <div className="flex flex-row w-fit gap-2 items-center md:w-1/2">
@@ -402,89 +402,77 @@ const TransactionFilters: FC<TransactionFiltersProps> = ({
       </div>
 
       {/* ── Mobile Toolbar ── */}
-      <div className="sm:hidden space-y-2">
-        {/* Row 1: Refresh + Search + Filter */}
-        <div className="flex gap-2 bg-[var(--ep-bg-card)] rounded-xl border border-[var(--ep-border)] p-2">
-          {onRefresh && (
-            <button
-              onClick={onRefresh}
-              disabled={refreshing}
-              className="flex items-center justify-center w-9 h-9 flex-shrink-0 bg-[var(--ep-accent)] text-white rounded-lg hover:opacity-90 transition disabled:opacity-50 disabled:cursor-not-allowed"
-              title="Refresh"
-            >
-              <svg
-                className={`w-4 h-4 ${refreshing ? "animate-spin" : ""}`}
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-                />
-              </svg>
-            </button>
-          )}
+      <div className="sm:hidden" style={{ display: "flex", flexDirection: "column", gap: "8px", width: "100%" }}>
 
-          <div className="flex-1 relative min-w-0">
+        {/* ── Row 1: Search + Filter ── */}
+        <div
+          style={{ display: "flex", flexDirection: "row", gap: "8px", width: "100%", alignItems: "center" }}
+          className="bg-[var(--ep-bg-card)] rounded-xl border border-[var(--ep-border)] p-2"
+        >
+          {/* Search input — takes all remaining width */}
+          <div style={{ position: "relative", flex: 1, minWidth: 0 }}>
             <svg
-              className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--ep-muted)]"
+              style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", width: 16, height: 16, color: "var(--ep-muted)", pointerEvents: "none" }}
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
             >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-              />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
             </svg>
             <input
               type="text"
-              placeholder="Search..."
+              placeholder="Search transactions..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-8 pr-3 py-2 border border-[var(--ep-border)] rounded-lg bg-[var(--ep-bg)] focus:ring-2 focus:ring-[var(--ep-accent)]/30 focus:border-[var(--ep-accent)] outline-none text-sm text-[var(--ep-body)]"
+              style={{ width: "100%", paddingLeft: 32, paddingRight: 12, paddingTop: 10, paddingBottom: 10, fontSize: 14, outline: "none", borderRadius: 8, border: "1px solid var(--ep-border)", background: "var(--ep-bg)", color: "var(--ep-body)" }}
             />
           </div>
 
+          {/* Filter button */}
           <button
-            className="flex items-center justify-center w-9 h-9 flex-shrink-0 border border-[var(--ep-border)] rounded-lg hover:bg-[var(--ep-accent-subtle)] transition relative"
             onClick={() => setShowFilters(!showFilters)}
+            style={{ position: "relative", flexShrink: 0, width: 40, height: 40, display: "flex", alignItems: "center", justifyContent: "center", borderRadius: 8, border: "1px solid var(--ep-border)", background: "transparent", cursor: "pointer" }}
           >
-            <svg
-              className="w-4 h-4 text-[var(--ep-muted)]"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"
-              />
+            <svg className="w-4 h-4 text-[var(--ep-muted)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
             </svg>
             {activeFilterCount > 0 && (
-              <span className="absolute -top-1 -right-1 bg-[var(--ep-accent)] text-white text-xs rounded-full w-4 h-4 flex items-center justify-center leading-none">
+              <span style={{ position: "absolute", top: -4, right: -4, background: "var(--ep-accent)", color: "#fff", fontSize: 10, borderRadius: "100%", width: 16, height: 16, display: "flex", alignItems: "center", justifyContent: "center" }}>
                 {activeFilterCount}
               </span>
             )}
           </button>
         </div>
 
-        {/* ── Row 2: Per-page · Pagination · Count (FIXED) ── */}
-        <div className="flex items-center gap-2 bg-[var(--ep-bg-card)] rounded-xl border border-[var(--ep-border)] px-3 py-2">
-          {/* Rows per page – left-aligned */}
-          <div className="flex items-center gap-1.5 flex-shrink-0">
+        {/* ── Row 2: Refresh · Show · Pagination · Count ── */}
+        <div
+          style={{ display: "flex", flexDirection: "row", gap: "8px", width: "100%", alignItems: "center", padding: "8px 12px" }}
+          className="bg-[var(--ep-bg-card)] rounded-xl border border-[var(--ep-border)]"
+        >
+          {/* Refresh */}
+          {onRefresh && (
+            <button
+              onClick={onRefresh}
+              disabled={refreshing}
+              style={{ flexShrink: 0, width: 32, height: 32, display: "flex", alignItems: "center", justifyContent: "center", borderRadius: 8, background: "var(--ep-accent)", color: "#fff", border: "none", cursor: "pointer", opacity: refreshing ? 0.5 : 1 }}
+            >
+              <svg className={`w-4 h-4 ${refreshing ? "animate-spin" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+            </button>
+          )}
+
+          {/* Divider */}
+          <div style={{ width: 1, height: 20, background: "var(--ep-border)", flexShrink: 0 }} />
+
+          {/* Rows per page */}
+          <div style={{ display: "flex", alignItems: "center", gap: 4, flexShrink: 0 }}>
             <span className="text-xs text-[var(--ep-muted)]">Show</span>
             <select
               value={rowsPerPage}
               onChange={(e) => setRowsPerPage(Number(e.target.value))}
-              className="border border-[var(--ep-border)] rounded-lg px-1.5 py-1 text-xs bg-[var(--ep-bg)] text-[var(--ep-body)] focus:ring-2 focus:ring-[var(--ep-accent)]/30 outline-none"
+              className="border border-[var(--ep-border)] rounded-lg text-xs bg-[var(--ep-bg)] text-[var(--ep-body)] outline-none"
+              style={{ padding: "4px 6px" }}
             >
               <option value={5}>5</option>
               <option value={20}>20</option>
@@ -493,49 +481,34 @@ const TransactionFilters: FC<TransactionFiltersProps> = ({
             </select>
           </div>
 
-          {/* Spacer pushes pagination to centre */}
-          <div className="flex-1" />
+          {/* Spacer */}
+          <div style={{ flex: 1 }} />
 
-          {/* Pagination – centred, only when multiple pages */}
-          {currentPage && totalPages && setCurrentPage && totalPages > 1 ? (
-            <div className="flex items-center gap-1 flex-shrink-0">
+          {/* Pagination */}
+          {currentPage && totalPages && setCurrentPage && totalPages > 1 && (
+            <div style={{ display: "flex", alignItems: "center", gap: 4, flexShrink: 0 }}>
               <button
-                className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-[var(--ep-accent-subtle)] text-[var(--ep-muted)] text-sm disabled:opacity-40 disabled:cursor-not-allowed transition"
                 onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
                 disabled={currentPage === 1}
-              >
-                ‹
-              </button>
-              <span className="text-xs text-[var(--ep-muted)] tabular-nums px-1 min-w-[3rem] text-center">
+                style={{ width: 28, height: 28, display: "flex", alignItems: "center", justifyContent: "center", borderRadius: 6, border: "none", background: "transparent", cursor: currentPage === 1 ? "not-allowed" : "pointer", opacity: currentPage === 1 ? 0.4 : 1, fontSize: 18, color: "var(--ep-muted)" }}
+              >‹</button>
+              <span className="text-xs text-[var(--ep-muted)] tabular-nums" style={{ minWidth: 36, textAlign: "center" }}>
                 {currentPage} / {totalPages}
               </span>
               <button
-                className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-[var(--ep-accent-subtle)] text-[var(--ep-muted)] text-sm disabled:opacity-40 disabled:cursor-not-allowed transition"
-                onClick={() =>
-                  setCurrentPage(Math.min(totalPages, currentPage + 1))
-                }
+                onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
                 disabled={currentPage === totalPages}
-              >
-                ›
-              </button>
+                style={{ width: 28, height: 28, display: "flex", alignItems: "center", justifyContent: "center", borderRadius: 6, border: "none", background: "transparent", cursor: currentPage === totalPages ? "not-allowed" : "pointer", opacity: currentPage === totalPages ? 0.4 : 1, fontSize: 18, color: "var(--ep-muted)" }}
+              >›</button>
+              <div style={{ width: 1, height: 20, background: "var(--ep-border)", flexShrink: 0 }} />
             </div>
-          ) : (
-            /* Keep layout stable even with no pagination */
-            <div className="flex-1" />
           )}
 
-          {/* Spacer */}
-          <div className="flex-1" />
-
-          {/* Transaction count – right-aligned, with clear spacing */}
+          {/* Count */}
           {totalTransactions !== undefined && (
-            <div className="flex items-center gap-1 flex-shrink-0">
-              <span className="text-xs font-semibold text-[var(--ep-heading)] tabular-nums">
-                {totalTransactions}
-              </span>
-              <span className="text-xs text-[var(--ep-muted)]">
-                {totalTransactions === 1 ? "tx" : "txs"}
-              </span>
+            <div style={{ display: "flex", alignItems: "center", gap: 3, flexShrink: 0 }}>
+              <span className="text-xs font-semibold text-[var(--ep-heading)] tabular-nums">{totalTransactions}</span>
+              <span className="text-xs text-[var(--ep-muted)]">{totalTransactions === 1 ? "tx" : "txs"}</span>
             </div>
           )}
         </div>
