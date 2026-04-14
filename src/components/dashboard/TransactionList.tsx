@@ -569,6 +569,7 @@ const TransactionList: FC<{ walletAddress: string | null }> = ({
             totalPages={totalPages}
             rowsPerPage={rowsPerPage}
             hidePagination={true}
+            alwaysVisible={true}
           />
         )}
       </div>
