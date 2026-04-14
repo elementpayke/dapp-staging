@@ -440,7 +440,11 @@ export const executeOfframpOrder = async (
       requiredTransferAmount = formatUnits(requiredTokenAmountRaw, decimals);
       requiredTransferAmountNumber = Number(requiredTransferAmount);
       const bufferedAmount = baseAmount * 1.005;
-      requiredApprovalAmount = bufferedAmount.toFixed(decimals);
+      // Cap at wallet balance so MAX offramp doesn't fail the balance pre-check.
+      // approve() just sets a spending allowance — the contract only transfers
+      // the unbuffered requiredTransferAmount, so this is safe.
+      const cappedAmount = Math.min(bufferedAmount, selectedTokenBalance);
+      requiredApprovalAmount = cappedAmount.toFixed(decimals);
       hasSufficientAllowance =
         quoteResponse.data.has_sufficient_allowance ?? false;
 

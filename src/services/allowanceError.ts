@@ -28,7 +28,31 @@ export class InsufficientAllowanceError extends Error {
  *   "Insufficient allowance: current=51357, required=620155"
  */
 export const isInsufficientAllowanceMessage = (msg: string): boolean =>
-  /insufficient\s*allowance/i.test(msg);
+  /insufficient\s*allowance/i.test(msg) ||
+  /approve\s+the\s+contract\s+to\s+spend/i.test(msg);
+
+/**
+ * Detect an allowance error from the structured `data.data` field returned by
+ * some backend responses (e.g. { data: { required: 19726562, current: 79102 } }).
+ */
+export const isAllowanceErrorFromData = (
+  responseData: any,
+): { isMatch: boolean; current: string; required: string } => {
+  const nested = responseData?.data;
+  if (
+    nested &&
+    typeof nested.required === "number" &&
+    typeof nested.current === "number" &&
+    nested.required > nested.current
+  ) {
+    return {
+      isMatch: true,
+      current: String(nested.current),
+      required: String(nested.required),
+    };
+  }
+  return { isMatch: false, current: "0", required: "0" };
+};
 
 /**
  * Parse the current/required values out of a backend allowance error message.
