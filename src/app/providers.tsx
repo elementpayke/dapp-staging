@@ -149,7 +149,7 @@ export function Providers(props: { children: ReactNode }) {
         supportedChains: [base, arbitrum, lisk, scroll, polygon],
         embeddedWallets: {
           ethereum: {
-            createOnLogin: "off",
+            createOnLogin: "users-without-wallets",
           },
         },
         // Enhanced WalletConnect configuration for mobile

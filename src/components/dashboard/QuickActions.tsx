@@ -36,6 +36,10 @@ const DepositCryptoModal = dynamic(
   () => import("./depositCrypto/DepositCryptoModal"),
   { ssr: false },
 );
+const WalletTransferModal = dynamic(
+  () => import("./walletTransfer/WalletTransferModal"),
+  { ssr: false },
+);
 
 const QuickActions: FC = () => {
   const { address } = useWallet();
@@ -202,9 +206,10 @@ const QuickActions: FC = () => {
             </div>
           </div>
 
-          <div className="flex gap-2 sm:gap-3 flex-nowrap">
+          <div className="flex gap-2 sm:gap-3 flex-wrap">
             <SendCryptoModal />
             <DepositCryptoModal />
+            <WalletTransferModal />
           </div>
         </div>
 

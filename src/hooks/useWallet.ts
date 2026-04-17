@@ -2,6 +2,7 @@ import { useWalletStore } from "@/lib/useWallet";
 import { useEffect, useCallback, useMemo } from "react";
 import { useAccount, useEnsName, useBalance, useDisconnect } from "wagmi";
 import { usePrivy, useWallets } from "@privy-io/react-auth";
+import { useSmartWallets } from "@privy-io/react-auth/smart-wallets";
 import { useAuthStore } from "@/stores/authStore";
 import { withRetry } from "@/lib/wagmi-config";
 import { getExplicitSelectedWalletAddress } from "@/lib/privy-wallet-selection";
@@ -10,6 +11,8 @@ export const useWallet = () => {
   const { address: wagmiAddress } = useAccount();
   const { authenticated, logout: privyLogout, ready: privyReady } = usePrivy();
   const { wallets } = useWallets();
+  const { client: smartWalletClient } = useSmartWallets();
+  const smartWalletAddress = smartWalletClient?.account?.address;
   const walletPreference = useAuthStore((s) => s.walletPreference);
 
   const walletAddress = useMemo(() => {
@@ -17,8 +20,9 @@ export const useWallet = () => {
       walletPreference,
       wallets,
       wagmiAddress,
+      smartWalletAddress,
     });
-  }, [walletPreference, wallets, wagmiAddress]);
+  }, [walletPreference, wallets, wagmiAddress, smartWalletAddress]);
   const isConnected = Boolean(walletAddress);
 
   const { data: ensName } = useEnsName({
