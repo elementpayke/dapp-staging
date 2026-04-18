@@ -484,6 +484,23 @@ export default function WalletTransferModal() {
                   balanceError={balanceExceeded}
                   sanitize={sanitizeDecimalInput}
                   tokenSelector={tokenSelectorNode}
+                  maxButton={
+                    <button
+                      type="button"
+                      disabled={!balance || balance <= 0}
+                      onClick={() => {
+                        const maxStr = balance
+                          .toFixed(6)
+                          .replace(/0+$/, "")
+                          .replace(/\.$/, "");
+                        setEditableSide("TOKEN");
+                        setTypedValue(maxStr);
+                      }}
+                      className="px-2.5 py-1 text-xs font-semibold text-[var(--ep-accent)] bg-[var(--ep-accent-muted)] rounded-full hover:bg-[var(--ep-accent)]/15 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    >
+                      Max
+                    </button>
+                  }
                 />
                 {amountError && !exceedsBalance && amount.trim() ? (
                   <p className="-mt-2 text-xs text-red-500">{amountError}</p>

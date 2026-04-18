@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { Html5Qrcode } from "html5-qrcode";
-import { Camera, X } from "lucide-react";
+import React, { Component, ReactNode, useEffect, useRef, useState } from "react";
+import { Html5Qrcode, Html5QrcodeScannerState } from "html5-qrcode";
+import { AlertTriangle, Camera } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -16,20 +16,66 @@ interface QrScannerModalProps {
   onScan: (value: string) => void;
 }
 
-export default function QrScannerModal({ open, onClose, onScan }: QrScannerModalProps) {
+/* ─── Local error boundary ───────────────────────────────────────
+ * Contains any crash thrown from the camera/scanner subtree so
+ * the host app stays alive. Renders a friendly fallback inside
+ * the same Dialog — the user can still close the modal.
+ * ───────────────────────────────────────────────────────────── */
+interface BoundaryProps {
+  children: ReactNode;
+  onError?: (error: Error) => void;
+}
+interface BoundaryState {
+  error: Error | null;
+}
+
+class ScannerErrorBoundary extends Component<BoundaryProps, BoundaryState> {
+  state: BoundaryState = { error: null };
+
+  static getDerivedStateFromError(error: Error): BoundaryState {
+    return { error };
+  }
+
+  componentDidCatch(error: Error, info: React.ErrorInfo) {
+    console.warn("[QrScannerModal] camera subtree crashed:", error, info);
+    this.props.onError?.(error);
+  }
+
+  render() {
+    if (this.state.error) {
+      return (
+        <div className="flex flex-col items-center gap-2 rounded-xl border border-red-200 bg-red-50 p-4 text-center">
+          <AlertTriangle className="h-5 w-5 text-red-500" />
+          <p className="text-sm font-semibold text-red-700">
+            Camera unavailable
+          </p>
+          <p className="text-xs text-red-600">
+            {this.state.error.message || "The scanner crashed. Please close and try again."}
+          </p>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
+/* ─── Inner scanner (all camera side-effects live here) ─── */
+interface ScannerViewProps {
+  onScan: (value: string) => void;
+  onClose: () => void;
+}
+
+function ScannerView({ onScan, onClose }: ScannerViewProps) {
   const scannerRef = useRef<Html5Qrcode | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!open) return;
-
     const scannerId = "qr-scanner-region";
     let stopped = false;
 
     const start = async () => {
       try {
         const scanner = new Html5Qrcode(scannerId);
-        scannerRef.current = scanner;
 
         await scanner.start(
           { facingMode: "environment" },
@@ -42,9 +88,13 @@ export default function QrScannerModal({ open, onClose, onScan }: QrScannerModal
             }
           },
           () => {
-            /* ignore scan failures */
+            /* ignore per-frame decode failures */
           },
         );
+
+        // Only assign ref after successful start — prevents stop() on
+        // an uninitialised scanner when permission is denied.
+        scannerRef.current = scanner;
       } catch (err) {
         setError(
           err instanceof Error
@@ -54,59 +104,74 @@ export default function QrScannerModal({ open, onClose, onScan }: QrScannerModal
       }
     };
 
-    // Small delay to let the DOM mount the container
     const timer = setTimeout(start, 300);
 
     return () => {
       clearTimeout(timer);
       stopped = true;
-      scannerRef.current
-        ?.stop()
-        .catch(() => {})
-        .finally(() => {
-          scannerRef.current?.clear();
-          scannerRef.current = null;
-        });
+      const scanner = scannerRef.current;
+      scannerRef.current = null;
+      if (!scanner) return;
+
+      const shouldStop =
+        scanner.getState?.() === Html5QrcodeScannerState.SCANNING;
+
+      const cleanup = () => {
+        try {
+          scanner.clear();
+        } catch {
+          /* noop */
+        }
+      };
+
+      if (shouldStop) {
+        try {
+          scanner.stop().catch(() => {}).finally(cleanup);
+        } catch {
+          cleanup();
+        }
+      } else {
+        cleanup();
+      }
     };
-  }, [open, onScan, onClose]);
+  }, [onScan, onClose]);
 
-  // Reset error when reopened
-  useEffect(() => {
-    if (open) setError(null);
-  }, [open]);
+  return (
+    <>
+      <div className="overflow-hidden rounded-xl bg-black">
+        <div id="qr-scanner-region" className="w-full" />
+      </div>
 
+      {error && (
+        <p className="mt-1 text-xs text-red-500 text-center">{error}</p>
+      )}
+
+      <p className="text-center text-[11px] text-[var(--ep-muted)]">
+        Point your camera at a wallet address QR code
+      </p>
+    </>
+  );
+}
+
+/* ─── Public component ─── */
+export default function QrScannerModal({ open, onClose, onScan }: QrScannerModalProps) {
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
       <DialogContent className="w-[95vw] max-w-sm p-4 bg-[var(--ep-bg-card)] border border-[var(--ep-border)] rounded-2xl">
         <DialogHeader className="pb-2">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Camera className="h-4 w-4 text-[var(--ep-accent)]" />
-              <DialogTitle className="text-sm font-semibold text-[var(--ep-heading)]">
-                Scan QR Code
-              </DialogTitle>
-            </div>
-            <button
-              type="button"
-              onClick={onClose}
-              className="rounded-lg p-1 hover:bg-[var(--ep-bg-input)] transition-colors"
-            >
-              <X className="h-4 w-4 text-[var(--ep-muted)]" />
-            </button>
+          <div className="flex items-center gap-2">
+            <Camera className="h-4 w-4 text-[var(--ep-accent)]" />
+            <DialogTitle className="text-sm font-semibold text-[var(--ep-heading)]">
+              Scan QR Code
+            </DialogTitle>
           </div>
         </DialogHeader>
 
-        <div className="overflow-hidden rounded-xl bg-black">
-          <div id="qr-scanner-region" className="w-full" />
-        </div>
-
-        {error && (
-          <p className="mt-1 text-xs text-red-500 text-center">{error}</p>
+        {open && (
+          <ScannerErrorBoundary>
+            <ScannerView onScan={onScan} onClose={onClose} />
+          </ScannerErrorBoundary>
         )}
-
-        <p className="text-center text-[11px] text-[var(--ep-muted)]">
-          Point your camera at a wallet address QR code
-        </p>
       </DialogContent>
     </Dialog>
   );
