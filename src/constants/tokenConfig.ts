@@ -33,6 +33,11 @@ export const TOKEN_CONFIG: Record<string, TokenConfig> = {
     address: "0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359",
     decimals: 6,
   },
+  // BNB Chain USDC — 18 decimals (BNB USDC uses 18, not 6 like other chains)
+  "0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d": {
+    address: "0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d",
+    decimals: 18,
+  },
 };
 
 /**
@@ -45,5 +50,3 @@ export const getTokenConfig = (address: string): TokenConfig | null => {
   );
   return entry ? entry[1] : null;
 };
-
-

@@ -19,6 +19,7 @@ import BASE_LOGO from "@/assets/BASE_LOGO.png";
 import LISK_LOGO from "@/assets/LISK_LOGO.png";
 import SCROLL_LOGO from "@/assets/SCROLL_LOGO.png";
 import POLYGON_LOGO from "@/assets/POLYGON_LOGO.png";
+import BNB_LOGO from "@/assets/BNB_LOGO.png"; // ← BNB Chain logo
 
 const NETWORK_LOGOS: Record<string, typeof ARBITRUM_LOGO> = {
   Arbitrum: ARBITRUM_LOGO,
@@ -26,6 +27,7 @@ const NETWORK_LOGOS: Record<string, typeof ARBITRUM_LOGO> = {
   Lisk: LISK_LOGO,
   Scroll: SCROLL_LOGO,
   Polygon: POLYGON_LOGO,
+  "BNB Chain": BNB_LOGO, // ← BNB Chain
 };
 
 // Dynamically import modals with no SSR to prevent wagmi context issues
