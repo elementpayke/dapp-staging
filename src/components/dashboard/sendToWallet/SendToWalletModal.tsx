@@ -6,6 +6,8 @@ import {
   ArrowUpRight,
   Check,
   ChevronDown,
+  Copy,
+  ExternalLink,
   Loader2,
   ScanLine,
   SendHorizontal,
@@ -27,6 +29,7 @@ import {
   getAvailableTokens,
 } from "@/constants/supportedTokens";
 import { getTargetChainIdForToken } from "@/utils/offrampExecution";
+import { getExplorerInfo } from "@/utils/explorerUtils";
 import { truncateAddress, walletLabel } from "../wallet-branding";
 import {
   Dialog,
@@ -256,6 +259,10 @@ export default function SendToWalletModal() {
       }
 
       setTxHash(hash);
+      // Reset amount inputs (but keep recipient so user can send again quickly)
+      setAmount("");
+      setTypedValue("");
+      setEditableSide("TOKEN");
       toast.success(`${selectedToken.symbol} transfer submitted on ${selectedToken.chain}.`);
     } catch (error) {
       const message =
@@ -471,30 +478,40 @@ export default function SendToWalletModal() {
             </button>
 
             {/* Tx result */}
-            {txHash ? (
-              <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-3 py-3 text-sm text-emerald-800">
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <p className="font-semibold">Transfer submitted</p>
-                    <p className="mt-1 break-all font-mono text-xs">{txHash}</p>
+            {txHash ? (() => {
+              const explorer = getExplorerInfo(selectedToken.chain, txHash);
+              return (
+                <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-3 py-3 text-sm text-emerald-800">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="font-semibold">Transfer submitted</p>
+                      <button
+                        type="button"
+                        onClick={handleCopyHash}
+                        className="mt-1 inline-flex items-center gap-1.5 rounded-md px-1.5 py-0.5 font-mono text-xs text-emerald-700 hover:bg-white/60 transition-colors"
+                        title="Copy transaction hash"
+                      >
+                        <span>{truncateAddress(txHash)}</span>
+                        {copiedHash === txHash ? (
+                          <Check className="h-3 w-3" />
+                        ) : (
+                          <Copy className="h-3 w-3" />
+                        )}
+                      </button>
+                    </div>
+                    <a
+                      href={explorer.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="shrink-0 inline-flex items-center gap-1.5 rounded-full border border-emerald-300 bg-white/70 px-3 py-1.5 text-xs font-semibold text-emerald-700 hover:bg-white transition-colors"
+                    >
+                      <ExternalLink className="h-3 w-3" />
+                      View on explorer
+                    </a>
                   </div>
-                  <button
-                    type="button"
-                    onClick={handleCopyHash}
-                    className="shrink-0 rounded-full border border-emerald-300 px-3 py-1 text-xs font-semibold text-emerald-700 hover:bg-white/70"
-                  >
-                    {copiedHash === txHash ? (
-                      <span className="inline-flex items-center gap-1">
-                        <Check className="h-3 w-3" />
-                        Copied
-                      </span>
-                    ) : (
-                      "Copy hash"
-                    )}
-                  </button>
                 </div>
-              </div>
-            ) : null}
+              );
+            })() : null}
           </div>
         </DialogContent>
       </Dialog>
