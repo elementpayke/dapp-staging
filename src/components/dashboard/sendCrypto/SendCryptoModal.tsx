@@ -987,7 +987,7 @@ const SendCryptoModal: React.FC = () => {
         address: selectedToken.tokenAddress as `0x${string}`,
         abi: erc20Abi,
         functionName: "approve",
-        args: [spender as `0x${string}`, parseUnits(amount, 6)],
+        args: [spender as `0x${string}`, parseUnits(amount, getTokenConfig(selectedToken.tokenAddress)?.decimals ?? 6)],
       });
 
       // Longer timeout for mobile wallets
