@@ -17,6 +17,7 @@ const CHAIN_ID_TO_NAME: Record<number, string> = {
   534352: "Scroll",
   42161: "Arbitrum",
   137: "Polygon",
+   56: "BNB Chain",
 };
 
 // Map chain names to chain IDs
@@ -26,6 +27,7 @@ const CHAIN_NAME_TO_ID: Record<string, number> = {
   "Scroll": 534352,
   "Arbitrum": 42161,
   "Polygon": 137,
+  "BNB Chain": 56,
 };
 
 interface TokenContextType {

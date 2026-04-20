@@ -1,5 +1,5 @@
 import { http } from "wagmi";
-import { base, arbitrum, polygon } from "wagmi/chains";
+import { base, arbitrum, polygon, bsc } from "wagmi/chains"; // ← added bsc
 import type { Chain } from "wagmi/chains";
 import { createConfig } from "@privy-io/wagmi";
 
@@ -27,6 +27,14 @@ const polygonRpcUrls = [
   "https://polygon.drpc.org",
   "https://polygon.public.blastapi.io",
   "https://polygon.blockpi.network/v1/rpc/public",
+];
+
+// BNB Chain RPC endpoints (CORS-friendly)
+const bnbRpcUrls = [
+  process.env.NEXT_PUBLIC_BNB_RPC_URL || "https://bsc-dataseed.binance.org",
+  "https://bsc-dataseed1.defibit.io",
+  "https://bsc-dataseed1.ninicoin.io",
+  "https://bsc.publicnode.com",
 ];
 
 // Create HTTP transport with retry and fallback logic
@@ -86,13 +94,14 @@ export const scroll = {
  * with Privy's connection flow and cause the modal to hang.
  */
 export const wagmiConfig = createConfig({
-  chains: [base, lisk, scroll, arbitrum, polygon],
+  chains: [base, lisk, scroll, arbitrum, polygon, bsc], // ← added bsc
   transports: {
     [base.id]: createTransportWithFallback(baseRpcUrls),
     [lisk.id]: http("https://rpc.api.lisk.com"),
     [scroll.id]: http("https://rpc.scroll.io/"),
     [arbitrum.id]: http("https://arb1.arbitrum.io/rpc"),
     [polygon.id]: createTransportWithFallback(polygonRpcUrls),
+    [bsc.id]: createTransportWithFallback(bnbRpcUrls), // ← added bsc
   },
   ssr: true,
 });

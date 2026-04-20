@@ -17,7 +17,8 @@ export const useTokenBalance = ({ token, enabled = true }: UseTokenBalanceProps)
     "Lisk": 1135,
     "Scroll": 534352,
     "Arbitrum": 42161,
-    "Polygon": 137
+    "Polygon": 137,
+    "BNB Chain": 56
   };
   
   const requiredChainId = chainNameToId[token.chain];

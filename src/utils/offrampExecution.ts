@@ -93,6 +93,7 @@ const CHAIN_ID_MAP: Record<string, number> = {
   Scroll: 534352,
   Arbitrum: 42161,
   Polygon: 137,
+  "BNB Chain": 56, // ← BNB Smart Chain
 };
 
 const CONTRACT_ADDRESS_MAP: Record<string, string | undefined> = {
@@ -104,6 +105,7 @@ const CONTRACT_ADDRESS_MAP: Record<string, string | undefined> = {
   Ethereum:
     process.env.NEXT_PUBLIC_CONTRACT_ADDRESS_ETHEREUM ??
     process.env.NEXT_PUBLIC_CONTRACT_ADDRESS_MAINNET,
+  "BNB Chain": process.env.NEXT_PUBLIC_CONTRACT_ADDRESS_BNB, // ← BNB Smart Chain
 };
 
 export const getOfframpContractAddress = (chain: string): string => {
