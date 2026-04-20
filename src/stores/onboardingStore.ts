@@ -21,6 +21,7 @@ export interface LandingFormState {
   accountNumber: string;
   tillNumber: string;
   tokenSymbol: string | null;
+  tokenChain: string | null;
   /** Set when user clicks CTA from landing (for analytics / pre-fill source) */
   initiatedFromLanding: boolean;
 }
@@ -36,6 +37,7 @@ const defaultState: LandingFormState = {
   accountNumber: "",
   tillNumber: "",
   tokenSymbol: null,
+  tokenChain: null,
   initiatedFromLanding: false,
 };
 
@@ -47,6 +49,7 @@ export interface OnboardingStore extends LandingFormState {
   setPaybill: (paybillNumber: string, accountNumber: string) => void;
   setTillNumber: (till: string) => void;
   setTokenSymbol: (symbol: string | null) => void;
+  setTokenChain: (chain: string | null) => void;
   setInitiatedFromLanding: (value: boolean) => void;
   setLandingForm: (state: Partial<LandingFormState>) => void;
   clearPersistedForm: () => void;
@@ -78,6 +81,8 @@ export const useOnboardingStore = create<OnboardingStore>()(
 
       setTokenSymbol: (tokenSymbol) => set({ tokenSymbol }),
 
+      setTokenChain: (tokenChain) => set({ tokenChain }),
+
       setInitiatedFromLanding: (initiatedFromLanding) =>
         set({ initiatedFromLanding }),
 
@@ -98,6 +103,7 @@ export const useOnboardingStore = create<OnboardingStore>()(
         accountNumber: s.accountNumber,
         tillNumber: s.tillNumber,
         tokenSymbol: s.tokenSymbol,
+        tokenChain: s.tokenChain,
         initiatedFromLanding: s.initiatedFromLanding,
       }),
     }

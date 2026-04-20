@@ -69,6 +69,7 @@ const DepositCryptoModal: React.FC = () => {
   const landingFlow = useOnboardingStore((s) => s.flow);
   const landingAmount = useOnboardingStore((s) => s.amount);
   const landingTokenSymbol = useOnboardingStore((s) => s.tokenSymbol);
+  const landingTokenChain = useOnboardingStore((s) => s.tokenChain);
   const setLandingInitiated = useOnboardingStore((s) => s.setInitiatedFromLanding);
   const landingPrefillAppliedRef = useRef(false);
 
@@ -88,9 +89,14 @@ const DepositCryptoModal: React.FC = () => {
     if (landingAmount) setAmount(landingAmount);
 
     if (landingTokenSymbol) {
-      const matchedToken = getAvailableTokens(isEmbeddedWallet).find(
-        (t) => t.symbol === landingTokenSymbol,
-      );
+      const tokens = getAvailableTokens(isEmbeddedWallet);
+      const matchedToken =
+        (landingTokenChain &&
+          tokens.find(
+            (t) =>
+              t.symbol === landingTokenSymbol && t.chain === landingTokenChain,
+          )) ||
+        tokens.find((t) => t.symbol === landingTokenSymbol);
       if (matchedToken) setSelectedToken(matchedToken);
     }
 
@@ -102,6 +108,7 @@ const DepositCryptoModal: React.FC = () => {
     landingFlow,
     landingAmount,
     landingTokenSymbol,
+    landingTokenChain,
     setSelectedToken,
     setLandingInitiated,
   ]);

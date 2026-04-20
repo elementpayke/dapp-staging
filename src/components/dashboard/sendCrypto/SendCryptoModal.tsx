@@ -99,6 +99,7 @@ const SendCryptoModal: React.FC = () => {
   const landingAccountNumber = useOnboardingStore((s) => s.accountNumber);
   const landingTillNumber = useOnboardingStore((s) => s.tillNumber);
   const landingTokenSymbol = useOnboardingStore((s) => s.tokenSymbol);
+  const landingTokenChain = useOnboardingStore((s) => s.tokenChain);
   const initiatedFromLanding = useOnboardingStore((s) => s.initiatedFromLanding);
   const setInitiatedFromLanding = useOnboardingStore((s) => s.setInitiatedFromLanding);
   const landingPrefillAppliedRef = useRef(false);
@@ -358,9 +359,15 @@ const SendCryptoModal: React.FC = () => {
     }
 
     if (landingTokenSymbol) {
-      const matchedToken = getAvailableTokens(isEmbeddedWalletActive).find(
-        (token) => token.symbol === landingTokenSymbol,
-      );
+      const tokens = getAvailableTokens(isEmbeddedWalletActive);
+      const matchedToken =
+        (landingTokenChain &&
+          tokens.find(
+            (token) =>
+              token.symbol === landingTokenSymbol &&
+              token.chain === landingTokenChain,
+          )) ||
+        tokens.find((token) => token.symbol === landingTokenSymbol);
       if (matchedToken) {
         setSelectedToken(matchedToken);
       }
@@ -378,6 +385,7 @@ const SendCryptoModal: React.FC = () => {
     landingAccountNumber,
     landingTillNumber,
     landingTokenSymbol,
+    landingTokenChain,
     landingOffRampMethod,
     setSelectedToken,
     setInitiatedFromLanding,
