@@ -663,7 +663,7 @@ export function usePrivySponsoredWithdrawal(
         const token = resolveSupportedToken(chainKey, params.tokenAddress);
 
         // Compute amountRaw directly — no RPC needed for this.
-        const amountRaw = parseUnits(params.amount, token.decimals);
+        let amountRaw = parseUnits(params.amount, token.decimals);
 
         // Optional balance pre-check. If it fails (e.g. RPC flake) we still
         // attempt the on-chain approval and let Privy/the node reject it.
@@ -679,13 +679,31 @@ export function usePrivySponsoredWithdrawal(
           });
 
           if (balance < amountRaw) {
-            // This is a hard failure — user genuinely lacks funds.
-            throw new Error(
-              `Insufficient balance. Wallet has ${formatUnits(
-                balance,
-                token.decimals,
-              )} ${token.symbol}.`,
-            );
+            // If the caller's amount is within 1% of the on-chain balance,
+            // treat this as float-precision drift from a MAX computation
+            // upstream and silently cap to the true balance. Approving more
+            // than you own is never useful, so this is always safe.
+            const overage = amountRaw - balance;
+            const onePercentOfBalance = balance / 100n;
+            if (balance > 0n && overage <= onePercentOfBalance) {
+              console.warn(
+                "[SponsoredApproval] Requested amount exceeds balance by <1%; capping to wallet balance.",
+                {
+                  requested: formatUnits(amountRaw, token.decimals),
+                  balance: formatUnits(balance, token.decimals),
+                  symbol: token.symbol,
+                },
+              );
+              amountRaw = balance;
+            } else {
+              // Genuine insufficient funds — surface to the user.
+              throw new Error(
+                `Insufficient balance. Wallet has ${formatUnits(
+                  balance,
+                  token.decimals,
+                )} ${token.symbol}.`,
+              );
+            }
           }
 
           setEmbeddedWalletAddress(embeddedWallet.address as Address);

@@ -4,7 +4,11 @@ import { getTokenConfig } from "@/constants/tokenConfig";
 import { KYCRequiredError } from "@/services/kycError";
 import { InsufficientAllowanceError } from "@/services/allowanceError";
 import { isSmartWallet, safeChainSwitch } from "@/lib/wallet-utils";
-import { formatUnits } from "viem";
+import { createPublicClient, erc20Abi, formatUnits, http } from "viem";
+import {
+  getPrivySponsoredWithdrawChainConfig,
+  getSponsoredWithdrawChainKeyForTokenChain,
+} from "@/lib/privy-sponsorship/chains";
 
 export type OfframpCashoutType = "PHONE" | "PAYBILL" | "TILL";
 export type PaymentMethodLabel = "Send Money" | "Pay Bill" | "Buy Goods";
@@ -437,16 +441,79 @@ export const executeOfframpOrder = async (
       const requiredTokenAmountRaw = BigInt(
         quoteResponse.data.required_token_amount_raw,
       );
-      const baseAmount =
-        quoteResponse.data.required_token_amount_raw / Math.pow(10, decimals);
       requiredTransferAmount = formatUnits(requiredTokenAmountRaw, decimals);
       requiredTransferAmountNumber = Number(requiredTransferAmount);
-      const bufferedAmount = baseAmount * 1.005;
-      // Cap at wallet balance so MAX offramp doesn't fail the balance pre-check.
-      // approve() just sets a spending allowance — the contract only transfers
-      // the unbuffered requiredTransferAmount, so this is safe.
-      const cappedAmount = Math.min(bufferedAmount, selectedTokenBalance);
-      requiredApprovalAmount = cappedAmount.toFixed(decimals);
+
+      // Compute the approval amount entirely in BigInt raw units to avoid
+      // float precision loss — critical for 18-decimal tokens like BNB USDC
+      // where JS floats cannot represent sub-wei precision accurately.
+      //
+      // Buffer rule: a 0.5% buffer absorbs rate drift between quote and
+      // on-chain settlement, BUT only when the user has headroom for it.
+      // For a MAX send, the required amount already equals the wallet
+      // balance — no extra tokens exist to cover a buffer. In that case we
+      // approve exactly what's in the wallet. approve() only sets a spending
+      // allowance; the contract transfers the unbuffered amount, so this is
+      // always safe.
+      const bufferedRaw = (requiredTokenAmountRaw * 1005n) / 1000n;
+
+      // Read the on-chain raw balance so the cap is precise at the wei level.
+      // Falls back to quote.current_balance_raw if the RPC read fails.
+      let onChainBalanceRaw: bigint | null = null;
+      try {
+        const sponsoredChainKey = getSponsoredWithdrawChainKeyForTokenChain(
+          selectedToken.chain,
+        );
+        if (sponsoredChainKey && accountAddress) {
+          const chainConfig = getPrivySponsoredWithdrawChainConfig(
+            sponsoredChainKey,
+          );
+          const publicClient = createPublicClient({
+            chain: chainConfig.chain,
+            transport: http(chainConfig.rpcUrl),
+          });
+          onChainBalanceRaw = (await publicClient.readContract({
+            address: selectedToken.tokenAddress as `0x${string}`,
+            abi: erc20Abi,
+            functionName: "balanceOf",
+            args: [accountAddress as `0x${string}`],
+          })) as bigint;
+        }
+      } catch (balanceReadError) {
+        console.warn(
+          "[executeOfframpOrder] On-chain balance read failed, falling back:",
+          balanceReadError,
+        );
+      }
+
+      if (onChainBalanceRaw === null) {
+        const quoteBalanceRaw = quoteResponse.data.current_balance_raw;
+        if (typeof quoteBalanceRaw === "number" && Number.isFinite(quoteBalanceRaw)) {
+          onChainBalanceRaw = BigInt(Math.floor(quoteBalanceRaw));
+        }
+      }
+
+      let approvalRaw: bigint;
+      if (onChainBalanceRaw === null) {
+        // No precise balance available — approve the buffered amount.
+        // The earlier canAfford check gates against genuine shortfalls.
+        approvalRaw = bufferedRaw;
+      } else if (onChainBalanceRaw >= bufferedRaw) {
+        // Non-MAX path: buffer fits within balance, use it for rate drift.
+        approvalRaw = bufferedRaw;
+      } else if (onChainBalanceRaw >= requiredTokenAmountRaw) {
+        // MAX path: no headroom for a buffer. Approve the full balance so
+        // the contract can pull the exact required amount. Any dust left
+        // over remains in the wallet.
+        approvalRaw = onChainBalanceRaw;
+      } else {
+        // Balance can't even cover the required transfer. Let the pre-check
+        // downstream surface the real "insufficient balance" error — don't
+        // silently shrink the approval below what the transfer needs.
+        approvalRaw = requiredTokenAmountRaw;
+      }
+
+      requiredApprovalAmount = formatUnits(approvalRaw, decimals);
       hasSufficientAllowance =
         quoteResponse.data.has_sufficient_allowance ?? false;
 
