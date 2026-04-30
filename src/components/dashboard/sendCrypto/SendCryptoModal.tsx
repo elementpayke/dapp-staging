@@ -2,7 +2,6 @@
 
 import type React from "react";
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
-import { createPortal } from "react-dom";
 import { ArrowUpRight, ChevronDown, Check, Loader2, Send, ShoppingBag, Receipt, Zap } from "lucide-react";
 import { toast } from "react-toastify";
 import MaxOfframpButton from "./MaxOfframpButton";
@@ -210,35 +209,18 @@ const SendCryptoModal: React.FC = () => {
   const [typedValue, setTypedValue] = useState("");
   const [showTokenDropdown, setShowTokenDropdown] = useState(false);
   const tokenDropdownRef = useRef<HTMLDivElement>(null);
-  const [dropdownPos, setDropdownPos] = useState<{ top: number; right: number } | null>(null);
 
-  // Compute dropdown position when it opens
+  // Close token dropdown on outside tap/click. Use pointerdown so touch
+  // devices are covered (mousedown alone misses some mobile interactions).
   useEffect(() => {
-    if (!showTokenDropdown || !tokenDropdownRef.current) {
-      setDropdownPos(null);
-      return;
-    }
-    const rect = tokenDropdownRef.current.getBoundingClientRect();
-    setDropdownPos({
-      top: rect.bottom + 4,
-      right: window.innerWidth - rect.right,
-    });
-  }, [showTokenDropdown]);
-
-  // Close token dropdown on outside click
-  const tokenDropdownListRef = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    const handleClick = (e: MouseEvent) => {
+    const handlePointerDown = (e: PointerEvent) => {
       const target = e.target as Node;
-      if (
-        tokenDropdownRef.current && !tokenDropdownRef.current.contains(target) &&
-        (!tokenDropdownListRef.current || !tokenDropdownListRef.current.contains(target))
-      ) {
+      if (tokenDropdownRef.current && !tokenDropdownRef.current.contains(target)) {
         setShowTokenDropdown(false);
       }
     };
-    document.addEventListener("mousedown", handleClick);
-    return () => document.removeEventListener("mousedown", handleClick);
+    document.addEventListener("pointerdown", handlePointerDown);
+    return () => document.removeEventListener("pointerdown", handlePointerDown);
   }, []);
 
   const account = useAccount();
@@ -1572,11 +1554,9 @@ const SendCryptoModal: React.FC = () => {
                     <ChevronDown className={`h-3.5 w-3.5 transition-transform ${showTokenDropdown ? "rotate-180" : ""}`} />
                   </button>
 
-                  {showTokenDropdown && dropdownPos && createPortal(
+                  {showTokenDropdown && (
                     <div
-                      ref={tokenDropdownListRef}
-                      className="fixed z-[100] w-64 rounded-xl border border-[var(--ep-border)] bg-[var(--ep-bg-card)] p-1.5 shadow-lg"
-                      style={{ top: dropdownPos.top, right: dropdownPos.right }}
+                      className="absolute right-0 top-full mt-1 z-[100] w-64 rounded-xl border border-[var(--ep-border)] bg-[var(--ep-bg-card)] p-1.5 shadow-lg"
                     >
                       {getAvailableTokens(isEmbeddedWalletActive).map((token) => {
                         const isActive = token.symbol === selectedToken.symbol && token.chain === selectedToken.chain;
@@ -1606,8 +1586,7 @@ const SendCryptoModal: React.FC = () => {
                           </button>
                         );
                       })}
-                    </div>,
-                    document.body,
+                    </div>
                   )}
 
                   {isSwitchingChain && (
