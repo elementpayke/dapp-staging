@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { createPortal } from "react-dom";
 import {
   ArrowUpRight,
   Check,
@@ -59,9 +58,7 @@ export default function SendToWalletModal() {
   /* ── Token selector state ── */
   const [selectedToken, setSelectedToken] = useState<SupportedToken>(DEFAULT_TOKEN);
   const [showTokenDropdown, setShowTokenDropdown] = useState(false);
-  const [dropdownPos, setDropdownPos] = useState<{ top: number; right: number } | null>(null);
   const tokenDropdownRef = useRef<HTMLDivElement>(null);
-  const tokenDropdownListRef = useRef<HTMLDivElement>(null);
 
   const { balance, isCorrectNetwork, isLoading } = useTokenBalance({ token: selectedToken });
 
@@ -99,24 +96,15 @@ export default function SendToWalletModal() {
   const isSelfSend =
     resolvedRecipient !== null && sameWalletAddress(resolvedRecipient, address);
 
-  /* ── Token dropdown positioning & outside-click ── */
+  /* ── Token dropdown outside-click. Use pointerdown so touch is covered. ── */
   useEffect(() => {
     if (!showTokenDropdown) return;
-    const trigger = tokenDropdownRef.current;
-    if (trigger) {
-      const rect = trigger.getBoundingClientRect();
-      setDropdownPos({ top: rect.bottom + 4, right: window.innerWidth - rect.right });
-    }
-    const handleClick = (e: MouseEvent) => {
-      if (
-        tokenDropdownRef.current?.contains(e.target as Node) ||
-        tokenDropdownListRef.current?.contains(e.target as Node)
-      )
-        return;
+    const handlePointerDown = (e: PointerEvent) => {
+      if (tokenDropdownRef.current?.contains(e.target as Node)) return;
       setShowTokenDropdown(false);
     };
-    document.addEventListener("mousedown", handleClick);
-    return () => document.removeEventListener("mousedown", handleClick);
+    document.addEventListener("pointerdown", handlePointerDown);
+    return () => document.removeEventListener("pointerdown", handlePointerDown);
   }, [showTokenDropdown]);
 
   /* ── Exchange rate fetch ── */
@@ -298,12 +286,8 @@ export default function SendToWalletModal() {
         <ChevronDown className={`h-3.5 w-3.5 transition-transform ${showTokenDropdown ? "rotate-180" : ""}`} />
       </button>
 
-      {showTokenDropdown && dropdownPos && createPortal(
-        <div
-          ref={tokenDropdownListRef}
-          className="fixed z-[100] w-64 rounded-xl border border-[var(--ep-border)] bg-[var(--ep-bg-card)] p-1.5 shadow-lg"
-          style={{ top: dropdownPos.top, right: dropdownPos.right }}
-        >
+      {showTokenDropdown && (
+        <div className="absolute right-0 top-full mt-1 z-[100] w-64 rounded-xl border border-[var(--ep-border)] bg-[var(--ep-bg-card)] p-1.5 shadow-lg">
           {getAvailableTokens(isEmbedded).map((token) => {
             const isActive = token.symbol === selectedToken.symbol && token.chain === selectedToken.chain;
             return (
@@ -332,8 +316,7 @@ export default function SendToWalletModal() {
               </button>
             );
           })}
-        </div>,
-        document.body,
+        </div>
       )}
     </div>
   );

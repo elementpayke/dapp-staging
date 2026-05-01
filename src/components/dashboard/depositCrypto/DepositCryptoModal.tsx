@@ -159,15 +159,15 @@ const DepositCryptoModal: React.FC = () => {
   const [showTokenDropdown, setShowTokenDropdown] = useState(false);
   const tokenDropdownRef = useRef<HTMLDivElement>(null);
 
-  // Close token dropdown on outside click
+  // Close token dropdown on outside tap/click. Use pointerdown for touch coverage.
   useEffect(() => {
-    const handler = (e: MouseEvent) => {
+    const handler = (e: PointerEvent) => {
       if (tokenDropdownRef.current && !tokenDropdownRef.current.contains(e.target as Node)) {
         setShowTokenDropdown(false);
       }
     };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
+    document.addEventListener("pointerdown", handler);
+    return () => document.removeEventListener("pointerdown", handler);
   }, []);
 
   // Hide dropdowns when any modal is open
