@@ -163,13 +163,16 @@ const TransactionList: FC<{ walletAddress: string | null }> = ({
             order.receiver_name || order.phone_number
               ? `To ${order.receiver_name || order.phone_number}`
               : `Token: ${order.token}`,
-          amount: `${order.amount_fiat.toFixed(2)} KES`,
+          // Store the raw numeric value so formatAmount can handle display correctly.
+          // Do NOT use .toFixed() here — that would break the thousands-separator
+          // formatting applied in TransactionRow and TransactionDetailModal.
+          amount: `${order.amount_fiat} KES`,
           receiverDisplay:
             order.receiver_name || order.phone_number || "Unknown",
 
           // New enhanced fields
           tokenSymbol: order.token,
-          cryptoAmount: `${order.amount_crypto.toFixed(6)} ${order.token}`,
+          cryptoAmount: `${order.amount_crypto} ${order.token}`,
           exchangeRate: order.exchange_rate,
           paymentMethod: "M-pesa",
           direction: order.order_type === 0 ? "Receive" : "Send",
@@ -265,11 +268,11 @@ const TransactionList: FC<{ walletAddress: string | null }> = ({
             order.receiver_name || order.phone_number
               ? `To ${order.receiver_name || order.phone_number}`
               : `Token: ${order.token}`,
-          amount: `${order.amount_fiat.toFixed(2)} KES`,
+          amount: `${order.amount_fiat} KES`,
           receiverDisplay:
             order.receiver_name || order.phone_number || "Unknown",
           tokenSymbol: order.token,
-          cryptoAmount: `${order.amount_crypto.toFixed(6)} ${order.token}`,
+          cryptoAmount: `${order.amount_crypto} ${order.token}`,
           exchangeRate: order.exchange_rate,
           paymentMethod: "M-pesa",
           direction: order.order_type === 0 ? "Receive" : "Send",
