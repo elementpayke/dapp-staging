@@ -818,7 +818,7 @@ const DepositCryptoModal: React.FC = () => {
                 <p className="mt-1 text-xs text-red-500">{phoneValidation.error}</p>
               )}
               <p className="mt-1 text-[10px] text-[var(--ep-muted)]">
-                You will receive an M-Phecheesa STK push on this number
+                You will receive an M-PESA STK push on this number
               </p>
             </div>
 
