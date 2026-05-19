@@ -579,7 +579,7 @@ export const createOnRampOrder = async ({
 export const createOffRampOrder = async ({
   userAddress,
   tokenAddress,
-  amount: _amount, // Renamed to indicate it's intentionally unused
+  amount: _amount,
   amountFiat,
   phoneNumber,
   messageHash,
@@ -588,18 +588,28 @@ export const createOffRampOrder = async ({
   paybillNumber,
   accountNumber,
   tillNumber,
+  // ── ADDED: bank payout fields ──────────────────────────────────────────
+  bankCode,
+  bankAccountNumber,
+  // ───────────────────────────────────────────────────────────────────────
 }: {
   userAddress: string;
   tokenAddress: string;
-  amount: number; // Token amount
-  amountFiat: number; // KES amount
+  amount: number;
+  amountFiat: number;
   phoneNumber: string;
   messageHash: string;
   reason?: string;
-  cashoutType: "PHONE" | "PAYBILL" | "TILL";
+  // ── UPDATED: "BANK" added to the union ──────────────────────────────────
+  cashoutType: "PHONE" | "PAYBILL" | "TILL" | "BANK";
+  // ─────────────────────────────────────────────────────────────────────────
   paybillNumber?: string;
   accountNumber?: string;
   tillNumber?: string;
+  // ── ADDED ────────────────────────────────────────────────────────────────
+  bankCode?: string;
+  bankAccountNumber?: string;
+  // ─────────────────────────────────────────────────────────────────────────
 }): Promise<CreateOrderResponse> => {
   const payload: any = {
     user_address: userAddress,
@@ -621,7 +631,13 @@ export const createOffRampOrder = async ({
     payload.fiat_payload.account_number = accountNumber;
   } else if (cashoutType === "TILL") {
     payload.fiat_payload.till_number = tillNumber;
+  // ── ADDED: bank payout fields forwarded to backend ─────────────────────
+  } else if (cashoutType === "BANK") {
+    payload.fiat_payload.phone_number = phoneNumber;
+    payload.fiat_payload.bank_code = bankCode;
+    payload.fiat_payload.bank_account_number = bankAccountNumber;
   }
+  // ─────────────────────────────────────────────────────────────────────────
 
   if (reason) payload.reason = reason;
 
@@ -669,8 +685,6 @@ export const createOffRampOrder = async ({
       error?.message ||
       "";
     if (error.response?.status === 400) {
-      // Check message-based detection (e.g. "Insufficient allowance: current=X, required=Y"
-      // or "Approve the contract to spend your tokens before OffRamp.")
       if (isInsufficientAllowanceMessage(allowanceMsg)) {
         const parsed = parseAllowanceError(allowanceMsg);
         throw new InsufficientAllowanceError(
@@ -680,7 +694,6 @@ export const createOffRampOrder = async ({
         );
       }
 
-      // Check structured data detection (nested data.data with required/current fields)
       const structuredCheck = isAllowanceErrorFromData(error.response?.data);
       if (structuredCheck.isMatch) {
         throw new InsufficientAllowanceError(
@@ -701,7 +714,6 @@ export const createOffRampOrder = async ({
       );
     }
 
-    // Provide more specific error messages
     if (error.code === "ECONNABORTED" || error.message?.includes("timeout")) {
       console.error("⏰ Request timeout - API may be down or slow");
       throw new Error(
@@ -767,7 +779,6 @@ export const createOffRampOrder = async ({
       );
     }
 
-    // Relay any other server error message as-is
     const serverMessage = error.response?.data?.message || error.response?.data?.error;
     console.error("❌ Unknown error:", error);
     throw new Error(

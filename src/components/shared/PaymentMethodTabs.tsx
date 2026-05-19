@@ -1,9 +1,10 @@
 "use client";
 
 import React from "react";
-import { Send, ShoppingBag, Receipt } from "lucide-react";
+import { Send, ShoppingBag, Receipt, Building2 } from "lucide-react";
 
-export type PaymentMethodValue = "PHONE" | "PAYBILL" | "TILL";
+// ── UPDATED: "BANK" added to the union ───────────────────────────────────────
+export type PaymentMethodValue = "PHONE" | "PAYBILL" | "TILL" | "BANK";
 
 interface PaymentMethodOption {
   value: PaymentMethodValue;
@@ -12,9 +13,11 @@ interface PaymentMethodOption {
 }
 
 const OPTIONS: PaymentMethodOption[] = [
-  { value: "PHONE", label: "Send Money", icon: <Send className="h-3.5 w-3.5" /> },
-  { value: "TILL", label: "Buy Goods", icon: <ShoppingBag className="h-3.5 w-3.5" /> },
-  { value: "PAYBILL", label: "Paybill", icon: <Receipt className="h-3.5 w-3.5" /> },
+  { value: "PHONE",   label: "Send Money", icon: <Send       className="h-3.5 w-3.5" /> },
+  { value: "TILL",    label: "Buy Goods",  icon: <ShoppingBag className="h-3.5 w-3.5" /> },
+  { value: "PAYBILL", label: "Paybill",    icon: <Receipt     className="h-3.5 w-3.5" /> },
+  // ── ADDED ─────────────────────────────────────────────────────────────────
+  { value: "BANK",    label: "Bank",       icon: <Building2   className="h-3.5 w-3.5" /> },
 ];
 
 export interface PaymentMethodTabsProps {
