@@ -13,6 +13,7 @@ interface ResolveWalletAddressParams {
   walletPreference: WalletPreference;
   wallets: PrivyWalletLike[];
   wagmiAddress?: string | null;
+  smartWalletAddress?: string | null;
 }
 
 const normalize = (value: string) => value.toLowerCase();
@@ -38,6 +39,7 @@ export function getExplicitSelectedWalletAddress({
   walletPreference,
   wallets,
   wagmiAddress,
+  smartWalletAddress,
 }: ResolveWalletAddressParams): string | null {
   if (walletPreference === "embedded") {
     return wallets.find(isEmbeddedWallet)?.address ?? null;

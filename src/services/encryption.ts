@@ -24,6 +24,8 @@ const secret = new Fernet.Secret(SECRET_KEY);
  * @param paybill_number The paybill number.
  * @param account_number The account number.
  * @param till_number The till number.
+ * @param bank_code The SasaPay bank code (BANK only).
+ * @param bank_account_number The recipient's bank account number (BANK only).
  * @returns The encrypted message as a string.
  */
 
@@ -50,8 +52,10 @@ export const encryptMessageDetailed = ({
   paybill_number,
   account_number,
   till_number,
+  bank_code,
+  bank_account_number,
 }: {
-  cashout_type: "PHONE" | "PAYBILL" | "TILL";
+  cashout_type: "PHONE" | "PAYBILL" | "TILL" | "BANK";
   amount_fiat: number;
   currency: string;
   rate: number;
@@ -59,12 +63,16 @@ export const encryptMessageDetailed = ({
   paybill_number?: string;
   account_number?: string;
   till_number?: string;
+  bank_code?: string;
+  bank_account_number?: string;
 }): string => {
   let message = "";
   if (cashout_type === "PAYBILL") {
     message = `${cashout_type}:${paybill_number}:${account_number}:${amount_fiat}:${currency}:${rate}`;
   } else if (cashout_type === "TILL") {
     message = `${cashout_type}:${till_number}:${amount_fiat}:${currency}:${rate}`;
+  } else if (cashout_type === "BANK") {
+    message = `${cashout_type}:${bank_code}:${bank_account_number}:${phone_number}:${amount_fiat}:${currency}:${rate}`;
   } else {
     message = `${cashout_type}:${phone_number}:${amount_fiat}:${currency}:${rate}`;
   }

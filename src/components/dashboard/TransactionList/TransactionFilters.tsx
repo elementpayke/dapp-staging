@@ -244,8 +244,8 @@ const TransactionFilters: FC<TransactionFiltersProps> = ({
   return (
     <div className="mb-4 w-full">
       {/* ── Desktop Toolbar ── */}
-      <div className="hidden sm:flex items-center gap-2 justify-between bg-[var(--ep-bg-card)] rounded-xl border border-[var(--ep-border)] p-2 shadow-[var(--ep-card-shadow)]">
-        <div className="flex flex-row w-fit gap-2 items-center md:w-1/2">
+      <div className="hidden sm:flex flex-wrap lg:flex-nowrap items-center gap-2 justify-between bg-[var(--ep-bg-card)] rounded-xl border border-[var(--ep-border)] p-2 shadow-[var(--ep-card-shadow)]">
+        <div className="flex flex-row w-full lg:w-1/2 gap-2 items-center">
           <div className="w-px h-6 bg-[var(--ep-border)]" />
           <div className="relative flex-1 max-w-md">
             <svg
@@ -314,8 +314,8 @@ const TransactionFilters: FC<TransactionFiltersProps> = ({
           </div>
         </div>
 
-        <div className="flex flex-row items-center gap-2">
-          <div className="w-px h-6 bg-[var(--ep-border)]" />
+        <div className="flex flex-row items-center gap-2 w-full lg:w-auto justify-end">
+          <div className="w-px h-6 bg-[var(--ep-border)] hidden lg:block" />
           {onRefresh && (
             <button
               onClick={onRefresh}

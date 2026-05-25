@@ -44,6 +44,14 @@ const LIQUIDATION_WALLET_ENV_BY_CHAIN: Record<SponsoredWithdrawChainKey, string[
       "NEXT_PUBLIC_CONTRACT_ADDRESS_MAINNET",
       "NEXT_PUBLIC_CONTRACT_ADDRESS",
     ],
+    // ← BNB Chain
+    bnb: [
+      "LIQUIDATION_WALLET_ADDRESS_BNB",
+      "NEXT_PUBLIC_LIQUIDATION_WALLET_ADDRESS_BNB",
+      "LIQUIDATION_WALLET_ADDRESS",
+      "NEXT_PUBLIC_LIQUIDATION_WALLET_ADDRESS",
+      "NEXT_PUBLIC_CONTRACT_ADDRESS_BNB",
+    ],
   };
 
 const getPrivyAppSecret = (): string => {
