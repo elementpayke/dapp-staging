@@ -34,6 +34,19 @@ interface FilterState {
   token: string[];
 }
 
+// EAT = East Africa Time (UTC+3) — used for all display formatting
+const EAT = "Africa/Nairobi";
+
+// Force UTC parsing — the API returns datetime strings without a timezone
+// indicator (e.g. "2026-04-04T08:29:39" with no Z or +03:00 suffix).
+// Without this, new Date() treats the string as local time, which makes
+// our EAT conversion incorrect since it's operating on the wrong base time.
+const parseUTC = (dateString: string): Date => {
+  if (!dateString) return new Date();
+  const hasTimezone = /Z|[+-]\d{2}:\d{2}$/.test(dateString);
+  return new Date(hasTimezone ? dateString : dateString + "Z");
+};
+
 const TransactionList: FC<{ walletAddress: string | null }> = ({
   walletAddress,
 }) => {
@@ -74,24 +87,37 @@ const TransactionList: FC<{ walletAddress: string | null }> = ({
   };
 
   const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    const today = new Date();
-    const yesterday = new Date(today);
+    const date = parseUTC(dateString);
+    const now = new Date();
+    const yesterday = new Date(now);
     yesterday.setDate(yesterday.getDate() - 1);
 
-    if (date.toDateString() === today.toDateString()) {
+    // Compare calendar dates in EAT timezone by formatting to a fixed date string.
+    // Without this, a UTC transaction at e.g. 11 PM shows as "Yesterday" in Nairobi
+    // even though it was already the next calendar day locally (UTC+3).
+    const toEATDay = (d: Date) =>
+      d.toLocaleDateString("en-GB", {
+        timeZone: EAT,
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+      });
+
+    if (toEATDay(date) === toEATDay(now)) {
       return (
         "Today, " +
         date.toLocaleDateString("en-GB", {
+          timeZone: EAT,
           day: "numeric",
           month: "short",
           year: "numeric",
         })
       );
-    } else if (date.toDateString() === yesterday.toDateString()) {
+    } else if (toEATDay(date) === toEATDay(yesterday)) {
       return (
         "Yesterday, " +
         date.toLocaleDateString("en-GB", {
+          timeZone: EAT,
           day: "numeric",
           month: "short",
           year: "numeric",
@@ -99,6 +125,7 @@ const TransactionList: FC<{ walletAddress: string | null }> = ({
       );
     } else {
       return date.toLocaleDateString("en-GB", {
+        timeZone: EAT,
         weekday: "long",
         day: "numeric",
         month: "short",
@@ -113,9 +140,9 @@ const TransactionList: FC<{ walletAddress: string | null }> = ({
       const res = await fetchWalletOrders(walletAddress!);
 
       const mapped: ExtendedTx[] = res?.data?.map((order: Order) => {
-        const createdDate = new Date(order.created_at);
+        const createdDate = parseUTC(order.created_at);
         const settlementDate = order.updated_at
-          ? new Date(order.updated_at)
+          ? parseUTC(order.updated_at)
           : null;
 
         // Calculate processing time
@@ -128,7 +155,9 @@ const TransactionList: FC<{ walletAddress: string | null }> = ({
         return {
           id: order.order_id,
           name: order.order_type === 0 ? "OnRamp" : "OffRamp",
+          // Display time in EAT (Africa/Nairobi, UTC+3)
           time: createdDate.toLocaleTimeString("en-US", {
+            timeZone: EAT,
             hour: "numeric",
             minute: "2-digit",
             hour12: true,
@@ -192,8 +221,8 @@ const TransactionList: FC<{ walletAddress: string | null }> = ({
         const bOrder = orders.find((o: Order) => o.order_id === b.id);
         const aOrder = orders.find((o: Order) => o.order_id === a.id);
         return (
-          new Date(bOrder?.created_at || 0).getTime() -
-          new Date(aOrder?.created_at || 0).getTime()
+          parseUTC(bOrder?.created_at || "").getTime() -
+          parseUTC(aOrder?.created_at || "").getTime()
         );
       });
 
@@ -219,9 +248,9 @@ const TransactionList: FC<{ walletAddress: string | null }> = ({
 
       if (json?.data) {
         const order = json.data;
-        const createdDate = new Date(order.created_at);
+        const createdDate = parseUTC(order.created_at);
         const settlementDate = order.updated_at
-          ? new Date(order.updated_at)
+          ? parseUTC(order.updated_at)
           : null;
 
         const processingTime = settlementDate
@@ -233,7 +262,9 @@ const TransactionList: FC<{ walletAddress: string | null }> = ({
         const mappedTx: ExtendedTx = {
           id: order.order_id,
           name: order.order_type === 0 ? "OnRamp" : "OffRamp",
+          // Display time in EAT (Africa/Nairobi, UTC+3)
           time: createdDate.toLocaleTimeString("en-US", {
+            timeZone: EAT,
             hour: "numeric",
             minute: "2-digit",
             hour12: true,
@@ -354,12 +385,12 @@ const TransactionList: FC<{ walletAddress: string | null }> = ({
       searchTerm === "" ||
       tx.receiverDisplay.toLowerCase().includes(searchLower) ||
       tx.hash.toLowerCase().includes(searchLower) ||
-      tx.fullHash.toLowerCase().includes(searchLower) || // Search full hash
+      tx.fullHash.toLowerCase().includes(searchLower) ||
       tx.status.toLowerCase().includes(searchLower) ||
       tx.receiptNumber?.toLowerCase().includes(searchLower) ||
       tx.tokenSymbol.toLowerCase().includes(searchLower) ||
       tx.invoiceId?.toLowerCase().includes(searchLower) ||
-      tx.id.toLowerCase().includes(searchLower); // Search by order ID
+      tx.id.toLowerCase().includes(searchLower);
 
     // Status filter
     const matchesStatus =
@@ -434,7 +465,7 @@ const TransactionList: FC<{ walletAddress: string | null }> = ({
     <div className="w-full animate-pulse space-y-4 p-2 sm:p-4">
       {/* Skeleton date header */}
       <div className="h-4 w-32 bg-[var(--ep-border)] rounded-md" />
-      
+
       {/* Skeleton transaction rows */}
       {[...Array(5)].map((_, i) => (
         <div
@@ -443,13 +474,13 @@ const TransactionList: FC<{ walletAddress: string | null }> = ({
         >
           {/* Icon placeholder */}
           <div className="w-10 h-10 rounded-full bg-[var(--ep-border)] shrink-0" />
-          
+
           {/* Text placeholders */}
           <div className="flex-1 min-w-0 space-y-2">
             <div className="h-4 w-28 bg-[var(--ep-border)] rounded-md" />
             <div className="h-3 w-40 bg-[var(--ep-border)] rounded-md opacity-60" />
           </div>
-          
+
           {/* Amount placeholder */}
           <div className="text-right space-y-2 shrink-0">
             <div className="h-4 w-20 bg-[var(--ep-border)] rounded-md ml-auto" />
