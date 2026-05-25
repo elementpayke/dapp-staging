@@ -10,8 +10,8 @@ import {
   getSponsoredWithdrawChainKeyForTokenChain,
 } from "@/lib/privy-sponsorship/chains";
 
-export type OfframpCashoutType = "PHONE" | "PAYBILL" | "TILL";
-export type PaymentMethodLabel = "Send Money" | "Pay Bill" | "Buy Goods";
+export type OfframpCashoutType = "PHONE" | "PAYBILL" | "TILL" | "BANK";
+export type PaymentMethodLabel = "Send Money" | "Pay Bill" | "Buy Goods" | "Bank Transfer";
 
 export interface OfframpReceipt {
   amount: string;
@@ -56,6 +56,11 @@ export interface ExecuteOfframpOrderOptions {
   paybillNumber: string;
   accountNumber: string;
   tillNumber: string;
+  // ── ADDED: bank payout fields ──────────────────────────────────────────
+  bankCode?: string;
+  bankAccountNumber?: string;
+  bankName?: string;
+  // ───────────────────────────────────────────────────────────────────────
   contractAddress: string;
   transactionSummary: OfframpSummary;
   selectedTokenBalance: number;
@@ -128,6 +133,7 @@ export const mapOffRampMethodToPaymentMethod = (
 ): PaymentMethodLabel => {
   if (method === "PAYBILL") return "Pay Bill";
   if (method === "TILL") return "Buy Goods";
+  if (method === "BANK") return "Bank Transfer";
   return "Send Money";
 };
 
@@ -137,6 +143,8 @@ export const buildRecipientLabel = (params: {
   paybillNumber: string;
   accountNumber: string;
   tillNumber: string;
+  bankName?: string;
+  bankAccountNumber?: string;
 }): string => {
   const {
     cashoutType,
@@ -144,9 +152,13 @@ export const buildRecipientLabel = (params: {
     paybillNumber,
     accountNumber,
     tillNumber,
+    bankName,
+    bankAccountNumber,
   } = params;
   if (cashoutType === "PHONE") return mobileNumber;
   if (cashoutType === "PAYBILL") return `${paybillNumber} - ${accountNumber}`;
+  if (cashoutType === "BANK")
+    return bankName ? `${bankName} — ${bankAccountNumber}` : (bankAccountNumber ?? "");
   return tillNumber;
 };
 
@@ -235,6 +247,11 @@ export const executeOfframpOrder = async (
     paybillNumber,
     accountNumber,
     tillNumber,
+    // ── ADDED ──────────────────────────────────────────────────────────────
+    bankCode,
+    bankAccountNumber,
+    bankName,
+    // ───────────────────────────────────────────────────────────────────────
     contractAddress,
     transactionSummary,
     selectedTokenBalance,
@@ -371,7 +388,11 @@ export const executeOfframpOrder = async (
         "Business number and account number are required for Pay Bill.";
     } else if (cashoutType === "TILL" && !tillNumber) {
       validationError = "Till number is required for Buy Goods.";
+    // ── ADDED ──────────────────────────────────────────────────────────────
+    } else if (cashoutType === "BANK" && (!bankCode || !bankAccountNumber)) {
+      validationError = "Bank code and account number are required for Bank Transfer.";
     }
+    // ───────────────────────────────────────────────────────────────────────
 
     if (validationError) {
       notify.error(validationError);
@@ -395,6 +416,10 @@ export const executeOfframpOrder = async (
       paybillNumber,
       accountNumber,
       tillNumber,
+      // ── ADDED ────────────────────────────────────────────────────────────
+      bankName,
+      bankAccountNumber,
+      // ─────────────────────────────────────────────────────────────────────
     });
 
     setTransactionReceipt((prev) => ({
@@ -658,6 +683,10 @@ export const executeOfframpOrder = async (
       paybillNumber: cashoutType === "PAYBILL" ? paybillNumber : "",
       accountNumber: cashoutType === "PAYBILL" ? accountNumber : "",
       tillNumber: cashoutType === "TILL" ? tillNumber : "",
+      // ── ADDED: bank fields forwarded to backend ────────────────────────
+      bankCode: cashoutType === "BANK" ? (bankCode ?? "") : "",
+      bankAccountNumber: cashoutType === "BANK" ? (bankAccountNumber ?? "") : "",
+      // ───────────────────────────────────────────────────────────────────
     };
 
     const callCreateOrder = () =>

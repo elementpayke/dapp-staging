@@ -19,7 +19,7 @@ import BASE_LOGO from "@/assets/BASE_LOGO.png";
 import LISK_LOGO from "@/assets/LISK_LOGO.png";
 import SCROLL_LOGO from "@/assets/SCROLL_LOGO.png";
 import POLYGON_LOGO from "@/assets/POLYGON_LOGO.png";
-import BNB_LOGO from "@/assets/BNB_LOGO.png"; // ← BNB Chain logo
+import BNB_LOGO from "@/assets/BNB_LOGO.png";
 
 const NETWORK_LOGOS: Record<string, typeof ARBITRUM_LOGO> = {
   Arbitrum: ARBITRUM_LOGO,
@@ -27,7 +27,7 @@ const NETWORK_LOGOS: Record<string, typeof ARBITRUM_LOGO> = {
   Lisk: LISK_LOGO,
   Scroll: SCROLL_LOGO,
   Polygon: POLYGON_LOGO,
-  "BNB Chain": BNB_LOGO, // ← BNB Chain
+  "BNB Chain": BNB_LOGO,
 };
 
 // Dynamically import modals with no SSR to prevent wagmi context issues
@@ -46,17 +46,14 @@ const WalletTransferModal = dynamic(
 const QuickActions: FC = () => {
   const { address } = useWallet();
 
-  // Use shared token context for consistent token selection across modals
   const { selectedToken, selectTokenAndSwitchChain, isCorrectNetwork, isSwitchingChain } = useSelectedToken();
   const isEmbeddedWallet = useAuthStore((s) => s.walletPreference) === "embedded";
 
-  // Balance visibility (shared store, persisted)
   const balanceHidden = useBalanceVisibilityStore((s) => s.balanceHidden);
   const hideMode = useBalanceVisibilityStore((s) => s.hideMode);
   const toggleBalanceVisibility = useBalanceVisibilityStore((s) => s.toggleBalanceHidden);
   const setHideMode = useBalanceVisibilityStore((s) => s.setHideMode);
 
-  // Visibility settings dropdown
   const [visibilityMenuOpen, setVisibilityMenuOpen] = useState(false);
   const visibilityMenuRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -74,7 +71,6 @@ const QuickActions: FC = () => {
   const isStarsMode = hideMode === "stars";
   const maskedStars = "••••••";
 
-  // Fetch balance for the selected token
   const { data: tokenBalanceData, isLoading: isBalanceLoading } = useBalance({
     address: (address ?? undefined) as `0x${string}` | undefined,
     token: selectedToken.tokenAddress as `0x${string}`,
@@ -92,7 +88,6 @@ const QuickActions: FC = () => {
 
   const tokenBalance = parseFloat(tokenBalanceData?.formatted || "0");
 
-  // Use Element Pay OffRamp rate from fee-structure API (same as SendCryptoModal)
   const [elementPayRate, setElementPayRate] = useState<number | null>(null);
   const [isLoadingRate, setIsLoadingRate] = useState<boolean>(true);
 
@@ -101,13 +96,10 @@ const QuickActions: FC = () => {
       setIsLoadingRate(true);
       try {
         const currency = getApiCurrencyFromToken(selectedToken.symbol);
-
-        // Use fee-structure API which provides base_rate (same as SendCryptoModal)
         const feeData = await fetchFeeStructureCached({
           token: currency,
           action: "OffRamp",
         });
-
         const rate = feeData.data.base_rate;
         if (rate && rate > 0) {
           console.log(
@@ -130,9 +122,7 @@ const QuickActions: FC = () => {
     };
 
     fetchElementPayRate();
-    // Refresh every 2 minutes to stay in sync with modal
     const intervalId = setInterval(fetchElementPayRate, 2 * 60 * 1000);
-
     return () => clearInterval(intervalId);
   }, [selectedToken.symbol]);
 
@@ -141,7 +131,6 @@ const QuickActions: FC = () => {
     if (!isCorrectNetwork) return "Switch network";
     if (isBalanceLoading) return "Loading...";
     if (isLoadingRate || !elementPayRate) return "Loading...";
-
     const kesAmount = tokenBalance * elementPayRate;
     return kesAmount.toFixed(2);
   };
@@ -169,14 +158,24 @@ const QuickActions: FC = () => {
           </p>
           <p className="text-2xl font-bold text-[var(--ep-heading)] leading-tight">
             <span>KES </span>
-            <span className={`${isCorrectNetwork ? 'text-[var(--ep-accent)]' : 'text-yellow-600'} ${balanceHidden && isBlurMode ? 'blur-md select-none' : ''} transition-all duration-200`}>
+            <span
+              className={`${isCorrectNetwork ? "text-[var(--ep-accent)]" : "text-yellow-600"} ${
+                balanceHidden && isBlurMode ? "blur-md select-none" : ""
+              } transition-all duration-200`}
+            >
               {balanceHidden && isStarsMode ? maskedStars : rawKesBalance()}
             </span>
           </p>
-          <p className={`text-sm text-[var(--ep-muted)] mt-1 ${balanceHidden && isBlurMode ? 'blur-md select-none' : ''} transition-all duration-200`}>
+          <p
+            className={`text-sm text-[var(--ep-muted)] mt-1 ${
+              balanceHidden && isBlurMode ? "blur-md select-none" : ""
+            } transition-all duration-200`}
+          >
             {isCorrectNetwork ? (
               balanceHidden && isStarsMode ? (
-                <>{maskedStars} {selectedToken.symbol}</>
+                <>
+                  {maskedStars} {selectedToken.symbol}
+                </>
               ) : (
                 <>
                   {tokenBalance.toFixed(6)} {selectedToken.symbol}
@@ -191,7 +190,9 @@ const QuickActions: FC = () => {
 
           {/* Token/Network Selector */}
           <div className="mt-3 mb-3">
-            <label className="block text-xs font-medium text-[var(--ep-muted)] mb-1.5">Select Token & Network</label>
+            <label className="block text-xs font-medium text-[var(--ep-muted)] mb-1.5">
+              Select Token & Network
+            </label>
             <div className="relative">
               <TokenDropdown
                 selected={selectedToken}
@@ -208,6 +209,7 @@ const QuickActions: FC = () => {
             </div>
           </div>
 
+          {/* ── Action buttons ─────────────────────────────────────────── */}
           <div className="flex gap-2 sm:gap-3 flex-wrap">
             <SendCryptoModal />
             <DepositCryptoModal />
@@ -217,10 +219,13 @@ const QuickActions: FC = () => {
 
         {/* Right: Connected Network Indicator & Logo — hidden on mobile */}
         <div className="hidden md:flex flex-col items-end justify-between min-h-[15vh] ml-4 shrink-0">
-          {/* Connected Network Badge + Action Buttons */}
-          <div className="flex items-center gap-2 ">
+          <div className="flex items-center gap-2">
             <div className="flex items-center gap-1.5 px-3 py-1 rounded-full border border-[var(--ep-border)] bg-[var(--ep-bg-card)]">
-              <span className={`w-2 h-2 rounded-full ${isCorrectNetwork ? 'bg-green-500' : 'bg-yellow-500'} shrink-0`} />
+              <span
+                className={`w-2 h-2 rounded-full ${
+                  isCorrectNetwork ? "bg-green-500" : "bg-yellow-500"
+                } shrink-0`}
+              />
               <span className="text-[10px] font-semibold uppercase tracking-wider text-[var(--ep-muted)] whitespace-nowrap">
                 Connected Network : {selectedToken.chain.toUpperCase()}
               </span>
@@ -261,7 +266,9 @@ const QuickActions: FC = () => {
                       </span>
                       <span className="text-sm text-[var(--ep-heading)]">Blur effect</span>
                     </span>
-                    <span className="text-xs text-[var(--ep-muted)] blur-[3px] select-none">1234</span>
+                    <span className="text-xs text-[var(--ep-muted)] blur-[3px] select-none">
+                      1234
+                    </span>
                   </button>
                   <button
                     role="menuitemradio"
@@ -281,8 +288,6 @@ const QuickActions: FC = () => {
               )}
             </div>
           </div>
-
-          {/* Network Logo - Moved to bottom right absolute positioning */}
         </div>
       </div>
 
