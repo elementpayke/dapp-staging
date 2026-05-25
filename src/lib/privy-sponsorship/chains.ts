@@ -1,4 +1,4 @@
-import { arbitrum, base, mainnet, polygon, type Chain } from "wagmi/chains";
+import { arbitrum, base, mainnet, polygon, bsc, type Chain } from "wagmi/chains"; // ← added bsc
 import type { Address } from "viem";
 
 import { getTokenConfig } from "@/constants/tokenConfig";
@@ -73,6 +73,17 @@ const SPONSORED_WITHDRAW_CHAIN_CONFIG = {
       "https://ethereum-rpc.publicnode.com",
     supportedTokens: buildSupportedTokensForChain("Ethereum"),
   },
+  // ← BNB Chain
+  bnb: {
+    chain: bsc,
+    chainId: bsc.id,
+    chainName: "BNB Chain",
+    rpcUrl:
+      process.env.NEXT_PUBLIC_BNB_RPC_URL ??
+      bsc.rpcUrls.default.http[0] ??
+      "https://bsc-dataseed.binance.org",
+    supportedTokens: buildSupportedTokensForChain("BNB Chain"),
+  },
 } satisfies Record<
   SponsoredWithdrawChainKey,
   {
@@ -94,6 +105,7 @@ const TOKEN_CHAIN_TO_SPONSORED_CHAIN_KEY: Partial<
   Base: "base",
   Ethereum: "ethereum",
   Polygon: "polygon",
+  "BNB Chain": "bnb", // ← BNB Chain
 };
 
 export const SUPPORTED_SPONSORED_WITHDRAW_CHAINS = Object.keys(

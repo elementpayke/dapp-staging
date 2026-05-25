@@ -6,6 +6,7 @@ import ClientOnly from "@/components/shared/ClientOnly";
 import TransactionDetailModal from "./TransactionDetailModal";
 import { getExplorerInfo } from "@/utils/explorerUtils";
 import { useBalanceVisibilityStore } from "@/stores/balanceVisibilityStore";
+import { formatAmount } from "@/utils/formatAmount";
 
 interface ExtendedTx {
   id: string;
@@ -33,6 +34,7 @@ interface ExtendedTx {
 
 interface TransactionRowProps {
   tx: ExtendedTx;
+  alwaysVisible?: boolean;
 }
 
 const formatTokenDisplay = (token: string) => {
@@ -63,13 +65,17 @@ const Arrow = ({ direction, status }: { direction: 'in' | 'out', status?: string
   </span>
 );
 
-const TransactionRow: FC<TransactionRowProps> = ({ tx }: { tx: ExtendedTx }) => {
+const TransactionRow: FC<TransactionRowProps> = ({ tx, alwaysVisible = false }) => {
   const [showModal, setShowModal] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
   const balanceHidden = useBalanceVisibilityStore((s) => s.balanceHidden);
   const hideMode = useBalanceVisibilityStore((s) => s.hideMode);
-  const isStarsMode = balanceHidden && hideMode === "stars";
-  const blurClass = balanceHidden && hideMode === "blur" ? "blur-md select-none" : "";
+
+  // If alwaysVisible is true (e.g. on the Transactions page), never apply
+  // hiding regardless of the global balanceHidden toggle.
+  const effectivelyHidden = alwaysVisible ? false : balanceHidden;
+  const isStarsMode = effectivelyHidden && hideMode === "stars";
+  const blurClass = effectivelyHidden && hideMode === "blur" ? "blur-md select-none" : "";
   const maskText = (text: React.ReactNode) => (isStarsMode ? "••••••" : text);
 
   // Reactively track data-theme="dark" on <html> using a MutationObserver.
@@ -88,9 +94,6 @@ const TransactionRow: FC<TransactionRowProps> = ({ tx }: { tx: ExtendedTx }) => 
 
   // Returns the correct rgba for the failed row background,
   // accounting for both theme and hover state.
-  // bg-red-50 is a semantic error colour (kept per design system rules);
-  // we only adjust it in dark mode via inline style since Tailwind JIT
-  // won't compile new dark: opacity-variant classes at runtime.
   const getFailedBg = () => {
     if (isDark) return isHovered ? 'rgba(69, 10, 10, 0.45)' : 'rgba(69, 10, 10, 0.30)';
     return isHovered ? 'rgba(254, 226, 226, 0.55)' : 'rgba(254, 226, 226, 0.25)';
@@ -114,11 +117,6 @@ const TransactionRow: FC<TransactionRowProps> = ({ tx }: { tx: ExtendedTx }) => 
   const displayValue = (val: any) =>
     val === undefined || val === null || val === '' || val === '—' ? 'N/A' : val;
 
-  const round2 = (val: any) => {
-    if (val === undefined || val === null || val === '' || isNaN(Number(val))) return 'N/A';
-    return Number(val).toFixed(2);
-  };
-
   const isFailed = tx.status === 'FAILED' || tx.status === 'DECLINED';
   const isReceive = tx.direction === 'Receive';
 
@@ -130,8 +128,6 @@ const TransactionRow: FC<TransactionRowProps> = ({ tx }: { tx: ExtendedTx }) => 
 
   const amountSign = isReceive ? '+' : '-';
 
-  // CHANGE 1 — success: bg-green-50 text-green-600 → bg-green-100 text-green-800 (light mode contrast fix)
-  //            failed:  unchanged in light mode; dark: variants added for dark mode
   const statusBadge = (
     <span className={`px-2 py-1 text-xs rounded-full ml-2 ${
       tx.status === 'FAILED' || tx.status === 'DECLINED'
@@ -152,7 +148,6 @@ const TransactionRow: FC<TransactionRowProps> = ({ tx }: { tx: ExtendedTx }) => 
   return (
     <ClientOnly>
       {/* Desktop/tablet row */}
-      {/* CHANGE 2 — failed row: original light mode kept exactly; dark: variants added */}
       <div
         onClick={() => setShowModal(true)}
         className={`transaction-desktop hidden sm:grid sm:grid-cols-12 gap-4 items-center px-6 py-4 transition-colors text-sm border-b cursor-pointer ${
@@ -185,22 +180,21 @@ const TransactionRow: FC<TransactionRowProps> = ({ tx }: { tx: ExtendedTx }) => 
           </div>
         </div>
 
-        {/* Amount */}
+        {/* Fiat Amount — formatted with thousands separators */}
         <div className="col-span-2 text-left">
           <div className={`font-semibold ${amountColor} transition-all duration-200 ${blurClass}`}>
-            {isStarsMode ? '••••••' : `${amountSign}KE ${round2(tx.amount ? tx.amount.replace(' KES', '') : undefined)}`}
+            {isStarsMode ? '••••••' : `${amountSign}KES ${formattedFiatAmount}`}
           </div>
         </div>
 
-        {/* Crypto Value */}
+        {/* Crypto Value — formatted to 6 decimal places */}
         <div className="col-span-2 text-left">
           <div className={`font-mono text-[var(--ep-heading)] transition-all duration-200 ${blurClass}`}>
-            {isStarsMode ? '••••••' : `${round2(tx.cryptoAmount?.split(' ')[0])} ${formatTokenDisplay(displayValue(tx.tokenSymbol))}`}
+            {isStarsMode ? '••••••' : `${formattedCryptoAmount} ${formatTokenDisplay(displayValue(tx.tokenSymbol))}`}
           </div>
         </div>
 
         {/* Method & M-Pesa Ref */}
-        {/* CHANGE 3 — M-Pesa badge: same green contrast fix as status badge */}
         <div className="col-span-2 text-center flex flex-col items-center gap-1">
           <span className={`px-2 py-1 text-xs rounded-full ${tx.paymentMethod === 'M-Pesa'
               ? 'bg-green-100 text-green-800 border border-green-300 dark:bg-green-900/30 dark:text-green-400 dark:border-green-800/50'
@@ -254,7 +248,6 @@ const TransactionRow: FC<TransactionRowProps> = ({ tx }: { tx: ExtendedTx }) => 
       </div>
 
       {/* Mobile row */}
-      {/* CHANGE 4 — mobile failed row: original light mode kept; dark: variants added */}
       <div
         onClick={() => setShowModal(true)}
         className={`transaction-mobile flex sm:hidden items-center justify-between px-4 py-3 border-b cursor-pointer active:bg-[var(--ep-accent-subtle)] transition-colors ${
@@ -282,10 +275,10 @@ const TransactionRow: FC<TransactionRowProps> = ({ tx }: { tx: ExtendedTx }) => 
         </div>
 
         <div className="flex flex-col items-end flex-shrink-0 ml-3 justify-center">
+          {/* Fiat amount — formatted with thousands separators */}
           <div className={`text-sm font-semibold ${amountColor} transition-all duration-200 ${blurClass}`}>
-            {isStarsMode ? '••••••' : `${amountSign}KE ${round2(tx.amount ? tx.amount.replace(' KES', '') : undefined)}`}
+            {isStarsMode ? '••••••' : `${amountSign}KES ${formattedFiatAmount}`}
           </div>
-          {/* CHANGE 5 — mobile success pill: same green contrast fix */}
           <div className="mt-1">
             <span className={`text-[10px] uppercase tracking-wider font-semibold px-1.5 py-0.5 rounded-sm ${isFailed
                 ? 'text-red-600 bg-red-100 dark:text-red-400 dark:bg-red-900/40'

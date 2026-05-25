@@ -5,6 +5,7 @@ import OverviewPage from "@/components/dashboard/pages/OverviewPage";
 import TransactionsPage from "@/components/dashboard/pages/TransactionsPage";
 import WhatsAppPage from "@/components/dashboard/pages/WhatsAppPage";
 import EmailPage from "@/components/dashboard/pages/EmailPage";
+import ProfilePage from "@/components/dashboard/pages/ProfilePage";
 import KYCRequiredModal from "@/components/dashboard/KYCRequiredModal";
 import { Bell, ChevronDown, LogOut, Menu, Moon, Sun } from "lucide-react";
 import { useRouter } from "next/navigation";
@@ -18,6 +19,7 @@ type PageComponent =
   | "overview"
   | "transactions"
   | "wallets"
+  | "profile"
   | "support-whatsapp"
   | "support-email";
 
@@ -70,6 +72,8 @@ export default function Dashboard() {
         return <OverviewPage />;
       case "transactions":
         return <TransactionsPage />;
+      case "profile":
+        return <ProfilePage />;
       case "support-whatsapp":
         return <WhatsAppPage />;
       case "support-email":
@@ -110,7 +114,7 @@ export default function Dashboard() {
   };
 
   return (
-    <div className="flex min-h-screen bg-white">
+    <div className="flex min-h-screen bg-[var(--ep-bg)]">
       {/*
        * Sidebar — isOpen/onClose are now controlled here so the hamburger
        * button can live inside the header below (proper layout, large tap target).
@@ -214,7 +218,10 @@ export default function Dashboard() {
                     </div>
                     <button
                       className="w-full text-left px-4 py-2.5 text-sm text-[var(--ep-body)] hover:bg-[var(--ep-accent-subtle)] transition-colors"
-                      onClick={() => setShowDropdown(false)}
+                      onClick={() => {
+                        setCurrentPage("profile");
+                        setShowDropdown(false);
+                      }}
                     >
                       Profile
                     </button>

@@ -17,7 +17,7 @@ export const SUPPORTED_TOKENS: SupportedToken[] = [
     chain: "Base",
     chainLogo: "/Base_Symbol_Blue.svg",
     tokenLogo: "/usd-coin-usdc-logo.png",
-    tokenAddress: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913", 
+    tokenAddress: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
     explorerUrl: "https://basescan.org",
     supportsPermit: true,
   },
@@ -27,7 +27,7 @@ export const SUPPORTED_TOKENS: SupportedToken[] = [
     chain: "Lisk",
     chainLogo: "/lisk-lsk-logo.png",
     tokenLogo: "/tether-usdt-logo.png",
-    tokenAddress: "0x05D032ac25d322df992303dCa074EE7392C117b9", 
+    tokenAddress: "0x05D032ac25d322df992303dCa074EE7392C117b9",
     explorerUrl: "https://blockscout.lisk.com",
     supportsPermit: false,
   },
@@ -37,7 +37,7 @@ export const SUPPORTED_TOKENS: SupportedToken[] = [
     chain: "Scroll",
     chainLogo: "/Scroll_Logomark.13ce0216.png",
     tokenLogo: "/usd-coin-usdc-logo.png",
-    tokenAddress: "0x06eFdBFf2a14a7c8E15944D1F4A48F9F95F663A4", 
+    tokenAddress: "0x06eFdBFf2a14a7c8E15944D1F4A48F9F95F663A4",
     explorerUrl: "https://scrollscan.com",
     supportsPermit: true,
   },
@@ -47,7 +47,7 @@ export const SUPPORTED_TOKENS: SupportedToken[] = [
     chain: "Arbitrum",
     chainLogo: "/arbitrum-arb-logo.png",
     tokenLogo: "/wxm-token-logo-256x256.png",
-    tokenAddress: "0xB6093B61544572Ab42A0E43AF08aBaFD41bf25A6", 
+    tokenAddress: "0xB6093B61544572Ab42A0E43AF08aBaFD41bf25A6",
     explorerUrl: "https://arbiscan.io",
     supportsPermit: false,
   },
@@ -60,7 +60,18 @@ export const SUPPORTED_TOKENS: SupportedToken[] = [
     tokenAddress: "0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359",
     explorerUrl: "https://polygonscan.com",
     supportsPermit: true,
-  }
+  },
+  // ← BNB Chain USDC
+  {
+    symbol: "USDC",
+    name: "USD Coin",
+    chain: "BNB Chain",
+    chainLogo: "/bnb-bnb-logo.png",
+    tokenLogo: "/usd-coin-usdc-logo.png",
+    tokenAddress: "0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d",
+    explorerUrl: "https://bscscan.com",
+    supportsPermit: false,
+  },
 ];
 
 /** Chains that Privy cannot sponsor gas for embedded wallets */

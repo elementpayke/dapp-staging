@@ -4,7 +4,8 @@ export type SponsoredWithdrawChainKey =
   | "base"
   | "arbitrum"
   | "polygon"
-  | "ethereum";
+  | "ethereum"
+  | "bnb"; // ← BNB Chain
 
 export interface PrivySponsoredWithdrawTokenSummary {
   address: Address;

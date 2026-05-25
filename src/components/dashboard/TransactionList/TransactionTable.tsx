@@ -22,6 +22,7 @@ interface TransactionTableProps {
   totalPages: number;
   rowsPerPage: number;
   hidePagination?: boolean;
+  alwaysVisible?: boolean;
 }
 
 const TransactionTable: FC<TransactionTableProps> = ({
@@ -34,6 +35,7 @@ const TransactionTable: FC<TransactionTableProps> = ({
   totalPages,
   rowsPerPage,
   hidePagination = false,
+  alwaysVisible = false,
 }) => {
   return (
     <div className="w-full">
@@ -49,7 +51,7 @@ const TransactionTable: FC<TransactionTableProps> = ({
             </div>
             <div className="divide-y divide-[var(--ep-border)]">
               {dayTransactions.map((tx) => (
-                <TransactionRow key={tx.id} tx={tx} />
+                <TransactionRow key={tx.id} tx={tx} alwaysVisible={alwaysVisible} />
               ))}
             </div>
           </div>

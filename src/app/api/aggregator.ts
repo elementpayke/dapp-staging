@@ -3,6 +3,7 @@ import axios from "axios";
 import { KYCRequiredError } from "@/services/kycError";
 import {
   InsufficientAllowanceError,
+  isAllowanceErrorFromData,
   isInsufficientAllowanceMessage,
   parseAllowanceError,
 } from "@/services/allowanceError";
@@ -578,7 +579,7 @@ export const createOnRampOrder = async ({
 export const createOffRampOrder = async ({
   userAddress,
   tokenAddress,
-  amount: _amount, // Renamed to indicate it's intentionally unused
+  amount: _amount,
   amountFiat,
   phoneNumber,
   messageHash,
@@ -587,18 +588,28 @@ export const createOffRampOrder = async ({
   paybillNumber,
   accountNumber,
   tillNumber,
+  // ── ADDED: bank payout fields ──────────────────────────────────────────
+  bankCode,
+  bankAccountNumber,
+  // ───────────────────────────────────────────────────────────────────────
 }: {
   userAddress: string;
   tokenAddress: string;
-  amount: number; // Token amount
-  amountFiat: number; // KES amount
+  amount: number;
+  amountFiat: number;
   phoneNumber: string;
   messageHash: string;
   reason?: string;
-  cashoutType: "PHONE" | "PAYBILL" | "TILL";
+  // ── UPDATED: "BANK" added to the union ──────────────────────────────────
+  cashoutType: "PHONE" | "PAYBILL" | "TILL" | "BANK";
+  // ─────────────────────────────────────────────────────────────────────────
   paybillNumber?: string;
   accountNumber?: string;
   tillNumber?: string;
+  // ── ADDED ────────────────────────────────────────────────────────────────
+  bankCode?: string;
+  bankAccountNumber?: string;
+  // ─────────────────────────────────────────────────────────────────────────
 }): Promise<CreateOrderResponse> => {
   const payload: any = {
     user_address: userAddress,
@@ -620,7 +631,12 @@ export const createOffRampOrder = async ({
     payload.fiat_payload.account_number = accountNumber;
   } else if (cashoutType === "TILL") {
     payload.fiat_payload.till_number = tillNumber;
+  // ── ADDED: bank payout fields forwarded to backend ─────────────────────
+  } else if (cashoutType === "BANK") {
+    payload.fiat_payload.bank_code = String(bankCode ?? "");
+    payload.fiat_payload.account_number = String(bankAccountNumber ?? "");
   }
+  // ─────────────────────────────────────────────────────────────────────────
 
   if (reason) payload.reason = reason;
 
@@ -667,16 +683,24 @@ export const createOffRampOrder = async ({
       error.response?.data?.error ||
       error?.message ||
       "";
-    if (
-      error.response?.status === 400 &&
-      isInsufficientAllowanceMessage(allowanceMsg)
-    ) {
-      const parsed = parseAllowanceError(allowanceMsg);
-      throw new InsufficientAllowanceError(
-        allowanceMsg,
-        parsed.current,
-        parsed.required,
-      );
+    if (error.response?.status === 400) {
+      if (isInsufficientAllowanceMessage(allowanceMsg)) {
+        const parsed = parseAllowanceError(allowanceMsg);
+        throw new InsufficientAllowanceError(
+          allowanceMsg,
+          parsed.current,
+          parsed.required,
+        );
+      }
+
+      const structuredCheck = isAllowanceErrorFromData(error.response?.data);
+      if (structuredCheck.isMatch) {
+        throw new InsufficientAllowanceError(
+          allowanceMsg || "Insufficient allowance detected from response data",
+          structuredCheck.current,
+          structuredCheck.required,
+        );
+      }
     }
 
     const kycSignal = parseKYCSignal(error.response?.data);
@@ -689,7 +713,6 @@ export const createOffRampOrder = async ({
       );
     }
 
-    // Provide more specific error messages
     if (error.code === "ECONNABORTED" || error.message?.includes("timeout")) {
       console.error("⏰ Request timeout - API may be down or slow");
       throw new Error(
@@ -755,7 +778,6 @@ export const createOffRampOrder = async ({
       );
     }
 
-    // Relay any other server error message as-is
     const serverMessage = error.response?.data?.message || error.response?.data?.error;
     console.error("❌ Unknown error:", error);
     throw new Error(
