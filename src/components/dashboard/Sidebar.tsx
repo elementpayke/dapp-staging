@@ -19,6 +19,7 @@ type PageComponent =
   | "overview"
   | "transactions"
   | "wallets"
+  | "profile"
   | "support-whatsapp"
   | "support-email";
 

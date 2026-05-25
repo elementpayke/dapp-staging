@@ -158,6 +158,7 @@ const PreviewForm = ({ className = "" }: PreviewFormProps) => {
     setPaybill,
     setTillNumber,
     setTokenSymbol,
+    setTokenChain,
     setInitiatedFromLanding,
   } = useOnboardingStore();
 
@@ -236,7 +237,8 @@ const PreviewForm = ({ className = "" }: PreviewFormProps) => {
     if (selectedToken.symbol !== tokenSymbol) {
       setTokenSymbol(selectedToken.symbol);
     }
-  }, [selectedToken, selectedTokenId, tokenSymbol, setTokenSymbol]);
+    setTokenChain(selectedToken.chainName ?? null);
+  }, [selectedToken, selectedTokenId, tokenSymbol, setTokenSymbol, setTokenChain]);
 
   useEffect(() => {
     let mounted = true;
@@ -489,6 +491,7 @@ const PreviewForm = ({ className = "" }: PreviewFormProps) => {
                         onClick={() => {
                           setSelectedTokenId(token.id);
                           setTokenSymbol(token.symbol);
+                          setTokenChain(token.chainName ?? null);
                           setDropdownOpen(false);
                         }}
                         className={`flex w-full items-center justify-between rounded-lg px-2.5 py-2 text-left transition-colors ${

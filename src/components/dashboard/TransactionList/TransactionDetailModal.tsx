@@ -4,6 +4,7 @@ import { toPng } from "html-to-image";
 import { getExplorerInfo } from "@/utils/explorerUtils";
 import { SUPPORTED_TOKENS } from "@/constants/supportedTokens";
 import { useOnboardingStore } from "@/stores/onboardingStore";
+import { formatAmount } from "@/utils/formatAmount";
 
 interface TransactionDetailModalProps {
   transaction: {
@@ -202,7 +203,12 @@ const TransactionDetailModal: FC<TransactionDetailModalProps> = ({
 
   const isReceive = transaction.direction === 'Receive';
   const amountSign = isReceive ? '+' : '-';
-  const parsedAmount = transaction.amount ? transaction.amount.replace(' KES', '') : transaction.amount;
+
+  // Strip the " KES" suffix and apply proper thousands formatting
+  const parsedAmount = formatAmount(transaction.amount?.replace(/\s*KES\s*/i, "").trim());
+
+  // Crypto amount: strip the token symbol suffix, format with 6 decimal places
+  const parsedCryptoAmount = formatAmount(transaction.cryptoAmount?.split(" ")[0], 6);
 
   return (
     <div
@@ -250,8 +256,9 @@ const TransactionDetailModal: FC<TransactionDetailModalProps> = ({
             </div>
           )}
 
+          {/* Amount — formatted with thousands separators */}
           <div className="text-2xl sm:text-3xl font-extrabold text-[var(--ep-heading)] tracking-tight">
-            {amountSign}KE {parsedAmount}
+            {amountSign}KES {parsedAmount}
           </div>
 
           <div className={`mt-2 sm:mt-3 px-3 py-1 text-xs font-semibold uppercase tracking-wider rounded-full border ${statusInfo.color} ${statusInfo.bgColor} ${statusInfo.borderColor}`}>
@@ -281,10 +288,14 @@ const TransactionDetailModal: FC<TransactionDetailModalProps> = ({
             )}
 
             {transaction.fee !== undefined && (
-              <DetailRow label="Fee Charged" value={`${transaction.fee}`} />
+              <DetailRow label="Fee Charged" value={`KES ${formatAmount(transaction.fee)}`} />
             )}
 
-            <DetailRow label="Crypto Val" value={`${transaction.cryptoAmount?.split(' ')[0] || transaction.cryptoAmount} ${transaction.tokenSymbol?.replace(/_/g, ' ') || ''}`} />
+            {/* Crypto value — 6 decimal places with thousands separator */}
+            <DetailRow
+              label="Crypto Val"
+              value={`${parsedCryptoAmount} ${transaction.tokenSymbol?.replace(/_/g, " ") || ""}`}
+            />
 
             <DetailRow label="Date" value={`${transaction.date} at ${transaction.time}`} />
 
@@ -295,7 +306,7 @@ const TransactionDetailModal: FC<TransactionDetailModalProps> = ({
             {transaction.exchangeRate && (
               <DetailRow
                 label="Exchange Rate"
-                value={`1 ${transaction.tokenSymbol} = ${transaction.exchangeRate.toFixed(2)} KES`}
+                value={`1 ${transaction.tokenSymbol} = KES ${formatAmount(transaction.exchangeRate)}`}
               />
             )}
 
@@ -390,9 +401,13 @@ interface ReceiptCardProps {
 
 const ReceiptCard = React.forwardRef<HTMLDivElement, ReceiptCardProps>(
   ({ transaction, statusInfo }, ref) => {
-    const parsedAmount = transaction.amount?.replace(" KES", "") ?? "";
+    // Strip " KES" and format with thousands separators
+    const parsedAmount = formatAmount(transaction.amount?.replace(/\s*KES\s*/i, "").trim());
     const isReceive = transaction.direction === "Receive";
     const sign = isReceive ? "+" : "-";
+
+    // Crypto amount formatted to 6 decimal places
+    const parsedCryptoAmount = formatAmount(transaction.cryptoAmount?.split(" ")[0], 6);
 
     return (
       <div
@@ -475,6 +490,7 @@ const ReceiptCard = React.forwardRef<HTMLDivElement, ReceiptCardProps>(
           >
             {isReceive ? "Amount Received" : "Amount Sent"}
           </div>
+          {/* Amount with thousands separators */}
           <div
             style={{
               fontSize: 36,
@@ -540,20 +556,21 @@ const ReceiptCard = React.forwardRef<HTMLDivElement, ReceiptCardProps>(
 
           <ReceiptRow label="Payment Method" value={transaction.paymentMethod} />
 
+          {/* Crypto — formatted to 6 decimal places */}
           <ReceiptRow
             label="Crypto"
-            value={`${transaction.cryptoAmount?.split(" ")[0] || transaction.cryptoAmount} ${transaction.tokenSymbol?.replace(/_/g, " ") || ""}`}
+            value={`${parsedCryptoAmount} ${transaction.tokenSymbol?.replace(/_/g, " ") || ""}`}
           />
 
           {transaction.exchangeRate && (
             <ReceiptRow
               label="Rate"
-              value={`1 ${transaction.tokenSymbol?.replace(/_/g, " ")} = ${transaction.exchangeRate.toFixed(2)} KES`}
+              value={`1 ${transaction.tokenSymbol?.replace(/_/g, " ")} = KES ${formatAmount(transaction.exchangeRate)}`}
             />
           )}
 
           {transaction.fee !== undefined && (
-            <ReceiptRow label="Fee" value={`${transaction.fee}`} />
+            <ReceiptRow label="Fee" value={`KES ${formatAmount(transaction.fee)}`} />
           )}
 
           {transaction.id && (

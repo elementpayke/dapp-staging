@@ -86,6 +86,18 @@ export default function PrivyAuthSync() {
     }
   }, [isOtpVerified]);
 
+  // Reset circuit breaker when a fresh Privy token is placed in the store
+  // (e.g. by useSmartWalletInit after a background refetch)
+  const privyToken = useAuthStore((s) => s.privyToken);
+  useEffect(() => {
+    if (privyToken && failureCountRef.current > 0) {
+      console.log("[PrivyAuthSync] Fresh token detected in store — resetting circuit breaker");
+      failureCountRef.current = 0;
+      tokenCacheRef.current = null;
+      useAuthSyncStore.getState().setStatus("loading");
+    }
+  }, [privyToken]);
+
   // ── Source of truth: usePrivy().authenticated ───────────────────────
   // When Privy confirms authentication (regardless of hook state timing),
   // update our store immediately. This avoids the race condition where

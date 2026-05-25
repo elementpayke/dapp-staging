@@ -3,7 +3,7 @@
 import type { ReactNode } from "react";
 import { OnchainKitProvider } from "@coinbase/onchainkit";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { base, arbitrum, polygon } from "wagmi/chains";
+import { base, arbitrum, polygon, bsc } from "wagmi/chains"; // ← added bsc
 import { wagmiConfig, lisk, scroll } from "@/lib/wagmi-config";
 import { useWalletStore } from "@/lib/useWallet";
 import LogoImage from "@/assets/logo.png";
@@ -113,7 +113,7 @@ function SessionGuard() {
  * Providers wrapper for the application
  *
  * Note: OnchainKitProvider's chain prop is the "default" chain for the UI,
- * but our app supports multiple chains (Base, Lisk, Scroll, Arbitrum).
+ * but our app supports multiple chains (Base, Lisk, Scroll, Arbitrum, BNB).
  * The actual chain used for transactions is determined by:
  * 1. The selected token's chain in the transaction modals
  * 2. wagmi's chain switching (for non-smart wallets)
@@ -146,10 +146,10 @@ export function Providers(props: { children: ReactNode }) {
         loginMethods: ["wallet"],
         // Support multiple chains
         defaultChain: base,
-        supportedChains: [base, arbitrum, lisk, scroll, polygon],
+        supportedChains: [base, arbitrum, lisk, scroll, polygon, bsc], // ← added bsc
         embeddedWallets: {
           ethereum: {
-            createOnLogin: "off",
+            createOnLogin: "users-without-wallets",
           },
         },
         // Enhanced WalletConnect configuration for mobile

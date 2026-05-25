@@ -6,6 +6,7 @@ import ClientOnly from "@/components/shared/ClientOnly";
 import TransactionDetailModal from "./TransactionDetailModal";
 import { getExplorerInfo } from "@/utils/explorerUtils";
 import { useBalanceVisibilityStore } from "@/stores/balanceVisibilityStore";
+import { formatAmount } from "@/utils/formatAmount";
 
 interface ExtendedTx {
   id: string;
@@ -116,11 +117,6 @@ const TransactionRow: FC<TransactionRowProps> = ({ tx, alwaysVisible = false }) 
   const displayValue = (val: any) =>
     val === undefined || val === null || val === '' || val === '—' ? 'N/A' : val;
 
-  const round2 = (val: any) => {
-    if (val === undefined || val === null || val === '' || isNaN(Number(val))) return 'N/A';
-    return Number(val).toFixed(2);
-  };
-
   const isFailed = tx.status === 'FAILED' || tx.status === 'DECLINED';
   const isReceive = tx.direction === 'Receive';
 
@@ -184,17 +180,17 @@ const TransactionRow: FC<TransactionRowProps> = ({ tx, alwaysVisible = false }) 
           </div>
         </div>
 
-        {/* Amount */}
+        {/* Fiat Amount — formatted with thousands separators */}
         <div className="col-span-2 text-left">
           <div className={`font-semibold ${amountColor} transition-all duration-200 ${blurClass}`}>
-            {isStarsMode ? '••••••' : `${amountSign}KE ${round2(tx.amount ? tx.amount.replace(' KES', '') : undefined)}`}
+            {isStarsMode ? '••••••' : `${amountSign}KES ${formattedFiatAmount}`}
           </div>
         </div>
 
-        {/* Crypto Value */}
+        {/* Crypto Value — formatted to 6 decimal places */}
         <div className="col-span-2 text-left">
           <div className={`font-mono text-[var(--ep-heading)] transition-all duration-200 ${blurClass}`}>
-            {isStarsMode ? '••••••' : `${round2(tx.cryptoAmount?.split(' ')[0])} ${formatTokenDisplay(displayValue(tx.tokenSymbol))}`}
+            {isStarsMode ? '••••••' : `${formattedCryptoAmount} ${formatTokenDisplay(displayValue(tx.tokenSymbol))}`}
           </div>
         </div>
 
@@ -279,8 +275,9 @@ const TransactionRow: FC<TransactionRowProps> = ({ tx, alwaysVisible = false }) 
         </div>
 
         <div className="flex flex-col items-end flex-shrink-0 ml-3 justify-center">
+          {/* Fiat amount — formatted with thousands separators */}
           <div className={`text-sm font-semibold ${amountColor} transition-all duration-200 ${blurClass}`}>
-            {isStarsMode ? '••••••' : `${amountSign}KE ${round2(tx.amount ? tx.amount.replace(' KES', '') : undefined)}`}
+            {isStarsMode ? '••••••' : `${amountSign}KES ${formattedFiatAmount}`}
           </div>
           <div className="mt-1">
             <span className={`text-[10px] uppercase tracking-wider font-semibold px-1.5 py-0.5 rounded-sm ${isFailed

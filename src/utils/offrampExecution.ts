@@ -4,10 +4,14 @@ import { getTokenConfig } from "@/constants/tokenConfig";
 import { KYCRequiredError } from "@/services/kycError";
 import { InsufficientAllowanceError } from "@/services/allowanceError";
 import { isSmartWallet, safeChainSwitch } from "@/lib/wallet-utils";
-import { formatUnits } from "viem";
+import { createPublicClient, erc20Abi, formatUnits, http } from "viem";
+import {
+  getPrivySponsoredWithdrawChainConfig,
+  getSponsoredWithdrawChainKeyForTokenChain,
+} from "@/lib/privy-sponsorship/chains";
 
-export type OfframpCashoutType = "PHONE" | "PAYBILL" | "TILL";
-export type PaymentMethodLabel = "Send Money" | "Pay Bill" | "Buy Goods";
+export type OfframpCashoutType = "PHONE" | "PAYBILL" | "TILL" | "BANK";
+export type PaymentMethodLabel = "Send Money" | "Pay Bill" | "Buy Goods" | "Bank Transfer";
 
 export interface OfframpReceipt {
   amount: string;
@@ -52,6 +56,11 @@ export interface ExecuteOfframpOrderOptions {
   paybillNumber: string;
   accountNumber: string;
   tillNumber: string;
+  // ── ADDED: bank payout fields ──────────────────────────────────────────
+  bankCode?: string;
+  bankAccountNumber?: string;
+  bankName?: string;
+  // ───────────────────────────────────────────────────────────────────────
   contractAddress: string;
   transactionSummary: OfframpSummary;
   selectedTokenBalance: number;
@@ -93,6 +102,7 @@ const CHAIN_ID_MAP: Record<string, number> = {
   Scroll: 534352,
   Arbitrum: 42161,
   Polygon: 137,
+  "BNB Chain": 56, // ← BNB Smart Chain
 };
 
 const CONTRACT_ADDRESS_MAP: Record<string, string | undefined> = {
@@ -104,6 +114,7 @@ const CONTRACT_ADDRESS_MAP: Record<string, string | undefined> = {
   Ethereum:
     process.env.NEXT_PUBLIC_CONTRACT_ADDRESS_ETHEREUM ??
     process.env.NEXT_PUBLIC_CONTRACT_ADDRESS_MAINNET,
+  "BNB Chain": process.env.NEXT_PUBLIC_CONTRACT_ADDRESS_BNB, // ← BNB Smart Chain
 };
 
 export const getOfframpContractAddress = (chain: string): string => {
@@ -122,6 +133,7 @@ export const mapOffRampMethodToPaymentMethod = (
 ): PaymentMethodLabel => {
   if (method === "PAYBILL") return "Pay Bill";
   if (method === "TILL") return "Buy Goods";
+  if (method === "BANK") return "Bank Transfer";
   return "Send Money";
 };
 
@@ -131,6 +143,8 @@ export const buildRecipientLabel = (params: {
   paybillNumber: string;
   accountNumber: string;
   tillNumber: string;
+  bankName?: string;
+  bankAccountNumber?: string;
 }): string => {
   const {
     cashoutType,
@@ -138,9 +152,13 @@ export const buildRecipientLabel = (params: {
     paybillNumber,
     accountNumber,
     tillNumber,
+    bankName,
+    bankAccountNumber,
   } = params;
   if (cashoutType === "PHONE") return mobileNumber;
   if (cashoutType === "PAYBILL") return `${paybillNumber} - ${accountNumber}`;
+  if (cashoutType === "BANK")
+    return bankName ? `${bankName} — ${bankAccountNumber}` : (bankAccountNumber ?? "");
   return tillNumber;
 };
 
@@ -229,6 +247,11 @@ export const executeOfframpOrder = async (
     paybillNumber,
     accountNumber,
     tillNumber,
+    // ── ADDED ──────────────────────────────────────────────────────────────
+    bankCode,
+    bankAccountNumber,
+    bankName,
+    // ───────────────────────────────────────────────────────────────────────
     contractAddress,
     transactionSummary,
     selectedTokenBalance,
@@ -365,7 +388,11 @@ export const executeOfframpOrder = async (
         "Business number and account number are required for Pay Bill.";
     } else if (cashoutType === "TILL" && !tillNumber) {
       validationError = "Till number is required for Buy Goods.";
+    // ── ADDED ──────────────────────────────────────────────────────────────
+    } else if (cashoutType === "BANK" && (!bankCode || !bankAccountNumber)) {
+      validationError = "Bank code and account number are required for Bank Transfer.";
     }
+    // ───────────────────────────────────────────────────────────────────────
 
     if (validationError) {
       notify.error(validationError);
@@ -389,6 +416,10 @@ export const executeOfframpOrder = async (
       paybillNumber,
       accountNumber,
       tillNumber,
+      // ── ADDED ────────────────────────────────────────────────────────────
+      bankName,
+      bankAccountNumber,
+      // ─────────────────────────────────────────────────────────────────────
     });
 
     setTransactionReceipt((prev) => ({
@@ -435,16 +466,79 @@ export const executeOfframpOrder = async (
       const requiredTokenAmountRaw = BigInt(
         quoteResponse.data.required_token_amount_raw,
       );
-      const baseAmount =
-        quoteResponse.data.required_token_amount_raw / Math.pow(10, decimals);
       requiredTransferAmount = formatUnits(requiredTokenAmountRaw, decimals);
       requiredTransferAmountNumber = Number(requiredTransferAmount);
-      const bufferedAmount = baseAmount * 1.005;
-      // Cap at wallet balance so MAX offramp doesn't fail the balance pre-check.
-      // approve() just sets a spending allowance — the contract only transfers
-      // the unbuffered requiredTransferAmount, so this is safe.
-      const cappedAmount = Math.min(bufferedAmount, selectedTokenBalance);
-      requiredApprovalAmount = cappedAmount.toFixed(decimals);
+
+      // Compute the approval amount entirely in BigInt raw units to avoid
+      // float precision loss — critical for 18-decimal tokens like BNB USDC
+      // where JS floats cannot represent sub-wei precision accurately.
+      //
+      // Buffer rule: a 0.5% buffer absorbs rate drift between quote and
+      // on-chain settlement, BUT only when the user has headroom for it.
+      // For a MAX send, the required amount already equals the wallet
+      // balance — no extra tokens exist to cover a buffer. In that case we
+      // approve exactly what's in the wallet. approve() only sets a spending
+      // allowance; the contract transfers the unbuffered amount, so this is
+      // always safe.
+      const bufferedRaw = (requiredTokenAmountRaw * 1005n) / 1000n;
+
+      // Read the on-chain raw balance so the cap is precise at the wei level.
+      // Falls back to quote.current_balance_raw if the RPC read fails.
+      let onChainBalanceRaw: bigint | null = null;
+      try {
+        const sponsoredChainKey = getSponsoredWithdrawChainKeyForTokenChain(
+          selectedToken.chain,
+        );
+        if (sponsoredChainKey && accountAddress) {
+          const chainConfig = getPrivySponsoredWithdrawChainConfig(
+            sponsoredChainKey,
+          );
+          const publicClient = createPublicClient({
+            chain: chainConfig.chain,
+            transport: http(chainConfig.rpcUrl),
+          });
+          onChainBalanceRaw = (await publicClient.readContract({
+            address: selectedToken.tokenAddress as `0x${string}`,
+            abi: erc20Abi,
+            functionName: "balanceOf",
+            args: [accountAddress as `0x${string}`],
+          })) as bigint;
+        }
+      } catch (balanceReadError) {
+        console.warn(
+          "[executeOfframpOrder] On-chain balance read failed, falling back:",
+          balanceReadError,
+        );
+      }
+
+      if (onChainBalanceRaw === null) {
+        const quoteBalanceRaw = quoteResponse.data.current_balance_raw;
+        if (typeof quoteBalanceRaw === "number" && Number.isFinite(quoteBalanceRaw)) {
+          onChainBalanceRaw = BigInt(Math.floor(quoteBalanceRaw));
+        }
+      }
+
+      let approvalRaw: bigint;
+      if (onChainBalanceRaw === null) {
+        // No precise balance available — approve the buffered amount.
+        // The earlier canAfford check gates against genuine shortfalls.
+        approvalRaw = bufferedRaw;
+      } else if (onChainBalanceRaw >= bufferedRaw) {
+        // Non-MAX path: buffer fits within balance, use it for rate drift.
+        approvalRaw = bufferedRaw;
+      } else if (onChainBalanceRaw >= requiredTokenAmountRaw) {
+        // MAX path: no headroom for a buffer. Approve the full balance so
+        // the contract can pull the exact required amount. Any dust left
+        // over remains in the wallet.
+        approvalRaw = onChainBalanceRaw;
+      } else {
+        // Balance can't even cover the required transfer. Let the pre-check
+        // downstream surface the real "insufficient balance" error — don't
+        // silently shrink the approval below what the transfer needs.
+        approvalRaw = requiredTokenAmountRaw;
+      }
+
+      requiredApprovalAmount = formatUnits(approvalRaw, decimals);
       hasSufficientAllowance =
         quoteResponse.data.has_sufficient_allowance ?? false;
 
@@ -589,6 +683,10 @@ export const executeOfframpOrder = async (
       paybillNumber: cashoutType === "PAYBILL" ? paybillNumber : "",
       accountNumber: cashoutType === "PAYBILL" ? accountNumber : "",
       tillNumber: cashoutType === "TILL" ? tillNumber : "",
+      // ── ADDED: bank fields forwarded to backend ────────────────────────
+      bankCode: cashoutType === "BANK" ? (bankCode ?? "") : "",
+      bankAccountNumber: cashoutType === "BANK" ? (bankAccountNumber ?? "") : "",
+      // ───────────────────────────────────────────────────────────────────
     };
 
     const callCreateOrder = () =>
@@ -720,7 +818,7 @@ export const executeOfframpOrder = async (
 
             const msg =
               finalError instanceof InsufficientAllowanceError
-                ? "Approval is still syncing on-chain. Please wait 30 seconds and try again."
+                ? "Your approval was confirmed but the network is still syncing. Please wait about 30 seconds and try again — no need to re-approve."
                 : finalError?.message || "Payment processing failed. Please try again.";
             notify.error(msg);
             setApproving(false);
@@ -844,6 +942,8 @@ export const executeOfframpOrder = async (
       err?.code === "ACTION_REJECTED"
     ) {
       notify.error("Transaction was rejected in your wallet. Please try again.");
+    } else if (errMsg.includes("insufficient balance")) {
+      notify.error("Insufficient balance for this transaction. Please try a lower amount.");
     } else if (errMsg.includes("insufficient funds") || errMsg.includes("gas required exceeds")) {
       notify.error("Insufficient gas to complete the transaction. Please add native tokens for gas fees.");
     } else if (errMsg.includes("disconnected") || errMsg.includes("no provider")) {
