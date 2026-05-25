@@ -633,9 +633,8 @@ export const createOffRampOrder = async ({
     payload.fiat_payload.till_number = tillNumber;
   // ── ADDED: bank payout fields forwarded to backend ─────────────────────
   } else if (cashoutType === "BANK") {
-    payload.fiat_payload.phone_number = phoneNumber;
-    payload.fiat_payload.bank_code = bankCode;
-    payload.fiat_payload.bank_account_number = bankAccountNumber;
+    payload.fiat_payload.bank_code = String(bankCode ?? "");
+    payload.fiat_payload.account_number = String(bankAccountNumber ?? "");
   }
   // ─────────────────────────────────────────────────────────────────────────
 

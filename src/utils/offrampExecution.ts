@@ -676,14 +676,7 @@ export const executeOfframpOrder = async (
           ? requiredTransferAmountNumber
           : transactionSummary.totalUSDC,
       amountFiat: Number(amountFiat),
-      // ── UPDATED: BANK uses recipient phone as phoneNumber ──────────────
-      phoneNumber:
-        cashoutType === "PHONE"
-          ? mobileNumber
-          : cashoutType === "BANK"
-            ? mobileNumber // recipient phone passed in as mobileNumber for BANK
-            : "",
-      // ───────────────────────────────────────────────────────────────────
+      phoneNumber: cashoutType === "PHONE" ? mobileNumber : "",
       messageHash,
       reason: reason || "",
       cashoutType,

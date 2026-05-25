@@ -521,20 +521,15 @@ const SendCryptoModal: React.FC = () => {
 
     // ── UPDATED: BANK generates a real messageHash ─────────────────────────
     if (currentCashoutType === "BANK") {
-      if (
-        !bankPayoutState.bankCode ||
-        !bankPayoutState.accountNumber ||
-        !bankPayoutState.recipientPhone
-      ) return "";
+      if (!bankPayoutState.bankCode || !bankPayoutState.accountNumber) return "";
       try {
         return encryptMessageDetailed({
           cashout_type: "BANK",
           amount_fiat: Number.parseFloat(amount),
           currency: "KES",
           rate: exchangeRate ?? 0,
-          bank_code: bankPayoutState.bankCode,
-          bank_account_number: bankPayoutState.accountNumber,
-          phone_number: bankPayoutState.recipientPhone,
+          bank_code: String(bankPayoutState.bankCode),
+          account_number: String(bankPayoutState.accountNumber),
         });
       } catch (error) {
         console.error("Error encrypting bank message:", error);
@@ -568,7 +563,7 @@ const SendCryptoModal: React.FC = () => {
   }, [
     isBrowser, fullMobileNumber, exchangeRate, amount, getCashoutType,
     paybillNumber, accountNumber, tillNumber,
-    bankPayoutState.bankCode, bankPayoutState.accountNumber, bankPayoutState.recipientPhone,
+    bankPayoutState.bankCode, bankPayoutState.accountNumber,
   ]);
 
   const contractAddress = getOfframpContractAddress(selectedToken.chain);
@@ -661,8 +656,7 @@ const SendCryptoModal: React.FC = () => {
     await executeOfframpOrderFlow({
       selectedToken, currentChainId: currentChainId ?? 0, connector, switchChainAsync, isMobileWalletFlow,
       accountAddress: walletAddress || undefined, amountFiat: amount, messageHash, reason,
-      // For BANK, pass recipient phone as mobileNumber so the backend receives it
-      mobileNumber: ct === "BANK" ? bankPayoutState.recipientPhone : fullMobileNumber,
+      mobileNumber: ct === "BANK" ? "" : fullMobileNumber,
       paybillNumber, accountNumber, tillNumber,
       // ── ADDED: bank fields ───────────────────────────────────────────────
       bankCode: ct === "BANK" ? (bankPayoutState.bankCode ?? "") : "",

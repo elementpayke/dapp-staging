@@ -10,7 +10,11 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Unknown action" }, { status: 400 });
   }
 
-  const url = `${ELEMENTPAY_API_BASE}/api/v1/banks`;
+  const search = searchParams.get("search");
+  const country = searchParams.get("country") ?? "KE";
+  const qs = new URLSearchParams({ country });
+  if (search) qs.set("search", search);
+  const url = `${ELEMENTPAY_API_BASE}/banks?${qs.toString()}`;
   console.log("[sasapay] Fetching banks from ElementPay backend:", url);
 
   try {
@@ -35,7 +39,8 @@ export async function GET(req: NextRequest) {
       throw new Error(`Banks returned non-JSON: ${rawText.slice(0, 200)}`);
     }
 
-    return NextResponse.json({ data: Array.isArray(data) ? data : [] });
+    const list = Array.isArray(data) ? data : Array.isArray(data?.data) ? data.data : [];
+    return NextResponse.json({ data: list });
   } catch (err: any) {
     console.error("[sasapay] Failed to fetch banks:", err?.message ?? err);
     return NextResponse.json({ error: err?.message ?? "Failed to load banks" }, { status: 502 });
@@ -54,7 +59,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "bank_code is required" }, { status: 400 });
   }
 
-  const url = `${ELEMENTPAY_API_BASE}/api/v1/banks/validate`;
+  const url = `${ELEMENTPAY_API_BASE}/banks/validate`;
   console.log("[sasapay] Validating bank_code:", body.bank_code, "at:", url);
 
   try {
