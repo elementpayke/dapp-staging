@@ -34,6 +34,7 @@ interface ExtendedTx {
 
 interface TransactionRowProps {
   tx: ExtendedTx;
+  alwaysVisible?: boolean;
 }
 
 const formatTokenDisplay = (token: string) => {
@@ -64,13 +65,17 @@ const Arrow = ({ direction, status }: { direction: 'in' | 'out', status?: string
   </span>
 );
 
-const TransactionRow: FC<TransactionRowProps> = ({ tx }: { tx: ExtendedTx }) => {
+const TransactionRow: FC<TransactionRowProps> = ({ tx, alwaysVisible = false }) => {
   const [showModal, setShowModal] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
   const balanceHidden = useBalanceVisibilityStore((s) => s.balanceHidden);
   const hideMode = useBalanceVisibilityStore((s) => s.hideMode);
-  const isStarsMode = balanceHidden && hideMode === "stars";
-  const blurClass = balanceHidden && hideMode === "blur" ? "blur-md select-none" : "";
+
+  // If alwaysVisible is true (e.g. on the Transactions page), never apply
+  // hiding regardless of the global balanceHidden toggle.
+  const effectivelyHidden = alwaysVisible ? false : balanceHidden;
+  const isStarsMode = effectivelyHidden && hideMode === "stars";
+  const blurClass = effectivelyHidden && hideMode === "blur" ? "blur-md select-none" : "";
   const maskText = (text: React.ReactNode) => (isStarsMode ? "••••••" : text);
 
   // Reactively track data-theme="dark" on <html> using a MutationObserver.
@@ -122,19 +127,6 @@ const TransactionRow: FC<TransactionRowProps> = ({ tx }: { tx: ExtendedTx }) => 
       : 'text-[var(--ep-accent)]';
 
   const amountSign = isReceive ? '+' : '-';
-
-  // Format the KES fiat amount with thousands separators and 2 decimal places.
-  // e.g. "60000 KES" → "60,000.00"
-  const formattedFiatAmount = formatAmount(
-    tx.amount?.replace(/\s*KES\s*/i, "").trim()
-  );
-
-  // Format the crypto amount with 6 decimal places.
-  // e.g. "0.123456789 USDC_BASE" → "0.123457"
-  const formattedCryptoAmount = formatAmount(
-    tx.cryptoAmount?.split(' ')[0],
-    6
-  );
 
   const statusBadge = (
     <span className={`px-2 py-1 text-xs rounded-full ml-2 ${
