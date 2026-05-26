@@ -792,7 +792,7 @@ const DepositCryptoModal: React.FC = () => {
                     Deposits temporarily paused for {selectedToken.chain}
                   </p>
                   <p className="text-[11px] text-blue-600 dark:text-blue-300 leading-relaxed mb-2">
-                    We're working on bringing {selectedToken.symbol} on {selectedToken.chain} back
+                    We&apos;re working on bringing {selectedToken.symbol} on {selectedToken.chain} back
                     online. In the meantime, you can deposit using a different network.
                   </p>
                   {fallbackToken && (
