@@ -128,6 +128,19 @@ const TransactionRow: FC<TransactionRowProps> = ({ tx, alwaysVisible = false }) 
 
   const amountSign = isReceive ? '+' : '-';
 
+  // Format the KES fiat amount with thousands separators and 2 decimal places.
+  // e.g. "60000 KES" → "60,000.00"
+  const formattedFiatAmount = formatAmount(
+    tx.amount?.replace(/\s*KES\s*/i, "").trim()
+  );
+
+  // Format the crypto amount with 6 decimal places.
+  // e.g. "0.123456789 USDC_BASE" → "0.123457"
+  const formattedCryptoAmount = formatAmount(
+    tx.cryptoAmount?.split(' ')[0],
+    6
+  );
+
   const statusBadge = (
     <span className={`px-2 py-1 text-xs rounded-full ml-2 ${
       tx.status === 'FAILED' || tx.status === 'DECLINED'
